@@ -1,0 +1,39 @@
+---
+import { ProductList } from "@/components";
+import Pagination from "@/components/shared/Pagination.astro";
+import ProductsLayout from "@/layouts/ProductsLayout.astro";
+import { actions } from "astro:actions";
+
+const searchParams = Astro.url.searchParams;
+const pageParam = Number(searchParams.get('page') ?? 1);
+
+const { data, error } = await Astro.callAction(
+  actions.getProductsByPage,  
+  {
+    page: pageParam,
+  }
+);
+
+console.log(data)
+
+if (error) {
+  // maneja el error como prefieras (redirect, throw, etc.)
+  return Astro.redirect('/');
+}
+
+const { products, totalPages } = data;
+
+if (data.products.length === 0){
+    return Astro.redirect(`products?/page=${totalPages}`)
+}
+
+
+---
+
+<ProductsLayout>
+  
+    <ProductList products={products} client:idle/>
+    <Pagination totalPages={totalPages}/>
+  
+
+</ProductsLayout>

@@ -1,0 +1,22 @@
+html,
+  html {
+    font-family: system-ui, sans-serif;
+    background: #1E1E1E;
+    color-scheme: dark light;
+  }
+h1{
+    @apply text-3xl font-bold;
+}
+
+h2 {
+    @apply text-2xl;
+}
+h3 {
+    @apply text-xl;
+}
+h4 {
+    @apply text-lg font-bold;
+}
+h5 {
+    @apply text-base;
+}

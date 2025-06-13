@@ -1,0 +1,140 @@
+---
+
+---
+<section class="hero-background w-full">
+  <div class="hero-content">
+    <h1 class="hero-title p-5">
+      <span>Arte</span> en cada pieza
+    </h1>
+    <p class="hero-subtitle">
+      Descubre nuestra colección exclusiva de joyería y servicios de perforación
+    </p>
+    <div class="hero-buttons">
+      <a
+        href="/products"
+        class="btn-primary"
+      >
+        Ver Colección
+      </a>
+      <a
+        href="#contact"
+        class="btn-outline"
+      >
+        Servicios de Perforación
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+
+body, html {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+.hero-background {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* Asegura que los pseudo elementos no se desborden */
+}
+
+.hero-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('/assets/brokefondo.avif') center center / cover no-repeat;
+  transform: scale(1.2); /* Zoom */
+  filter: brightness(0.4); /* Oscurecer imagen */
+  z-index: -2;
+}
+
+.hero-background::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.1); /* Overlay */
+  z-index: -1;
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centrado horizontal */
+  justify-content: center; /* Centrado vertical */
+  text-align: center; /* Para textos multi-línea */
+  height: 100%; /* Ocupa toda la altura del contenedor padre */
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: bold;
+  background: linear-gradient(90deg, #FFD700, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.hero-title span {
+  color: white;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  color: #ddd;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* Botones primarios y outline */
+.btn-primary,
+.btn-outline {
+  background: linear-gradient(90deg, #FFD700, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+
+  border: 2px solid #FFD700;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 5px;
+  background-color: transparent;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover,
+.btn-outline:hover {
+  background: linear-gradient(90deg, #B8860B, #FFD700);
+  border-color: #B8860B;
+  transform: scale(1.05);
+
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: black;
+  background-clip: unset;
+  color: black;
+  font-weight: 700;
+}
+
+</style>

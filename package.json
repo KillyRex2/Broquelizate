@@ -9,6 +9,28 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.9.2"
+    "@astrojs/db": "^0.15.0",
+    "@astrojs/netlify": "^6.3.4",
+    "@astrojs/react": "^4.3.0",
+    "@astrojs/tailwind": "^6.0.2",
+    "@auth/core": "^0.37.4",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "astro": "^5.9.2",
+    "auth-astro": "^4.2.0",
+    "js-cookie": "^3.0.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-icons": "^5.5.0",
+    "sweetalert2": "^11.22.0",
+    "swiper": "^11.2.8",
+    "tailwindcss": "^3.4.17",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
+    "@types/uuid": "^10.0.0",
+    "bcryptjs": "^3.0.2"
   }
 }

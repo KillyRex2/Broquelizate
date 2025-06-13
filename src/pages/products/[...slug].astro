@@ -1,0 +1,143 @@
+---
+import ProductSlideshow from "@/components/products/ProductSlideshow.astro";
+import MainLayout from "@/layouts/MainLayout.astro";
+import { actions } from "astro:actions";
+
+const { slug } = Astro.params;
+
+const { data, error } = await Astro.callAction(
+  actions.getProductBySlug,
+  slug ?? ''
+);
+
+if (error) {
+  return Astro.redirect('/404');
+}
+
+const { product, images } = data;
+---
+
+<MainLayout title={product.name} description={product.description}>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <ProductSlideshow images={images} />
+
+    <section>
+      <h2 class="text-2xl font-bold">{product.name}</h2>
+      <h2 class="font-bold">${product.price}</h2>
+
+      <h3 class="mt-5">Categoría:</h3>
+      <h4 class="font-semibold text-yellow-500">{product.category}</h4>
+
+      <h3 class="mt-5">Cantidad</h3>
+      <div class="flex items-center gap-2">
+        <button id="qty-decr" class="btn-quantity">-</button>
+        <input id="qty-input" type="number" min="1" value="1" />
+        <button id="qty-incr" class="btn-quantity">+</button>
+      </div>
+
+      <button
+        id="add-to-cart"
+        class="mt-5 bg-yellow-500 hover:bg-yellow-800 text-white p-3 w-full rounded disabled:bg-gray-500"
+      >
+        Añadir al carrito
+      </button>
+
+      <h3 class="mt-10">Descripción</h3>
+      <p>{product.description}</p>
+    </section>
+  </div>
+
+  <input type="hidden" id="product-id" value={product.id} />
+</MainLayout>
+
+
+<script>
+  import { CartCookiesClient } from '@/utils';
+  import { navigate } from 'astro:transitions/client';
+  document.addEventListener('DOMContentLoaded', () => {
+    const qtyInput        = document.getElementById('qty-input');
+    const decrementBtn    = document.getElementById('qty-decr');
+    const incrementBtn    = document.getElementById('qty-incr');
+    const addToCartButton = document.getElementById('add-to-cart');
+    const productIdInput  = document.getElementById('product-id');
+
+    if (
+      !(qtyInput instanceof HTMLElement) ||
+      !(decrementBtn instanceof HTMLElement) ||
+      !(incrementBtn instanceof HTMLElement) ||
+      !(addToCartButton instanceof HTMLButtonElement) ||
+      !(productIdInput instanceof HTMLInputElement)
+    ) {
+      console.error('Faltan elementos para la lógica de cantidad.');
+      return;
+    }
+
+    // Inicializamos quantity desde el atributo value
+    let quantity = parseInt(qtyInput.getAttribute('value') || '1', 10);
+
+    decrementBtn.addEventListener('click', () => {
+      quantity = Math.max(1, quantity - 1);
+      qtyInput.setAttribute('value', quantity.toString());
+    });
+
+    incrementBtn.addEventListener('click', () => {
+      quantity = Math.min(5, quantity + 1);
+      qtyInput.setAttribute('value', quantity.toString());
+    });
+
+    // addToCartButton.addEventListener('click', () => {
+    //   const productId = productIdInput.getAttribute('value');
+    //   console.log(`Añadiendo al carrito: producto ${productId} cantidad ${quantity}`);
+    //   // aquí tu lógica de carrito o redirección
+
+      
+    // });
+
+  addToCartButton.addEventListener('click', async () => {
+      // Deshabilita el botón para evitar multi-click
+      addToCartButton.disabled = true;
+
+      // Añade al carrito en cookies
+      const cart = CartCookiesClient.addItem({
+        
+        productId: productIdInput.value,
+        quantity
+      });
+
+      console.log(`Carrito ahora tiene ${cart.length} ítems.`);
+      
+      // Redirige a la página de carrito
+      await navigate('/cart');
+    });
+
+  });
+</script>
+
+
+
+
+
+
+<style>
+  h3 {
+    @apply font-bold;
+  }
+
+  .btn-quantity {
+    @apply w-10 text-center p-2 border border-gray-300 hover:bg-gray-100 cursor-pointer;
+  }
+
+  input#qty-input {
+    @apply w-16 text-center p-2 border border-gray-300;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield; /* Para Firefox */
+  }
+</style>
