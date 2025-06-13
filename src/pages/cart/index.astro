@@ -1,12 +1,25 @@
 ---
-import MainLayout from "@/layouts/MainLayout.astro";
+import { actions } from 'astro:actions';
+import MainLayout from '@/layouts/MainLayout.astro';
 
 
+const productsInCartCookie = Astro.cookies.get('cart')?.json() ?? [];
+const { data: products, error } = await Astro.callAction(
+  actions.loadProductsFromCart,
+  productsInCartCookie
+);
 
+console.log(productsInCartCookie)
+console.log("Productos en el carrito: ")
+console.log({products})
 
 ---
 
-<MainLayout title="Carrito de compras">
 
-    <h1>carrito</h1>
+
+
+
+
+<MainLayout>
+    <h1>Carrito</h1>
 </MainLayout>
