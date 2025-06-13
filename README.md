@@ -1,4 +1,4 @@
-![Logo Broquelízate](/assets/Broquelizate-logos/icono\ relleno.svg)
+![Logo Broquelízate](/assets/Broquelizate-logos/logo-contornos.png)
 
 # Broquelízate 🚀
 
@@ -22,27 +22,15 @@ El repositorio oficial de Broquelízate, un e-commerce construido 100% con **Ast
   Artículos sobre tendencias, cuidados de joyas y perforaciones, todo gestionado vía Markdown en Astro.
 
 - **Responsivo & Ultra-Rápido**  
-  Renderizado estático y optimizaciones de Astro + Tailwind para tiempo de carga fulminante.
+  Renderizado estático y optimizaciones de Astro + Tailwind para tiempos de carga fulminantes.
 
 ---
 
 ## 🛠️ Tecnologías
 
 - **Framework**: [Astro](https://astro.build)  
-- **Estilos**: Tailwind CSS + DaisyUI (opcional)  
+- **Estilos**: Tailwind CSS  
 - **Componentes**: React / Preact (integrados en Astro)  
 - **E-commerce**: Stripe, PayPal SDKs  
 - **State & Cookies**: js-cookie, localStorage  
-- **Back-end (en desarrollo)**: Node.js + Express  
-- **Base de Datos (en desarrollo)**: MongoDB  
-- **CI/CD**: GitHub Actions, Netlify / Vercel  
-- **Otras Integraciones**: Shippo (envíos), Mailchimp (newsletter)
-
----
-
-## 🚀 Instalación & Desarrollo
-
-1. **Clona el repositorio**  
-   ```bash
-   git clone https://github.com/tu-usuario/broquelizate.git
-   cd broquelizate
+- **Back-end (en desarrollo)**: Node.js + Expres
