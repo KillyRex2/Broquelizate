@@ -95,7 +95,7 @@ const { product, images } = data;
 
   addToCartButton.addEventListener('click', async () => {
       // Deshabilita el botón para evitar multi-click
-      addToCartButton.disabled = true;
+      // addToCartButton.disabled = true;
 
       // Añade al carrito en cookies
       const cart = CartCookiesClient.addItem({
@@ -107,7 +107,7 @@ const { product, images } = data;
       console.log(`Carrito ahora tiene ${cart.length} ítems.`);
       
       // Redirige a la página de carrito
-      await navigate('/cart');
+      // await navigate('/cart');
     });
 
   });

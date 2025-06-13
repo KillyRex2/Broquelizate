@@ -32,13 +32,15 @@ export class CartCookiesClient {
 
     static removeItem(productId: string): CartItem[] {
         
-        const cart = CartCookiesClient.getCart()
+        const cart = CartCookiesClient.getCart();
+
+        console.log({productId})
 
         const updatedCart = cart.filter(
-            (item) => !(item.productId === productId)
+            (item) => !(item.productId === productId && item) 
         )
-
-        Cookies.set('cart', JSON.stringify(cart))
+        console.log(updatedCart);
+        Cookies.set('cart', JSON.stringify(updatedCart))
 
         return updatedCart;
     }
