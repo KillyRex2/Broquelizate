@@ -52,6 +52,7 @@ const { product, images } = data;
 
 
 <script>
+  import { itemsInCart } from '@/store';
   import { CartCookiesClient } from '@/utils';
   import { navigate } from 'astro:transitions/client';
   document.addEventListener('DOMContentLoaded', () => {
@@ -104,7 +105,9 @@ const { product, images } = data;
         quantity
       });
 
-      console.log(`Carrito ahora tiene ${cart.length} ítems.`);
+      itemsInCart.set(cart.length)
+
+      console.log(itemsInCart.get())
       
       // Redirige a la página de carrito
       // await navigate('/cart');
