@@ -1,43 +1,43 @@
 ---
 import NavBar from '@/components/shared/NavBar.astro';
-
-
-
-import '@/assets/styles/global.css'
+import '@/assets/styles/global.css';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
-    title?: string;
-	description?: string;
-	image?: string;
+  title?: string;
+  description?: string;
+  image?: string;
 }
 
-const {title = 'Auth Astro app'} = Astro.props;
-
+const { title = 'Auth Astro app' } = Astro.props;
 ---
 
 <html lang="es">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
-	</head>
-	<body>
-        <NavBar/>
-		<main class="container mx-auto px-4 pt-12">
-			<slot />
-		</main>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <ClientRouter />
+  </head>
+  <body class="bg-[#1E1E1E] text-white">
+    <NavBar />
+
+    <!-- Contenedor centrado con padding-top -->
+    <main class="container mx-auto px-4 pt-20">
+      <slot />
+    </main>
+  </body>
 </html>
 
 <style is:global>
   html {
     font-family: system-ui, sans-serif;
-    background: #1E1E1E;
     color-scheme: dark light;
   }
   body {
-  padding-top: 3rem; /* o 48px, ajusta al valor exacto de tu header */
-}
+    /* Ajusta este padding al alto exacto de tu header si hiciera falta */
+    padding-top: 3rem;
+  }
 </style>

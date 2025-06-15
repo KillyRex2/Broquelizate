@@ -17,42 +17,46 @@ const fullImages = images.map(image => {
 ---
 
 
-<div class="swiper mt-10 col-span-1 sm: col-span-2">
-  <!-- Additional required wrapper -->
+<div class="swiper mt-10 col-span-1 sm:col-span-2">
+  <!-- Wrapper necesario -->
   <div class="swiper-wrapper">
-    <!-- Slides -->
-    
-        {
-            fullImages.map(image => (
-                <div class="swiper-slide">
-                    <img src={image} alt="Product image" class="w-full h-full object-cover px-10 rounded-xl">
-                </div>
-            ))
-        }
-    </div>
-     <div class="swiper-pagination"></div>
+    {
+      fullImages.map(image => (
+        <div class="swiper-slide flex justify-center items-center">
+          <img
+            src={image}
+            alt="Product image"
+            class="rounded-2xl border border-gray-300 shadow-md transition-transform duration-300 "
+          />
+        </div>
+      ))
+    }
   </div>
- 
 
+  <div class="swiper-pagination mt-4"></div>
 </div>
 
 <style>
-    .swiper {
-        width: 100%;
-        height: 400px;
-    }
+  .swiper {
+    width: 100%;
+    height: auto;
+  }
 </style>
 
 <script>
 import Swiper from 'swiper';
-import {Pagination} from 'swiper/modules'
+import {Pagination} from 'swiper/modules';
 
-const swiper = new Swiper('.swiper', {
+document.addEventListener('astro:page-load', () => {
+    const swiper = new Swiper('.swiper', {
+    
+      pagination: {
+        el: '.swiper-pagination'
+      },
+      modules: [Pagination]
+      
+    });
 
-  pagination: {
-    el: '.swiper-pagination'
-  },
-  modules: [Pagination]
-  
-});
+})
+
 </script>

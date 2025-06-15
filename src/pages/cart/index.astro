@@ -1,8 +1,7 @@
 ---
 import { actions } from 'astro:actions';
-import MainLayout from '@/layouts/MainLayout.astro';
-import {Formatter} from '@/utils'
-
+import ProductsLayout from '@/layouts/ProductsLayout.astro';
+import { Formatter } from '@/utils';
 
 const productsInCartCookie = Astro.cookies.get('cart')?.json() ?? [];
 const { data: products, error } = await Astro.callAction(
@@ -10,103 +9,128 @@ const { data: products, error } = await Astro.callAction(
   productsInCartCookie
 );
 
-console.log(productsInCartCookie)
-console.log("Productos en el carrito: ")
-console.log({products})
-
-if(error || !products){
-  return Astro.redirect('/')
+if (error || !products) {
+  return Astro.redirect('/');
 }
 
-
-const total = products.reduce((acc, product) => acc + product.price * product.quantity , 0);
+const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+const tax = subtotal * 0.15;
+const total = subtotal + tax;
 ---
 
+<ProductsLayout>
+  <h1 class="text-4xl font-bold mb-8 text-white">Tu Carrito</h1>
 
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Lista de Productos -->
+    <div class="lg:col-span-2 space-y-6">
+      {products.map(product => (
+        <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg">
+          <img
+            src={product.image}
+            alt={product.name}
+            class="w-full md:w-40 h-40 object-cover"
+          />
 
+          <div class="flex-1 p-6 flex flex-col justify-between">
+            <div>
+              <a
+                href={`/products/${product.slug}`}
+                class="text-xl font-semibold text-gray-900 hover:text-yellow-500"
+              >
+                {product.name}
+              </a>
+              <p class="mt-1 text-sm text-yellow-500 uppercase">
+                {product.category}
+              </p>
+            </div>
 
-
-
-<MainLayout>
-    <h1>Carrito</h1>
-
-    <section class="grid grid-cols-1 sm:grid-cols-2">
-        <!-- Productos -->
-         <div class="order-2 sm:order-1">
-                <h2>Productos</h2>
-                <a href="javascript:history.back()" class="hover:underline text-yellow-500">Regresar</a>
-          
-                {
-                  products.map(product => (
-                    <div class="flex gap-5 mt-5">
-                       <img src={product.image} alt={product.name} class="w-20 h-20"/>
-
-                       <div>
-                          <a href={`/products/${product.slug}`} class="hover:underline">
-                            {product.name} x {product.quantity}
-                          </a>
-                          <p class="font-semibold text-yellow-500">{product.category}</p>
-                          <p>${product.price}</p>
-                          <button 
-                            data-id={product.productId}
-                            data-category={product.category}
-                          class="text-yellow-500 btn-delete">
-                            Remover
-                          </button>
-                       </div>
-                    </div>
-                  ))
-                }
-         </div>
-
-         <!-- Totales -->
-        <div class="bg-black h-[330px] text-white p-6 rounded-lg shadow-lg order-1">
-          <h2 class="text-lg font-semibold mb-4">Resumen de compra</h2>
-
-          <div class="flex justify-between text-gray-400 mb-2">
-            <span>Envío</span>
-            <span>Gratis</span>
+            <div class="mt-4 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <label for={`qty-${product.productId}`} class="sr-only">Cantidad</label>
+                <select
+                  id={`qty-${product.productId}`}
+                  value={product.quantity}
+                  class="bg-gray-100 text-gray-900 px-3 py-1 rounded-lg"
+                >
+                  {[1,2,3,4,5].map(n => (
+                    <option value={n}>{n}</option>
+                  ))}
+                </select>
+                <span class="text-gray-900 font-semibold">
+                  {Formatter.currency(product.price * product.quantity)}
+                </span>
+              </div>
+              <button
+                data-id={product.productId}
+                class="text-red-500 hover:text-red-700 transition"
+                aria-label="Remover producto"
+              >
+                ✕
+              </button>
+            </div>
           </div>
-
-          <div class="flex justify-between text-gray-400 mb-4">
-            <span>SubTotal </span>
-            <span>{Formatter.currency(total)}</span>
-          </div>
-          <div class="flex justify-between text-gray-400 mb-4">
-            <span>Impuesto </span>
-            <span>{Formatter.currency(total * 0.15)}</span>
-          </div>
-
-          <div class="flex justify-between text-xl font-bold">
-            <span>Total</span>
-            <span>{Formatter.currency(total * 1.15)}</span>
-          </div>
-
-          <button
-            class="mt-10 w-full bg-blue-700 text-gray-300 py-3 rounded-lg hover:bg-gray-600 transition-all"
-          >
-            Pagar
-          </button>
         </div>
-    </section>
-    
-</MainLayout>
+      ))}
 
+      <a
+        href="/products"
+        class="inline-block mt-4 text-yellow-400 hover:underline"
+      >
+        ← Seguir comprando
+      </a>
+    </div>
+
+    <!-- Resumen de Compra -->
+    <div class="bg-white rounded-2xl shadow-xl p-8 flex flex-col">
+      <h2 class="text-2xl font-bold mb-6 text-gray-800">Resumen de compra</h2>
+
+      <div class="space-y-4 text-gray-600 flex-1">
+        <div class="flex justify-between">
+          <span>Subtotal</span>
+          <span>{Formatter.currency(subtotal)}</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Impuesto (15%)</span>
+          <span>{Formatter.currency(tax)}</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Envío</span>
+          <span>Gratis</span>
+        </div>
+      </div>
+
+      <div class="mt-6 border-t border-gray-200 pt-4 flex justify-between items-center">
+        <span class="text-xl font-semibold text-gray-800">Total</span>
+        <span class="text-2xl font-extrabold text-gray-900">
+          {Formatter.currency(total)}
+        </span>
+      </div>
+
+      <button
+        class="mt-8 w-full bg-yellow-500 text-white font-semibold py-3 rounded-lg hover:bg-yellow-600 transition"
+      >
+        Pagar Ahora
+      </button>
+    </div>
+  </div>
+</ProductsLayout>
 
 <script>
-import { CartCookiesClient } from "@/utils";
+  import { CartCookiesClient } from '@/utils';
+  import { navigate } from 'astro:transitions/client';
+  import { itemsInCart } from '@/store';
 
-
-  const deleteButtons: NodeListOf<HTMLButtonElement> = document.querySelectorAll('.btn-delete');
-  deleteButtons.forEach(button => {
-    button.addEventListener('click', (event) => {
-      const target = event.target as HTMLButtonElement;
-      const productId = target.dataset.id ?? '';
-      const category = target.dataset.category ?? '';
-
-      CartCookiesClient.removeItem(productId);
-      //
-      window.location.reload();
-    })
-  }) 
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.currentTarget;
+        if (!(target instanceof HTMLButtonElement)) return;
+        const id = target.dataset.id || '';
+        const cart = CartCookiesClient.removeItem(id);
+        itemsInCart.set(cart.length);
+        navigate('/cart');
+      });
+    });
+  });
 </script>
