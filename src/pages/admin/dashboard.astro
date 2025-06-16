@@ -1,0 +1,80 @@
+---
+
+import ProductImage from "@/components/products/ProductImage.astro";
+import Pagination from "@/components/shared/Pagination.astro";
+import ProductsLayout from "@/layouts/ProductsLayout.astro";
+import { Formatter } from "@/utils";
+import { actions } from "astro:actions";
+import { Product } from "astro:db";
+
+const searchParams = Astro.url.searchParams;
+const pageParam = Number(searchParams.get('page') ?? 1);
+
+const { data, error } = await Astro.callAction(
+  actions.getProductsByPage,  
+  {
+    page: pageParam,
+  }
+);
+
+// console.log(data)
+
+if (error) {
+  // maneja el error como prefieras (redirect, throw, etc.)
+  return Astro.redirect('/');
+}
+
+const { products, totalPages } = data;
+
+
+---
+
+<ProductsLayout title="Admin panel">
+    <h1>Dashboard</h1>
+    <p>Listado de productos</p>
+
+    <div class="flex justify-end">
+        <a href="/admin/products/new"
+        class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded transition-all">
+            Nuevo producto
+        </a>
+    </div>
+
+    <table class="w-full mt-2">
+        <thead>
+            <tr>
+                <th class="text-left">Imagen</th>
+                <th class="text-left">Título</th>
+                <th class="text-left">Precio</th>
+                <th class="text-left">Stock</th>
+            </tr>
+        </thead>
+        <tbody>
+            {
+                products.map((product)=> (
+                    <tr>
+                        <td>
+                            <ProductImage
+                                src={product.images.split(',')[0]}
+                                alt={product.name}
+                                className="w-16 h-16"
+                                />
+                        </td>
+                        <td>
+                            <a 
+                                class="hover:underline cursor-pointer"
+                                href={`/admin/products/${product.slug}`}
+                                data-astro-prefetch="load"
+                                >{product.name}</a>
+                        </td>
+                        <td>{Formatter.currency(product.price)}</td>
+                        <td>{product.stock}</td>
+                    </tr>
+                ))
+            }
+
+        </tbody>
+    </table>
+
+    <Pagination totalPages={totalPages}/>
+</ProductsLayout>

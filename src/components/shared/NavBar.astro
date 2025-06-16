@@ -1,96 +1,52 @@
 ---
+// src/components/NavbarFusionado.astro
+
 import {
   FaFacebookF,
   FaInstagram,
   FaSearch,
-  FaShoppingBag,
   FaBars,
-  FaTimes,
   FaChevronDown,
-  FaChevronUp,
-} from "react-icons/fa";
-import { CartCounter } from "../cart/CartCounter";
+  FaShoppingBag,
+} from 'react-icons/fa';
+import { CartCounter } from '@/components/cart/CartCounter';
+
+const { isLoggedIn, isAdmin, user } = Astro.locals;
 ---
 
-<!-- Navbar.astro -->
-<script is:inline>
-  // Toggle dropdown and mobile menus
-  document.addEventListener('DOMContentLoaded', () => {
-    // User menu dropdown
-    const userBtn = document.getElementById('user-btn');
-    const userMenu = document.getElementById('user-menu');
-    userBtn?.addEventListener('click', () => {
-      userMenu?.classList.toggle('hidden');
-    });
-
-    // Products dropdown desktop
-    const prodBtn = document.getElementById('products-btn');
-    const prodMenu = document.getElementById('products-menu');
-    prodBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      prodMenu?.classList.toggle('hidden');
-    });
-
-    // Click fuera para cerrar menús
-    document.addEventListener('click', (e) => {
-      // Cerrar menú de productos si existen ambos elementos
-      if (
-        prodBtn && prodMenu &&
-        !prodBtn.contains(e.target) &&
-        !prodMenu.contains(e.target)
-      ) {
-        prodMenu.classList.add('hidden');
-      }
-      // Cerrar menú de usuario si existen ambos elementos
-      if (
-        userBtn && userMenu &&
-        !userBtn.contains(e.target) &&
-        !userMenu.contains(e.target)
-      ) {
-        userMenu.classList.add('hidden');
-      }
-    });
-
-    // Mobile menu
-    const mobileToggle = document.getElementById('mobile-toggle');
-    const mobileMenu = document.getElementById('mobile-menu');
-    const mobileProdBtn = document.getElementById('mobile-products-btn');
-    const mobileProdMenu = document.getElementById('mobile-products-menu');
-
-    mobileToggle?.addEventListener('click', () => {
-      mobileMenu?.classList.toggle('hidden');
-    });
-    mobileProdBtn?.addEventListener('click', () => {
-      mobileProdMenu?.classList.toggle('hidden');
-    });
-  });
-</script>
-
 <nav class="fixed top-0 left-0 w-full z-50 text-white">
-  <!-- Brown stripe -->
+
+  <!-- Cinta superior -->
   <div class="bg-[#8B3F17] text-sm py-2 px-12 flex justify-between items-center">
     <span>Envío gratuito en pedidos superiores a $500</span>
     <div class="flex items-center space-x-4 text-sm relative">
       <img src="/assets/Broquelizate-logos/person.svg" alt="Avatar" class="w-6 h-6" />
-      {Astro.locals.isLoggedIn ? (
+
+      {isLoggedIn ? (
         <div class="relative">
           <button id="user-btn" class="focus:outline-none hover:underline">
-            {Astro.locals.user || 'Usuario'}
+            {user?.name || 'Usuario'}
           </button>
           <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-white text-black rounded-lg shadow-lg z-10">
             <a href="/profile" class="block px-4 py-2 hover:bg-gray-200">Perfil</a>
-            <a href="#" id="logout-btn" class="block px-4 py-2 hover:bg-gray-200">Logout</a>
+            {isAdmin && (
+              <a href="/admin/dashboard" class="block px-4 py-2 hover:bg-gray-200">
+                Admin
+              </a>
+            )}
+            <a href="#" id="logout-btn" class="block px-4 py-2 hover:bg-gray-200">Salir</a>
           </div>
         </div>
       ) : (
         <a href="/login" class="hover:underline">Iniciar sesión</a>
       )}
+
       <a href="#" class="hover:text-gray-300"><FaFacebookF /></a>
       <a href="#" class="hover:text-gray-300"><FaInstagram /></a>
     </div>
   </div>
 
-  <!-- Main black bar -->
+  <!-- Barra principal -->
   <div class="bg-black px-12 py-4 flex justify-between items-center">
     <!-- Logo -->
     <a href="/" class="flex items-center space-x-2">
@@ -98,13 +54,13 @@ import { CartCounter } from "../cart/CartCounter";
       <span class="text-xl font-bold text-[#EAB308]">Broquelizate</span>
     </a>
 
-    <!-- Desktop nav -->
+    <!-- Navegación de escritorio -->
     <ul class="hidden md:flex space-x-8 font-semibold text-sm">
       <li><a href="#inicio" class="text-[#EAB308] hover:text-[#EAB308]">Inicio</a></li>
       <li class="relative">
         <button id="products-btn" class="hover:text-[#EAB308]">Productos</button>
         <div id="products-menu" class="hidden absolute top-full left-0 mt-2 w-40 bg-black border border-[#EAB308]/30 rounded-md shadow-lg z-50">
-          <a href="/products" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Anillos</a>
+          <a href="/productos/anillos" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Anillos</a>
           <a href="/productos/broqueles" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Broqueles</a>
           <a href="/productos/pulseras" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Pulseras</a>
         </div>
@@ -114,17 +70,15 @@ import { CartCounter } from "../cart/CartCounter";
       <li><a href="#contacto" class="hover:text-[#EAB308]">Contacto</a></li>
     </ul>
 
-    <!-- Icons and mobile toggle -->
+    <!-- Íconos -->
     <div class="flex items-center space-x-4 md:space-x-6 text-xl">
       <button class="hover:text-[#EAB308]"><FaSearch /></button>
       <CartCounter client:load transition:persist />
-      <button id="mobile-toggle" class="md:hidden text-2xl">
-        <FaBars />
-      </button>
+      <button id="mobile-toggle" class="md:hidden text-2xl"><FaBars /></button>
     </div>
   </div>
 
-  <!-- Mobile menu -->
+  <!-- Menú móvil -->
   <div id="mobile-menu" class="hidden bg-black md:hidden px-6 py-4 space-y-4 font-semibold text-sm">
     <a href="#inicio" class="block text-[#EAB308] hover:text-[#EAB308]">Inicio</a>
     <div>
@@ -135,13 +89,76 @@ import { CartCounter } from "../cart/CartCounter";
       <div id="mobile-products-menu" class="hidden ml-4 mt-2 space-y-2 text-sm font-normal">
         <a href="/productos/anillos" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Anillos</a>
         <a href="/productos/broqueles" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Broqueles</a>
-        <a href="/productos/aretes" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Aretes</a>
         <a href="/productos/pulseras" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Pulseras</a>
       </div>
     </div>
-    {Astro.locals.isLoggedIn
-      ? <a href="#" id="logout-btn" class="font-semibold text-gray-700">Logout</a>
-      : <a href="/login" class="font-semibold text-gray-700">Sign In</a>
-    }
+    {isLoggedIn ? (
+      <>
+        {isAdmin && <a href="/admin/dashboard" class="block text-[#EAB308]">Admin</a>}
+        <a href="/profile" class="block text-[#EAB308]">Perfil</a>
+        <a href="#" id="logout-btn-mobile" class="block text-[#EAB308]">Salir</a>
+      </>
+    ) : (
+      <a href="/login" class="block text-[#EAB308]">Iniciar sesión</a>
+    )}
   </div>
+
+  <!-- Scripts -->
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Toggle user menu
+      const userBtn = document.getElementById('user-btn');
+      const userMenu = document.getElementById('user-menu');
+      userBtn?.addEventListener('click', () => userMenu?.classList.toggle('hidden'));
+
+      // Toggle products menu (desktop)
+      const prodBtn = document.getElementById('products-btn');
+      const prodMenu = document.getElementById('products-menu');
+      prodBtn?.addEventListener('click', e => {
+        e.stopPropagation();
+        prodMenu?.classList.toggle('hidden');
+      });
+
+      // Close menus on outside click
+      document.addEventListener('click', e => {
+        if (prodBtn && prodMenu && !prodBtn.contains(e.target) && !prodMenu.contains(e.target)) {
+          prodMenu.classList.add('hidden');
+        }
+        if (userBtn && userMenu && !userBtn.contains(e.target) && !userMenu.contains(e.target)) {
+          userMenu.classList.add('hidden');
+        }
+      });
+
+      // Mobile menu toggles
+      const mobileToggle = document.getElementById('mobile-toggle');
+      const mobileMenu = document.getElementById('mobile-menu');
+      const mobileProdBtn = document.getElementById('mobile-products-btn');
+      const mobileProdMenu = document.getElementById('mobile-products-menu');
+      mobileToggle?.addEventListener('click', () => mobileMenu?.classList.toggle('hidden'));
+      mobileProdBtn?.addEventListener('click', () => mobileProdMenu?.classList.toggle('hidden'));
+
+      // Logout via fetch
+      const logoutBtn       = document.getElementById('logout-btn');
+      const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+      const doLogout = async () => {
+        await fetch('/api/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        window.location.href = '/';
+      };
+      logoutBtn?.addEventListener('click', doLogout);
+      logoutBtnMobile?.addEventListener('click', doLogout);
+    });
+
+    // Ajusta padding para navbar fijo
+    function adjustBodyPadding() {
+      const nav = document.querySelector('nav.fixed');
+      if (nav) document.body.style.paddingTop = nav.offsetHeight + 'px';
+    }
+    window.addEventListener('load', adjustBodyPadding);
+    window.addEventListener('resize', adjustBodyPadding);
+  </script>
+
 </nav>
