@@ -1,5 +1,5 @@
 import { itemsInCart } from '@/store';
-import { CartCookiesClient } from '@/utils';
+import { CartCookiesClient } from '../../utils/cart-cookies';
 import {useStore} from '@nanostores/react';
 import { useEffect } from 'react';
 

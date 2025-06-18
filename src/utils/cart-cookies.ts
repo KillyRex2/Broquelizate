@@ -7,7 +7,6 @@ export class CartCookiesClient {
 
     static getCart(): CartItem[] {
         return JSON.parse(Cookies.get('cart') ?? '[]');
-        
     }
 
     static addItem(cartItem: CartItem): CartItem[] {

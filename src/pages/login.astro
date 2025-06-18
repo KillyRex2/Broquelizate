@@ -71,9 +71,8 @@ const rememberMe = !!email;
 </AuthLayout>
 
 <script>
-  import { actions } from "astro:actions";
-
-  import Swal from "sweetalert2";
+import { actions } from "astro:actions";
+import Swal from "sweetalert2";
 
 const form = document.querySelector('form') as HTMLFormElement;
 const btnSubmit = document.querySelector('#btn-login') as HTMLButtonElement;
@@ -90,7 +89,7 @@ form.addEventListener('submit', async (e) => {
 
   const formData = new FormData(form);
 
-  // const { data, error } = await actions.loginUser(formData);
+
 const resp = await signIn('credentials', {
   email: formData.get('email') as string,
   password: formData.get('password') as string,

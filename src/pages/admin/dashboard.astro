@@ -45,6 +45,7 @@ const { products, totalPages } = data;
             <tr>
                 <th class="text-left">Imagen</th>
                 <th class="text-left">Título</th>
+                 <th class="text-left">Eliminar</th>
                 <th class="text-left">Precio</th>
                 <th class="text-left">Stock</th>
             </tr>
@@ -67,6 +68,12 @@ const { products, totalPages } = data;
                                 data-astro-prefetch="load"
                                 >{product.name}</a>
                         </td>
+
+                        <td>
+                        <button
+                         type="button" class="btn-delete-image bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition;">✕</button>
+                        </td>
+
                         <td>{Formatter.currency(product.price)}</td>
                         <td>{product.stock}</td>
                     </tr>

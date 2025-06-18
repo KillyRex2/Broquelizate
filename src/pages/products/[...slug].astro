@@ -92,12 +92,14 @@ const { product, images } = data;
   <input type="hidden" id="product-id" value={product.id} />
 </ProductsLayout>
 
-<script>
-  import { itemsInCart } from "@/store";
-  import { CartCookiesClient } from "@/utils";
-  import { navigate } from "astro:transitions/client";
 
-  document.addEventListener("astro:page-load", () => {
+<script>
+import { itemsInCart } from "@/store";
+// import { CartCookiesClient } from "@/utils";
+import { navigate } from "astro:transitions/client";
+
+  document.addEventListener("astro:page-load", async() => {
+    // const {CartCookiesClient} = await import("@/utils");
     const qtyInput = document.getElementById("qty-input");
     const decrementBtn = document.getElementById("qty-decr");
     const incrementBtn = document.getElementById("qty-incr");
@@ -125,10 +127,12 @@ const { product, images } = data;
       quantity = Math.min(999, quantity + 1);
       qtyInput.value = quantity.toString();
     });
+``
+    const CartCookiesClient = await import("../../utils/cart-cookies");
 
     addBtn.addEventListener("click", async () => {
       addBtn.disabled = true;
-      const cart = CartCookiesClient.addItem({
+      const cart = CartCookiesClient.CartCookiesClient.addItem({
         productId: productIdInput.value,
         quantity,
       });

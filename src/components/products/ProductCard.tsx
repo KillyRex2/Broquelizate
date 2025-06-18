@@ -27,7 +27,7 @@ export const ProductCard = ({ product }: Props) => {
           onMouseLeave={() => setCurrentImage(images[0])}
         />
         <div className="p-4">
-          <h4 className="text-xl font-semibold text-black">
+          <h4 className="text-lg font-semibold text-black">
             {product.name}
           </h4>
           {/* Aquí, usamos span en lugar de un <a> para no anidar enlaces */}

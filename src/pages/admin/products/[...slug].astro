@@ -151,7 +151,7 @@ const { product, images } = data;
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M7 16V4a2 2 0 012-2h6a2 2 0 012 2v12m-6 4l-4-4m0 0l4-4m-4 4h12" />
             </svg>
-            <p class="text-sm text-gray-300">Click aquí o arrastra imágenes</p>
+            <p class="text-sm text-gray-300" id="lbl-selected-files">Click aquí o arrastra imágenes</p>
             <p class="text-xs text-gray-400">JPG, PNG, GIF - máx. 800x400px</p>
             <input id="file-upload" name="imageFiles" type="file" accept="image/*" multiple class="hidden" />
           </label>
@@ -219,10 +219,7 @@ const { product, images } = data;
     // const lblSelectedFiles = document.querySelector(
     //   '#lbl-selected-files'
     // ) as HTMLParagraphElement;
-    const dropZone = document.querySelector('#drop-zone') as HTMLLabelElement;
-    const fileInput = document.querySelector(
-      '#file-upload'
-    ) as HTMLInputElement;
+
 
     if (!form) {
       return;
@@ -237,7 +234,7 @@ const { product, images } = data;
       const formValues = Object.fromEntries(formData.entries());
       console.log(formValues);
 
-      const { data, error } = await actions.crateUpdateProduct(formData)
+      const { data, error } = await actions.crateUpdateProduct(formData);
 
       if (error) {
         return alert(error.message);
@@ -269,11 +266,73 @@ const { product, images } = data;
         });
     });
 
+    // Drag & Drop
+    const lblSelectedFiles = document.querySelector('#lbl-selected-files') as HTMLParagraphElement;
+    const dropZone = document.querySelector('#drop-zone') as HTMLLabelElement;
+    const fileInput = document.querySelector(
+      '#file-upload'
+    ) as HTMLInputElement;
+
+    const preventDefaults = (e: DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+    }
+
+    (['dragenter', 'dragover', 'dragleave', 'drop'] as const ).forEach(
+        (eventName) => {
+            dropZone.addEventListener(eventName, preventDefaults);
+            document.body.addEventListener(eventName, preventDefaults);
+        }
+    );
+
+    const highlight = (e: DragEvent) => {
+        dropZone.classList.add('border-blue-500', 'bg-gray-700')
+    }
+
+    const unHighlight = (e: DragEvent) => {
+        dropZone.classList.remove('border-blue-500', 'bg-gray-700')
+    }
+
+    (['dragenter', 'dragover'] as const ).forEach(
+        (eventName) => {
+            dropZone.addEventListener(eventName, highlight);
+        }
+    );
+
+    (['dragleave', 'drop'] as const ).forEach(
+        (eventName) => {
+            dropZone.addEventListener(eventName, unHighlight);
+        }
+    );
+
+    const createFileList = ( files:File[] ): FileList => {
+        const dataTransfer = new DataTransfer();
+        files.forEach( file => dataTransfer.items.add(file))
+        return dataTransfer.files;
+
+    }
+
+    const handleFiles = (files: FileList) => {
+        const validFiles = Array.from(files).filter(
+            file => file.type.startsWith('image/')
+        );
+
+        if ( fileInput && validFiles.length > 0 ) {
+            fileInput.files = createFileList(validFiles);
+        }
+
+        lblSelectedFiles.innerHTML = `<strong>${validFiles.length} archivos seleccionados</strong>`
+    }
+
+    // Solo imagenes
+    dropZone.addEventListener('drop', e => {
+        const files = e.dataTransfer?.files;
+        if ( files ) {
+            handleFiles(files);
+        }
+    })
 
 
-
-
-    // fin
   });
 </script>
 
