@@ -12,29 +12,29 @@ const rememberMe = !!email;
         <div class="p-12 bg-white mx-auto rounded-2xl w-100 ">
             <div class="mb-4">
               <h3 class="font-semibold text-2xl text-gray-800">Login</h3>
-              <p class="text-gray-500">Please sign in to your account.</p>
+              <p class="text-gray-500">Porfavor inicie sesión en su cuenta.</p>
             </div>
             <form class="space-y-5">
                         <div class="space-y-2">
                               <label class="text-sm font-medium text-gray-700 tracking-wide">Email</label>
-              <input class=" w-full text-base px-4 py-2 border  border-gray-300 rounded-lg focus:outline-none focus:border-green-400" type="email" value={email} name="email" placeholder="mail@gmail.com">
+              <input class=" w-full text-base px-4 py-2 border  border-gray-300 rounded-lg focus:outline-none focus:border-yellow-500" type="email" value={email} name="email" placeholder="mail@gmail.com">
               </div>
                           <div class="space-y-2">
               <label class="mb-5 text-sm font-medium text-gray-700 tracking-wide">
                 Password
               </label>
-              <input class="w-full content-center text-base px-4 py-2 border  border-gray-300 rounded-lg focus:outline-none focus:border-green-400" type="password" name="password" placeholder="Enter your password">
+              <input class="w-full content-center text-base px-4 py-2 border  border-gray-300 rounded-lg focus:outline-none focus:border-yellow-500" type="password" name="password" placeholder="Enter your password">
             </div>
               <div class="flex items-center justify-between">
               <div class="flex items-center">
-                <input id="remember_me" name="remember_me" type="checkbox" checked= {rememberMe}="h-4 w-4 bg-blue-500 focus:ring-blue-400 border-gray-300 rounded">
+                <input id="remember_me" name="remember_me" type="checkbox" checked= {rememberMe}="h-4 w-4 bg-yellow-500 focus:ring-yellow-500 border-gray-300 rounded">
                 <label for="remember_me" class="ml-2 block text-sm text-gray-800">
                   Remember me
                 </label>
               </div>
               <div class="text-sm">
                 <p>Don't have an account?</p>
-                <a href="/register" class="text-green-400 hover:text-green-500">
+                <a href="/register" class="text-yellow-600 hover:text-yellow-800">
                   Create an account
                 </a>
               </div>
@@ -43,7 +43,7 @@ const rememberMe = !!email;
             <button
               id="btn-login"
               type="submit"
-              class="w-full flex justify-center items-center bg-green-400 enabled:bg-green-400 disabled:bg-gray-300 text-gray-100 p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-300"
+              class="w-full flex justify-center items-center hover:bg-yellow-700  enabled:bg-yellow-500 enabled:hover:bg-yellow-700 disabled:bg-gray-300 text-gray-100 p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-300"
             >
               <span id="btn-text">Sign in</span>
             </button>

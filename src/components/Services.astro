@@ -1,0 +1,91 @@
+---
+import ServicesCard from '@/components/services/ServicesCard.astro';
+import type { Props as ServiceCardProps } from '@/components/services/ServicesCard.astro';
+import ServicesSlideShow from './services/ServicesSlideShow.astro';
+
+// Tipamos el array de servicios usando el tipo exportado de ServicesCard
+const services: ServiceCardProps[] = Astro.props.services || [
+  {
+    title: 'Perforación de Orejas',
+    description: 'Perforación profesional con equipo esterilizado. Incluye pendientes hipoalergénicos de titanio y cuidados post-perforación.',
+    price: 130,
+    reserveLink: '/reservar/orejas'
+  },
+  {
+    title: 'Perforación Ombligo',
+    description: 'Perforación especializada en cartílago con técnicas profesionales. Proceso seguro y cuidados especializados.',
+    price: 65,
+    reserveLink: '/reservar/cartilago'
+  },
+  {
+    title: 'Perforación Nariz',
+    description: 'Perforación nasal con joyería premium incluida. Asesoramiento personalizado y seguimiento completo.',
+    price: 55,
+    reserveLink: '/reservar/nariz'
+  },
+  {
+    title: 'Cambio de Joyería',
+    description: 'Servicio profesional de cambio de joyería corporal. Amplia selección de diseños premium disponibles.',
+    price: 25,
+    reserveLink: '/reservar/cambio-joyeria'
+  },
+  {
+    title: 'Consulta Especializada',
+    description: 'Asesoramiento completo sobre tipos de perforación, cuidados y selección de joyería personalizada.',
+    price: 30,
+    reserveLink: '/reservar/consulta'
+  },
+  {
+    title: 'Limpieza y Mantenimiento',
+    description: 'Servicio de limpieza profunda y mantenimiento de perforaciones. Revisión completa y cuidados preventivos.',
+    price: 35,
+    reserveLink: '/reservar/limpieza'
+  }
+];
+---
+<section class="py-16 bg-black text-white">
+  <div class="max-w-6xl mx-auto px-4">
+    <!-- Encabezado -->
+    <div class="text-center mb-12">
+      <h2 class="text-4xl font-bold">Servicios de Perforación</h2>
+      <p class="text-sm text-gray-400 mt-2">
+        Nuestro equipo de profesionales certificados realiza perforaciones con las técnicas más seguras<br />
+        y los materiales de la más alta calidad.
+      </p>
+    </div>
+
+    <!-- Grid Principal -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Column Izquierda: Lista de Cards -->
+      <div class="space-y-6">
+        {services.map((svc) => (
+          <ServicesCard {...svc} />
+        ))}
+      </div>
+
+      <!-- Column Derecha: Imagen y Por qué elegimos -->
+      <div class="space-y-6 flex flex-col justify-start">
+
+        <ServicesSlideShow />
+
+        <aside class="bg-slate-800 p-6 rounded-lg space-y-4">
+          <h3 class="text-xl font-semibold">Por qué elegimos</h3>
+          <ul class="space-y-2 list-none">
+            <li class="flex items-start">
+              <span class="mr-2 text-green-400">✔</span>
+              <span>Profesionales certificados</span>
+            </li>
+            <li class="flex items-start">
+              <span class="mr-2 text-green-400">✔</span>
+              <span>Materiales premium</span>
+            </li>
+            <li class="flex items-start">
+              <span class="mr-2 text-green-400">✔</span>
+              <span>Entorno esterilizado</span>
+            </li>
+          </ul>
+        </aside>
+      </div>
+    </div>
+  </div>
+</section>

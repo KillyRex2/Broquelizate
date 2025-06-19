@@ -12,13 +12,13 @@ const remmemberMe = !!email;
     <div class="p-12 bg-white mx-auto rounded-2xl w-100">
       <div class="mb-4">
         <h3 class="font-semibold text-2xl text-gray-800">Sign Up</h3>
-        <p class="text-gray-500">Create a new account below.</p>
+        <p class="text-gray-500">Crea una nueva cuenta.</p>
       </div>
       <form class="space-y-5" id="register-form">
         <div class="space-y-2">
           <label class="text-sm font-medium text-gray-700 tracking-wide">Name</label>
           <input
-            class="w-full text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-400"
+            class="w-full text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600"
             type="text"
             name="name"
             placeholder="John Doe"
@@ -28,7 +28,7 @@ const remmemberMe = !!email;
         <div class="space-y-2">
           <label class="text-sm font-medium text-gray-700 tracking-wide">Email</label>
           <input
-            class="w-full text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-400"
+            class="w-full text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600"
             type="email"
             name="email"
             value={email}
@@ -39,7 +39,7 @@ const remmemberMe = !!email;
         <div class="space-y-2">
           <label class="mb-5 text-sm font-medium text-gray-700 tracking-wide">Password</label>
           <input
-            class="w-full content-center text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-400"
+            class="w-full content-center text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600"
             type="password"
             name="password"
             placeholder="Enter your password"
@@ -53,14 +53,14 @@ const remmemberMe = !!email;
               name="remember_me"
               type="checkbox"
               checked={remmemberMe}
-              class="h-4 w-4 bg-blue-500 focus:ring-blue-400 border-gray-300 rounded"
+              class="h-4 w-4 bg-yellow-500 focus:ring-yellow-400 border-gray-300 rounded"
             />
             <label for="remember_me" class="ml-2 block text-sm text-gray-800">
               Remember me
             </label>
           </div>
           <div class="text-sm">
-            <a href="/login" class="text-green-400 hover:text-green-500">
+            <a href="/login" class="text-yellow-500 hover:text-yellow-700">
               Already have an account?
             </a>
           </div>
@@ -69,14 +69,14 @@ const remmemberMe = !!email;
           <button
             type="submit"
             id="btn-submit"
-            class="disabled:bg-gray-300 w-full flex justify-center bg-green-400 hover:bg-green-500 text-gray-100 p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-500"
+            class="disabled:bg-gray-300 w-full flex justify-center bg-yellow-500 hover:bg-yellow-700 text-white p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-500"
           >
             Sign Up
           </button>
         </div>
       </form>
       <div class="pt-5 text-center text-gray-400 text-xs">
-        <span>Copyright © 2024-{new Date().getFullYear()}</span>
+        <span>Copyright Broquelizate © 2024-{new Date().getFullYear()}</span>
       </div>
     </div>
   </div>

@@ -1,30 +1,65 @@
 ---
 ---
-
-
 <html lang="es">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Auth</title>
-	</head>
-	<body>
-        <!-- component -->
-<link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
-<div class="bg-no-repeat bg-cover bg-center relative" style="background-image: url(https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?ixlib=rb-1.2.1&amp;ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&amp;auto=format&amp;fit=crop&amp;w=1951&amp;q=80);"><div class="absolute bg-gradient-to-b from-green-500 to-green-400 opacity-75 inset-0 z-0"></div>
-  <div class="min-h-screen sm:flex sm:flex-row mx-0 justify-center">
-      <div class="flex-col flex  self-center p-10 sm:max-w-5xl xl:max-w-2xl  z-10">
-        <div class="self-start hidden lg:flex flex-col  text-white">
-          <img src="" class="mb-3">
-          <h1 class="mb-3 font-bold text-5xl">Hi ? Welcome Back Aji </h1>
-          <p class="pr-3">Lorem ipsum is placeholder text commonly used in the graphic, print,
-            and publishing industries for previewing layouts and visual mockups</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Iniciar sesión - Broquelizate</title>
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet" />
+    <style>
+      .hero-background {
+        position: relative;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .hero-background::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('https://res-console.cloudinary.com/dfomhcqbp/thumbnails/v1/image/upload/v1750283219/dGFtYXJhLWJlbGxpcy1KZWFrRTVTWkN1Zy11bnNwbGFzaF91MnFyMnU=/template_primary/') center center / cover no-repeat;
+        transform: scale(1.0);        /* Pequeño zoom para evitar recortes evidentes */
+        filter: brightness(0.6);       /* Menos oscuro, más claridad */
+        z-index: -2;
+      }
+
+      .hero-background::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.3); /* Overlay más sutil */
+        z-index: -1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="hero-background">
+      <div class="flex flex-col lg:flex-row items-center justify-center w-full h-full px-6 lg:px-16">
+        <!-- Lado izquierdo con branding -->
+        <div class="hidden lg:flex flex-col text-white max-w-lg mr-16">
+          <h1 class="text-4xl font-extrabold mb-4">Bienvenid@ a Broquelizate</h1>
+          <p class="text-lg leading-relaxed">
+            Accede a tu cuenta para seguir comprando las mejores joyas y perforaciones exclusivas. Estilo que empodera.
+          </p>
+        </div>
+
+        <!-- Formulario (slot para login/register) -->
+        <div class="bg-white bg-opacity-90 backdrop-blur-md p-8 rounded-2xl shadow-xl w-full max-w-md">
+          <slot />
         </div>
       </div>
-      <slot />
-  </div>
-</div>
-	</body>
+    </div>
+  </body>
 </html>

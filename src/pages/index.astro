@@ -1,6 +1,9 @@
 ---
+import Categories from "@/components/Categories.astro";
 import HeroSection from "@/components/HeroSection.astro";
 import MainLayout from "@/layouts/MainLayout.astro";
+import FeaturedProducts from "@/components/FeaturedProducts.astro";
+import Services from "@/components/Services.astro";
 
 
 ---
@@ -8,6 +11,9 @@ import MainLayout from "@/layouts/MainLayout.astro";
 <MainLayout title="Broquelizate Web">
   <main class="w-full">
     <HeroSection/>
+    <Categories/>
+    <FeaturedProducts/>
+    <Services/>
   </main>
   
 </MainLayout>

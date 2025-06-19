@@ -1,0 +1,52 @@
+---
+// src/components/SwiperGallery.astro
+import 'swiper/css';
+import 'swiper/css/pagination';
+
+const images: string[] = [
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Fconch.jpg?alt=media&token=7b232e1f-24a6-4fa4-bf1b-6d1fbcec4ff9',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Fcontraconch.jpg?alt=media&token=17983f66-feb2-4753-b35f-eb8fe0e00d8b',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Fdait.jpg?alt=media&token=2dd084f7-d169-4d37-9b1f-4f1a302c7e08',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Fdoble-lobulo.jpg?alt=media&token=e62cba3a-e1ab-4675-8e9a-74e3a5ec0d27',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Fflat.jpg?alt=media&token=be831aff-391b-45a1-997b-8730b2c99fcc',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Fhelix.jpg?alt=media&token=0a837867-84f4-4f94-96e5-94f1138f3590',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Findustrial.jpg?alt=media&token=4449cf85-104e-4354-be62-7d995613d874',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Flobulo.jpg?alt=media&token=09bb5ea8-6105-46ad-bed6-2e2bbcc677bd',
+  'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FPerfos%2Ftragus.jpg?alt=media&token=66e70eec-08da-40f8-b506-5496c6d91172'
+];
+---
+
+<div class="swiper col-span-1 sm:col-span-2">
+  <div class="swiper-wrapper">
+    {images.map((src) => (
+      <div class="swiper-slide flex justify-center items-center">
+        <img src={src} alt="Gallery image" class="rounded-2xl border border-gray-300 shadow-md transition-transform duration-300" />
+      </div>
+    ))}
+  </div>
+
+  <div class="swiper-pagination mt-2"></div>
+</div>
+
+<style>
+  .swiper {
+    width: 100%;
+    height: auto;
+  }
+</style>
+
+<script>
+  import Swiper from 'swiper';
+  import { Pagination } from 'swiper/modules';
+
+  document.addEventListener('astro:page-load', () => {
+    /* Initialize Swiper */
+    // @ts-ignore
+    new Swiper('.swiper', {
+      pagination: { el: '.swiper-pagination' },
+      modules: [Pagination],
+      loop: true,
+       autoplay: { delay: 200, disableOnInteraction: false }
+    });
+  });
+</script>

@@ -19,6 +19,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "astro": "^5.9.2",
+    "astro-icon": "^1.1.5",
     "auth-astro": "^4.2.0",
     "cloudinary": "^2.6.1",
     "js-cookie": "^3.0.5",

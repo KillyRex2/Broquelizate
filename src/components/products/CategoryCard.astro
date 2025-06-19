@@ -1,0 +1,15 @@
+---
+const { title, description, image, link } = Astro.props;
+---
+
+<article class="relative rounded-md overflow-hidden group cursor-pointer border border-yellow-700/20 hover:border-yellow-500 transition-all duration-300 shadow-md hover:shadow-yellow-500/20">
+  <img src={image} alt={title} class="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105" />
+
+  <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-4 flex flex-col justify-end">
+    <h3 class="text-yellow-500 text-lg font-bold">{title}</h3>
+    <p class="text-sm text-white">{description}</p>
+    <a href={link} class="text-yellow-300 text-sm font-semibold mt-2 inline-block hover:underline">
+      Explorar categoría →
+    </a>
+  </div>
+</article>

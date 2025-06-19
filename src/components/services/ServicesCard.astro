@@ -1,0 +1,23 @@
+---
+export interface Props {
+  title: string;
+  description: string;
+  price: number;
+  reserveLink: string;
+}
+const { title, description, price, reserveLink } = Astro.props as Props;
+---
+
+<article class="bg-slate-800 text-white rounded-lg p-6 space-y-2">
+  <h3 class="text-lg font-semibold">{title}</h3>
+  <p class="text-sm text-gray-300">{description}</p>
+  <div class="flex items-center justify-between mt-4">
+    <span class="font-bold">Desde {price} $</span>
+    <a
+      href={reserveLink}
+      class="text-xs font-semibold uppercase bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded"
+    >
+      Reservar
+    </a>
+  </div>
+</article>

@@ -1,0 +1,65 @@
+---
+import FeaturedProductsCard from '@/components/products/FeaturedProductsCard.tsx';
+
+export interface Product {
+  id: string;
+  image: string;
+  title: string;
+  description: string;
+  price: number;
+  salePrice?: number;
+  onAddLink: string;
+}
+
+const products = [
+  {
+    id: 'id-1',
+    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307574/anillo_hojitas_ebpct0.jpg',
+    title: 'Anillo Hojas Diamantado',
+    description: 'Elegante y delicado anillo inspirado en la naturaleza, con un diseño de pequeñas hojas entrelazadas. Su acabado brillante lo convierte en el accesorio perfecto para resaltar tu estilo con un toque sutil y femenino. Ideal para uso diario o para complementar un look especial.',
+    price: 3300,
+    onAddLink: '/carrito/add/anillo-elegance-diamond',
+  },
+  {
+    id: 'id-2',
+    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307573/arracas_forma_kuabvh.jpg',
+    title: 'Arracadas Lisa Grande',
+    description: 'Modernas y sofisticadas arracadas con diseño geométrico, perfectas para destacar con un estilo contemporáneo. ',
+    price: 1800,
+    onAddLink: '/carrito/add/collar-perlas-tahiti',
+  },
+  {
+    id: 'id-3',
+    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307574/anillo_fregon_wvurkl.jpg',
+    title: 'Anillo Hojas',
+    description: 'Anillo con diseño de hojas delicadas, ideal para quienes buscan un toque natural y elegante en su joyería. Perfecto para ocasiones especiales o para el uso diario.',
+    price: 3200,
+    salePrice: 2800,
+    onAddLink: '/carrito/add/aretes-zafiro-royal',
+  },
+  {
+    id: 'id-4',
+    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307574/pulsera_colores_azul_au44cz.jpg',
+    title: 'Pulsera Zafiros',
+    description: 'Pulsera de zafiros con un diseño elegante y moderno, ideal para complementar cualquier atuendo. Los zafiros añaden un toque de color y sofisticación, convirtiéndola en una pieza versátil para el uso diario o para ocasiones especiales.',
+    price: 4500,
+    onAddLink: '/carrito/add/pulsera-tennis-diamantes',
+  },
+];
+---
+<section class="py-20 px-6 bg-white flex items-center justify-center">
+  <div class="max-w-6xl mx-auto px-4">
+    <h2 class="text-3xl font-bold mb-6 text-black">Productos Destacados</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {products.map((prod) => (
+        <FeaturedProductsCard client:only="react" {...prod} />
+      ))}
+    </div>
+    <div class="text-center mt-8">
+      <a href="/productos" class="inline-block px-8 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition">
+        Ver todos los productos
+      </a>
+    </div>
+  </div>
+</section>
+  

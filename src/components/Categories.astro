@@ -1,0 +1,93 @@
+---
+import CategoryCard from '@/components/products/CategoryCard.astro';
+
+const categories = [
+    {
+      title: "Aretes",
+      description: "Aretes brillantes para iluminar tu rostro",
+      image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/broqueles_bnxwun.jpg",
+      link: "/categorias/aretes"
+    },
+  {
+    title: "Anillos",
+    description: "Elegantes anillos para toda ocasión",
+    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286209/anillos_r9dpsx.jpg",
+    link: "/products/anillos"
+  },
+  {
+    title: "Collares",
+    description: "Collares únicos que realzan tu belleza",
+    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/cadena_jmkrtt.jpg",
+    link: "/categorias/collares"
+  },
+  {
+    title: "Pulseras",
+    description: "Pulseras delicadas llenas de estilo",
+    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/pulseras_dxrzz8.jpg",
+    link: "/categorias/pulseras"
+  },
+];
+---
+
+<section class="bg-black py-16 px-6 text-white text-center">
+  <h2 class="text-yellow-400 text-3xl font-bold mb-4 hero-title p-4">Nuestras Categorías</h2>
+  <p class="max-w-2xl mx-auto text-sm text-gray-300 mb-10">
+    Descubre nuestra amplia selección de joyas premium organizadas por categorías.<br/>
+    Cada pieza está cuidadosamente seleccionada para ofrecerte la máxima calidad y elegancia.
+  </p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+    {categories.map((cat) => (
+      <CategoryCard {...cat} />
+    ))}
+  </div>
+
+  <div class="mt-10">
+    <a href="/categorias" class=" btn-primary btn-outline bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-6 rounded transition-all duration-300">
+      Ver Todas las Categorías
+    </a>
+  </div>
+</section>
+
+<style>
+.hero-title {
+  font-size: 3rem;
+  font-weight: bold;
+  background: linear-gradient(90deg, #FFD700, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.btn-primary,
+.btn-outline {
+  background: linear-gradient(90deg, #FFD700, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+
+  border: 2px solid #FFD700;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600; /* Más bold que antes */
+  font-size: 1rem; /* Tamaño ajustado */
+  cursor: pointer;
+  border-radius: 5px;
+  background-color: transparent;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover,
+.btn-outline:hover {
+  background: linear-gradient(90deg, #B8860B, #FFD700);
+  border-color: #B8860B;
+  transform: scale(1.05);
+
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: black;
+  background-clip: unset;
+  color: black;
+  font-weight: 700; /* Un poco más bold */
+}
+</style>
