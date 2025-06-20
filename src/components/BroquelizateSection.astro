@@ -1,0 +1,51 @@
+---
+import BroquelizateCard from '@/components/testimonials/BroquelizateCard.astro';
+
+// Mock de características o beneficios de Broquelízate
+const features = [
+  { title: '+5',     description: 'Años de experiencia en perforaciones.'},
+  { title: '+1000',      description: 'Modelos diferentes de joyería y piercings.'},
+  { title: '+3000', description: 'Clientes satisfechos en todo México.'},
+  { title: '100%', description: 'De calidad en materiales limpios y esterilizados.'},
+
+];
+---
+<section class="py-16 bg-black">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex flex-col lg:flex-row items-center gap-8">
+      <!-- Imagen lateral ampliada aún más -->
+      <div class="flex-shrink-0 lg:w-1/2">
+        <img
+          src="https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Flocal.jpg?alt=media&token=6d032c16-75dc-4dbe-a6a1-79a077db4df4"
+          alt="Broquelízate local"
+          class="h-[30rem] lg:h-[35rem] w-full object-cover rounded-lg shadow-lg"
+        />
+      </div>
+
+      <div class="flex-1">
+        <!-- Logo centrado y más grande -->
+        <div class="flex justify-center mb-6">
+          <img
+            src="https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Flogo-blanco.png?alt=media&token=5c5326cc-fa98-4094-8521-6cac0d97d4b9"
+            alt="Broquelízate logo"
+            class="h-32 w-auto"
+          />
+        </div>
+
+        <p class="text-gray-200 mb-8 text-center lg:text-left">
+         En Broquelízate nos dedicamos con pasión a la venta de joyería y piercings, ofreciendo piezas únicas y de alta calidad. Además, realizamos perforaciones seguras en un entorno profesional, limpio y completamente esterilizado. Nuestro compromiso es brindarte una experiencia cómoda, confiable y con el mayor cuidado en cada detalle. 💎✨
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {features.map(feature => (
+            <BroquelizateCard
+              title={feature.title}
+              description={feature.description}
+              
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

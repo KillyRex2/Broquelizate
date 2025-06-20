@@ -1,0 +1,36 @@
+---
+export interface Props {
+  name: string;
+  since: number;
+  testimonial: string;
+  imageUrl: string;
+  rating: number;
+}
+
+// export let name!: Props['name'];
+// export let since!: Props['since'];
+// export let testimonial!: Props['testimonial'];
+// export let imageUrl!: Props['imageUrl'];
+// export let rating: Props['rating'] = 5;
+
+const {name, since, testimonial, imageUrl, rating} = Astro.props;
+
+const stars = Array.from({ length: 5 }, (_, i) => i < rating);
+---
+<div class="bg-gray-800 rounded-2xl shadow p-6 flex flex-col justify-between">
+  <div>
+    <div class="flex justify-center mb-4">
+      {stars.map((filled) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#f4b207" d="m7.69 18.346l1.614-5.33L5.115 10h5.216L12 4.462L13.67 10h5.215l-4.189 3.016l1.614 5.33L12 15.07z"/></svg>
+      ))}
+    </div>
+    <p class="text-gray-200 italic mb-6">"{testimonial}"</p>
+  </div>
+  <div class="flex items-center">
+    <img src={imageUrl} alt={name} class="h-12 w-12 rounded-full mr-4" />
+    <div>
+      <p class="font-semibold text-gray-200">{name}</p>
+      <p class="text-sm text-gray-200">Cliente desde {since}</p>
+    </div>
+  </div>
+</div>

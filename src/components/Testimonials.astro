@@ -1,0 +1,29 @@
+---
+// src/pages/index.astro
+import ClientCard from '@/components/testimonials/ClientCard.astro';
+
+const clients = [
+  { name: 'Pao', since: 2021, testimonial: 'Lleve a mi bebe para que le pusieran sus primeros aretes & me encanto, 🥰 Muy limpio todo, con anestesia & súper pacientes ✨ Le quedaron muy lindos & parejitos', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fpao.jpg?alt=media&token=d805ab1f-df88-4a2e-ac89-38756c7e9512', rating: 5 },
+  { name: 'Nidia Maribel Saenz', since: 2020, testimonial: 'Buen servicio!! muy paciente al realizar la aplicación de aretes a mi bebé 👶🏻🫶🏻 todo muy limpio, nuevo y con material profesional al final las indicaciones muy claras y la joyería muy bonita.', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fnidia.jpg?alt=media&token=f1eb3df8-d4eb-4201-bdbe-9c3ad33299e4', rating: 4 },
+  { name: 'Graciela Hernández',  since: 2019, testimonial: 'Excelente servicio y atención personalizada. Aunque me queda lejos, prefiero mil veces ir con ellas que a cualquier otro lugar. Siempre me atienden con muchísima amabilidad, se nota que les importa cada cliente y están súper al pendiente del proceso de cicatrización de mis piercings. Se siente un ambiente de confianza y profesionalismo que no he encontrado en ningún otro lugar. ¡Totalmente recomendadas!', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2FGraciela.jpg?alt=media&token=e2dbf996-4f97-4960-a197-53250cb45045', rating: 5 },
+  { name: 'Catalina Alvarado Bravo',   since: 2021, testimonial: 'Ame el servicio, te orientan y aconsejan muy bien sobre el tipo y material de pieza apto para la perforación que te realizas, trato profesional y muchos modelos para escoger❤️❤️❤️', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fcatalina.jpg?alt=media&token=64d8afec-c5d8-4bff-8198-b4357b9e6502', rating: 4 },
+  { name: 'Karly del Bosque',    since: 2022, testimonial: 'Excelente atención, buena variedad de servicios de piercing y aretes bonitos. La chica brindó buena información', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fkarly.png?alt=media&token=925a6f39-d7d8-431f-91c9-25d8e730c200', rating: 5 },
+  { name: 'Itzel Pindeo',    since: 2017, testimonial: 'El mejor lugar para perfos😍…', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fitzel.png?alt=media&token=54883e1c-5a30-4371-a009-3e42eddebb24', rating: 5 }
+];
+---
+<section class="py-16 bg-gray-100">
+  <div class="max-w-7xl mx-auto px-4">
+    <h2 class="text-3xl font-bold text-center mb-12 text-black">Lo que dicen nuestros clientes</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      {clients.map((client) => (
+        <ClientCard
+          name={client.name}
+          since={client.since}
+          testimonial={client.testimonial}
+          imageUrl={client.imageUrl}
+          rating={client.rating}
+        />
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,39 @@
+---
+  let email: string = '';
+  const subscribe = () => {
+    // Aquí iría la lógica para enviar el email al backend
+    console.log(`Suscribiendo: ${email}`);
+    email = '';
+  };
+  function handleInput(e: InputEvent) {
+    const target = e.target as HTMLInputElement;
+    email = target.value;
+  }
+---
+
+<section class="py-16 bg-black text-white">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <h2 class="text-3xl font-bold mb-4">Suscríbete a nuestro newsletter</h2>
+    <p class="text-gray-400 mb-8">Recibe información sobre nuevas colecciones, ofertas exclusivas y consejos de cuidado para tus joyas.</p>
+    <form
+      class="flex flex-col sm:flex-row items-center justify-center gap-4"
+      on:submit|preventDefault={subscribe}
+    >
+      <input
+        type="email"
+        placeholder="Tu email"
+        class="w-full sm:flex-1 px-4 py-2 border border-gray-600 rounded text-black"
+        value={email}
+        oninput="handleInput"
+        required
+      />
+      <button
+        type="submit"
+        class="px-6 py-2 bg-white text-black font-semibold rounded hover:bg-gray-200 transition"
+      >
+        Suscribirme
+      </button>
+    </form>
+    <p class="text-xs text-gray-500 mt-4">Al suscribirte, aceptas nuestra política de privacidad. Puedes darte de baja en cualquier momento.</p>
+  </div>
+</section>
