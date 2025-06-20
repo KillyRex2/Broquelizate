@@ -12,9 +12,11 @@ export const registerUser = defineAction({
     email: z.string().email(),
     password: z.string().min(6),
   }),
-  handler: async (form) => {
-    const { name, email, password } = form;
+  handler: async ({ name, email, password }) => {
+    // 1) Genera internamente tu UUID
+    const id = UUID();
 
+    // 2) Comprueba si ya existe
     const existingUser = await db
       .select()
       .from(User)
@@ -24,10 +26,18 @@ export const registerUser = defineAction({
     if (existingUser) {
       throw new Error('El correo ya existe');
     }
+    // Meter aquí la lógica de validación de la contraseña
+    // Validación de la contraseña con expresiones regulares
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{6,}$/.test(password)) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres, una mayúscula, una minúscula y un número');
+    }
 
+    // 3) Hashea la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 4) Inserta también el ID recién generado
     await db.insert(User).values({
+      id,               // <-- tu UUID aquí
       name,
       email,
       password: hashedPassword,
