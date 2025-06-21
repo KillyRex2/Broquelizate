@@ -2,6 +2,7 @@
 import NavBar from '@/components/shared/NavBar.astro';
 import '@/assets/styles/global.css'
 import { ClientRouter } from 'astro:transitions';
+import Footer from '@/components/shared/Footer.astro';
 
 interface Props {
     title?: string;
@@ -26,6 +27,11 @@ const {title = 'Broquelizate web'} = Astro.props;
         <NavBar />
 		<main class="">
 			<slot />
+	<div class="max-w-7xl mx-auto px-4">
+      <hr class="divider-gold mx-auto" />
+    </div>
+
+			<Footer />
 		</main>
 	</body>
 </html>
@@ -37,4 +43,11 @@ const {title = 'Broquelizate web'} = Astro.props;
     color-scheme: dark light;
   }
   
+  /* Divider muy sutil dorado */
+.divider-gold {
+  border: none;
+  border-top: 1px solid rgba(243, 212, 38, 0.671);
+}
+
+
 </style>

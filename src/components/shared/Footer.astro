@@ -1,0 +1,87 @@
+---
+import {
+  FaFacebookF,
+  FaInstagram,
+  FaLinkedinIn,
+  FaTwitter,
+} from 'react-icons/fa';
+---
+
+<footer class="bg-black text-gray-400 py-16 w-full">
+  <div class="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+    <!-- Columna 1: Branding + descripción + redes -->
+    <div>
+      <h3 class="gradient-text text-xl font-bold mb-4">Broquelizate</h3>
+      <p class="text-sm leading-relaxed mb-6">
+        Creando momentos especiales a través de piezas únicas diseñadas para perdurar en el tiempo.
+      </p>
+      <div class="flex space-x-4">
+        <a href="#" aria-label="Facebook" class="hover:text-white transition">
+          <FaFacebookF size={16} />
+        </a>
+        <a href="#" aria-label="Instagram" class="hover:text-white transition">
+          <FaInstagram size={16} />
+        </a>
+        <a href="#" aria-label="LinkedIn" class="hover:text-white transition">
+          <FaLinkedinIn size={16} />
+        </a>
+        <a href="#" aria-label="Twitter" class="hover:text-white transition">
+          <FaTwitter size={16} />
+        </a>
+      </div>
+    </div>
+
+    <!-- Columna 2: Productos -->
+    <div>
+      <h4 class="gradient-text font-semibold mb-4">Productos</h4>
+      <ul class="space-y-2 text-sm">
+        <li><a href="#" class="hover:text-yellow-500 transition">Broqueles</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Anillos</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Collares</a></li>        
+        <li><a href="#" class="hover:text-yellow-500 transition">Pulseras</a></li>
+
+        <li><a href="#" class="hover:text-yellow-500 transition">Colecciones especiales</a></li>
+      </ul>
+    </div>
+
+    <!-- Columna 3: Servicios -->
+    <div>
+      <h4 class="gradient-text font-semibold mb-4">Servicios</h4>
+      <ul class="space-y-2 text-sm">
+        <li><a href="#" class="hover:text-yellow-500 transition">Perforaciones</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Limpieza de joyas</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Grabado personalizado</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Reparaciones</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Tasaciones</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Asesoramiento</a></li>
+      </ul>
+    </div>
+
+    <!-- Columna 4: Soporte -->
+    <div>
+      <h4 class="gradient-text font-semibold mb-4">Soporte</h4>
+      <ul class="space-y-2 text-sm">
+        <li><a href="#" class="hover:text-yellow-500 transition">Contacto</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">FAQ</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Envíos y devoluciones</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Cuidado de joyas</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Política de privacidad</a></li>
+        <li><a href="#" class="hover:text-yellow-500 transition">Términos y condiciones</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+
+<style>
+    /* Text gradient reusable */
+.gradient-text {
+  background: linear-gradient(90deg, #FFD700, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+          background-clip: text;
+          color: transparent;
+}
+
+
+</style>
