@@ -105,3 +105,66 @@ export const crateUpdateProduct = defineAction({
         return product;
     }
 })
+
+// Acción para eliminar productos
+export const deleteProduct = defineAction({
+    accept: 'json',
+    input: z.object({
+        id: z.string().min(1, 'ID is required'),
+    }),
+    handler: async (input, { request }) => {
+        const session = await getSession(request);
+        const user = session?.user;
+
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const { id } = input;
+
+        try {
+            // Verificar que el producto exista y pertenezca al usuario
+            const [product] = await db
+                .select()
+                .from(Product)
+                .where(eq(Product.id, id))
+                .limit(1);
+
+            if (!product) {
+                throw new Error('Product not found');
+            }
+
+            // Obtener las imágenes asociadas al producto
+            const images = await db
+                .select()
+                .from(ProductImage)
+                .where(eq(ProductImage.productId, id));
+
+            // Eliminar las imágenes físicas si es necesario
+            if (images.length > 0) {
+                await Promise.all(
+                    images.map(image => ImageUpload.delete(image.image))
+                ).catch(error => {
+                    console.error('Error deleting images:', error);
+                    // Continuar aun si falla la eliminación de imágenes
+                });
+            }
+
+            // Eliminar registros de la base de datos
+            await db.transaction(async (tx) => {
+                // Eliminar imágenes asociadas
+                await tx.delete(ProductImage)
+                    .where(eq(ProductImage.productId, id));
+                
+                // Eliminar producto
+                await tx.delete(Product)
+                    .where(eq(Product.id, id));
+            });
+
+            return { success: true, message: 'Product deleted successfully' };
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            throw new Error('Failed to delete product');
+        }
+    }
+});

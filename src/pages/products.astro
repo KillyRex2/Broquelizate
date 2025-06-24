@@ -1,39 +1,117 @@
 ---
 import { ProductList } from "@/components";
+import { FilterSidebar } from "@/components/products/FilterSidebar";
 import Pagination from "@/components/shared/Pagination.astro";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
 
 const searchParams = Astro.url.searchParams;
-const pageParam = Number(searchParams.get('page') ?? 1);
 
+// Obtener todos los parámetros de filtrado de la URL
+const pageParam = Number(searchParams.get('page') || 1);
+const categoryParam = searchParams.get('category') || 'all';
+const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
+const inStockParam = searchParams.get('inStock') === 'true';
+
+// Llamar a la acción con todos los parámetros
 const { data, error } = await Astro.callAction(
   actions.getProductsByPage,  
   {
     page: pageParam,
+    category: categoryParam,
+    maxPrice: maxPriceParam,
+    inStock: inStockParam
   }
 );
 
-// console.log(data)
-
+// Manejo de errores
 if (error) {
-  // maneja el error como prefieras (redirect, throw, etc.)
-  return Astro.redirect('/');
+  console.error("Error al cargar productos:", error);
+  return Astro.redirect('/error');
 }
 
 const { products, totalPages } = data;
 
-if (data.products.length === 0){
-    return Astro.redirect(`products?/page=${totalPages}`)
+// Redirigir si no hay productos en la página actual
+if (products.length === 0 && totalPages > 0) {
+  // Mantener los parámetros de filtro en la redirección
+  const queryParams = new URLSearchParams({
+    page: totalPages.toString(),
+    category: categoryParam,
+    maxPrice: maxPriceParam.toString(),
+    inStock: inStockParam.toString()
+  });
+  
+  return Astro.redirect(`/products?${queryParams.toString()}`);
 }
 
+// Preparar datos para pasar al componente FilterSidebar
+const filterState = {
+  selectedCat: categoryParam,
+  price: maxPriceParam,
+  inStock: inStockParam
+};
 
+// Función para manejar actualizaciones de filtros
+// const handleFilterUpdate = (filters: {
+//   category: string;
+//   maxPrice: number;
+//   inStock: boolean;
+// }) => {
+//   const queryParams = new URLSearchParams({
+//     page: '1', // Resetear a primera página
+//     category: filters.category,
+//     maxPrice: filters.maxPrice.toString(),
+//     inStock: filters.inStock.toString()
+//   });
+  
+//   // Redirigir a la nueva URL
+//   window.location.href = `/products?${queryParams.toString()}`;
+// };
 ---
 
 <ProductsLayout>
-  
-    <ProductList products={products} client:load/>
-    <Pagination totalPages={totalPages}/>
-  
+  <div class="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
+    <!-- Sidebar -->
+    <FilterSidebar 
+      client:load
+      initialValues={filterState}
+      
+    />
 
+    <!-- Productos -->
+    <div class="flex flex-col gap-4">
+      <ProductList products={products} client:load />
+
+      <!-- Paginación al final de los productos -->
+      <Pagination 
+        totalPages={totalPages} 
+        currentPage={pageParam} 
+        queryParams={{
+          category: categoryParam,
+          maxPrice: maxPriceParam,
+          inStock: inStockParam
+        }}
+      />
+    </div>
+  </div>
 </ProductsLayout>
+<script is:inline>
+  import { navigate } from 'astro:transitions/client';
+// Escuchar el evento de actualización de filtros
+
+navigate.addEventListener('filtersUpdated', (event) => {
+    const { category, maxPrice, inStock } = event.detail;
+
+    // Construir los nuevos parámetros de consulta
+    const queryParams = new URLSearchParams({
+      page: '1', // Resetear a la primera página
+      category: category || 'all',
+      maxPrice: maxPrice ? maxPrice.toString() : '5000',
+      inStock: inStock ? 'true' : 'false'
+    });
+
+    // Redirigir a la nueva URL con los filtros aplicados
+     navigate(`/products?${queryParams.toString()}`);
+  }); 
+</script>

@@ -4,6 +4,7 @@ import { getProductsByPage } from "./products/get-products-by-page.action";
 import { loadProductsFromCart } from "./cart/load-products-from-cart.actions";
 import { crateUpdateProduct } from "./products/create-update-product.action";
 import { deleteProductImage } from "./products/delete-product-image.actions";
+import { deleteProduct } from "./products/create-update-product.action";
 
 export const server = {
     // server actions
@@ -24,4 +25,5 @@ export const server = {
     // Admin (Products)
     crateUpdateProduct,
     deleteProductImage,
+    deleteProduct
 }

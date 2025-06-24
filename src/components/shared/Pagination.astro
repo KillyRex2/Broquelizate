@@ -1,40 +1,51 @@
 ---
-
 interface Props {
-    totalPages: number;
+  totalPages: number;
+  currentPage: number;
+  queryParams: {
+    category?: string;
+    maxPrice?: number;
+    inStock?: boolean;
+    // Agrega aquí otros parámetros de filtro si es necesario
+  };
 }
 
-const { totalPages } = Astro.props;
+const { totalPages, currentPage, queryParams } = Astro.props;
+const path = Astro.url.pathname;
 
-const url = Astro.url;
-const pageParam = Number( url.searchParams.get('page') ?? 1);
+// Función para generar URL con todos los parámetros
+const generateUrl = (page: number) => {
+  const params = new URLSearchParams({
+    ...(queryParams.category && { category: queryParams.category }),
+    ...(queryParams.maxPrice && { maxPrice: queryParams.maxPrice.toString() }),
+    ...(queryParams.inStock !== undefined && { inStock: queryParams.inStock.toString() }),
+    page: page.toString()
+  });
+  
+  return `${path}?${params.toString()}`;
+};
 
-const currentPage = Math.max (
-    pageParam > totalPages ? totalPages : pageParam, 
-    1
-    );
-
-    const path = url.pathname;
+// Calcular página anterior y siguiente
+const prevPage = Math.max(currentPage - 1, 1);
+const nextPage = Math.min(currentPage + 1, totalPages);
 ---
 
-<div class="flex justify-between my-32">
-    <a class="button" 
-     href={`${path}?page=${ Math.max(currentPage - 1, 1) }` }>
-        Anteriores
-    </a>
+<div class="flex justify-between items-center my-32">
+  <a class="button" href={generateUrl(prevPage)}>
+    Anteriores
+  </a>
 
-    <span>Page {currentPage} of {totalPages}</span>
+  <span class="text-gray-200">Página {currentPage} de {totalPages}</span>
 
-    <a class ="button" 
-     href={`${path}?page=${ Math.min(currentPage + 1, totalPages) }` } >
-        Siguientes
-    </a>
-
-
+  <a class="button" href={generateUrl(nextPage)}>
+    Siguientes
+  </a>
 </div>
 
 <style>
-    .button{
-        @apply p-2 bg-yellow-500 text-black rounded
-    }
+  .button {
+    @apply p-2 bg-yellow-500 text-black rounded hover:bg-yellow-600 transition-colors;
+    min-width: 120px;
+    text-align: center;
+  }
 </style>

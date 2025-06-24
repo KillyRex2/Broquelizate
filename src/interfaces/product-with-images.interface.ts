@@ -8,5 +8,5 @@ export interface ProductWithImages {
     type: string;
     stock: number;
     user: string;
-    images: string;
+    images: string[];
 }
