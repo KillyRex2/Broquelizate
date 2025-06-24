@@ -12,6 +12,7 @@ const pageParam = Number(searchParams.get('page') || 1);
 const categoryParam = searchParams.get('category') || 'all';
 const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
 const inStockParam = searchParams.get('inStock') === 'true';
+const search = searchParams.get('search') || '';
 
 // Llamar a la acción con todos los parámetros
 const { data, error } = await Astro.callAction(
@@ -20,7 +21,8 @@ const { data, error } = await Astro.callAction(
     page: pageParam,
     category: categoryParam,
     maxPrice: maxPriceParam,
-    inStock: inStockParam
+    inStock: inStockParam,
+    search: search,
   }
 );
 
@@ -39,7 +41,8 @@ if (products.length === 0 && totalPages > 0) {
     page: totalPages.toString(),
     category: categoryParam,
     maxPrice: maxPriceParam.toString(),
-    inStock: inStockParam.toString()
+    inStock: inStockParam.toString(),
+    search: search.toString()
   });
   
   return Astro.redirect(`/products?${queryParams.toString()}`);
@@ -49,25 +52,9 @@ if (products.length === 0 && totalPages > 0) {
 const filterState = {
   selectedCat: categoryParam,
   price: maxPriceParam,
-  inStock: inStockParam
+  inStock: inStockParam,
+  search: search  // ¡Asegúrate de incluir este campo!
 };
-
-// Función para manejar actualizaciones de filtros
-// const handleFilterUpdate = (filters: {
-//   category: string;
-//   maxPrice: number;
-//   inStock: boolean;
-// }) => {
-//   const queryParams = new URLSearchParams({
-//     page: '1', // Resetear a primera página
-//     category: filters.category,
-//     maxPrice: filters.maxPrice.toString(),
-//     inStock: filters.inStock.toString()
-//   });
-  
-//   // Redirigir a la nueva URL
-//   window.location.href = `/products?${queryParams.toString()}`;
-// };
 ---
 
 <ProductsLayout>
@@ -76,7 +63,6 @@ const filterState = {
     <FilterSidebar 
       client:load
       initialValues={filterState}
-      
     />
 
     <!-- Productos -->
@@ -90,28 +76,10 @@ const filterState = {
         queryParams={{
           category: categoryParam,
           maxPrice: maxPriceParam,
-          inStock: inStockParam
+          inStock: inStockParam,
+          search: search  // Añade esto también
         }}
       />
     </div>
   </div>
 </ProductsLayout>
-<script is:inline>
-  import { navigate } from 'astro:transitions/client';
-// Escuchar el evento de actualización de filtros
-
-navigate.addEventListener('filtersUpdated', (event) => {
-    const { category, maxPrice, inStock } = event.detail;
-
-    // Construir los nuevos parámetros de consulta
-    const queryParams = new URLSearchParams({
-      page: '1', // Resetear a la primera página
-      category: category || 'all',
-      maxPrice: maxPrice ? maxPrice.toString() : '5000',
-      inStock: inStock ? 'true' : 'false'
-    });
-
-    // Redirigir a la nueva URL con los filtros aplicados
-     navigate(`/products?${queryParams.toString()}`);
-  }); 
-</script>

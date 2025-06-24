@@ -19,7 +19,7 @@ export const crateUpdateProduct = defineAction({
     accept: 'form',
     input: z.object({
         id: z.string().optional(),
-        name: z.string(),
+        name: z.string().min(1, "Nombre es requerido"), 
         price: z.number(),
         description: z.string(),
         category: z.string(),
@@ -85,8 +85,8 @@ export const crateUpdateProduct = defineAction({
         secureUrls.forEach(imageUrl => {
             const imageObj = {
                 id: UUID(),
-				productId: product.id,
-				image: imageUrl,
+                productId: product.id,
+                image: imageUrl,
             }
 
             queries.push(db.insert(ProductImage).values(imageObj));

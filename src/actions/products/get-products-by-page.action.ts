@@ -15,7 +15,8 @@ export const inputSchema = z.object({
   limit: z.number().optional().default(12),
   category: z.string().optional().default('all'),
   maxPrice: z.number().optional().default(5000),
-  inStock: z.boolean().optional().default(false)
+  inStock: z.boolean().optional().default(false),
+  search: z.string().optional().default('') // Nuevo parámetro de búsqueda
 });
 
 export const handler = async ({ 
@@ -23,8 +24,20 @@ export const handler = async ({
   limit, 
   category, 
   maxPrice, 
-  inStock 
+  inStock, 
+  search,
 }: z.infer<typeof inputSchema>) => {
+    // En tu handler, justo después de recibir los parámetros
+console.log("Parámetros de búsqueda recibidos:", {
+  search,
+  category,
+  maxPrice,
+  inStock,
+  page,
+  limit
+});
+
+
   try {
     page = Math.max(page, 1);
     
@@ -50,6 +63,17 @@ export const handler = async ({
       filters.push(gt(Product.stock, 0));
     }
     
+    // En tu handler (backend)
+    if (search && search.trim() !== '') {
+    const searchTerm = `%${search.trim().toLowerCase()}%`;
+    
+    // Usar una sola condición para depuración
+    filters.push(sql`LOWER(${Product.name}) LIKE ${searchTerm}`);
+    
+    // Agrega un log para verificar
+    console.log(`Búsqueda: ${searchTerm}`);
+    }
+    
     // Consulta para el conteo total
     const countQuery = db
       .select({ count: count() })
@@ -58,10 +82,16 @@ export const handler = async ({
     if (filters.length > 0) {
       countQuery.where(and(...filters));
     }
+
+    // Después de construir los filtros
+    console.log(`Número de filtros aplicados: ${filters.length}`);
+    console.log("Filtros:", filters);
     
     const countResult = await countQuery;
     const totalItems = countResult[0]?.count || 0;
     const totalPages = Math.ceil(totalItems / limit);
+
+    console.log(`Total de productos encontrados: ${totalItems}`);
     
     // Manejar páginas inválidas
     if (page > totalPages && totalPages > 0) {

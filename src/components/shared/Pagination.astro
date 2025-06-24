@@ -6,6 +6,7 @@ interface Props {
     category?: string;
     maxPrice?: number;
     inStock?: boolean;
+    search?: string;
     // Agrega aquí otros parámetros de filtro si es necesario
   };
 }
@@ -19,6 +20,7 @@ const generateUrl = (page: number) => {
     ...(queryParams.category && { category: queryParams.category }),
     ...(queryParams.maxPrice && { maxPrice: queryParams.maxPrice.toString() }),
     ...(queryParams.inStock !== undefined && { inStock: queryParams.inStock.toString() }),
+     ...(queryParams.search && { category: queryParams.search }),
     page: page.toString()
   });
   

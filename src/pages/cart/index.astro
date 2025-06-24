@@ -2,118 +2,164 @@
 import { actions } from 'astro:actions';
 import ProductsLayout from '@/layouts/ProductsLayout.astro';
 import { Formatter } from '@/utils';
+import { CartCookiesClient } from '../../utils/cart-cookies';
 
-const productsInCartCookie = Astro.cookies.get('cart')?.json() ?? [];
+// Obtener productos del carrito
+const cartItems = CartCookiesClient.getCart();
 const { data: products, error } = await Astro.callAction(
   actions.loadProductsFromCart,
-  productsInCartCookie
+  cartItems
 );
 
 if (error || !products) {
   return Astro.redirect('/');
 }
 
+// Calcular totales
 const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
 const tax = subtotal * 0.15;
 const total = subtotal + tax;
 ---
 
 <ProductsLayout>
+  
   <h1 class="text-4xl font-bold mb-8 text-white">Tu Carrito</h1>
-
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Lista de Productos -->
-    <div class="lg:col-span-2 space-y-6">
-      {products.map(product => (
-        <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg">
-          <img
-            src={product.image}
-            alt={product.name}
-            class="w-full md:w-40 h-40 object-cover"
-          />
-
-          <div class="flex-1 p-6 flex flex-col justify-between">
-            <div>
-              <a
-                href={`/products/${product.slug}`}
-                class="text-xl font-semibold text-gray-900 hover:text-yellow-500"
-              >
-                {product.name}
-              </a>
-              <p class="mt-1 text-sm text-yellow-500 uppercase">
-                {product.category}
-              </p>
-            </div>
-
-            <div class="mt-4 flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <label for={`qty-${product.productId}`} class="sr-only">Cantidad</label>
-                <select
-                  id={`qty-${product.productId}`}
-                  value={product.quantity}
-                  class="bg-gray-100 text-gray-900 px-3 py-1 rounded-lg"
-                >
-                  {[1,2,3,4,5].map(n => (
-                    <option value={n}>{n}</option>
-                  ))}
-                </select>
-                <span class="text-gray-900 font-semibold">
-                  {Formatter.currency(product.price * product.quantity)}
-                </span>
-              </div>
-              <button
-                data-id={product.productId}
-                class="text-red-500 hover:text-red-700 transition"
-                aria-label="Remover producto"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
-
-      <a
-        href="/products"
-        class="inline-block mt-4 text-yellow-400 hover:underline"
+            <button
+            id="clear-cart-btn"
+            class="text-red-500 hover:text-red-700 transition font-medium padding-2 rounded-full hover:bg-red-100 mb-4"
+          >
+            Vaciar carrito
+          </button>
+  
+  {products.length === 0 ? (
+    <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
+      <div class="text-6xl mb-4">🛒</div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">Tu carrito está vacío</h2>
+      <p class="text-gray-600 mb-6">Añade algunos productos para continuar</p>
+      <a 
+        href="/products" 
+        class="inline-block bg-yellow-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-yellow-600 transition"
       >
-        ← Seguir comprando
+        Ver Productos
       </a>
     </div>
+  ) : (
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Lista de Productos -->
+      <div class="lg:col-span-2 space-y-6">
+        {products.map(product => (
+          <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg transition hover:shadow-xl">
+            <!-- Contenedor de imagen mejorado -->
+            <div class="w-full md:w-40 flex-shrink-0 flex items-center justify-center bg-gray-100">
+              <img
+                src={product.image}
+                alt={product.name}
+                class="object-contain w-full h-48 p-4 md:w-full md:h-auto"
+              />
+            </div>
 
-    <!-- Resumen de Compra -->
-    <div class="bg-white rounded-2xl shadow-xl p-8 flex flex-col">
-      <h2 class="text-2xl font-bold mb-6 text-gray-800">Resumen de compra</h2>
+            <div class="flex-1 p-6 flex flex-col justify-between">
+              <div>
+                <a
+                  href={`/products/${product.slug}`}
+                  class="text-xl font-semibold text-gray-900 hover:text-yellow-500 transition"
+                >
+                  {product.name}
+                </a>
+                <p class="mt-1 text-sm text-yellow-500 uppercase">
+                  {product.category}
+                </p>
+                <p class="mt-2 text-gray-900">
+                  {Formatter.currency(product.price)} × {product.quantity} = 
+                  <span class="font-semibold ml-1">
+                    {Formatter.currency(product.price * product.quantity)}
+                  </span>
+                </p>
+              </div>
 
-      <div class="space-y-4 text-gray-600 flex-1">
-        <div class="flex justify-between">
-          <span>Subtotal</span>
-          <span>{Formatter.currency(subtotal)}</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Impuesto (15%)</span>
-          <span>{Formatter.currency(tax)}</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Envío</span>
-          <span>Gratis</span>
+              <div class="mt-4 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <label for={`qty-${product.productId}`} class="sr-only">Cantidad</label>
+                  <select
+                    id={`qty-${product.productId}`}
+                    class="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  >
+                    {[1,2,3,4,5].map(n => (
+                      <option
+                        value={n}
+                        selected={n === product.quantity}
+                      >
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+
+                </div>
+                <button
+                  data-id={product.productId}
+                  class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-100"
+                  aria-label="Remover producto"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <div class="flex justify-between items-center mt-8">
+          <a
+            href="/products"
+            class="inline-flex items-center text-yellow-400 hover:underline transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+            Seguir comprando
+          </a>
+          
+
         </div>
       </div>
 
-      <div class="mt-6 border-t border-gray-200 pt-4 flex justify-between items-center">
-        <span class="text-xl font-semibold text-gray-800">Total</span>
-        <span class="text-2xl font-extrabold text-gray-900">
-          {Formatter.currency(total)}
-        </span>
-      </div>
+      <!-- Resumen de Compra -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 flex flex-col sticky top-4">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Resumen de compra</h2>
 
-      <button
-        class="mt-8 w-full bg-yellow-500 text-white font-semibold py-3 rounded-lg hover:bg-yellow-600 transition"
-      >
-        Pagar Ahora
-      </button>
+        <div class="space-y-4 text-gray-600 flex-1">
+          <div class="flex justify-between">
+            <span>Subtotal ({products.reduce((sum, p) => sum + p.quantity, 0)} items)</span>
+            <span class="font-medium">{Formatter.currency(subtotal)}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Impuesto (15%)</span>
+            <span class="font-medium">{Formatter.currency(tax)}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Envío</span>
+            <span class="text-green-600 font-medium">Gratis</span>
+          </div>
+        </div>
+
+        <div class="mt-6 border-t border-gray-200 pt-4 flex justify-between items-center">
+          <span class="text-xl font-semibold text-gray-800">Total</span>
+          <span class="text-2xl font-extrabold text-gray-900">
+            {Formatter.currency(total)}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          class="mt-8 w-full bg-yellow-500 text-white font-semibold py-3 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center"
+        >
+          Proceder al pago
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
     </div>
-  </div>
+  )}
 </ProductsLayout>
 
 <script>
@@ -122,15 +168,72 @@ const total = subtotal + tax;
   import { itemsInCart } from '@/store';
 
   document.addEventListener('astro:page-load', () => {
+    // Eliminar producto
     document.querySelectorAll('[data-id]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget;
         if (!(target instanceof HTMLButtonElement)) return;
+        
         const id = target.dataset.id || '';
         const cart = CartCookiesClient.removeItem(id);
         itemsInCart.set(cart.length);
         navigate('/cart');
       });
     });
+    
+    // Actualizar cantidad - SOLUCIÓN AL PROBLEMA DEL SELECTOR
+    document.querySelectorAll('select').forEach(select => {
+      select.addEventListener('change', (e) => {
+        const target = e.currentTarget;
+        if (!(target instanceof HTMLSelectElement)) return;
+        
+        const id = target.id.replace('qty-', '');
+        const quantity = parseInt(target.value);
+        
+        if (id && quantity > 0) {
+          // SOLUCIÓN: Actualizar la cantidad en el carrito
+          const cart = CartCookiesClient.updateItemQuantity(id, quantity);
+          
+          // Actualizar el contador global del carrito
+          itemsInCart.set(cart.reduce((total, item) => total + item.quantity, 0));
+          
+          // Recargar la página para ver los cambios
+          navigate('/cart');
+        }
+      });
+    });
+    
+    // Vaciar carrito
+    const clearCartBtn = document.getElementById('clear-cart-btn');
+    if (clearCartBtn) {
+      clearCartBtn.addEventListener('click', () => {
+        CartCookiesClient.clearCart();
+        itemsInCart.set(0);
+        navigate('/cart');
+      });
+    }
   });
 </script>
+
+<style>
+  /* Mejoras para las imágenes */
+  .object-contain {
+    object-fit: contain;
+  }
+  
+  .bg-gray-100 {
+    background-color: #f3f4f6;
+  }
+  
+  /* Estilos para mejorar la experiencia móvil */
+  @media (max-width: 768px) {
+    .flex-col.md\:flex-row {
+      flex-direction: column;
+    }
+    
+    .w-full.md\:w-40 {
+      width: 100%;
+      height: 200px;
+    }
+  }
+</style>

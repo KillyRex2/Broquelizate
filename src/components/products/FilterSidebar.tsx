@@ -1,22 +1,17 @@
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
-import { FaGem, FaRegCircle } from "react-icons/fa";
+import { FaGem, FaRegCircle, FaSearch } from "react-icons/fa";
 import { AiFillGold } from "react-icons/ai";
 import { GiPlasticDuck } from "react-icons/gi";
 import { MdTitle } from "react-icons/md";
 import { FaRegRegistered, FaA } from "react-icons/fa6";
-import { navigate } from "astro:transitions/client"; // Importar navigate
-
-interface FilterValues {
-  category: string;
-  maxPrice: number;
-  inStock: boolean;
-}
+import { navigate } from "astro:transitions/client";
 
 interface FilterSidebarProps {
   initialValues?: {
     selectedCat?: string;
     price?: number;
     inStock?: boolean;
+    search?: string;
   };
 }
 
@@ -38,17 +33,21 @@ const categories = [
 export const FilterSidebar = ({
   initialValues
 }: FilterSidebarProps) => {
+  const [isMounted, setIsMounted] = useState(false);
   // Inicializar estado con valores iniciales
   const [selectedCat, setSelectedCat] = useState<string>(initialValues?.selectedCat || "all");
   const [price, setPrice] = useState<number>(initialValues?.price || 5000);
   const [inStock, setInStock] = useState<boolean>(initialValues?.inStock || false);
+  const [searchTerm, setSearchTerm] = useState<string>(initialValues?.search || "");
 
   // Actualizar estado cuando cambian los valores iniciales
   useEffect(() => {
+    setIsMounted(true);
     if (initialValues) {
       setSelectedCat(initialValues.selectedCat || "all");
       setPrice(initialValues.price || 5000);
       setInStock(initialValues.inStock || false);
+      setSearchTerm(initialValues.search || "");
     }
   }, [initialValues]);
 
@@ -60,33 +59,59 @@ export const FilterSidebar = ({
 
   const onInStockChange = () => setInStock(prev => !prev);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    const newFilters = {
-      category: selectedCat,
-      maxPrice: price,
-      inStock: inStock
-    };
+  const onSearchChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setSearchTerm(e.target.value);
 
-    // Construir parámetros de consulta
-    const queryParams = new URLSearchParams({
-      page: '1', // Resetear a primera página
-      category: newFilters.category,
-      maxPrice: newFilters.maxPrice.toString(),
-      inStock: newFilters.inStock.toString()
-    });
-    
-    // Usar navigate para transición suave
-    navigate(`/products?${queryParams.toString()}`);
+ const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  
+  console.log("Valor de searchTerm al enviar:", searchTerm);
+  
+  const newFilters = {
+    category: selectedCat,
+    maxPrice: price,
+    inStock: inStock,
+    search: searchTerm
   };
 
+  const queryParams = new URLSearchParams({
+    page: '1',
+    category: newFilters.category,
+    maxPrice: newFilters.maxPrice.toString(),
+    inStock: newFilters.inStock.toString(),
+    search: newFilters.search
+  });
+  
+  // Usar navigate para transición suave
+  navigate(`/products?${queryParams.toString()}`);
+};
+  if (!isMounted) {
+    return (
+      <aside className="w-64 p-4 flex-shrink-0 rounded-lg shadow-md bg-gray-900 text-gray-200">
+        Cargando filtros...
+      </aside>
+    );
+  }
   return (
     <aside className="w-64 p-4 flex-shrink-0 rounded-lg shadow-md bg-gray-900 text-gray-200">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold mb-2">Filtros</h2>
           <hr className="border-gray-700" />
+        </div>
+
+        {/* Campo de Búsqueda */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <FaSearch className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Buscar productos..."
+            value={searchTerm}
+            onChange={onSearchChange}
+            className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
 
         {/* Categorías */}
