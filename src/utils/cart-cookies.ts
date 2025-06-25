@@ -1,5 +1,7 @@
+// src/utils/cart-cookies.ts
 import type { CartItem } from "@/interfaces";
 import Cookies from 'js-cookie';
+import { updateCartStore, clearCartStore } from '@/store'; // Importa los métodos del store
 
 export class CartCookiesClient {
     static getCart(): CartItem[] {
@@ -17,6 +19,7 @@ export class CartCookiesClient {
         }
 
         this.setCart(cart);
+        updateCartStore(); // Actualiza el store
         return cart;
     }
 
@@ -24,6 +27,7 @@ export class CartCookiesClient {
         const cart = this.getCart();
         const updatedCart = cart.filter(item => item.productId !== productId);
         this.setCart(updatedCart);
+        updateCartStore(); // Actualiza el store
         return updatedCart;
     }
 
@@ -36,6 +40,7 @@ export class CartCookiesClient {
         if (item) {
             item.quantity = quantity;
             this.setCart(cart);
+            updateCartStore(); // Actualiza el store
         }
         
         return cart;
@@ -49,6 +54,7 @@ export class CartCookiesClient {
             item.quantity += amount;
             if (item.quantity <= 0) return this.removeItem(productId);
             this.setCart(cart);
+            updateCartStore(); // Actualiza el store
         }
         
         return cart;
@@ -56,6 +62,7 @@ export class CartCookiesClient {
 
     static clearCart(): CartItem[] {
         this.setCart([]);
+        clearCartStore(); // Actualiza el store a 0
         return [];
     }
 
