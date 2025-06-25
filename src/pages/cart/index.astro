@@ -149,6 +149,7 @@ const total = subtotal + tax;
         </div>
 
         <button
+          id="checkout-btn"
           type="button"
           class="mt-8 w-full bg-yellow-500 text-white font-semibold py-3 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center"
         >
@@ -212,7 +213,14 @@ const total = subtotal + tax;
         navigate('/cart');
       });
     }
+    
+    document.querySelector('#checkout-btn')?.addEventListener('click', () => {
+    // Redirigir al usuario a la página de checkout
+    navigate('/checkout');
   });
+  });
+
+
 </script>
 
 <style>
