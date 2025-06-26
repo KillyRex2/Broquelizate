@@ -22,7 +22,6 @@ const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
 const tax = subtotal * 0.15;
 const total = subtotal + tax;
 ---
-
 <div class="bg-gray-200 p-4 rounded-xl shadow-md">
   <div class="md:max-w-5xl max-w-xl mx-auto">
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -68,60 +67,32 @@ const total = subtotal + tax;
             </div>
           </div>
 
-          <!-- Formulario de pago con tarjeta -->
+          <!-- Formulario de pago con tarjeta (Stripe) - CORREGIDO -->
           <div id="card-form" class={!isAdmin ? "mt-12" : "hidden mt-12"}>
+            <div id="card-errors" class="text-red-500 text-sm mt-2" role="alert"></div>
             <form id="payment-form">
               <div class="grid gap-4">
                 <div>
                   <input 
                     type="text" 
+                    id="card-holder-name"
                     placeholder="Nombre del titular" 
                     class="px-4 py-3.5 bg-gray-100 text-slate-900 w-full text-sm border border-gray-200 rounded-md focus:border-purple-500 focus:bg-transparent outline-0"
                     required
                   />
                 </div>
                 
-                <div class="flex bg-gray-100 border border-gray-200 rounded-md focus-within:border-purple-500 focus-within:bg-transparent overflow-hidden">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 ml-3" viewBox="0 0 32 20">
-                    <circle cx="10" cy="10" r="10" fill="#f93232" />
-                    <path fill="#fed049"
-                      d="M22 0c-2.246 0-4.312.75-5.98 2H16v.014c-.396.298-.76.634-1.107.986h2.214c.308.313.592.648.855 1H14.03a9.932 9.932 0 0 0-.667 1h5.264c.188.324.365.654.518 1h-6.291a9.833 9.833 0 0 0-.377 1h7.044c.104.326.186.661.258 1h-7.563c-.067.328-.123.66-.157 1h7.881c.039.328.06.661.06 1h-8c0 .339.027.67.06 1h7.882c-.038.339-.093.672-.162 1h-7.563c.069.341.158.673.261 1h7.044a9.833 9.833 0 0 1-.377 1h-6.291c.151.344.321.678.509 1h5.264a9.783 9.783 0 0 1-.669 1H14.03c.266.352.553.687.862 1h2.215a10.05 10.05 0 0 1-1.107.986A9.937 9.937 0 0 0 22 20c5.523 0 10-4.478 10-10S27.523 0 22 0z"
-                    />
-                  </svg>
-                  <input 
-                    type="text" 
-                    placeholder="Número de tarjeta" 
-                    class="px-4 py-3.5 text-slate-900 w-full text-sm outline-0 bg-transparent"
-                    required
-                    maxlength="19"
-                  />
-                </div>
+                <!-- Elemento para Stripe Card -->
+                <div id="card-element" class="p-4 bg-gray-100 border border-gray-200 rounded-md"></div>
                 
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <input 
-                      type="text" 
-                      placeholder="MM/AA" 
-                      class="px-4 py-3.5 bg-gray-100 text-slate-900 w-full text-sm border border-gray-200 rounded-md focus:border-purple-500 focus:bg-transparent outline-0"
-                      required
-                      maxlength="5"
-                    />
-                  </div>
-                  <div>
-                    <input 
-                      type="number" 
-                      placeholder="CVV" 
-                      class="px-4 py-3.5 bg-gray-100 text-slate-900 w-full text-sm border border-gray-200 rounded-md focus:border-purple-500 focus:bg-transparent outline-0"
-                      required
-                      maxlength="4"
-                    />
-                  </div>
-                </div>
+                <!-- Mensaje de error para tarjeta -->
+                <div id="card-errors" class="text-red-500 text-sm mt-2" role="alert"></div>
               </div>
               
               <button 
-                type="submit" 
-                class="mt-8 w-40 py-3 text-[15px] font-medium bg-purple-500 text-white rounded-md hover:bg-purple-600 tracking-wide cursor-pointer transition-colors"
+                id="submit-card-payment"
+                type="button" 
+                class="mt-8 w-40 py-3 text-[15px] font-medium bg-purple-500 text-white rounded-md hover:bg-purple-600 tracking-wide cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Pagar
               </button>
@@ -186,6 +157,7 @@ const total = subtotal + tax;
   </div>
 </div>
 
+
 <style>
   /* Estilos adicionales para mejorar la experiencia */
   input[type="number"]::-webkit-inner-spin-button,
@@ -227,10 +199,36 @@ const total = subtotal + tax;
     border-color: #a855f7;
     background-color: rgba(168, 85, 247, 0.1);
   }
+
+  /* Estilos para elementos de Stripe */
+  .StripeElement {
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: white;
+    box-shadow: 0 1px 3px 0 #e6ebf1;
+    -webkit-transition: box-shadow 150ms ease;
+    transition: box-shadow 150ms ease;
+  }
+
+  .StripeElement--focus {
+    box-shadow: 0 1px 3px 0 #cfd7df;
+  }
+
+  .StripeElement--invalid {
+    border-color: #fa755a;
+  }
+
+  .StripeElement--webkit-autofill {
+    background-color: #fefde5 !important;
+  }
 </style>
 
 <script>
   // Importar SweetAlert2 y otras dependencias
+  import { loadStripe } from '@stripe/stripe-js';
+  import type { Stripe, StripeCardElement, StripeElements } from '@stripe/stripe-js';
   import Swal from 'sweetalert2';
   import { navigate } from 'astro:transitions/client';
   import { generateTicket, printTicket } from '@/services/ticketGenerator';
@@ -252,7 +250,84 @@ const total = subtotal + tax;
       quantity: number;
       price: number;
     };
-  
+
+let stripe: Stripe | null = null;
+let cardElement: StripeCardElement | null = null;
+let elements: StripeElements | null = null;
+// Función para inicializar Stripe y los elementos de pago
+async function initializeStripe(): Promise<void> {
+  // Verificar que la clave de Stripe está definida
+  if (!import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
+    console.error('Stripe public key is not defined in environment variables');
+    await Swal.fire({
+      title: 'Error de configuración',
+      text: 'La clave de Stripe no está configurada correctamente.',
+      icon: 'error',
+      confirmButtonText: 'Entendido'
+    });
+    return;
+  }
+
+  try {
+    // Cargar Stripe - ahora puede ser null
+    const stripeInstance = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
+    if (!stripeInstance) {
+      throw new Error('Failed to load Stripe');
+    }
+    stripe = stripeInstance;
+
+    // Crear elementos de Stripe
+    const elementsInstance = stripe.elements();
+    if (!elementsInstance) {
+      throw new Error('Failed to create Stripe elements');
+    }
+    elements = elementsInstance;
+
+    // Montar elemento en el DOM
+    const cardElementContainer = document.getElementById('card-element');
+    if (!cardElementContainer) {
+      throw new Error('Card element container not found');
+    }
+    
+    // Crear elemento de tarjeta
+    cardElement = elements.create('card', {
+      style: {
+        base: {
+          color: '#32325d',
+          fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+          fontSmoothing: 'antialiased',
+          fontSize: '16px',
+          '::placeholder': {
+            color: '#aab7c4'
+          }
+        },
+        invalid: {
+          color: '#fa755a',
+          iconColor: '#fa755a'
+        }
+      },
+      hidePostalCode: true
+    });
+    
+    cardElement.mount(cardElementContainer);
+    
+    // Manejar errores en tiempo real
+    cardElement.on('change', (event) => {
+      const displayError = document.getElementById('card-errors');
+      if (!displayError) return;
+      displayError.textContent = event.error ? event.error.message : '';
+    });
+    
+  } catch (error) {
+    console.error('Error initializing Stripe:', error);
+  }
+
+  console.log('Stripe public key:', import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
+  console.log('Environment variables:', import.meta.env);
+}
+
+
+
   // Función para renderizar los productos en el resumen
   function renderProducts(products: Product[]) {
     return products.map(p => `
@@ -304,15 +379,148 @@ const total = subtotal + tax;
   }
 
   // Función para manejar el pago con tarjeta
-  function handleCardPayment(e: Event) {
-    e.preventDefault();
-    console.log('Procesando pago con tarjeta...');
-    
-    // Simular procesamiento de pago
-    setTimeout(() => {
-      navigate('/order-success');
-    }, 1000);
+
+async function handleCardPayment(e: Event): Promise<void> {
+  e.preventDefault();
+  
+  const submitButton = document.getElementById('submit-card-payment') as HTMLButtonElement | null;
+  if (!submitButton) return;
+
+  const cardHolderNameInput = document.getElementById('card-holder-name') as HTMLInputElement | null;
+  if (!cardHolderNameInput) return;
+
+  const cardHolderName = cardHolderNameInput.value.trim();
+  
+  if (!cardHolderName) {
+    await Swal.fire({
+      title: 'Error',
+      text: 'Por favor, ingresa el nombre del titular de la tarjeta.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar',
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'px-4 py-2 rounded-lg'
+      }
+    });
+    return;
   }
+
+  const data = getCheckoutData();
+  if (!data) return;
+
+  const { taxValue, totalValue } = data;
+  
+  if (isNaN(taxValue) || isNaN(totalValue)) return;
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Procesando...';
+  
+  try {
+    
+     if (!stripe || !cardElement || !elements) {
+      throw new Error('El sistema de pagos no está inicializado correctamente');
+    }
+    // Mostrar loader (sin asignar a variable)
+    Swal.fire({
+      title: 'Procesando pago...',
+      text: 'Por favor, espera mientras confirmamos tu pago.',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    // Crear Payment Intent
+    const response = await fetch('/api/create-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: Math.round(totalValue * 100),
+        currency: 'mxn',
+        tax: taxValue,
+        subtotal: totalValue - taxValue
+      })
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json();
+      throw new Error(errorResponse.error || `HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message);
+    if (!result.clientSecret) throw new Error('ClientSecret no recibido');
+
+    // Confirmar pago
+    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+      result.clientSecret,
+      {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: cardHolderName
+          }
+        }
+      }
+    );
+
+    // Cerrar loader
+    Swal.close();
+
+    if (stripeError) throw new Error(stripeError.message);
+    if (!paymentIntent) throw new Error('No se recibió PaymentIntent');
+    if (paymentIntent.status !== 'succeeded') throw new Error(`Estado: ${paymentIntent.status}`);
+
+    // Generar ticket
+    const storeInfo = {
+      name: "Broquelizate",
+      address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
+      phone: "+528714617696",
+      rfc: "XAXX010101000"
+    };
+
+    const pdfDoc = generateTicket(data.productsData, taxValue, totalValue, storeInfo);
+    printTicket(pdfDoc);
+    Cookies.clearCart();
+
+    await Swal.fire({
+      title: 'Pago exitoso',
+      text: `Tu pago de ${Formatter.currency(totalValue)} se ha procesado correctamente.`,
+      icon: 'success',
+      confirmButtonText: 'Aceptar',
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600'
+      }
+    });
+
+    navigate('/order-success');
+    
+  } catch (error) {
+    console.error('Error en el pago:', error);
+    
+    // Cerrar loader si está activo
+    if (Swal.isVisible()) Swal.close();
+    
+    await Swal.fire({
+      title: 'Error',
+      text: 'Ocurrió un error al procesar el pago.',
+      icon: 'error',
+      confirmButtonText: 'Intentar de nuevo',
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'px-4 py-2 rounded-lg'
+      }
+    });
+    
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Pagar';
+    }
+  }
+}
+
 
   // Función para manejar el pago en efectivo
   async function handleCashPayment() {
@@ -405,17 +613,19 @@ const total = subtotal + tax;
   }
 
   // Inicialización cuando la página está lista
-  document.addEventListener('astro:page-load', () => {
+  document.addEventListener('astro:page-load', async () => {
     // Configurar eventos de los métodos de pago
+
+    await initializeStripe();
     const paymentRadios = document.querySelectorAll('input[name="payment-method"]');
     paymentRadios.forEach(radio => {
       radio.addEventListener('change', updatePaymentVisibility);
     });
     
     // Configurar formulario de tarjeta
-    const paymentForm = document.getElementById('payment-form');
+    const paymentForm = document.getElementById('submit-card-payment');
     if (paymentForm) {
-      paymentForm.addEventListener('submit', handleCardPayment);
+      paymentForm.addEventListener('click', handleCardPayment);
     }
     
     // Configurar botón de pago en efectivo
