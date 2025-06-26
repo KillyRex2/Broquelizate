@@ -45,9 +45,10 @@ const { isLoggedIn, isAdmin } = Astro.locals;
 <script>
   const { signOut } = await import('auth-astro/client');
 
-  const logoutElem = document.querySelector('#logout') as HTMLLIElement;
+  
   // Add event listener to the logout element
   document.addEventListener('astro:page-load', () => {
+    const logoutElem = document.querySelector('#logout') as HTMLLIElement;
     // Ensure the logout element exists before adding the event listener
     if (logoutElem) {
       logoutElem.addEventListener('click', async () => {

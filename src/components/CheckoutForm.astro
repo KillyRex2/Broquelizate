@@ -1,5 +1,4 @@
 ---
-// src/components/CheckoutForm.astro
 import { Formatter } from '../utils';
 import type { CartItem } from '@/interfaces';
 import { CartCookiesClient } from '@/utils/cart-cookies';
@@ -36,14 +35,11 @@ const total = subtotal + tax;
           <h3 class="text-lg font-semibold text-slate-900">Elige tu método de pago</h3>
           
           <div class="flex flex-wrap gap-4 justify-between mt-6">
-
-
             {
               isAdmin && (
-
                 <!-- Opción de Efectivo -->
                 <div class="flex items-center">
-                  <input type="radio" class="w-5 h-5 cursor-pointer" id="cash" checked name="payment-method" />
+                  <input type="radio" class="w-5 h-5 cursor-pointer" id="cash" name="payment-method" />
                   <label for="cash" class="ml-4 flex gap-2 cursor-pointer items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -51,12 +47,11 @@ const total = subtotal + tax;
                     <span class="text-lg text-gray-800">Efectivo</span>
                   </label>
                 </div>
-                
               )
             }
             <!-- Opciones de tarjeta -->
             <div class="flex items-center">
-              <input type="radio" class="w-5 h-5 cursor-pointer" id="card" name="payment-method" />
+              <input type="radio" class="w-5 h-5 cursor-pointer" id="card" name="payment-method" checked={!isAdmin} />
               <label for="card" class="ml-4 flex gap-2 cursor-pointer">
                 <img src="https://readymadeui.com/images/visa.webp" class="w-12" alt="Visa" />
                 <img src="https://readymadeui.com/images/american-express.webp" class="w-12" alt="American Express" />
@@ -73,8 +68,8 @@ const total = subtotal + tax;
             </div>
           </div>
 
-          <!-- Formulario de pago (oculto para efectivo) -->
-          <div id="card-form" class="hidden mt-12">
+          <!-- Formulario de pago con tarjeta -->
+          <div id="card-form" class={!isAdmin ? "mt-12" : "hidden mt-12"}>
             <form id="payment-form">
               <div class="grid gap-4">
                 <div>
@@ -94,10 +89,11 @@ const total = subtotal + tax;
                     />
                   </svg>
                   <input 
-                    type="number" 
+                    type="text" 
                     placeholder="Número de tarjeta" 
                     class="px-4 py-3.5 text-slate-900 w-full text-sm outline-0 bg-transparent"
                     required
+                    maxlength="19"
                   />
                 </div>
                 
@@ -108,6 +104,7 @@ const total = subtotal + tax;
                       placeholder="MM/AA" 
                       class="px-4 py-3.5 bg-gray-100 text-slate-900 w-full text-sm border border-gray-200 rounded-md focus:border-purple-500 focus:bg-transparent outline-0"
                       required
+                      maxlength="5"
                     />
                   </div>
                   <div>
@@ -116,6 +113,7 @@ const total = subtotal + tax;
                       placeholder="CVV" 
                       class="px-4 py-3.5 bg-gray-100 text-slate-900 w-full text-sm border border-gray-200 rounded-md focus:border-purple-500 focus:bg-transparent outline-0"
                       required
+                      maxlength="4"
                     />
                   </div>
                 </div>
@@ -132,27 +130,26 @@ const total = subtotal + tax;
           
           {
             isAdmin && (
-
-            <!-- Mensaje para pago en efectivo -->
-            <div id="cash-message" class="mt-8 p-4 bg-green-50 border border-green-200 rounded-md">
-              <div class="flex items-start">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <h3 class="font-medium text-green-800">Pago en efectivo seleccionado</h3>
-                  <p class="text-green-700 text-sm mt-1">
-                    Al finalizar tu compra, recibirás instrucciones para realizar el pago en efectivo al recibir tu pedido.
-                  </p>
-                  <button 
-                    id="pay-cash" 
-                    class="mt-4 w-full py-3 text-[15px] font-medium bg-green-500 text-white rounded-md hover:bg-green-600 tracking-wide cursor-pointer transition-colors"
-                  >
-                    Finalizar Compra
-                  </button>
+              <!-- Mensaje para pago en efectivo -->
+              <div id="cash-message" class="hidden mt-8 p-4 bg-green-50 border border-green-200 rounded-md">
+                <div class="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <h3 class="font-medium text-green-800">Pago en efectivo seleccionado</h3>
+                    <p class="text-green-700 text-sm mt-1">
+                      Al finalizar tu compra, recibirás instrucciones para realizar el pago en efectivo al recibir tu pedido.
+                    </p>
+                    <button 
+                      id="pay-cash" 
+                      class="mt-4 w-full py-3 text-[15px] font-medium bg-green-500 text-white rounded-md hover:bg-green-600 tracking-wide cursor-pointer transition-colors"
+                    >
+                      Finalizar Compra
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
             )
           }
         </div>
@@ -210,33 +207,52 @@ const total = subtotal + tax;
       order: 1;
     }
   }
+  
+  /* Mejoras visuales */
+  .payment-option {
+    flex: 1;
+    min-width: 150px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.3s ease;
+  }
+  
+  .payment-option:hover {
+    border-color: #a855f7;
+    background-color: rgba(168, 85, 247, 0.05);
+  }
+  
+  .payment-option.selected {
+    border-color: #a855f7;
+    background-color: rgba(168, 85, 247, 0.1);
+  }
 </style>
 
 <script>
-  // Importar SweetAlert2
+  // Importar SweetAlert2 y otras dependencias
   import Swal from 'sweetalert2';
   import { navigate } from 'astro:transitions/client';
-  import { generateTicket, printTicket } from '@/services/ticketGenerator'; // Ruta corregida
+  import { generateTicket, printTicket } from '@/services/ticketGenerator';
   import { CartCookiesClient as Cookies } from '../utils/cart-cookies';
-  
+
   // Definir Formatter para el cliente
   const Formatter = {
     currency: (value: number) => {
       return new Intl.NumberFormat('es-MX', {
         style: 'currency',
-        currency: 'MXN', 
+        currency: 'MXN',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(value);
     }
   };
-    
-  type Product = {
+    type Product = {
       name: string;
       quantity: number;
       price: number;
     };
-
+  
   // Función para renderizar los productos en el resumen
   function renderProducts(products: Product[]) {
     return products.map(p => `
@@ -247,174 +263,193 @@ const total = subtotal + tax;
     `).join('');
   }
 
-  // Usar astro:page-load para que funcione con View Transitions
-  document.addEventListener('astro:page-load', () => {
-    // Función para obtener los datos de forma segura
-    const getData = () => {
-      // Elementos ocultos con datos
-      const productsDataElement = document.getElementById('products-data');
-      const taxDataElement = document.getElementById('tax-data');
-      const totalDataElement = document.getElementById('total-data');
-      
-      // Verificar existencia de elementos de datos
-      if (!productsDataElement || !taxDataElement || !totalDataElement) {
-        console.error('Elementos de datos no encontrados');
-        return null;
-      }
-      
-      return {
-        productsData: JSON.parse(productsDataElement.textContent || '[]'),
-        taxValue: parseFloat(taxDataElement.textContent || '0'),
-        totalValue: parseFloat(totalDataElement.textContent || '0')
-      };
+  // Función para obtener los datos de forma segura
+  function getCheckoutData() {
+    const productsDataElement = document.getElementById('products-data');
+    const taxDataElement = document.getElementById('tax-data');
+    const totalDataElement = document.getElementById('total-data');
+    
+    if (!productsDataElement || !taxDataElement || !totalDataElement) {
+      console.error('Elementos de datos no encontrados');
+      return null;
+    }
+    
+    return {
+      productsData: JSON.parse(productsDataElement.textContent || '[]'),
+      taxValue: parseFloat(taxDataElement.textContent || '0'),
+      totalValue: parseFloat(totalDataElement.textContent || '0')
     };
+  }
 
-    // Elementos del DOM
-    const paymentMethods = document.querySelectorAll('input[name="payment-method"]');
+  // Función para actualizar la visibilidad de los métodos de pago
+  function updatePaymentVisibility() {
+    const selectedMethod = document.querySelector('input[name="payment-method"]:checked');
+    if (!selectedMethod) return;
+    
     const cardForm = document.getElementById('card-form');
     const cashMessage = document.getElementById('cash-message');
-    const paymentForm = document.getElementById('payment-form');
-    const payCashBtn = document.getElementById('pay-cash');
-
-    // Función para actualizar la visibilidad
-    const updatePaymentVisibility = () => {
-      const selectedRadio = document.querySelector('input[name="payment-method"]:checked');
-      
-      // Verificar si existe un método seleccionado
-      if (!selectedRadio) return;
-      
-      const selectedMethod = selectedRadio.id;
-      
-      // Verificar si los elementos existen antes de manipularlos
-      if (cardForm && cashMessage) {
-        if (selectedMethod === 'cash') {
-          cardForm.classList.add('hidden');
-          cashMessage.classList.remove('hidden');
-        } else {
-          cardForm.classList.remove('hidden');
-          cashMessage.classList.add('hidden');
-        }
-      }
-    };
     
-    // Configurar evento para cada método de pago
-    paymentMethods.forEach(method => {
-      method.addEventListener('change', updatePaymentVisibility);
+    if (selectedMethod.id === 'card') {
+      if (cardForm) cardForm.classList.remove('hidden');
+      if (cashMessage) cashMessage.classList.add('hidden');
+    } 
+    else if (selectedMethod.id === 'cash') {
+      if (cardForm) cardForm.classList.add('hidden');
+      if (cashMessage) cashMessage.classList.remove('hidden');
+    } 
+    else {
+      if (cardForm) cardForm.classList.add('hidden');
+      if (cashMessage) cashMessage.classList.add('hidden');
+    }
+  }
+
+  // Función para manejar el pago con tarjeta
+  function handleCardPayment(e: Event) {
+    e.preventDefault();
+    console.log('Procesando pago con tarjeta...');
+    
+    // Simular procesamiento de pago
+    setTimeout(() => {
+      navigate('/order-success');
+    }, 1000);
+  }
+
+  // Función para manejar el pago en efectivo
+  async function handleCashPayment() {
+    const data = getCheckoutData();
+    if (!data) return;
+    
+    const { productsData, taxValue, totalValue } = data;
+    
+    const result = await Swal.fire({
+      title: 'Confirmar compra',
+      html: `
+        <div class="text-left">
+          <p class="mb-4">¿Estás seguro de completar la compra con pago en efectivo?</p>
+          <div class="bg-gray-100 p-3 rounded-lg mb-4">
+            <p class="font-semibold">Resumen de compra</p>
+            <ul class="mt-2 space-y-1">
+              ${renderProducts(productsData)}
+              <li class="flex justify-between text-sm border-t border-gray-300 pt-1 mt-1">
+                <span>Impuestos (15%)</span>
+                <span>${Formatter.currency(taxValue)}</span>
+              </li>
+              <li class="flex justify-between font-bold text-base mt-2">
+                <span>Total:</span>
+                <span>${Formatter.currency(totalValue)}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Imprimir recibo',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#EF4444',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'mr-2 px-4 py-2 rounded-lg',
+        cancelButton: 'px-4 py-2 rounded-lg'
+      },
+      buttonsStyling: false
     });
     
-    // Manejar envío del formulario
-    if (paymentForm) {
-      paymentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        console.log('Procesando pago con tarjeta...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        navigate('/order-success');
-      });
-    }
-    
-    // Manejar pago en efectivo con SweetAlert2
-    if (payCashBtn) {
-      payCashBtn.addEventListener('click', async () => {
-        // Obtener datos cuando se hace clic en el botón
-        const data = getData();
-        if (!data) return;
-        
-        const { productsData, taxValue, totalValue } = data;
-        
-        const result = await Swal.fire({
-          title: 'Confirmar compra',
-          html: `
-            <div class="text-left">
-              <p class="mb-4">¿Estás seguro de que deseas completar la compra con pago en efectivo?</p>
-              <div class="bg-gray-100 p-3 rounded-lg mb-4">
-                <p class="font-semibold">Resumen de compra</p>
-                <ul class="mt-2 space-y-1">
-                  ${renderProducts(productsData)}
-                  <li class="flex justify-between text-sm border-t border-gray-300 pt-1 mt-1">
-                    <span>Impuestos (15%)</span>
-                    <span>${Formatter.currency(taxValue)}</span>
-                  </li>
-                  <li class="flex justify-between font-bold text-base mt-2">
-                    <span>Total:</span>
-                    <span>${Formatter.currency(totalValue)}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          `,
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: 'Imprimir recibo',
-          cancelButtonText: 'Cancelar',
-          confirmButtonColor: '#10B981',
-          cancelButtonColor: '#EF4444',
-          reverseButtons: true,
-          customClass: {
-            popup: 'rounded-xl',
-            confirmButton: 'mr-2 px-4 py-2 rounded-lg',
-            cancelButton: 'px-4 py-2 rounded-lg'
-          },
-          buttonsStyling: false
-        });
-        
-        if (result.isConfirmed) {
-          // Información de la tienda
-          const storeInfo = {
-            name: "Broquelizate",
-            address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
-            phone: "+528714617696",
-            rfc: "XAXX010101000"
-          };
+    if (result.isConfirmed) {
+      // Información de la tienda
+      const storeInfo = {
+        name: "Broquelizate",
+        address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
+        phone: "+528714617696",
+        rfc: "XAXX010101000"
+      };
 
-          // Generar el ticket
-          const pdfDoc = generateTicket(productsData, taxValue, totalValue, storeInfo);
-          
-          Swal.fire({
-            title: 'Recibo generado',
-            html: `
-              <div class="text-center">
-                <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <p class="mb-4">Tu recibo se ha generado correctamente.</p>
-                <p class="text-sm text-gray-600 mb-6">Puedes recoger tu pedido en nuestro local o esperar la entrega.</p>
-                <button id="print-receipt" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
-                  Imprimir recibo
-                </button>
-              </div>
-            `,
-            showConfirmButton: false,
-            customClass: {
-              popup: 'rounded-xl'
-            }
-          });
-          
-          setTimeout(() => {
-            const printButton = document.getElementById('print-receipt');
-            if (printButton) {
-              printButton.addEventListener('click', () => {
-                // Llamar a la función para imprimir el ticket
-                printTicket(pdfDoc);
-                Cookies.clearCart() // Limpiar el carrito después de la compra
-                // Cerrar el modal de SweetAlert2
-                Swal.close();
-               // Redirigir a la página de éxito
-                navigate('/order-success');
-                
-              });
-            }
-          }, 100);
+      // Generar el ticket
+      const pdfDoc = generateTicket(productsData, taxValue, totalValue, storeInfo);
+      
+      Swal.fire({
+        title: 'Recibo generado',
+        html: `
+          <div class="text-center">
+            <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="mb-4">Tu recibo se ha generado correctamente.</p>
+            <p class="text-sm text-gray-600 mb-6">Puedes recoger tu pedido en nuestro local o esperar la entrega.</p>
+            <button id="print-receipt" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
+              Imprimir recibo
+            </button>
+          </div>
+        `,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'rounded-xl'
         }
       });
+      
+      // Agregar evento al botón de imprimir
+      setTimeout(() => {
+        const printButton = document.getElementById('print-receipt');
+        if (printButton) {
+          printButton.addEventListener('click', () => {
+            printTicket(pdfDoc);
+            Cookies.clearCart(); // Limpiar el carrito
+            Swal.close();
+            navigate('/order-success');
+          });
+        }
+      }, 100);
+    }
+  }
+
+  // Inicialización cuando la página está lista
+  document.addEventListener('astro:page-load', () => {
+    // Configurar eventos de los métodos de pago
+    const paymentRadios = document.querySelectorAll('input[name="payment-method"]');
+    paymentRadios.forEach(radio => {
+      radio.addEventListener('change', updatePaymentVisibility);
+    });
+    
+    // Configurar formulario de tarjeta
+    const paymentForm = document.getElementById('payment-form');
+    if (paymentForm) {
+      paymentForm.addEventListener('submit', handleCardPayment);
     }
     
-    // Estado inicial
+    // Configurar botón de pago en efectivo
+    const payCashBtn = document.getElementById('pay-cash');
+    if (payCashBtn) {
+      payCashBtn.addEventListener('click', handleCashPayment);
+    }
+    
+    // Establecer estado inicial
     updatePaymentVisibility();
+    
+ // CORRECCIÓN: Mejorar UX de los métodos de pago (versión corregida)
+    const paymentOptions = document.querySelectorAll('.flex.items-center');
+    paymentOptions.forEach(option => {
+      option.addEventListener('click', function(this: HTMLElement) {
+        // Remover selección de todas las opciones
+        paymentOptions.forEach(opt => {
+          const parent = opt.closest('.flex.items-center');
+          if (parent) {
+            parent.classList.remove('selected');
+          }
+        });
+        
+        // Agregar selección a la opción actual
+        const currentParent = this.closest('.flex.items-center');
+        if (currentParent) {
+          currentParent.classList.add('selected');
+        }
+      });
+    });
   });
 </script>
 
-<!-- Añade esto al final de tu componente, antes del cierre del div principal -->
+<!-- Elementos ocultos con datos -->
 <div id="products-data" style="display: none;">{JSON.stringify(products)}</div>
 <div id="tax-data" style="display: none;">{tax}</div>
 <div id="total-data" style="display: none;">{total}</div>
