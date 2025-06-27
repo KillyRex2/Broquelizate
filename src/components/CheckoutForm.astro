@@ -29,6 +29,79 @@ const total = subtotal + tax;
       <div class="lg:col-span-2 max-md:order-1">
         <h2 class="text-3xl font-semibold text-slate-900">Realizar pago</h2>
         <p class="text-slate-500 text-sm mt-4">Completa tu transacción rápida y segura con nuestro sencillo proceso de pago.</p>
+
+              <!-- Formulario de Dirección de Envío -->
+        <div class="mt-6 bg-white p-6 rounded-lg shadow">
+          <h3 class="text-xl font-semibold text-slate-900 mb-4">Dirección de envío</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Calle y número</label>
+              <input 
+                type="text" 
+                id="street-address"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-800"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Colonia</label>
+              <input 
+                type="text" 
+                id="neighborhood"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+              <input 
+                type="text" 
+                id="city"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <input 
+                type="text" 
+                id="state"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
+              <input 
+                type="text" 
+                id="postal-code"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">País</label>
+              <input 
+                type="text" 
+                id="country"
+                value="México"
+                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                readonly
+              />
+            </div>
+
+            <div class="col-span-full">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+            <input 
+              type="email" 
+              id="email"
+              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-800"
+              required
+            />
+          </div>
+          </div>
+        </div>
+ <!-- fin formulario -->
         
         <div class="mt-8 max-w-lg">
           <h3 class="text-lg font-semibold text-slate-900">Elige tu método de pago</h3>
@@ -60,7 +133,7 @@ const total = subtotal + tax;
             
             <!-- Opción de PayPal -->
             <div class="flex items-center">
-              <input type="radio" class="w-5 h-5 cursor-pointer" id="paypal" name="payment-method" />
+              <input type="radio" class="w-5 h-5 cursor-pointer" id="paypal-container" name="payment-method" />
               <label for="paypal" class="ml-4 flex gap-2 cursor-pointer">
                 <img src="https://readymadeui.com/images/paypal.webp" class="w-20" alt="PayPal" />
               </label>
@@ -87,6 +160,10 @@ const total = subtotal + tax;
                 
                 <!-- Mensaje de error para tarjeta -->
                 <div id="card-errors" class="text-red-500 text-sm mt-2" role="alert"></div>
+                <div id="paypal-container" class="hidden mt-6">
+                <div id="paypal-button-container" class="mt-4"></div>
+              </div>
+
               </div>
               
               <button 
@@ -227,6 +304,7 @@ const total = subtotal + tax;
 
 <script>
   // Importar SweetAlert2 y otras dependencias
+  import { CartCookiesClient } from '@/utils/cart-cookies';
   import { loadStripe } from '@stripe/stripe-js';
   import type { Stripe, StripeCardElement, StripeElements } from '@stripe/stripe-js';
   import Swal from 'sweetalert2';
@@ -380,21 +458,164 @@ async function initializeStripe(): Promise<void> {
 
   // Función para manejar el pago con tarjeta
 
-async function handleCardPayment(e: Event): Promise<void> {
+// async function handleCardPayment(e: Event): Promise<void> {
+//   e.preventDefault();
+  
+//   const submitButton = document.getElementById('submit-card-payment') as HTMLButtonElement | null;
+//   if (!submitButton) return;
+
+//   const cardHolderNameInput = document.getElementById('card-holder-name') as HTMLInputElement | null;
+//   if (!cardHolderNameInput) return;
+
+//   const cardHolderName = cardHolderNameInput.value.trim();
+  
+//   if (!cardHolderName) {
+//     await Swal.fire({
+//       title: 'Error',
+//       text: 'Por favor, ingresa el nombre del titular de la tarjeta.',
+//       icon: 'error',
+//       confirmButtonText: 'Aceptar',
+//       customClass: {
+//         popup: 'rounded-xl',
+//         confirmButton: 'px-4 py-2 rounded-lg'
+//       }
+//     });
+//     return;
+//   }
+
+//   const data = getCheckoutData();
+//   if (!data) return;
+
+//   const { taxValue, totalValue } = data;
+  
+//   if (isNaN(taxValue) || isNaN(totalValue)) return;
+
+//   submitButton.disabled = true;
+//   submitButton.textContent = 'Procesando...';
+  
+//   try {
+    
+//      if (!stripe || !cardElement || !elements) {
+//       throw new Error('El sistema de pagos no está inicializado correctamente');
+//     }
+//     // Mostrar loader (sin asignar a variable)
+//     Swal.fire({
+//       title: 'Procesando pago...',
+//       text: 'Por favor, espera mientras confirmamos tu pago.',
+//       allowOutsideClick: false,
+//       didOpen: () => {
+//         Swal.showLoading();
+//       }
+//     });
+
+//     // Crear Payment Intent
+//     const response = await fetch('/api/create-payment-intent', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         amount: Math.round(totalValue * 100),
+//         currency: 'mxn',
+//         tax: taxValue,
+//         subtotal: totalValue - taxValue
+//       })
+//     });
+
+//     if (!response.ok) {
+//       const errorResponse = await response.json();
+//       throw new Error(errorResponse.error || `HTTP error! status: ${response.status}`);
+//     }
+    
+//     const result = await response.json();
+//     if (result.error) throw new Error(result.error.message);
+//     if (!result.clientSecret) throw new Error('ClientSecret no recibido');
+
+//     // Confirmar pago
+//     const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+//       result.clientSecret,
+//       {
+//         payment_method: {
+//           card: cardElement,
+//           billing_details: {
+//             name: cardHolderName
+//           }
+//         }
+//       }
+//     );
+
+//     // Cerrar loader
+//     Swal.close();
+
+//     if (stripeError) throw new Error(stripeError.message);
+//     if (!paymentIntent) throw new Error('No se recibió PaymentIntent');
+//     if (paymentIntent.status !== 'succeeded') throw new Error(`Estado: ${paymentIntent.status}`);
+
+//     // Generar ticket
+//     const storeInfo = {
+//       name: "Broquelizate",
+//       address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
+//       phone: "+528714617696",
+//       rfc: "XAXX010101000"
+//     };
+
+//     const pdfDoc = generateTicket(data.productsData, taxValue, totalValue, storeInfo);
+//     printTicket(pdfDoc);
+//     Cookies.clearCart();
+
+//     await Swal.fire({
+//       title: 'Pago exitoso',
+//       text: `Tu pago de ${Formatter.currency(totalValue)} se ha procesado correctamente.`,
+//       icon: 'success',
+//       confirmButtonText: 'Aceptar',
+//       customClass: {
+//         popup: 'rounded-xl',
+//         confirmButton: 'px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600'
+//       }
+//     });
+
+//     navigate('/order-success');
+    
+//   } catch (error) {
+//     console.error('Error en el pago:', error);
+    
+//     // Cerrar loader si está activo
+//     if (Swal.isVisible()) Swal.close();
+    
+//     await Swal.fire({
+//       title: 'Error',
+//       text: 'Ocurrió un error al procesar el pago.',
+//       icon: 'error',
+//       confirmButtonText: 'Intentar de nuevo',
+//       customClass: {
+//         popup: 'rounded-xl',
+//         confirmButton: 'px-4 py-2 rounded-lg'
+//       }
+//     });
+    
+//   } finally {
+//     if (submitButton) {
+//       submitButton.disabled = false;
+//       submitButton.textContent = 'Pagar';
+//     }
+//   }
+// }
+
+async function handleCheckout(e: Event): Promise<void> {
   e.preventDefault();
   
-  const submitButton = document.getElementById('submit-card-payment') as HTMLButtonElement | null;
-  if (!submitButton) return;
-
-  const cardHolderNameInput = document.getElementById('card-holder-name') as HTMLInputElement | null;
-  if (!cardHolderNameInput) return;
-
-  const cardHolderName = cardHolderNameInput.value.trim();
+  // Recopilar información del formulario
+  const email = (document.getElementById('email') as HTMLInputElement)?.value;
+  const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value;
+  const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value;
+  const city = (document.getElementById('city') as HTMLInputElement)?.value;
+  const state = (document.getElementById('state') as HTMLInputElement)?.value;
+  const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value;
+  const country = (document.getElementById('country') as HTMLInputElement)?.value || 'MX';
   
-  if (!cardHolderName) {
+  // Validar campos obligatorios
+ if (!email || !streetAddress || !city || !state || !postalCode) {
     await Swal.fire({
-      title: 'Error',
-      text: 'Por favor, ingresa el nombre del titular de la tarjeta.',
+      title: 'Campos incompletos',
+      text: 'Por favor, completa todos los campos requeridos: Email, Calle, Ciudad, Estado y Código Postal.',
       icon: 'error',
       confirmButtonText: 'Aceptar',
       customClass: {
@@ -405,106 +626,117 @@ async function handleCardPayment(e: Event): Promise<void> {
     return;
   }
 
-  const data = getCheckoutData();
-  if (!data) return;
-
-  const { taxValue, totalValue } = data;
   
-  if (isNaN(taxValue) || isNaN(totalValue)) return;
+  // Construir objeto de dirección
+  const shippingAddress = {
+    line1: streetAddress,
+    line2: neighborhood,
+    city: city,
+    state: state,
+    postal_code: postalCode,
+    country: country,
+  };
 
-  submitButton.disabled = true;
-  submitButton.textContent = 'Procesando...';
+  // Obtener datos del carrito
+  const productsDataElement = document.getElementById('products-data');
+  const productsImagesElement = document.getElementById('products-images');
+  const taxDataElement = document.getElementById('tax-data');
+  const totalDataElement = document.getElementById('total-data');
+  
+  if (!productsDataElement || !taxDataElement || !totalDataElement || !productsImagesElement) {
+    console.error('Elementos de datos no encontrados');
+    await Swal.fire({
+      title: 'Error',
+      text: 'No se encontraron los datos del carrito',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return;
+  }
+  
+  const productsData = JSON.parse(productsDataElement.textContent || '[]');
+  const productsImages = JSON.parse(productsImagesElement.textContent || '[]');
+  const taxValue = parseFloat(taxDataElement.textContent || '0');
+  const totalValue = parseFloat(totalDataElement.textContent || '0');
+
+  // Vincular imagenes con los productos
+   const productsWithImages = productsData.map((product: any, index: number) => ({
+    ...product,
+    image: productsImages[index] || null
+  }));
+  
+  // Mostrar loader - guardamos la referencia
+  let swalInstance: any = null;
   
   try {
-    
-     if (!stripe || !cardElement || !elements) {
-      throw new Error('El sistema de pagos no está inicializado correctamente');
-    }
-    // Mostrar loader (sin asignar a variable)
-    Swal.fire({
-      title: 'Procesando pago...',
-      text: 'Por favor, espera mientras confirmamos tu pago.',
+    swalInstance = Swal.fire({
+      title: 'Preparando tu pago...',
+      html: 'Estamos creando tu sesión de pago segura',
       allowOutsideClick: false,
+      showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
+      },
+      customClass: {
+        popup: 'rounded-xl'
       }
     });
 
-    // Crear Payment Intent
-    const response = await fetch('/api/create-payment-intent', {
+    // Crear la sesión de Checkout en el backend
+    const response = await fetch('/api/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount: Math.round(totalValue * 100),
-        currency: 'mxn',
-        tax: taxValue,
-        subtotal: totalValue - taxValue
+        products: productsWithImages,
+        shippingAddress: shippingAddress,
+        customerEmail: email,
+        successUrl: `${window.location.origin}/order-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: window.location.href,
       })
     });
 
     if (!response.ok) {
       const errorResponse = await response.json();
-      throw new Error(errorResponse.error || `HTTP error! status: ${response.status}`);
+      throw new Error(errorResponse.error || `Error HTTP: ${response.status}`);
     }
-    
+
     const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
-    if (!result.clientSecret) throw new Error('ClientSecret no recibido');
+    if (!result.sessionId) throw new Error('No se recibió ID de sesión de Stripe');
 
-    // Confirmar pago
-    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-      result.clientSecret,
-      {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: cardHolderName
-          }
-        }
-      }
-    );
+    // Limpiar carrito ANTES de redirigir
+    CartCookiesClient.clearCart();
+    console.log('Carrito limpiado antes de redirección');
 
-    // Cerrar loader
-    Swal.close();
+    // Redirigir a Stripe Checkout
+    const stripe = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
+    if (!stripe) throw new Error('No se pudo cargar Stripe');
 
-    if (stripeError) throw new Error(stripeError.message);
-    if (!paymentIntent) throw new Error('No se recibió PaymentIntent');
-    if (paymentIntent.status !== 'succeeded') throw new Error(`Estado: ${paymentIntent.status}`);
-
-    // Generar ticket
-    const storeInfo = {
-      name: "Broquelizate",
-      address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
-      phone: "+528714617696",
-      rfc: "XAXX010101000"
-    };
-
-    const pdfDoc = generateTicket(data.productsData, taxValue, totalValue, storeInfo);
-    printTicket(pdfDoc);
-    Cookies.clearCart();
-
-    await Swal.fire({
-      title: 'Pago exitoso',
-      text: `Tu pago de ${Formatter.currency(totalValue)} se ha procesado correctamente.`,
-      icon: 'success',
-      confirmButtonText: 'Aceptar',
-      customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600'
-      }
+    const { error } = await stripe.redirectToCheckout({
+      sessionId: result.sessionId,
     });
 
-    navigate('/order-success');
-    
+    if (error) throw error;
+
   } catch (error) {
-    console.error('Error en el pago:', error);
+    console.error('Error en el checkout:', error);
     
     // Cerrar loader si está activo
-    if (Swal.isVisible()) Swal.close();
+    if (swalInstance) {
+      swalInstance.then((result: any) => {
+        if (result.isVisible) {
+          Swal.close();
+        }
+      });
+    }
+    
+    let errorMessage = 'Ocurrió un error al procesar tu pago';
+    if (error instanceof Error) {
+      errorMessage = error.message || errorMessage;
+    }
     
     await Swal.fire({
       title: 'Error',
-      text: 'Ocurrió un error al procesar el pago.',
+      text: errorMessage,
       icon: 'error',
       confirmButtonText: 'Intentar de nuevo',
       customClass: {
@@ -512,14 +744,21 @@ async function handleCardPayment(e: Event): Promise<void> {
         confirmButton: 'px-4 py-2 rounded-lg'
       }
     });
-    
   } finally {
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.textContent = 'Pagar';
+   
+    // Cerrar loader si sigue abierto
+    if (swalInstance) {
+      swalInstance.then((result: any) => {
+        if (result.isVisible) {
+          Swal.close();
+        }
+      });
     }
   }
 }
+
+
+
 
 
   // Función para manejar el pago en efectivo
@@ -625,7 +864,7 @@ async function handleCardPayment(e: Event): Promise<void> {
     // Configurar formulario de tarjeta
     const paymentForm = document.getElementById('submit-card-payment');
     if (paymentForm) {
-      paymentForm.addEventListener('click', handleCardPayment);
+      paymentForm.addEventListener('click', handleCheckout);
     }
     
     // Configurar botón de pago en efectivo
@@ -660,6 +899,17 @@ async function handleCardPayment(e: Event): Promise<void> {
 </script>
 
 <!-- Elementos ocultos con datos -->
-<div id="products-data" style="display: none;">{JSON.stringify(products)}</div>
+ <div id="products-data" style="display: none;">
+  {JSON.stringify(products.map(p => ({ 
+    id: p.id, 
+    name: p.name, 
+    price: p.price, 
+    quantity: p.quantity 
+  })))}
+</div>
+
+<div id="products-images" style="display: none;">
+  {JSON.stringify(products.map(p => p.image || ''))}
+</div>
 <div id="tax-data" style="display: none;">{tax}</div>
 <div id="total-data" style="display: none;">{total}</div>
