@@ -11,7 +11,7 @@ const newProduct = {
     slug: 'nuevo-producto', 
     type: 'Broqueles', 
     stock: 1, 
-    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
+    piercing_name: ['Lóbulo']
 
 }
 

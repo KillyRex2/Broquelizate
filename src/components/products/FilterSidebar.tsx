@@ -1,9 +1,10 @@
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
 import { FaGem, FaRegCircle, FaSearch } from "react-icons/fa";
 import { AiFillGold } from "react-icons/ai";
-import { GiPlasticDuck } from "react-icons/gi";
+import { BsEar, BsEarFill } from "react-icons/bs";
+import { GiPlasticDuck, GiNoseFront, GiPearlEarring } from "react-icons/gi";
 import { MdTitle } from "react-icons/md";
-import { FaRegRegistered, FaA } from "react-icons/fa6";
+import { FaRegRegistered, FaA, FaEarDeaf, FaEarListen } from "react-icons/fa6";
 import { navigate } from "astro:transitions/client";
 
 interface FilterSidebarProps {
@@ -12,6 +13,7 @@ interface FilterSidebarProps {
     price?: number;
     inStock?: boolean;
     search?: string;
+    piercing?: string;
   };
 }
 
@@ -30,6 +32,22 @@ const categories = [
   { label: "Rodio", value: "Rodio", icon: <FaRegRegistered className="inline mr-2" /> },
 ];
 
+const piercings = [
+  { label: "Lóbulo", value: "Lóbulo", icon: <GiPearlEarring className="inline mr-2" /> },
+  { label: "Lóbulo Superior", value: "Lóbulo Superior", icon: <GiPearlEarring className="inline mr-2" /> },
+  { label: "Hélix", value: "Hélix", icon: <BsEar className="inline mr-2" /> },
+  { label: "Antihelix", value: "Antihelix", icon: <BsEar className="inline mr-2" /> },
+  { label: "Tragus", value: "Tragus", icon: <BsEar className="inline mr-2" /> },
+  { label: "Antitragus", value: "Antitragus", icon: <BsEarFill className="inline mr-2" /> },
+  { label: "Rook", value: "Rook", icon: <BsEarFill className="inline mr-2" /> },
+  { label: "Conch", value: "Conch", icon: <BsEarFill className="inline mr-2" /> },
+  { label: "Daith", value: "Daith", icon: <BsEarFill className="inline mr-2" /> },
+  { label: "Industrial", value: "Industrial", icon: <FaEarDeaf className="inline mr-2" /> },
+  { label: "Séptum", value: "Séptum", icon: <GiNoseFront className="inline mr-2" /> },
+  { label: "Nóstril", value: "Nóstril", icon: <GiNoseFront className="inline mr-2" /> },
+  { label: "Navel", value: "Navel", icon: <GiNoseFront className="inline mr-2" /> },
+];
+
 export const FilterSidebar = ({
   initialValues
 }: FilterSidebarProps) => {
@@ -39,6 +57,8 @@ export const FilterSidebar = ({
   const [price, setPrice] = useState<number>(initialValues?.price || 5000);
   const [inStock, setInStock] = useState<boolean>(initialValues?.inStock || false);
   const [searchTerm, setSearchTerm] = useState<string>(initialValues?.search || "");
+  const [selectedPiercing, setSelectedPiercing] = useState<string>(initialValues?.piercing || "all");
+
 
   // Actualizar estado cuando cambian los valores iniciales
   useEffect(() => {
@@ -62,6 +82,10 @@ export const FilterSidebar = ({
   const onSearchChange = (e: ChangeEvent<HTMLInputElement>) =>
     setSearchTerm(e.target.value);
 
+   const onPiercingChange = (e: ChangeEvent<HTMLInputElement>) => 
+    setSelectedPiercing(e.target.value);
+
+
  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
   
@@ -71,7 +95,8 @@ export const FilterSidebar = ({
     category: selectedCat,
     maxPrice: price,
     inStock: inStock,
-    search: searchTerm
+    search: searchTerm,
+    piercing: selectedPiercing
   };
 
   const queryParams = new URLSearchParams({
@@ -79,7 +104,8 @@ export const FilterSidebar = ({
     category: newFilters.category,
     maxPrice: newFilters.maxPrice.toString(),
     inStock: newFilters.inStock.toString(),
-    search: newFilters.search
+    search: newFilters.search,
+    piercing: newFilters.piercing
   });
   
   // Usar navigate para transición suave
@@ -133,6 +159,28 @@ export const FilterSidebar = ({
               />
               {cat.icon}
               <span>{cat.label}</span>
+            </label>
+          ))}
+        </div>
+        {/* Nueva sección de Perforaciones */}
+        <div className="space-y-2">
+          <h3 className="font-medium">Perforaciones</h3>
+          <hr className="border-gray-700" />
+          {piercings.map(piercing => (
+            <label
+              key={piercing.value}
+              className="flex items-center space-x-2 hover:text-white transition-colors"
+            >
+              <input
+                type="radio"
+                name="piercing"
+                value={piercing.value}
+                checked={selectedPiercing === piercing.value}
+                onChange={onPiercingChange}
+                className="accent-blue-500"
+              />
+              {piercing.icon}
+              <span>{piercing.label}</span>
             </label>
           ))}
         </div>

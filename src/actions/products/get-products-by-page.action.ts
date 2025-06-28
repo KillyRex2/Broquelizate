@@ -23,7 +23,7 @@ export const inputSchema = z.object({
   maxPrice: z.number().optional().default(5000),
   inStock: z.boolean().optional().default(false),
   search: z.string().optional().default(''),
-  piercing: z.string().optional().default('')
+  piercing: z.string().optional().default('all')
 });
 
 export const handler = async ({ 
@@ -70,26 +70,18 @@ export const handler = async ({
       filters.push(gt(Product.stock, 0));
     }
     
-    // Búsqueda por nombre
-    if (search && search.trim() !== '') {
-      const searchTerm = `%${search.trim().toLowerCase()}%`;
-      filters.push(sql`LOWER(${Product.name}) LIKE ${searchTerm}`);
-      console.log(`Búsqueda: ${searchTerm}`);
-    }
-    
-    // FILTRO POR PIERCING - NUEVO
-    if (piercing && piercing.trim() !== '') {
-      // Normalizar el piercing (quitar acentos, minúsculas, etc.)
-      const normalizedPiercing = piercing
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar acentos
-        .toLowerCase()
-        .trim();
+  // FILTRO POR PIERCING - ACTUALIZADO (conserva acentos)
+    if (piercing && piercing !== 'all' && validPiercings.includes(piercing)) {
+      console.log(`Filtrando por piercing: ${piercing}`);
       
-      console.log(`Filtrando por piercing: ${normalizedPiercing}`);
-      
-      // Crear condición para buscar el piercing en la cadena
-      filters.push(sql`LOWER(${Product.piercing_name}) LIKE ${'%' + normalizedPiercing + '%'}`);
+      // Buscar coincidencia exacta con acentos
+      filters.push(sql`${Product.piercing_name} LIKE ${'%' + piercing + '%'}`);
     }
+
+    //    // Validar piercings
+    // if (piercing !== 'all' && !validPiercings.includes(piercing)) {
+    //   filteredCategory = 'all';
+    // }
     
     // Consulta para el conteo total
     const countQuery = db
