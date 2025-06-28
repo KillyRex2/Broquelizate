@@ -7,7 +7,7 @@ interface Props {
     maxPrice?: number;
     inStock?: boolean;
     search?: string;
-    // Agrega aquí otros parámetros de filtro si es necesario
+    piercing?: string; // Agrega esta línea
   };
 }
 
@@ -20,7 +20,8 @@ const generateUrl = (page: number) => {
     ...(queryParams.category && { category: queryParams.category }),
     ...(queryParams.maxPrice && { maxPrice: queryParams.maxPrice.toString() }),
     ...(queryParams.inStock !== undefined && { inStock: queryParams.inStock.toString() }),
-     ...(queryParams.search && { category: queryParams.search }),
+    ...(queryParams.search && { search: queryParams.search }),
+    ...(queryParams.piercing && { piercing: queryParams.piercing }), // Agrega esta línea
     page: page.toString()
   });
   

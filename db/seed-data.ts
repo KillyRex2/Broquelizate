@@ -7,10 +7,12 @@ interface SeedProduct {
     type: ValidTypes;
     slug: string;
     stock: number;
+    piercing_name: ValidPiercings[];
 }
 
 type ValidCategories = 'Titanio' | 'Acero Quirúrgico' | 'Oro 10k' | 'Oro 14k' | 'Oro 18k'| 'Chapa de Oro 14K' | 'Chapa de Oro 18k' | 'Acero Inoxidable'| 'Plástico'| 'Plata' | 'Rodio'
 type ValidTypes =  'Anillos' | 'Broqueles'| 'Pulseras'| 'Cadenas'
+type ValidPiercings = 'Lóbulo' | 'Lóbulo Superior' | 'Hélix' | 'Antihelix'| 'Tragus'| 'Antitragus'| 'Rook' | 'Conch'| 'Daith' | 'Industrial' | 'Séptum' | 'Nóstril' | 'Navel'
 
 export const seedProducts: SeedProduct[] = [
   {
@@ -24,7 +26,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Titanio',
     type: 'Broqueles',
     slug: 'arracada_piedras_10mm_pieza',
-    stock: 7
+    stock: 7,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
   },
   {
     name: 'Arracada piedras 8mm (pieza)',
@@ -37,7 +40,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Titanio',
     type: 'Broqueles',
     slug: 'arracada_piedras_8mm_pieza',
-    stock: 4
+    stock: 4,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
   },
   {
     name: 'Espada gota (pieza)',
@@ -50,7 +54,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Titanio',
     type: 'Broqueles',
     slug: 'espada_gota_pieza',
-    stock: 0
+    stock: 0,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Conch'],
   },
   {
     name: 'Arracadas diamantadas #6 (par)',
@@ -63,7 +68,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'arracadas_diamantadas_6_par',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
   },
   {
     name: 'Arracadas diamantadas #2.5 (par)',
@@ -76,7 +82,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'arracadas_diamantadas_2_5_par',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
   },
   {
     name: 'Recto estrella #4 (par)',
@@ -89,7 +96,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'recto_estrella_4_par',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Tragus', 'Conch', 'Antihelix'],
   },
   {
     name: 'Recto corazón #5 (par)',
@@ -102,7 +110,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'recto_corazon_5_par',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Tragus', 'Conch', 'Antihelix'],
   },
   {
     name: 'Bisel redondo #5 (par)',
@@ -115,7 +124,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'bisel_redondo_5_par',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Tragus', 'Conch', 'Antihelix'],
   },
   {
     name: 'Arracada penacho 10mm (pieza)',
@@ -128,7 +138,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Titanio',
     type: 'Broqueles',
     slug: 'arracada_penacho_10mm_pieza',
-    stock: 0
+    stock: 0,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
   },
   {
     name: 'Piedra lágrima #7.5 (par)',
@@ -141,7 +152,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'piedra_lagrima_7_5_par',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Tragus', 'Conch', 'Antihelix'],
   },
   {
     name: 'Piercing arracada nostril delgada (pieza)',
@@ -154,7 +166,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Acero Quirúrgico',
     type: 'Broqueles',
     slug: 'piercing_arracada_nostril_delgada_pieza',
-    stock: 32
+    stock: 32,
+    piercing_name: ['Nóstril'],
   },
   {
     name: 'VC Negro (par)',
@@ -167,7 +180,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Chapa de Oro 14K',
     type: 'Broqueles',
     slug: 'vc_negro_par',
-    stock: 0
+    stock: 0,
+    piercing_name: ['Lóbulo', 'Tragus', 'Conch', 'Antihelix'],
   },
   {
     name: 'Piercing arracada con dije (pieza)',
@@ -180,7 +194,8 @@ export const seedProducts: SeedProduct[] = [
     category: 'Acero Quirúrgico',
     type: 'Broqueles',
     slug: 'piercing_arracada_con_dije_pieza',
-    stock: 1
+    stock: 1,
+    piercing_name: ['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Daith'],
   },
   {
     name: 'Piercing septum (pieza)',
@@ -193,6 +208,7 @@ export const seedProducts: SeedProduct[] = [
     category: 'Acero Quirúrgico',
     type: 'Broqueles',
     slug: 'piercing_septum_pieza',
-    stock: 17
+    stock: 17,
+    piercing_name: ['Séptum'],
   },
 ];

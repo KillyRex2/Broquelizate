@@ -29,6 +29,7 @@ const Product = defineTable({
     slug: column.text({unique: true}),
     type: column.text(),
     stock: column.number(),
+    piercing_name: column.text({optional: true}), 
 
     user: column.text({references: () => User.columns.id})
   }

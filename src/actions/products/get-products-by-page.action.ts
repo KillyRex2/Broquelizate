@@ -10,13 +10,20 @@ const validCategories = [
   "Plástico", "Plata", "Rodio"
 ];
 
+const validPiercings = [
+  'Lóbulo', 'Lóbulo Superior', 'Hélix', 'Antihelix', 'Tragus', 
+  'Antitragus', 'Rook', 'Conch', 'Daith', 'Industrial', 
+  'Séptum', 'Nóstril', 'Navel'
+];
+
 export const inputSchema = z.object({
   page: z.number().optional().default(1),
   limit: z.number().optional().default(12),
   category: z.string().optional().default('all'),
   maxPrice: z.number().optional().default(5000),
   inStock: z.boolean().optional().default(false),
-  search: z.string().optional().default('') // Nuevo parámetro de búsqueda
+  search: z.string().optional().default(''),
+  piercing: z.string().optional().default('')
 });
 
 export const handler = async ({ 
@@ -26,17 +33,17 @@ export const handler = async ({
   maxPrice, 
   inStock, 
   search,
+  piercing,
 }: z.infer<typeof inputSchema>) => {
-    // En tu handler, justo después de recibir los parámetros
-console.log("Parámetros de búsqueda recibidos:", {
-  search,
-  category,
-  maxPrice,
-  inStock,
-  page,
-  limit
-});
-
+  console.log("Parámetros de búsqueda recibidos:", {
+    search,
+    category,
+    maxPrice,
+    inStock,
+    page,
+    limit,
+    piercing
+  });
 
   try {
     page = Math.max(page, 1);
@@ -63,15 +70,25 @@ console.log("Parámetros de búsqueda recibidos:", {
       filters.push(gt(Product.stock, 0));
     }
     
-    // En tu handler (backend)
+    // Búsqueda por nombre
     if (search && search.trim() !== '') {
-    const searchTerm = `%${search.trim().toLowerCase()}%`;
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      filters.push(sql`LOWER(${Product.name}) LIKE ${searchTerm}`);
+      console.log(`Búsqueda: ${searchTerm}`);
+    }
     
-    // Usar una sola condición para depuración
-    filters.push(sql`LOWER(${Product.name}) LIKE ${searchTerm}`);
-    
-    // Agrega un log para verificar
-    console.log(`Búsqueda: ${searchTerm}`);
+    // FILTRO POR PIERCING - NUEVO
+    if (piercing && piercing.trim() !== '') {
+      // Normalizar el piercing (quitar acentos, minúsculas, etc.)
+      const normalizedPiercing = piercing
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+        .toLowerCase()
+        .trim();
+      
+      console.log(`Filtrando por piercing: ${normalizedPiercing}`);
+      
+      // Crear condición para buscar el piercing en la cadena
+      filters.push(sql`LOWER(${Product.piercing_name}) LIKE ${'%' + normalizedPiercing + '%'}`);
     }
     
     // Consulta para el conteo total
@@ -83,9 +100,7 @@ console.log("Parámetros de búsqueda recibidos:", {
       countQuery.where(and(...filters));
     }
 
-    // Después de construir los filtros
     console.log(`Número de filtros aplicados: ${filters.length}`);
-    console.log("Filtros:", filters);
     
     const countResult = await countQuery;
     const totalItems = countResult[0]?.count || 0;
@@ -112,6 +127,7 @@ console.log("Parámetros de búsqueda recibidos:", {
         slug: Product.slug,
         type: Product.type,
         stock: Product.stock,
+        piercing_name: Product.piercing_name,
         user: Product.user
       })
       .from(Product)

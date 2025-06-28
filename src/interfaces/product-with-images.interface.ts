@@ -8,5 +8,6 @@ export interface ProductWithImages {
     type: string;
     stock: number;
     user: string;
+    piercing_name: string[];
     images: string[];
 }

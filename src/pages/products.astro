@@ -4,72 +4,93 @@ import { FilterSidebar } from "@/components/products/FilterSidebar";
 import Pagination from "@/components/shared/Pagination.astro";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
+import type { ProductWithImages } from "@/interfaces"; // Asegúrate de importar la interfaz
 
 const searchParams = Astro.url.searchParams;
 
-// Obtener todos los parámetros de filtrado de la URL
+// Obtener parámetros
 const pageParam = Number(searchParams.get('page') || 1);
 const categoryParam = searchParams.get('category') || 'all';
 const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
 const inStockParam = searchParams.get('inStock') === 'true';
 const search = searchParams.get('search') || '';
+const piercingParam = searchParams.get('piercing') || '';
 
-// Llamar a la acción con todos los parámetros
-const { data, error } = await Astro.callAction(
+// Llamar a la acción
+const result = await Astro.callAction(
   actions.getProductsByPage,  
   {
     page: pageParam,
     category: categoryParam,
     maxPrice: maxPriceParam,
-    inStock: inStockParam,
+    inStock: true,
     search: search,
+    piercing: piercingParam
   }
 );
 
 // Manejo de errores
-if (error) {
-  console.error("Error al cargar productos:", error);
+if (result.error) {
+  console.error("Error al cargar productos:", result.error);
   return Astro.redirect('/error');
 }
 
-const { products, totalPages } = data;
+if (!result.data) {
+  console.error("No se recibieron datos de productos");
+  return Astro.redirect('/error');
+}
 
-// Redirigir si no hay productos en la página actual
-if (products.length === 0 && totalPages > 0) {
-  // Mantener los parámetros de filtro en la redirección
+const { products, totalPages } = result.data;
+
+// Transformar productos al tipo esperado
+const transformedProducts: ProductWithImages[] = products.map(product => {
+  // Convertir piercing_name a array
+  const piercingArray = typeof product.piercing_name === 'string' 
+    ? product.piercing_name.split(',') 
+    : product.piercing_name || [];
+
+  return {
+    ...product,
+    images: product.images || ['no-image.png'],
+    piercing_name: piercingArray
+  };
+});
+
+const inStockProducts = transformedProducts.filter(p => p.stock > 0);
+
+// Redirigir si no hay productos
+if (transformedProducts.length === 0 && totalPages > 0) {
   const queryParams = new URLSearchParams({
     page: totalPages.toString(),
     category: categoryParam,
     maxPrice: maxPriceParam.toString(),
     inStock: inStockParam.toString(),
-    search: search.toString()
+    search: search,
+    piercing: piercingParam
   });
   
   return Astro.redirect(`/products?${queryParams.toString()}`);
 }
 
-// Preparar datos para pasar al componente FilterSidebar
 const filterState = {
   selectedCat: categoryParam,
   price: maxPriceParam,
   inStock: inStockParam,
-  search: search  // ¡Asegúrate de incluir este campo!
+  search: search,
+  piercing: piercingParam
 };
 ---
 
 <ProductsLayout>
   <div class="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
-    <!-- Sidebar -->
     <FilterSidebar 
       client:load
       initialValues={filterState}
     />
 
-    <!-- Productos -->
     <div class="flex flex-col gap-4">
-      <ProductList products={products} client:load />
+      <ProductList products={inStockProducts} client:only="react" />
 
-      <!-- Paginación al final de los productos -->
       <Pagination 
         totalPages={totalPages} 
         currentPage={pageParam} 
@@ -77,7 +98,8 @@ const filterState = {
           category: categoryParam,
           maxPrice: maxPriceParam,
           inStock: inStockParam,
-          search: search  // Añade esto también
+          search: search,
+          piercing: piercingParam
         }}
       />
     </div>

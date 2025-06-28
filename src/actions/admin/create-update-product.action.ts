@@ -26,6 +26,7 @@ export const crateUpdateProduct = defineAction({
         slug: z.string(),
         type: z.string(),
         stock: z.number(),
+        piercing_name: z.array(z.string()), 
 
         imageFiles: z.array(
             z.instanceof(File)

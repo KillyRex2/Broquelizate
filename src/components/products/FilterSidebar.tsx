@@ -160,7 +160,7 @@ export const FilterSidebar = ({
         <hr className="border-gray-700" />
 
         {/* Disponibilidad */}
-        <div>
+        {/* <div>
           <h3 className="font-medium">Disponibilidad</h3>
           <label className="flex items-center space-x-2">
             <input
@@ -171,7 +171,7 @@ export const FilterSidebar = ({
             />
             <span>En stock</span>
           </label>
-        </div>
+        </div> */}
 
         <button
           type="submit"

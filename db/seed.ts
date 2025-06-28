@@ -41,6 +41,7 @@ export default async function seed() {
 			slug: p.slug,
 			type: p.type,
 			stock: p.stock,
+			piercing_name: p.piercing_name.join(','),
 			user: YurePinedo.id,
 		};
 

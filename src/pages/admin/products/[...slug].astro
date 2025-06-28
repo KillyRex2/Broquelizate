@@ -11,7 +11,18 @@ if (error) {
   return Astro.redirect('/404');
 }
 
-const { product, images } = data;
+const { product: rawProduct, images } = data;
+
+// Normalizar piercing_name para asegurar que sea un array
+const product = {
+  ...rawProduct,
+  piercing_name: 
+    Array.isArray(rawProduct.piercing_name) 
+      ? rawProduct.piercing_name 
+      : rawProduct.piercing_name 
+        ? rawProduct.piercing_name.split(',').map(p => p.trim())
+        : []
+};
 ---
 
 <ProductsLayout title="Mantenimiento de producto">
@@ -135,6 +146,54 @@ const { product, images } = data;
               }
             </select>
           </div>
+<div class="col-span-full">
+  <label class="block mb-2 text-sm font-semibold">Tipos de perforación</label>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Antihelix', 'Tragus', 
+      'Antitragus', 'Rook', 'Conch', 'Daith', 'Industrial', 
+      'Séptum', 'Nóstril', 'Navel', 'Ninguno'].map(piercing => {
+        const isChecked = product.piercing_name.includes(piercing);
+        return (
+          <label
+            for={`piercing-${piercing}`}
+            class={`flex flex-row items-center gap-2.5 ${isChecked ? 'text-yellow-400' : 'text-slate-300'} hover:text-white transition-colors cursor-pointer`}
+          >
+            <input 
+              id={`piercing-${piercing}`}
+              name="piercing_name"
+              type="checkbox"
+              value={piercing}
+              checked={isChecked}
+              class="peer hidden"
+            />
+            <div class={`h-5 w-5 flex items-center justify-center rounded-md border ${
+              isChecked 
+                ? 'bg-yellow-500 border-yellow-500' 
+                : 'border-slate-600 bg-slate-800'
+            } peer-checked:bg-yellow-500 peer-checked:border-yellow-500 transition`}>
+              <svg
+                fill="none"
+                viewBox="0 0 24 24"
+                class={`w-4 h-4 stroke-slate-800 ${
+                  isChecked ? 'opacity-100' : 'opacity-0'
+                } peer-checked:opacity-100 transition-opacity`}
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M4 12.6111L8.92308 17.5L20 6.5"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+            </div>
+            <span class="text-sm">{piercing}</span>
+          </label>
+        );
+      })
+    }
+  </div>
+</div>
         </div>
       </div>
 
@@ -192,7 +251,6 @@ const { product, images } = data;
     <!-- BOTÓN GUARDAR -->
     <div class="mt-10 text-right">
       <button
-        
         type="submit"
         form="product-form"
         class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg shadow-md transition"
@@ -207,8 +265,7 @@ const { product, images } = data;
       @apply bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition;
     }
   </style>
-
-  </ProductsLayout>
+</ProductsLayout>
 
 <script>
   import { actions } from 'astro:actions';
@@ -216,25 +273,40 @@ const { product, images } = data;
 
   document.addEventListener('astro:page-load', () => {
     const form = document.querySelector('form') as HTMLFormElement;
-    // const sizeButtons = document.querySelectorAll('.btn-size');
     const btnsDeleteImage = document.querySelectorAll('.btn-delete-image');
-    // const lblSelectedFiles = document.querySelector(
-    //   '#lbl-selected-files'
-    // ) as HTMLParagraphElement;
-
 
     if (!form) {
       return;
     }
+ // Aplicar estilos iniciales a los checkboxes (CORRECCIÓN)
+    document.querySelectorAll<HTMLInputElement>('input[name="piercing_name"]').forEach(checkbox => {
+      const label = checkbox.closest('label');
+      if (!label) return;
+      
+      if (checkbox.checked) {
+        label.classList.add('text-yellow-400');
+        label.classList.remove('text-slate-300');
+      } else {
+        label.classList.remove('text-yellow-400');
+        label.classList.add('text-slate-300');
+      }
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      // Validar que al menos un piercing esté seleccionado
+      const piercingCheckboxes = document.querySelectorAll<HTMLInputElement>(
+        'input[name="piercing_name"]:checked'
+      );
+      
+      if (piercingCheckboxes.length === 0) {
+        if (!confirm('⚠️ No has seleccionado ningún tipo de perforación.\n¿Deseas continuar de todas formas?')) {
+          return;
+        }
+      }
     
       const formData = new FormData(form);
-
-      const formValues = Object.fromEntries(formData.entries());
-      console.log(formValues);
 
       const { data, error } = await actions.crateUpdateProduct(formData);
 
@@ -243,7 +315,6 @@ const { product, images } = data;
       }
 
       navigate(`javascript:history.back()`);
-
     });
 
     // Eliminar imagenes
@@ -262,9 +333,7 @@ const { product, images } = data;
                 alert(error)
                 return;
             }
-            const trId = `#${id}`
             document.getElementById(id)?.remove();
-            console.log(trId);
         });
     });
 
@@ -311,7 +380,6 @@ const { product, images } = data;
         const dataTransfer = new DataTransfer();
         files.forEach( file => dataTransfer.items.add(file))
         return dataTransfer.files;
-
     }
 
     const handleFiles = (files: FileList) => {
@@ -337,4 +405,3 @@ const { product, images } = data;
 
   });
 </script>
-

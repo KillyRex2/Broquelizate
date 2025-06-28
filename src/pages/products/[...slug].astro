@@ -12,19 +12,30 @@ const { data, error } = await Astro.callAction(
 if (error) {
   return Astro.redirect("/404");
 }
-const { product, images } = data;
+const { product: rawProduct, images } = data;
+
+// SOLUCIÓN: Manejo de tipos seguro
+let piercing_name: string[] = [];
+if (typeof rawProduct.piercing_name === 'string') {
+  piercing_name = rawProduct.piercing_name.split(',').map(p => p.trim());
+} else if (Array.isArray(rawProduct.piercing_name)) {
+  piercing_name = rawProduct.piercing_name;
+}
+
+const product = {
+  ...rawProduct,
+  piercing_name
+};
 ---
 
 <ProductsLayout title={product.name} description={product.description}>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
     <!-- Swiper ajustado -->
-
-      <div class="relative w-full h-[400px]">
-        <ProductSlideshow
-          images={images.map(i => i.image)}
-         />
-      </div>
-    
+    <div class="relative w-full h-[400px]">
+      <ProductSlideshow
+        images={images.map(i => i.image)}
+      />
+    </div>
 
     <!-- Detalles -->
     <section class="flex flex-col justify-between">
@@ -34,9 +45,32 @@ const { product, images } = data;
           {Formatter.currency(product.price)}
         </p>
 
-        <span class="inline-block bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium mb-6">
-          {product.category}
-        </span>
+        <div class="flex flex-wrap gap-3 mb-6">
+          <span class="inline-block bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium">
+            {product.category}
+          </span>
+          
+          <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+            {product.type}
+          </span>
+        </div>
+
+        <!-- Sección de perforaciones -->
+        {product.piercing_name.length > 0 && (
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-300 mb-2">Perforaciones compatibles</h3>
+            <div class="flex flex-wrap gap-2">
+              {product.piercing_name.map(piercing => (
+                <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                  </svg>
+                  {piercing}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p class="text-xl text-gray-200 leading-relaxed mb-8">
           {product.description}
@@ -48,25 +82,28 @@ const { product, images } = data;
         <div class="flex items-center space-x-4">
           <button
             id="qty-decr"
-            class="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-lg shadow-sm hover:bg-gray-200 transition"
+            class="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-lg shadow-sm hover:bg-gray-600 transition text-white"
           >−</button>
           <input
             id="qty-input"
             type="number"
             min="1"
             value="1"
-            class="w-16 text-center p-2 border border-gray-300 bg-gray-700 rounded-lg"
+            class="w-16 text-center p-2 border border-gray-600 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
           />
           <button
             id="qty-incr"
-            class="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-lg shadow-sm hover:bg-gray-200 transition"
+            class="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-lg shadow-sm hover:bg-gray-600 transition text-white"
           >+</button>
         </div>
 
         <button
           id="add-to-cart"
-          class="w-full py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition"
+          class="w-full py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition flex items-center justify-center gap-2"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+          </svg>
           Añadir al carrito
         </button>
       </div>
@@ -78,9 +115,9 @@ const { product, images } = data;
     <div class="mt-12">
       <h2 class="text-xl font-bold text-white mb-4">Más imágenes</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {images.map((src) => (
+        {images.map((image) => (
           <img
-            src={src}
+            src={image.image}
             alt={product.name}
             class="w-full h-32 object-cover rounded-xl shadow-sm"
           />
@@ -92,54 +129,76 @@ const { product, images } = data;
   <input type="hidden" id="product-id" value={product.id} />
 </ProductsLayout>
 
-
 <script>
 import { itemsInCart } from "@/store";
-// import { CartCookiesClient } from "@/utils";
 import { navigate } from "astro:transitions/client";
 
-  document.addEventListener("astro:page-load", async() => {
-    // const {CartCookiesClient} = await import("@/utils");
-    const qtyInput = document.getElementById("qty-input");
-    const decrementBtn = document.getElementById("qty-decr");
-    const incrementBtn = document.getElementById("qty-incr");
-    const addBtn = document.getElementById("add-to-cart");
-    const productIdInput = document.getElementById("product-id");
+document.addEventListener("astro:page-load", async() => {
+  const qtyInput = document.getElementById("qty-input");
+  const decrementBtn = document.getElementById("qty-decr");
+  const incrementBtn = document.getElementById("qty-incr");
+  const addBtn = document.getElementById("add-to-cart");
+  const productIdInput = document.getElementById("product-id");
 
-    if (
-      !(qtyInput instanceof HTMLInputElement) ||
-      !(decrementBtn instanceof HTMLElement) ||
-      !(incrementBtn instanceof HTMLElement) ||
-      !(addBtn instanceof HTMLButtonElement) ||
-      !(productIdInput instanceof HTMLInputElement)
-    ) {
-      console.error("Elementos faltantes para cantidad / carrito.");
-      return;
-    }
+  if (
+    !(qtyInput instanceof HTMLInputElement) ||
+    !(decrementBtn instanceof HTMLElement) ||
+    !(incrementBtn instanceof HTMLElement) ||
+    !(addBtn instanceof HTMLButtonElement) ||
+    !(productIdInput instanceof HTMLInputElement)
+  ) {
+    console.error("Elementos faltantes para cantidad / carrito.");
+    return;
+  }
 
-    let quantity = 1;
+  let quantity = 1;
 
-    decrementBtn.addEventListener("click", () => {
-      quantity = Math.max(1, quantity - 1);
-      qtyInput.value = quantity.toString();
-    });
-    incrementBtn.addEventListener("click", () => {
-      quantity = Math.min(999, quantity + 1);
-      qtyInput.value = quantity.toString();
-    });
-``
-    const CartCookiesClient = await import("../../utils/cart-cookies");
+  decrementBtn.addEventListener("click", () => {
+    quantity = Math.max(1, quantity - 1);
+    qtyInput.value = quantity.toString();
+  });
+  
+  incrementBtn.addEventListener("click", () => {
+    quantity = Math.min(999, quantity + 1);
+    qtyInput.value = quantity.toString();
+  });
 
-    addBtn.addEventListener("click", async () => {
-      addBtn.disabled = true;
-      const cart = CartCookiesClient.CartCookiesClient.addItem({
+  addBtn.addEventListener("click", async () => {
+    addBtn.disabled = true;
+    addBtn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg> Procesando...`;
+    
+    try {
+      const { CartCookiesClient } = await import("../../utils/cart-cookies");
+      const cart = CartCookiesClient.addItem({
         productId: productIdInput.value,
         quantity,
       });
       itemsInCart.set(cart.length);
       await navigate("/cart");
-
-      
-    });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      addBtn.disabled = false;
+      addBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+        </svg>
+        Añadir al carrito
+      `;
+    }
   });
+});
 </script>
+
+<style>
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>
