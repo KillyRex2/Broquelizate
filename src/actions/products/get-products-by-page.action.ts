@@ -78,6 +78,11 @@ export const handler = async ({
       filters.push(sql`${Product.piercing_name} LIKE ${'%' + piercing + '%'}`);
     }
 
+        if (search && search.trim() !== '') {
+      console.log(`Filtrando por término de búsqueda: ${search}`);
+      filters.push(sql`(LOWER(${Product.name}) LIKE ${'%' + search.toLowerCase() + '%'} OR LOWER(${Product.description}) LIKE ${'%' + search.toLowerCase() + '%'})`);
+    }
+
     //    // Validar piercings
     // if (piercing !== 'all' && !validPiercings.includes(piercing)) {
     //   filteredCategory = 'all';

@@ -1,0 +1,144 @@
+---
+// src/components/admin/RevenueChart.astro
+
+// Datos del gráfico - preparados para ser serializados a JSON
+const chartData = {
+  labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+  datasets: [
+    {
+      label: '2023',
+      data: [8500, 10200, 9800, 11200, 12500, 14300, 15800, 14200, 16800, 18500, 21000, 24780],
+      borderColor: 'rgb(59, 130, 246)',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      tension: 0.3,
+      fill: true
+    },
+    {
+      label: '2022',
+      data: [7200, 8900, 8200, 9400, 10500, 11200, 12800, 11800, 13200, 14500, 16800, 18900],
+      borderColor: 'rgb(156, 163, 175)',
+      borderDash: [5, 5],
+      tension: 0.3,
+      fill: false
+    }
+  ]
+};
+
+// Opciones del gráfico - sin funciones para poder serializar
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'top',
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      grid: {
+        drawBorder: false
+      },
+      // La función callback se definirá en el cliente
+      ticks: {}
+    },
+    x: {
+      grid: {
+        display: false
+      }
+    }
+  }
+};
+
+// Serializar los datos para pasar al cliente
+const serializedData = JSON.stringify(chartData);
+const serializedOptions = JSON.stringify(chartOptions);
+---
+
+<div class="relative h-[300px]">
+  <canvas id="revenueChart"></canvas>
+</div>
+
+<!-- Almacenar datos en elementos ocultos para acceso en cliente -->
+<input type="hidden" id="chartData" value={serializedData} />
+<input type="hidden" id="chartOptions" value={serializedOptions} />
+
+<script>
+  (async function() {
+    // Declarar instancia del gráfico con tipo explícito
+    let chartInstance = null;
+    
+    // Obtener datos serializados
+    const chartDataEl = document.getElementById('chartData');
+    const chartOptionsEl = document.getElementById('chartOptions');
+    
+    if (!chartDataEl || !chartOptionsEl) return;
+    
+    // Parsear datos
+    const chartData = JSON.parse(chartDataEl.value);
+    const chartOptions = JSON.parse(chartOptionsEl.value);
+    
+    // Añadir función callback para los ticks
+    chartOptions.scales.y.ticks.callback = function(value) {
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      return '$' + numValue.toLocaleString();
+    };
+    
+    // Cargar Chart.js dinámicamente
+    const Chart = await import('chart.js/auto');
+    
+    // Función para inicializar el gráfico
+    function initChart() {
+      // Obtener elemento con tipado correcto
+      const canvas = document.getElementById('revenueChart');
+      if (!canvas) return;
+      
+      // Verificar que es un elemento canvas
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        console.error('Element found is not a canvas');
+        return;
+      }
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Destruir instancia anterior si existe
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
+      
+      // Crear nueva instancia del gráfico
+      chartInstance = new Chart.default(ctx, {
+        type: 'line',
+        data: chartData,
+        options: chartOptions
+      });
+    }
+    
+    // Manejar diferentes estados de carga
+    const handleLoad = () => {
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        // DOM ya está listo
+        setTimeout(initChart, 0);
+      } else {
+        // Esperar a que el DOM esté listo
+        document.addEventListener('DOMContentLoaded', initChart);
+      }
+    };
+    
+    // Inicializar según el estado actual
+    handleLoad();
+    
+    // Manejar View Transitions de Astro
+    document.addEventListener('astro:page-load', initChart);
+    
+    // Limpieza al desmontar
+    window.addEventListener('beforeunload', () => {
+      if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+      }
+    });
+  })();
+</script>
