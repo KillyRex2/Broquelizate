@@ -1,144 +1,283 @@
 ---
 // src/components/admin/RevenueChart.astro
+import { db, orders } from 'astro:db';
+import { sql, gte } from 'drizzle-orm';
+import type { ChartOptions, TooltipItem } from 'chart.js';
 
-// Datos del gráfico - preparados para ser serializados a JSON
-const chartData = {
-  labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-  datasets: [
-    {
-      label: '2023',
-      data: [8500, 10200, 9800, 11200, 12500, 14300, 15800, 14200, 16800, 18500, 21000, 24780],
-      borderColor: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      tension: 0.3,
-      fill: true
-    },
-    {
-      label: '2022',
-      data: [7200, 8900, 8200, 9400, 10500, 11200, 12800, 11800, 13200, 14500, 16800, 18900],
-      borderColor: 'rgb(156, 163, 175)',
-      borderDash: [5, 5],
-      tension: 0.3,
-      fill: false
-    }
-  ]
-};
+const now = new Date();
+const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
 
-// Opciones del gráfico - sin funciones para poder serializar
-const chartOptions = {
+type DailyResult = { day: string; total: number };
+
+const dailyRevenue: DailyResult[] = await db.select({
+  day: sql<string>`DATE(${orders.createdAt})`,
+  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
+}).from(orders)
+.where(gte(orders.createdAt, twoYearsAgo))
+.groupBy(sql`DATE(${orders.createdAt})`)
+.orderBy(sql`DATE(${orders.createdAt}) ASC`)
+.all();
+
+const chartOptions: ChartOptions<'line'> = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
       position: 'top',
+      align: 'end',
+      labels: {
+        usePointStyle: true,
+        boxWidth: 10,
+        color: '#333',
+        font: {
+          family: 'Poppins, sans-serif',
+          weight: 'bold'
+        }
+      }
+    },
+    tooltip: {
+      backgroundColor: '#111',
+      titleColor: '#D4AF37',
+      bodyColor: '#fff',
+      borderColor: '#D4AF37',
+      borderWidth: 1,
+      callbacks: {
+        label: function(context: TooltipItem<'line'>) {
+          return ` ${new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN'
+          }).format(context.parsed.y)}`;
+        }
+      }
     }
   },
   scales: {
     y: {
-      beginAtZero: true,
-      grid: {
-        drawBorder: false
-      },
-      // La función callback se definirá en el cliente
-      ticks: {}
+      grid: { color: '#F3E9D2' }, // dorado claro
+      ticks: {
+        color: '#8B8000',
+        font: { family: 'Poppins, sans-serif' },
+        callback: function(value: number | string) {
+          const numValue = typeof value === 'string' ? parseFloat(value) : value;
+          return numValue >= 1000
+            ? '$' + (numValue / 1000) + 'k'
+            : '$' + numValue;
+        }
+      }
     },
     x: {
-      grid: {
-        display: false
+      grid: { display: false },
+      ticks: {
+        color: '#8B8000',
+        font: { family: 'Poppins, sans-serif' },
+        maxRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: 12
       }
     }
   }
 };
 
-// Serializar los datos para pasar al cliente
-const serializedData = JSON.stringify(chartData);
-const serializedOptions = JSON.stringify(chartOptions);
+const chartConfig = {
+  type: 'line',
+  data: {
+    datasets: [
+      {
+        label: `Ingresos`,
+        borderColor: '#D4AF37', // dorado metálico
+        backgroundColor: {
+          primary: 'rgba(212, 175, 55, 0.4)',   // dorado con opacidad
+          transparent: 'rgba(212, 175, 55, 0)'  // gradiente transparente
+        },
+        pointBackgroundColor: '#D4AF37',
+        pointBorderColor: '#fff',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }
+    ]
+  },
+  options: chartOptions,
+};
 ---
-
-<div class="relative h-[300px]">
-  <canvas id="revenueChart"></canvas>
+<div class="bg-white rounded-xl shadow-sm p-6">
+  <div class="flex justify-between items-center">
+    <h3 class="text-lg font-semibold text-gray-800">Resumen de Ingresos</h3>
+    <div id="chart-filters" class="flex items-center gap-2">
+      <button class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-300 transition-colors duration-200"
+  data-period="30"
+  class="bg-[#FAF3E0] text-[#8B8000]">1 Mes</button>
+      <button class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-300 transition-colors duration-200"
+  data-period="90"
+  class="bg-[#FAF3E0] text-[#8B8000]">3 Meses</button>
+      <button class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-300 transition-colors duration-200"
+  data-period="365"
+  class="bg-[#FAF3E0] text-[#8B8000]">1 año</button>
+    </div>
+  </div>
+  <div class="relative h-[350px] mt-4">
+    <canvas id="revenueChart"></canvas>
+  </div>
 </div>
 
-<!-- Almacenar datos en elementos ocultos para acceso en cliente -->
-<input type="hidden" id="chartData" value={serializedData} />
-<input type="hidden" id="chartOptions" value={serializedOptions} />
+<script define:vars={{ chartConfig, dailyRevenue }}>
+  let chartInstance = null;
+  const CHARTJS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js';
 
-<script>
-  (async function() {
-    // Declarar instancia del gráfico con tipo explícito
-    let chartInstance = null;
+  function createGradient(ctx, colors) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    gradient.addColorStop(0, colors.primary);
+    gradient.addColorStop(1, colors.transparent);
+    return gradient;
+  }
+
+  function processDataForPeriod(periodInDays) {
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - periodInDays);
     
-    // Obtener datos serializados
-    const chartDataEl = document.getElementById('chartData');
-    const chartOptionsEl = document.getElementById('chartOptions');
+    const labels = [];
+    const data = [];
     
-    if (!chartDataEl || !chartOptionsEl) return;
-    
-    // Parsear datos
-    const chartData = JSON.parse(chartDataEl.value);
-    const chartOptions = JSON.parse(chartOptionsEl.value);
-    
-    // Añadir función callback para los ticks
-    chartOptions.scales.y.ticks.callback = function(value) {
-      const numValue = typeof value === 'string' ? parseFloat(value) : value;
-      return '$' + numValue.toLocaleString();
-    };
-    
-    // Cargar Chart.js dinámicamente
-    const Chart = await import('chart.js/auto');
-    
-    // Función para inicializar el gráfico
-    function initChart() {
-      // Obtener elemento con tipado correcto
-      const canvas = document.getElementById('revenueChart');
-      if (!canvas) return;
+    for (let i = periodInDays - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
       
-      // Verificar que es un elemento canvas
-      if (!(canvas instanceof HTMLCanvasElement)) {
-        console.error('Element found is not a canvas');
-        return;
+      // Formatear etiquetas según el período
+      let label;
+      if (periodInDays <= 30) {
+        // Para 1 mes: día del mes
+        label = date.getDate().toString();
+      } else if (periodInDays <= 90) {
+        // Para 3 meses: día y mes abreviado
+        label = date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+      } else {
+        // Para 1 año: solo mes en el primer día del mes
+        if (date.getDate() === 1) {
+          label = date.toLocaleDateString('es-MX', { month: 'short' });
+        } else {
+          label = '';
+        }
       }
       
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      labels.push(label);
       
-      // Destruir instancia anterior si existe
-      if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
-      }
-      
-      // Crear nueva instancia del gráfico
-      chartInstance = new Chart.default(ctx, {
-        type: 'line',
-        data: chartData,
-        options: chartOptions
-      });
+      const dailyData = dailyRevenue.find(d => d.day === dateStr);
+      data.push(dailyData ? dailyData.total : 0);
     }
     
-    // Manejar diferentes estados de carga
-    const handleLoad = () => {
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        // DOM ya está listo
-        setTimeout(initChart, 0);
-      } else {
-        // Esperar a que el DOM esté listo
-        document.addEventListener('DOMContentLoaded', initChart);
+    return { labels, data };
+  }
+  
+  function updateChart(period) {
+    if (!chartInstance) return;
+    
+    const { labels, data } = processDataForPeriod(period);
+    
+    chartInstance.data.labels = labels;
+    chartInstance.data.datasets[0].data = data;
+    
+    // Actualizar etiqueta según el período seleccionado
+    if (period === 30) {
+      chartInstance.data.datasets[0].label = "Último Mes";
+    } else if (period === 90) {
+      chartInstance.data.datasets[0].label = "Últimos 3 Meses";
+    } else {
+      chartInstance.data.datasets[0].label = "Este Año";
+    }
+    
+    chartInstance.update();
+  }
+
+  async function setupAndInitChart() {
+    if (typeof window.Chart === 'undefined') {
+      try {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = CHARTJS_URL;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Error cargando Chart.js'));
+          document.head.appendChild(script);
+        });
+      } catch (e) {
+        console.error("Error al cargar Chart.js", e);
+        return;
       }
-    };
+    }
+
+    const canvas = document.getElementById('revenueChart');
+    if (!canvas) {
+      console.error("Elemento canvas no encontrado");
+      return;
+    }
     
-    // Inicializar según el estado actual
-    handleLoad();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error("No se pudo obtener contexto 2D");
+      return;
+    }
+
+    if (chartInstance) {
+      chartInstance.destroy();
+      chartInstance = null;
+    }
+
+    const config = JSON.parse(JSON.stringify(chartConfig));
     
-    // Manejar View Transitions de Astro
-    document.addEventListener('astro:page-load', initChart);
+    // Crear gradiente
+    const bgColors = config.data.datasets[0].backgroundColor;
+    config.data.datasets[0].backgroundColor = createGradient(ctx, bgColors);
     
-    // Limpieza al desmontar
-    window.addEventListener('beforeunload', () => {
-      if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
+    // Inicializar gráfico
+    try {
+      chartInstance = new window.Chart(ctx, config);
+      updateChart(365); // Mostrar año por defecto
+    } catch (error) {
+      console.error("Error inicializando gráfico:", error);
+    }
+  }
+  
+  document.addEventListener('astro:page-load', () => {
+    setupAndInitChart();
+    
+    const filterContainer = document.getElementById('chart-filters');
+    if (filterContainer) {
+      // Establecer el botón activo inicial
+      const activeButton = filterContainer.querySelector('[data-period="365"]');
+      if (activeButton) {
+        activeButton.classList.add('bg-blue-600', 'text-white');
+        activeButton.classList.remove('bg-gray-100', 'text-gray-600');
       }
-    });
-  })();
+      
+      filterContainer.addEventListener('click', (e) => {
+        const target = e.target.closest('button');
+        if (target && target.dataset.period) {
+          const period = parseInt(target.dataset.period);
+          
+          // Actualizar todos los botones
+          filterContainer.querySelectorAll('button').forEach(btn => {
+            if (btn === target) {
+              btn.classList.add('bg-blue-600', 'text-white');
+              btn.classList.remove('bg-gray-100', 'text-gray-600');
+            } else {
+              btn.classList.add('bg-gray-100', 'text-gray-600');
+              btn.classList.remove('bg-blue-600', 'text-white');
+            }
+          });
+
+          updateChart(period);
+        }
+      });
+    }
+  });
+
+  // Limpieza al cambiar de página
+  document.addEventListener('astro:before-swap', () => {
+    if (chartInstance) {
+      chartInstance.destroy();
+      chartInstance = null;
+    }
+  });
 </script>

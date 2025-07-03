@@ -21,6 +21,16 @@ if (error || !products) {
 const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
 const tax = subtotal * 0.15;
 const total = subtotal + tax;
+
+// Generar datos de productos para el cliente
+const productsData = products.map(p => ({ 
+  id: p.productId, 
+  name: p.name, 
+  price: p.price, 
+  quantity: p.quantity,
+  image: p.image || ''
+}));
+
 ---
 <div class="bg-gray-200 p-4 rounded-xl shadow-md">
   <div class="md:max-w-5xl max-w-xl mx-auto">
@@ -417,22 +427,41 @@ async function initializeStripe(): Promise<void> {
   }
 
   // Función para obtener los datos de forma segura
-  function getCheckoutData() {
-    const productsDataElement = document.getElementById('products-data');
-    const taxDataElement = document.getElementById('tax-data');
-    const totalDataElement = document.getElementById('total-data');
-    
-    if (!productsDataElement || !taxDataElement || !totalDataElement) {
-      console.error('Elementos de datos no encontrados');
-      return null;
-    }
-    
-    return {
-      productsData: JSON.parse(productsDataElement.textContent || '[]'),
-      taxValue: parseFloat(taxDataElement.textContent || '0'),
-      totalValue: parseFloat(totalDataElement.textContent || '0')
-    };
+function getCheckoutData(): {
+  productsData: CartProduct[];
+  taxValue: number;
+  totalValue: number;
+} | null {
+  const productsDataElement = document.getElementById('products-data');
+  const productsImagesElement = document.getElementById('products-images');
+  const taxDataElement = document.getElementById('tax-data');
+  const totalDataElement = document.getElementById('total-data');
+  
+  if (!productsDataElement || !taxDataElement || !totalDataElement || !productsImagesElement) {
+    console.error('Elementos de datos no encontrados');
+    return null;
   }
+  
+  const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
+  const productsImages = JSON.parse(productsImagesElement.textContent || '[]');
+  const taxValue = parseFloat(taxDataElement.textContent || '0');
+  const totalValue = parseFloat(totalDataElement.textContent || '0');
+
+  // Asegurar estructura correcta de los productos con tipo CartProduct
+  const productsData: CartProduct[] = rawProductsData.map((p: any, index: number) => ({
+    id: p.id || p.productId || "",
+    name: p.name || "",
+    price: p.price || 0,
+    quantity: p.quantity || 1,
+    image: productsImages[index] || ''
+  }));
+  
+  return {
+    productsData,
+    taxValue,
+    totalValue
+  };
+}
 
   // Función para actualizar la visibilidad de los métodos de pago
   function updatePaymentVisibility() {
@@ -456,149 +485,9 @@ async function initializeStripe(): Promise<void> {
     }
   }
 
-  // Función para manejar el pago con tarjeta
 
-// async function handleCardPayment(e: Event): Promise<void> {
-//   e.preventDefault();
-  
-//   const submitButton = document.getElementById('submit-card-payment') as HTMLButtonElement | null;
-//   if (!submitButton) return;
 
-//   const cardHolderNameInput = document.getElementById('card-holder-name') as HTMLInputElement | null;
-//   if (!cardHolderNameInput) return;
-
-//   const cardHolderName = cardHolderNameInput.value.trim();
-  
-//   if (!cardHolderName) {
-//     await Swal.fire({
-//       title: 'Error',
-//       text: 'Por favor, ingresa el nombre del titular de la tarjeta.',
-//       icon: 'error',
-//       confirmButtonText: 'Aceptar',
-//       customClass: {
-//         popup: 'rounded-xl',
-//         confirmButton: 'px-4 py-2 rounded-lg'
-//       }
-//     });
-//     return;
-//   }
-
-//   const data = getCheckoutData();
-//   if (!data) return;
-
-//   const { taxValue, totalValue } = data;
-  
-//   if (isNaN(taxValue) || isNaN(totalValue)) return;
-
-//   submitButton.disabled = true;
-//   submitButton.textContent = 'Procesando...';
-  
-//   try {
-    
-//      if (!stripe || !cardElement || !elements) {
-//       throw new Error('El sistema de pagos no está inicializado correctamente');
-//     }
-//     // Mostrar loader (sin asignar a variable)
-//     Swal.fire({
-//       title: 'Procesando pago...',
-//       text: 'Por favor, espera mientras confirmamos tu pago.',
-//       allowOutsideClick: false,
-//       didOpen: () => {
-//         Swal.showLoading();
-//       }
-//     });
-
-//     // Crear Payment Intent
-//     const response = await fetch('/api/create-payment-intent', {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify({
-//         amount: Math.round(totalValue * 100),
-//         currency: 'mxn',
-//         tax: taxValue,
-//         subtotal: totalValue - taxValue
-//       })
-//     });
-
-//     if (!response.ok) {
-//       const errorResponse = await response.json();
-//       throw new Error(errorResponse.error || `HTTP error! status: ${response.status}`);
-//     }
-    
-//     const result = await response.json();
-//     if (result.error) throw new Error(result.error.message);
-//     if (!result.clientSecret) throw new Error('ClientSecret no recibido');
-
-//     // Confirmar pago
-//     const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-//       result.clientSecret,
-//       {
-//         payment_method: {
-//           card: cardElement,
-//           billing_details: {
-//             name: cardHolderName
-//           }
-//         }
-//       }
-//     );
-
-//     // Cerrar loader
-//     Swal.close();
-
-//     if (stripeError) throw new Error(stripeError.message);
-//     if (!paymentIntent) throw new Error('No se recibió PaymentIntent');
-//     if (paymentIntent.status !== 'succeeded') throw new Error(`Estado: ${paymentIntent.status}`);
-
-//     // Generar ticket
-//     const storeInfo = {
-//       name: "Broquelizate",
-//       address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
-//       phone: "+528714617696",
-//       rfc: "XAXX010101000"
-//     };
-
-//     const pdfDoc = generateTicket(data.productsData, taxValue, totalValue, storeInfo);
-//     printTicket(pdfDoc);
-//     Cookies.clearCart();
-
-//     await Swal.fire({
-//       title: 'Pago exitoso',
-//       text: `Tu pago de ${Formatter.currency(totalValue)} se ha procesado correctamente.`,
-//       icon: 'success',
-//       confirmButtonText: 'Aceptar',
-//       customClass: {
-//         popup: 'rounded-xl',
-//         confirmButton: 'px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600'
-//       }
-//     });
-
-//     navigate('/order-success');
-    
-//   } catch (error) {
-//     console.error('Error en el pago:', error);
-    
-//     // Cerrar loader si está activo
-//     if (Swal.isVisible()) Swal.close();
-    
-//     await Swal.fire({
-//       title: 'Error',
-//       text: 'Ocurrió un error al procesar el pago.',
-//       icon: 'error',
-//       confirmButtonText: 'Intentar de nuevo',
-//       customClass: {
-//         popup: 'rounded-xl',
-//         confirmButton: 'px-4 py-2 rounded-lg'
-//       }
-//     });
-    
-//   } finally {
-//     if (submitButton) {
-//       submitButton.disabled = false;
-//       submitButton.textContent = 'Pagar';
-//     }
-//   }
-// }
-
+// Función handleCheckout actualizada
 async function handleCheckout(e: Event): Promise<void> {
   e.preventDefault();
   
@@ -612,7 +501,7 @@ async function handleCheckout(e: Event): Promise<void> {
   const country = (document.getElementById('country') as HTMLInputElement)?.value || 'MX';
   
   // Validar campos obligatorios
- if (!email || !streetAddress || !city || !state || !postalCode) {
+  if (!email || !streetAddress || !city || !state || !postalCode) {
     await Swal.fire({
       title: 'Campos incompletos',
       text: 'Por favor, completa todos los campos requeridos: Email, Calle, Ciudad, Estado y Código Postal.',
@@ -626,7 +515,6 @@ async function handleCheckout(e: Event): Promise<void> {
     return;
   }
 
-  
   // Construir objeto de dirección
   const shippingAddress = {
     line1: streetAddress,
@@ -660,7 +548,7 @@ async function handleCheckout(e: Event): Promise<void> {
   const totalValue = parseFloat(totalDataElement.textContent || '0');
 
   // Vincular imagenes con los productos
-   const productsWithImages = productsData.map((product: any, index: number) => ({
+  const productsWithImages = productsData.map((product: any, index: number) => ({
     ...product,
     image: productsImages[index] || null
   }));
@@ -670,8 +558,8 @@ async function handleCheckout(e: Event): Promise<void> {
   
   try {
     swalInstance = Swal.fire({
-      title: 'Preparando tu pago...',
-      html: 'Estamos creando tu sesión de pago segura',
+      title: 'Procesando pedido...',
+      html: 'Estamos preparando tu compra',
       allowOutsideClick: false,
       showConfirmButton: false,
       didOpen: () => {
@@ -682,7 +570,13 @@ async function handleCheckout(e: Event): Promise<void> {
       }
     });
 
-    // Crear la sesión de Checkout en el backend
+    // Paso 1: Actualizar stock
+    await updateProductStock();
+    
+    // Paso 2: Crear orden
+    const order = await createOrder('card');
+    
+    // Paso 3: Crear sesión de pago con Stripe
     const response = await fetch('/api/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -690,7 +584,7 @@ async function handleCheckout(e: Event): Promise<void> {
         products: productsWithImages,
         shippingAddress: shippingAddress,
         customerEmail: email,
-        successUrl: `${window.location.origin}/order-success?session_id={CHECKOUT_SESSION_ID}`,
+        successUrl: `${window.location.origin}/order-success?order_id=${order.id}`,
         cancelUrl: window.location.href,
       })
     });
@@ -705,7 +599,6 @@ async function handleCheckout(e: Event): Promise<void> {
 
     // Limpiar carrito ANTES de redirigir
     CartCookiesClient.clearCart();
-    console.log('Carrito limpiado antes de redirección');
 
     // Redirigir a Stripe Checkout
     const stripe = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
@@ -745,7 +638,6 @@ async function handleCheckout(e: Event): Promise<void> {
       }
     });
   } finally {
-   
     // Cerrar loader si sigue abierto
     if (swalInstance) {
       swalInstance.then((result: any) => {
@@ -757,99 +649,233 @@ async function handleCheckout(e: Event): Promise<void> {
   }
 }
 
+// Función handleCashPayment actualizada
+async function handleCashPayment() {
+  try {
+    // Mostrar loader
+    const swalInstance = Swal.fire({
+      title: 'Procesando pedido...',
+      html: 'Creando tu orden de compra',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+      customClass: {
+        popup: 'rounded-xl'
+      }
+    });
 
+    // Paso 1: Actualizar stock
+    await updateProductStock();
+    
+    // Paso 2: Crear orden
+    const order = await createOrder('cash');
 
+    // Información de la tienda
+    const storeInfo = {
+      name: "Broquelizate",
+      address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
+      phone: "+528714617696",
+      rfc: "XAXX010101000"
+    };
 
-
-  // Función para manejar el pago en efectivo
-  async function handleCashPayment() {
+    // Generar el ticket
     const data = getCheckoutData();
-    if (!data) return;
+    if (!data) throw new Error('Datos de compra no disponibles');
     
-    const { productsData, taxValue, totalValue } = data;
+    const pdfDoc = generateTicket(data.productsData, data.taxValue, data.totalValue, storeInfo);
     
-    const result = await Swal.fire({
-      title: 'Confirmar compra',
+    // Cerrar loader de procesamiento
+    Swal.close();
+
+    // Mostrar mensaje de éxito con opciones
+    Swal.fire({
+      title: 'Orden completada',
       html: `
-        <div class="text-left">
-          <p class="mb-4">¿Estás seguro de completar la compra con pago en efectivo?</p>
-          <div class="bg-gray-100 p-3 rounded-lg mb-4">
-            <p class="font-semibold">Resumen de compra</p>
-            <ul class="mt-2 space-y-1">
-              ${renderProducts(productsData)}
-              <li class="flex justify-between text-sm border-t border-gray-300 pt-1 mt-1">
-                <span>Impuestos (15%)</span>
-                <span>${Formatter.currency(taxValue)}</span>
-              </li>
-              <li class="flex justify-between font-bold text-base mt-2">
-                <span>Total:</span>
-                <span>${Formatter.currency(totalValue)}</span>
-              </li>
-            </ul>
-          </div>
+        <div class="text-center">
+          <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p class="mb-4">Orden #${order.orderNumber} registrada</p>
+          <p class="text-sm text-gray-600 mb-6">Pago en efectivo confirmado. Puedes recoger tu pedido en nuestro local.</p>
+          <button id="print-receipt" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
+            Imprimir recibo
+          </button>
+          <button id="view-order" class="mt-3 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md transition-colors">
+            Ver detalles
+          </button>
         </div>
       `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Imprimir recibo',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#10B981',
-      cancelButtonColor: '#EF4444',
-      reverseButtons: true,
+      showConfirmButton: false,
       customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'mr-2 px-4 py-2 rounded-lg',
-        cancelButton: 'px-4 py-2 rounded-lg'
-      },
-      buttonsStyling: false
+        popup: 'rounded-xl'
+      }
     });
     
-    if (result.isConfirmed) {
-      // Información de la tienda
-      const storeInfo = {
-        name: "Broquelizate",
-        address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
-        phone: "+528714617696",
-        rfc: "XAXX010101000"
-      };
+    // Agregar eventos a los botones
+    setTimeout(() => {
+      const printButton = document.getElementById('print-receipt');
+      const viewButton = document.getElementById('view-order');
+      
+      if (printButton) {
+        printButton.addEventListener('click', () => {
+          printTicket(pdfDoc);
+        });
+      }
+      
+      if (viewButton) {
+        viewButton.addEventListener('click', () => {
+          Swal.close();
+          navigate(`/order-success?order_id=${order.id}`);
+        });
+      }
+    }, 100);
 
-      // Generar el ticket
-      const pdfDoc = generateTicket(productsData, taxValue, totalValue, storeInfo);
-      
-      Swal.fire({
-        title: 'Recibo generado',
-        html: `
-          <div class="text-center">
-            <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="mb-4">Tu recibo se ha generado correctamente.</p>
-            <p class="text-sm text-gray-600 mb-6">Puedes recoger tu pedido en nuestro local o esperar la entrega.</p>
-            <button id="print-receipt" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
-              Imprimir recibo
-            </button>
-          </div>
-        `,
-        showConfirmButton: false,
-        customClass: {
-          popup: 'rounded-xl'
-        }
-      });
-      
-      // Agregar evento al botón de imprimir
-      setTimeout(() => {
-        const printButton = document.getElementById('print-receipt');
-        if (printButton) {
-          printButton.addEventListener('click', () => {
-            printTicket(pdfDoc);
-            Cookies.clearCart(); // Limpiar el carrito
-            Swal.close();
-            navigate('/order-success');
-          });
-        }
-      }, 100);
+    // Limpiar carrito después de éxito
+    CartCookiesClient.clearCart();
+
+  } catch (error) {
+    console.error('Error en el pago en efectivo:', error);
+    
+    // Cerrar loader si está activo
+    if (Swal.isVisible()) Swal.close();
+    
+    let errorMessage = 'Ocurrió un error al procesar tu pedido';
+    if (error instanceof Error) {
+      errorMessage = error.message || errorMessage;
     }
+    
+    await Swal.fire({
+      title: 'Error',
+      text: errorMessage,
+      icon: 'error',
+      confirmButtonText: 'Entendido',
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'px-4 py-2 rounded-lg'
+      }
+    });
   }
+}
+
+  
+// Definir una interfaz para el producto
+interface CartProduct {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+}
+
+// Nueva función para crear la orden con tipos definidos
+async function createOrder(paymentMethod: string) {
+  // Recopilar información del formulario
+  const email = (document.getElementById('email') as HTMLInputElement)?.value;
+  const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value;
+  const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value;
+  const city = (document.getElementById('city') as HTMLInputElement)?.value;
+  const state = (document.getElementById('state') as HTMLInputElement)?.value;
+  const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value;
+  const country = (document.getElementById('country') as HTMLInputElement)?.value || 'México';
+  
+  const shippingAddress = {
+    streetAddress,
+    neighborhood,
+    city,
+    state,
+    postalCode,
+    country
+  };
+
+  const data = getCheckoutData();
+  if (!data) throw new Error('Datos de compra no disponibles');
+  
+  // Validar IDs de productos con tipo definido
+  const invalidProducts = data.productsData.filter((p: CartProduct) => !p.id);
+  if (invalidProducts.length > 0) {
+    console.error("Productos sin ID:", invalidProducts);
+    throw new Error(`${invalidProducts.length} productos no tienen ID válido`);
+  }
+
+  // Preparar datos para la API con tipo definido
+  const orderData = {
+    customerEmail: email,
+    shippingAddress: shippingAddress,
+    products: data.productsData.map((p: CartProduct) => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      quantity: p.quantity
+    })),
+    subtotal: data.totalValue - data.taxValue,
+    tax: data.taxValue,
+    total: data.totalValue,
+    paymentMethod: paymentMethod
+  };
+
+  try {
+    // Llamar al endpoint para crear la orden
+    const response = await fetch('/api/create-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(orderData)
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json();
+      throw new Error(errorResponse.error || `Error HTTP: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('Error creating order:', error);
+    
+    // Mejorar mensaje de error
+    let errorMessage = 'Error al crear la orden';
+    if (error instanceof Error) {
+      errorMessage += `: ${error.message}`;
+    }
+    
+    throw new Error(errorMessage);
+  }
+}
+
+ // Función para actualizar el stock (corregida)
+async function updateProductStock() {
+  const productsDataElement = document.getElementById('products-data');
+  if (!productsDataElement) {
+    throw new Error('Elemento de datos de productos no encontrado');
+  }
+  
+  // Parsear los datos de productos
+  const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
+  
+  // Crear datos para actualizar stock usando id directamente
+  const stockUpdateData = rawProductsData.map((p: any) => ({
+    id: p.id, // Usar id directamente
+    quantity: p.quantity
+  }));
+  
+  try {
+    const response = await fetch('/api/update-stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ products: stockUpdateData })
+    });
+
+    if (!response.ok) {
+      const errorResponse = await response.json();
+      throw new Error(errorResponse.error || 'Error al actualizar el stock');
+    }
+  } catch (error) {
+    console.error('Error updating stock:', error);
+    throw error;
+  }
+}
 
   // Inicialización cuando la página está lista
   document.addEventListener('astro:page-load', async () => {
@@ -899,15 +925,16 @@ async function handleCheckout(e: Event): Promise<void> {
 </script>
 
 <!-- Elementos ocultos con datos -->
- <div id="products-data" style="display: none;">
-  {JSON.stringify(products.map(p => ({ 
-    id: p.id, 
-    name: p.name, 
-    price: p.price, 
-    quantity: p.quantity 
+<!-- Por esto (agrega id si falta) -->
+<div id="products-data" style="display: none;">
+  {JSON.stringify(productsData.map(p => ({
+    id: p.id || p.id || "", // Asegura tener id
+    name: p.name,
+    price: p.price,
+    quantity: p.quantity,
+    image: p.image || ''
   })))}
 </div>
-
 <div id="products-images" style="display: none;">
   {JSON.stringify(products.map(p => p.image || ''))}
 </div>

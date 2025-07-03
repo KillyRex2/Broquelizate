@@ -1,6 +1,46 @@
 ---
 // src/components/admin/TopProducts.astro
+import { db, order_items, Product, orders, ProductImage } from 'astro:db';
+import { sql, eq, desc } from 'drizzle-orm';
+
+// Consulta optimizada para obtener productos con imágenes
+const topProductsData = await db.select({
+  id: Product.id,
+  name: Product.name,
+  category: Product.category,
+  price: Product.price,
+  total_sold: sql<number>`SUM(${order_items.quantity})`.mapWith(Number).as('total_sold')
+})
+.from(order_items)
+.innerJoin(Product, eq(order_items.productId, Product.id))
+.innerJoin(orders, eq(order_items.orderId, orders.id))
+.groupBy(Product.id, Product.name, Product.category, Product.price)
+.orderBy(desc(sql`total_sold`))
+.limit(4);
+
+// Obtener imágenes para los productos destacados
+const productIds = topProductsData.map(p => p.id);
+const productImages = productIds.length > 0
+  ? await db.select()
+      .from(ProductImage)
+      .where(sql`${ProductImage.productId} IN ${productIds}`)
+  : [];
+
+// Crear un mapa de imágenes por producto
+const imageMap = new Map();
+productImages.forEach(img => {
+  if (!imageMap.has(img.productId)) {
+    imageMap.set(img.productId, img.image);
+  }
+});
+
+// Combinar datos con imágenes
+const topProducts = topProductsData.map(product => ({
+  ...product,
+  image: imageMap.get(product.id) || null
+}));
 ---
+
 <div class="bg-white rounded-xl shadow-sm p-6">
   <div class="flex justify-between items-center mb-4">
     <h2 class="text-lg font-semibold text-gray-900">Productos Destacados</h2>
@@ -8,52 +48,45 @@
   </div>
   
   <div class="space-y-4">
-    <div class="flex items-center">
-      <div class="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
-      <div class="ml-4 flex-1">
-        <h3 class="font-medium">Anillo de Diamantes</h3>
-        <p class="text-sm text-gray-500">Categoría: Anillos</p>
+    {topProducts.length > 0 ? (
+      topProducts.map(product => (
+        <div class="flex items-center">
+          {product.image ? (
+            <img 
+              src={product.image} 
+              alt={product.name} 
+              class="rounded-xl w-16 h-16 object-cover border border-gray-200"
+              width="64"
+              height="64"
+              loading="lazy"
+            />
+          ) : (
+            <div class="bg-gray-100 border-2 border-dashed rounded-xl w-16 h-16 flex items-center justify-center text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          )}
+          <div class="ml-4 flex-1">
+            <h3 class="font-medium">{product.name}</h3>
+            <p class="text-sm text-gray-500">Categoría: {product.category || 'Sin categoría'}</p>
+          </div>
+          <div class="text-right">
+            <p class="font-medium">
+              {new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+              }).format(product.price)}
+            </p>
+            <p class="text-sm text-green-500">{product.total_sold} ventas</p>
+          </div>
+        </div>
+      ))
+    ) : (
+      <div class="text-center py-6">
+        <p class="text-gray-500">No hay productos destacados aún</p>
+        <p class="text-sm text-gray-400 mt-2">Los productos más vendidos aparecerán aquí</p>
       </div>
-      <div class="text-right">
-        <p class="font-medium">$1,250.00</p>
-        <p class="text-sm text-green-500">28 ventas</p>
-      </div>
-    </div>
-    
-    <div class="flex items-center">
-      <div class="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
-      <div class="ml-4 flex-1">
-        <h3 class="font-medium">Collar de Perlas</h3>
-        <p class="text-sm text-gray-500">Categoría: Collares</p>
-      </div>
-      <div class="text-right">
-        <p class="font-medium">$890.00</p>
-        <p class="text-sm text-green-500">22 ventas</p>
-      </div>
-    </div>
-    
-    <div class="flex items-center">
-      <div class="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
-      <div class="ml-4 flex-1">
-        <h3 class="font-medium">Pendientes de Oro</h3>
-        <p class="text-sm text-gray-500">Categoría: Pendientes</p>
-      </div>
-      <div class="text-right">
-        <p class="font-medium">$450.00</p>
-        <p class="text-sm text-green-500">18 ventas</p>
-      </div>
-    </div>
-    
-    <div class="flex items-center">
-      <div class="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
-      <div class="ml-4 flex-1">
-        <h3 class="font-medium">Pulsera de Plata</h3>
-        <p class="text-sm text-gray-500">Categoría: Pulseras</p>
-      </div>
-      <div class="text-right">
-        <p class="font-medium">$320.00</p>
-        <p class="text-sm text-green-500">15 ventas</p>
-      </div>
-    </div>
+    )}
   </div>
 </div>

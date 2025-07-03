@@ -16,12 +16,12 @@ const pageTitle = "Panel de Administración";
     <div class="flex justify-between items-center mb-8">
       <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
       <div class="flex space-x-4">
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-          </svg>
-          Nuevo Producto
-        </button>
+      <a href="/admin/products/new" class="inline-flex items-center bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium transition hover:bg-indigo-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
+        Nuevo Producto
+      </a>
         <button class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -38,18 +38,6 @@ const pageTitle = "Panel de Administración";
         <div class="bg-white rounded-xl shadow-sm p-6">
           <div class="flex justify-between items-center mb-6">
             <h2 class="text-lg font-semibold text-gray-900">Ingresos Mensuales</h2>
-            <div class="relative">
-              <select class="block appearance-none w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500">
-                <option>Últimos 30 días</option>
-                <option>Últimos 90 días</option>
-                <option>Este año</option>
-              </select>
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                </svg>
-              </div>
-            </div>
           </div>
           <RevenueChart />
         </div>

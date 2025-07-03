@@ -2,6 +2,7 @@
 // src/layouts/AdminLayout.astro
 import Sidebar from '@/components/admin/Sidebar.astro';
 import AdminHeader from '@/components/admin/AdminHeader.astro';
+import { ClientRouter } from 'astro:transitions';
 
 const { title } = Astro.props;
 ---
@@ -12,6 +13,7 @@ const { title } = Astro.props;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{title} - Joyería Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <ClientRouter/>
 </head>
 <body class="h-full">
   <div class="flex h-full">

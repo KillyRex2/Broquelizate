@@ -1,36 +1,100 @@
 ---
-// src/components/admin/SalesByCategory.astro
----
-<canvas id="categoryChart" height="300"></canvas>
+// src/components/admin/SalesByPaymentMethod.astro
+import { db, orders } from 'astro:db';
+import { between, sql } from 'drizzle-orm';
 
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('categoryChart').getContext('2d');
-    
+// NOTA: Asegúrate de que tu tabla 'orders' tenga una columna para el total de la venta.
+// Usaremos 'orders.total' como ejemplo. ¡Cámbialo si tu columna se llama diferente!
+
+// 1. OBTENER FECHAS
+const now = new Date();
+const oneMonthAgo = new Date(now);
+oneMonthAgo.setMonth(now.getMonth() - 1);
+
+// 2. CONSULTAR EL TOTAL DE VENTAS POR MÉTODO DE PAGO
+const salesData = await db
+  .select({
+    paymentMethod: orders.paymentMethod,
+    // ¡CORRECCIÓN! Usamos SUM(orders.total) en lugar de COUNT(*)
+    // para sumar el monto de las ventas.
+    totalSales: sql<number>`SUM(${orders.total})`.mapWith(Number)
+  })
+  .from(orders)
+  .where(between(orders.createdAt, oneMonthAgo, now))
+  .groupBy(orders.paymentMethod)
+  .all();
+
+// 3. PREPARAR DATOS PARA LA GRÁFICA
+const labels = salesData.map(item => item.paymentMethod);
+// ¡CORRECCIÓN! Usamos 'totalSales' y nombramos la variable 'values' para más claridad.
+const values = salesData.map(item => item.totalSales);
+const colors = [
+  'rgb(59, 130, 246)',  // azul para 'credit_card'
+  'rgb(16, 185, 129)',  // verde para 'debit_card'
+  'rgb(245, 158, 11)',  // amarillo para 'cash'
+  'rgb(139, 92, 246)',  // violeta
+  'rgb(236, 72, 153)',  // rosa
+];
+
+// Serializar datos para pasar al cliente
+const chartDataObj = {
+  labels,
+  values, // Enviamos los valores de venta, no los conteos
+  colors
+};
+---
+
+<div class="bg-white rounded-xl shadow-sm p-6">
+  <h2 class="text-lg font-semibold text-gray-900 mb-4">Ventas por Método de Pago (último mes)</h2>
+  <canvas id="paymentMethodChart" class="max-h-80"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<script type="module" define:vars={{ chartDataObj }}>
+  
+  // 2. ACCEDE a la variable directamente y desestructúrala
+  const { labels, values, colors } = chartDataObj;
+
+  function renderChart() {
+    const canvas = document.getElementById('paymentMethodChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // El resto de la lógica de Chart.js no necesita cambios
     new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Anillos', 'Collares', 'Pendientes', 'Pulseras', 'Relojes'],
-        datasets: [{
-          data: [35, 25, 20, 15, 5],
-          backgroundColor: [
-            'rgb(59, 130, 246)',
-            'rgb(16, 185, 129)',
-            'rgb(245, 158, 11)',
-            'rgb(139, 92, 246)',
-            'rgb(236, 72, 153)'
-          ],
-          borderWidth: 0
-        }]
+        labels,
+        datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: {
-            position: 'right',
+          legend: { position: 'right' },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const label = ctx.label || '';
+                const value = ctx.raw || 0;
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                
+                const formattedValue = value.toLocaleString('es-MX', {
+                  style: 'currency',
+                  currency: 'MXN'
+                });
+
+                return `${label}: ${formattedValue} (${pct}%)`;
+              }
+            }
           }
         }
       }
     });
-  });
+  }
+
+  document.addEventListener('astro:page-load', renderChart);
 </script>

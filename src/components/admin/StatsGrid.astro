@@ -1,12 +1,106 @@
 ---
 // src/components/admin/StatsGrid.astro
+import { db, orders } from 'astro:db';
+import { sql, and, gte, lte } from 'drizzle-orm';
+
+// Obtener la fecha actual y calcular rangos
+const now = new Date();
+const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+const endOfPreviousMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+// Función para formatear moneda
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('es-MX', { 
+    style: 'currency', 
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+};
+
+// Consulta 1: Ingresos totales (todos los pedidos)
+const totalRevenueResult = await db.select({
+  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
+}).from(orders);
+
+const totalRevenue = totalRevenueResult[0]?.total || 0;
+
+// Consulta 2: Ingresos del mes actual
+const currentMonthRevenueResult = await db.select({
+  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
+}).from(orders)
+.where(and(
+  gte(orders.createdAt, startOfCurrentMonth),
+  lte(orders.createdAt, now)
+));
+
+const currentMonthRevenue = currentMonthRevenueResult[0]?.total || 0;
+
+// Consulta 3: Ingresos del mes pasado
+const previousMonthRevenueResult = await db.select({
+  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
+}).from(orders)
+.where(and(
+  gte(orders.createdAt, startOfPreviousMonth),
+  lte(orders.createdAt, endOfPreviousMonth)
+));
+
+const previousMonthRevenue = previousMonthRevenueResult[0]?.total || 0;
+
+// Calcular cambio porcentual para ingresos
+const revenueChange = previousMonthRevenue > 0 
+  ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 
+  : currentMonthRevenue > 0 ? 100 : 0;
+
+// Consulta 4: Total de pedidos
+const totalOrdersResult = await db.select({
+  count: sql<number>`COUNT(*)`.mapWith(Number)
+}).from(orders);
+
+const totalOrders = totalOrdersResult[0]?.count || 0;
+
+// Consulta 5: Pedidos del mes actual
+const currentMonthOrdersResult = await db.select({
+  count: sql<number>`COUNT(*)`.mapWith(Number)
+}).from(orders)
+.where(and(
+  gte(orders.createdAt, startOfCurrentMonth),
+  lte(orders.createdAt, now)
+));
+
+const currentMonthOrders = currentMonthOrdersResult[0]?.count || 0;
+
+// Consulta 6: Pedidos del mes pasado
+const previousMonthOrdersResult = await db.select({
+  count: sql<number>`COUNT(*)`.mapWith(Number)
+}).from(orders)
+.where(and(
+  gte(orders.createdAt, startOfPreviousMonth),
+  lte(orders.createdAt, endOfPreviousMonth)
+));
+
+const previousMonthOrders = previousMonthOrdersResult[0]?.count || 0;
+
+// Calcular cambio porcentual para pedidos
+const ordersChange = previousMonthOrders > 0 
+  ? ((currentMonthOrders - previousMonthOrders) / previousMonthOrders) * 100 
+  : currentMonthOrders > 0 ? 100 : 0;
+
+// Formatear valores para mostrar
+const formattedTotalRevenue = formatCurrency(totalRevenue);
+const formattedCurrentMonthRevenue = formatCurrency(currentMonthRevenue);
+const formattedTotalOrders = totalOrders.toLocaleString('es-MX');
+const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
 ---
+
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <!-- Cuadro de Ingresos Totales -->
   <div class="bg-white rounded-xl shadow-sm p-6">
     <div class="flex justify-between">
       <div>
         <p class="text-sm text-gray-500">Ingresos Totales</p>
-        <p class="text-2xl font-bold mt-1">$24,780.00</p>
+        <p class="text-2xl font-bold mt-1">{formattedTotalRevenue}</p>
       </div>
       <div class="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -14,16 +108,20 @@
         </svg>
       </div>
     </div>
-    <p class="text-sm text-green-500 mt-2">
-      <span>↑</span> 12.5% desde el mes pasado
+    <p class="text-sm mt-2">
+      <span class={revenueChange >= 0 ? 'text-green-500' : 'text-red-500'}>
+        {revenueChange >= 0 ? '↑' : '↓'} {Math.abs(revenueChange).toFixed(1)}%
+      </span>
+      <span class="text-gray-500"> este mes: {formattedCurrentMonthRevenue}</span>
     </p>
   </div>
   
+  <!-- Cuadro de Pedidos -->
   <div class="bg-white rounded-xl shadow-sm p-6">
     <div class="flex justify-between">
       <div>
         <p class="text-sm text-gray-500">Pedidos</p>
-        <p class="text-2xl font-bold mt-1">1,248</p>
+        <p class="text-2xl font-bold mt-1">{formattedTotalOrders}</p>
       </div>
       <div class="bg-green-100 rounded-full w-12 h-12 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -31,11 +129,15 @@
         </svg>
       </div>
     </div>
-    <p class="text-sm text-green-500 mt-2">
-      <span>↑</span> 8.3% desde el mes pasado
+    <p class="text-sm mt-2">
+      <span class={ordersChange >= 0 ? 'text-green-500' : 'text-red-500'}>
+        {ordersChange >= 0 ? '↑' : '↓'} {Math.abs(ordersChange).toFixed(1)}%
+      </span>
+      <span class="text-gray-500"> este mes: {formattedCurrentMonthOrders}</span>
     </p>
   </div>
   
+  <!-- Cuadro de Clientes (a implementar más adelante) -->
   <div class="bg-white rounded-xl shadow-sm p-6">
     <div class="flex justify-between">
       <div>
@@ -53,6 +155,7 @@
     </p>
   </div>
   
+  <!-- Cuadro de Tasa de Conversión (a implementar más adelante) -->
   <div class="bg-white rounded-xl shadow-sm p-6">
     <div class="flex justify-between">
       <div>

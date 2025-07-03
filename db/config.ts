@@ -42,6 +42,35 @@ const ProductImage = defineTable({
     image: column.text(),
   }
 })
+
+const orders = defineTable({
+  columns: {
+    id: column.text({ primaryKey: true }),
+    orderNumber: column.text(),
+    customerEmail: column.text(),
+    shippingAddress: column.text(),
+    subtotal: column.number(),
+    tax: column.number(),
+    total: column.number(),
+    paymentMethod: column.text(),
+    status: column.text({ default: 'pending' }), // 'pending', 'completed', 'cancelled'
+    createdAt: column.date({ default: new Date() })
+  }
+});
+
+const order_items = defineTable({
+  columns: {
+    id: column.text({ primaryKey: true }),
+    orderId: column.text({ references: () => orders.columns.id }),
+    productId: column.text({ references: () => Product.columns.id }),
+    productName: column.text(),
+    quantity: column.number(),
+    price: column.number(),
+    subtotal: column.number()
+  }
+});
+
+
 // https://astro.build/db/config
 export default defineDb({
   tables: {
@@ -49,5 +78,7 @@ export default defineDb({
     Role,
     Product,
     ProductImage,
+    orders,
+    order_items  
   }
 });

@@ -1,154 +1,98 @@
 ---
-// src/components/admin/RecentOrders.astro
+// src/components/admin/ActivityFeed.astro
+import { db, orders, order_items } from 'astro:db';
+import { desc, eq } from 'drizzle-orm';
+
+// Últimas 5 órdenes
+const recentOrders = await db.select({
+  id: orders.id,
+  createdAt: orders.createdAt,
+  total: orders.total,
+  customerEmail: orders.customerEmail,
+  status: orders.status
+})
+.from(orders)
+.orderBy(desc(orders.createdAt))
+.limit(5)
+.all();
+
+// Items por orden
+const ordersWithItems = await Promise.all(
+  recentOrders.map(async order => {
+    const items = await db.select()
+      .from(order_items)
+      .where(eq(order_items.orderId, order.id))
+      .all();
+    return {
+      ...order,
+      items: items.map(i => i.productName)
+    };
+  })
+);
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+
+const getTimeAgo = (date: Date) => {
+  const now = new Date();
+  const diff = now.getTime() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `Hace ${mins} minuto${mins!==1?'s':''}`;
+  const hours = Math.floor(mins/60);
+  if (hours < 24) return `Hace ${hours} hora${hours!==1?'s':''}`;
+  const days = Math.floor(hours/24);
+  return `Hace ${days} día${days!==1?'s':''}`;
+};
+
+const getCustomerName = (email: string) =>
+  email.split('@')[0].replace(/[._]/g, ' ')
+    .split(' ')
+    .map(p => p.charAt(0).toUpperCase()+p.slice(1))
+    .join(' ');
 ---
-<div class="bg-white rounded-xl shadow-sm overflow-hidden">
-  <div class="px-6 py-4 border-b border-gray-200">
-    <div class="flex justify-between items-center">
-      <h2 class="text-lg font-semibold text-gray-900">Pedidos Recientes</h2>
-      <a href="/admin/orders" class="text-blue-600 hover:text-blue-800 text-sm">Ver todos</a>
-    </div>
-  </div>
-  
-  <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Pedido
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Cliente
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Fecha
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Estado
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Total
-          </th>
-          <th scope="col" class="relative px-6 py-3">
-            <span class="sr-only">Acciones</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-        <tr>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm font-medium text-gray-900">#JY-4829</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">María Rodríguez</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-500">15 Ene, 2024</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-              Entregado
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            $420.00
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <a href="#" class="text-blue-600 hover:text-blue-900">Ver</a>
-          </td>
-        </tr>
-        
-        <tr>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm font-medium text-gray-900">#JY-4828</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">Carlos Méndez</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-500">14 Ene, 2024</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-              En proceso
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            $780.00
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <a href="#" class="text-blue-600 hover:text-blue-900">Ver</a>
-          </td>
-        </tr>
-        
-        <tr>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm font-medium text-gray-900">#JY-4827</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">Ana López</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-500">13 Ene, 2024</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-              Enviado
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            $350.00
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <a href="#" class="text-blue-600 hover:text-blue-900">Ver</a>
-          </td>
-        </tr>
-        
-        <tr>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm font-medium text-gray-900">#JY-4826</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">Juan Pérez</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-500">12 Ene, 2024</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-              Cancelado
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            $150.00
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <a href="#" class="text-blue-600 hover:text-blue-900">Ver</a>
-          </td>
-        </tr>
-        
-        <tr>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm font-medium text-gray-900">#JY-4825</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">Laura Gómez</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-500">11 Ene, 2024</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-              Entregado
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            $620.00
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <a href="#" class="text-blue-600 hover:text-blue-900">Ver</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+
+<div class="p-6 bg-white shadow-lg rounded-2xl">
+  <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b pb-2">Actividad Reciente</h2>
+  {ordersWithItems.length > 0 ? (
+    <ul class="space-y-4">
+      {ordersWithItems.map(order => (
+        <li class="flex items-start space-x-4 hover:bg-gray-50 p-4 rounded-lg transition">
+          <div class="flex-shrink-0">
+            <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-lg font-bold">
+              {getCustomerName(order.customerEmail).slice(0,2)}
+            </div>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center">
+              <div class="text-gray-900">
+                <span class="font-medium">{getCustomerName(order.customerEmail)}</span>
+                <span class="ml-1 text-sm text-gray-600">
+                  {order.status === 'completed' ? 'completó' : 'realizó'} un pedido
+                </span>
+              </div>
+              <div class="text-right">
+                <span class="text-lg font-semibold text-gray-800">{formatCurrency(order.total)}</span>
+                <div class="mt-1 text-xs text-gray-500">{getTimeAgo(order.createdAt)}</div>
+              </div>
+            </div>
+            {order.items.length > 0 && (
+              <div class="mt-2 text-sm text-gray-600">
+                <span class="font-medium">Productos:</span>
+                {order.items.slice(0,3).join(', ')}{order.items.length>3?` y ${order.items.length-3} más`:''}
+              </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p class="text-center text-gray-500 py-8">No hay actividad reciente</p>
+  )}
+
+  <a href="/admin/orders" class="mt-6 block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition">
+    Ver todas las órdenes
+    <svg xmlns="http://www.w3.org/2000/svg" class="inline-block h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+    </svg>
+  </a>
 </div>

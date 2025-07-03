@@ -47,7 +47,12 @@ export const generateTicket = (
   products: Product[],
   tax: number,
   total: number,
-  storeInfo: StoreInfo
+    storeInfo: {
+    name: string;
+    address: string;
+    phone: string;
+    rfc: string;
+  }
 ): PdfDocument => {
   // Calcular subtotal primero (corrección de orden)
   const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
