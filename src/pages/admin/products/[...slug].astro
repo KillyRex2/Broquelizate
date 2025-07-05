@@ -1,407 +1,324 @@
 ---
+// --- TU FRONTMATTER SE MANTIENE IGUAL ---
 import ProductImage from '@/components/products/ProductImage.astro';
 import ProductSlideshow from '@/components/products/ProductSlideshow.astro';
-import ProductsLayout from '@/layouts/ProductsLayout.astro';
+import AdminLayout from '@/layouts/AdminLayout.astro';
 import { actions } from 'astro:actions';
 
 const { slug } = Astro.params;
-const { data, error } = await Astro.callAction(actions.getProductBySlug, slug ?? '');
+const { data: productData, error } = await Astro.callAction(actions.getProductBySlug, slug ?? '');
 
 if (error) {
-  return Astro.redirect('/404');
+  return Astro.redirect('/404');
 }
 
-const { product: rawProduct, images } = data;
+const { product: rawProduct, images: initialImages } = productData;
 
-// Normalizar piercing_name para asegurar que sea un array
 const product = {
-  ...rawProduct,
-  piercing_name: 
-    Array.isArray(rawProduct.piercing_name) 
-      ? rawProduct.piercing_name 
-      : rawProduct.piercing_name 
-        ? rawProduct.piercing_name.split(',').map(p => p.trim())
-        : []
+  ...rawProduct,
+  piercing_name:
+    Array.isArray(rawProduct.piercing_name)
+      ? rawProduct.piercing_name
+      : rawProduct.piercing_name
+        ? rawProduct.piercing_name.split(',').map(p => p.trim())
+        : []
 };
 ---
 
-<ProductsLayout title="Mantenimiento de producto">
-  <section class="max-w-6xl mx-auto p-6 bg-slate-900 rounded-2xl shadow-lg text-slate-100">
-    <h1>{product.name}</h1>
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold mb-2">Editar producto</h1>
-      <a href="javascript:history.back()" class="text-yellow-400 hover:underline">← Volver</a>
-    </div>
+<AdminLayout title={`Editando: ${product.name}`}>
+  <section class="p-4 md:p-8 ml-80 text-gray-800">
+    <header class="mb-8">
+      <h1 class="text-4xl font-extrabold tracking-tight text-yellow-600">{product.name}</h1>
+      <a href="/admin/products" class="inline-block mt-4 text-yellow-600 hover:underline font-medium">
+        ← Volver a la lista de productos
+      </a>
+    </header>
 
-    <form class="grid grid-cols-1 md:grid-cols-2 gap-8" id="product-form">
-      <input type="hidden" name="id" value={product.id}>
-      <!-- DATOS GENERALES -->
-      <div class="space-y-6">
-        <div>
-          <label for="name" class="block mb-1 text-sm font-semibold">Nombre</label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            value={product.name}
-            required
-            class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          />
-        </div>
+    <form 
+      id="product-form" 
+      class="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-24" 
+      
+      enctype="multipart/form-data"
+      
+    >
+      <input type="hidden" name="id" value={product.id} />
 
-        <div>
-          <label for="slug" class="block mb-1 text-sm font-semibold">Slug</label>
-          <input
-            id="slug"
-            name="slug"
-            type="text"
-            value={product.slug}
-            required
-            class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm"
-          />
-        </div>
-
-        <div>
-          <label for="description" class="block mb-1 text-sm font-semibold">Descripción</label>
-          <textarea
-            id="description"
-            name="description"
-            rows="6"
-            required
-            class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm"
-          >{product.description}</textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-6">
-          <div>
-            <label for="price" class="block mb-1 text-sm font-semibold">Precio</label>
-            <input
-              id="price"
-              name="price"
-              type="number"
-              value={product.price}
-              required
-              class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm"
-            />
-          </div>
-          <div>
-            <label for="stock" class="block mb-1 text-sm font-semibold">Inventario</label>
-            <input
-              id="stock"
-              name="stock"
-              type="number"
-              value={product.stock}
-              required
-              class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm"
-            />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-6">
-          <div>
-            <label for="category" class="block mb-1 text-sm font-semibold">Categoría</label>
-            <select
-              id="category"
-              name="category"
-              required
-              class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm"
-            >
-              <option value="">[ Seleccione ]</option>
-              {
-                [   'Titanio',
-                    'Acero Quirúrgico',
-                    'Oro 10k',
-                    'Oro 14k',
-                    'Oro 18k',
-                    'Chapa de Oro 14K',
-                    'Chapa de Oro 18K',
-                    'Acero Inoxidable',
-                    'Plástico',
-                    'Plata',
-                    'Rodio'].map((c) => (
-                  <option value={c} selected={c === product.category}>
-                    {c}
-                  </option>
-                ))
-              }
-            </select>
-
-          </div>
-
-          <div>
-            <label for="type" class="block mb-1 text-sm font-semibold">Tipo</label>
-            <select
-              id="type"
-              name="type"
-              required
-              class="w-full p-3 bg-slate-50 text-slate-900 rounded-lg shadow-sm"
-            >
-              <option value="">[ Seleccione ]</option>
-              {
-                ['Anillos', 'Broqueles', 'Pulseras', 'Cadenas'].map((t) => (
-                  <option value={t} selected={t === product.type}>
-                    {t}
-                  </option>
-                ))
-              }
-            </select>
-          </div>
-<div class="col-span-full">
-  <label class="block mb-2 text-sm font-semibold">Tipos de perforación</label>
-  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-    {['Lóbulo', 'Lóbulo Superior', 'Hélix', 'Antihelix', 'Tragus', 
-      'Antitragus', 'Rook', 'Conch', 'Daith', 'Industrial', 
-      'Séptum', 'Nóstril', 'Navel', 'Ninguno'].map(piercing => {
-        const isChecked = product.piercing_name.includes(piercing);
-        return (
-          <label
-            for={`piercing-${piercing}`}
-            class={`flex flex-row items-center gap-2.5 ${isChecked ? 'text-yellow-400' : 'text-slate-300'} hover:text-white transition-colors cursor-pointer`}
-          >
-            <input 
-              id={`piercing-${piercing}`}
-              name="piercing_name"
-              type="checkbox"
-              value={piercing}
-              checked={isChecked}
-              class="peer hidden"
-            />
-            <div class={`h-5 w-5 flex items-center justify-center rounded-md border ${
-              isChecked 
-                ? 'bg-yellow-500 border-yellow-500' 
-                : 'border-slate-600 bg-slate-800'
-            } peer-checked:bg-yellow-500 peer-checked:border-yellow-500 transition`}>
-              <svg
-                fill="none"
-                viewBox="0 0 24 24"
-                class={`w-4 h-4 stroke-slate-800 ${
-                  isChecked ? 'opacity-100' : 'opacity-0'
-                } peer-checked:opacity-100 transition-opacity`}
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M4 12.6111L8.92308 17.5L20 6.5"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                ></path>
-              </svg>
+      <div class="lg:col-span-2 space-y-8">
+        <!-- Datos Generales -->
+        <div class="card">
+          <h2 class="card-title">Datos Generales</h2>
+          <div class="space-y-6">
+            <div>
+              <label for="name" class="form-label">Nombre</label>
+              <input id="name" name="name" type="text" value={product.name} required class="form-input" />
             </div>
-            <span class="text-sm">{piercing}</span>
-          </label>
-        );
-      })
-    }
-  </div>
-</div>
+            <div>
+              <label for="slug" class="form-label">Slug</label>
+              <input id="slug" name="slug" type="text" value={product.slug} required class="form-input" />
+            </div>
+            <div>
+              <label for="description" class="form-label">Descripción</label>
+              <textarea id="description" name="description" rows="6" required class="form-input">{product.description}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Precio y Categorización -->
+        <div class="card">
+          <h2 class="card-title">Precio y Categorización</h2>
+          <div class="grid grid-cols-2 gap-x-6 gap-y-8">
+            <div>
+              <label for="price" class="form-label">Precio</label>
+              <input id="price" name="price" type="number" step="0.01" value={product.price} required class="form-input" />
+            </div>
+            <div>
+              <label for="stock" class="form-label">Inventario</label>
+              <input id="stock" name="stock" type="number" value={product.stock} required class="form-input" />
+            </div>
+            <div>
+              <label for="category" class="form-label">Material</label>
+              <select id="category" name="category" required class="form-input">
+                {['Titanio','Acero Quirúrgico','Oro 10k','Oro 14k','Oro 18k','Chapa de Oro 14K','Chapa de Oro 18K','Acero Inoxidable','Plástico','Plata','Rodio'].map(c => (
+                  <option value={c} selected={c === product.category}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label for="type" class="form-label">Tipo de Joya</label>
+              <select id="type" name="type" required class="form-input">
+                {['Anillos','Broqueles','Pulseras','Cadenas'].map(t => (
+                  <option value={t} selected={t === product.type}>{t}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tipos de Perforación -->
+        <div class="card">
+          <h2 class="card-title">Tipos de Perforación</h2>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {['Lóbulo','Lóbulo Superior','Hélix','Antihelix','Tragus','Antitragus','Rook','Conch','Daith','Industrial','Séptum','Nóstril','Navel','Flat','Ninguno'].map(p => {
+              const isChecked = product.piercing_name.includes(p);
+              return (
+                <label class="flex items-center space-x-3 cursor-pointer">
+                  <input type="checkbox" name="piercing_name" value={p} checked={isChecked} class="h-5 w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" />
+                  <span class="font-medium text-slate-700">{p}</span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <!-- IMÁGENES -->
-      <div class="space-y-6">
-        <!-- SUBIR IMÁGENES -->
-        <div>
-          <label for="file-upload" class="block mb-1 text-sm font-semibold">Subir imágenes</label>
-          <label
-            for="file-upload"
-            id="drop-zone"
-            class="flex flex-col items-center justify-center w-full h-52 border-2 border-dashed border-gray-500 rounded-lg cursor-pointer hover:bg-slate-800 transition"
-          >
-            <svg class="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M7 16V4a2 2 0 012-2h6a2 2 0 012 2v12m-6 4l-4-4m0 0l4-4m-4 4h12" />
-            </svg>
-            <p class="text-sm text-gray-300" id="lbl-selected-files">Click aquí o arrastra imágenes</p>
-            <p class="text-xs text-gray-400">JPG, PNG, GIF - máx. 800x400px</p>
-            <input id="file-upload" name="imageFiles" type="file" accept="image/*" multiple class="hidden" />
-          </label>
+      <div class="lg:col-span-1 space-y-8">
+        <!-- Imágenes -->
+        <div class="card">
+          <h2 class="card-title">Imágenes</h2>
+          <div id="slideshow-container">
+            <ProductSlideshow images={initialImages.map(i => i.image)} />
+          </div>
+
+          <!-- Subir nuevas -->
+          <div class="mt-6">
+            <label for="file-upload" class="form-label">Añadir nuevas imágenes</label>
+            <div id="drop-zone" class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer bg-white hover:bg-slate-50 hover:border-yellow-600 transition-colors">
+              <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+              <p class="text-sm text-slate-500">Click o arrastra para subir</p>
+              <input id="file-upload" name="imageFiles" type="file" accept="image/*" multiple class="hidden" />
+            </div>
+          </div>
+          <div id="new-images-preview" class="mt-4 grid grid-cols-3 gap-2"></div>
+
+          <!-- Imágenes actuales -->
+          <h3 class="form-label mt-6 mb-2">Imágenes Actuales</h3>
+          <ul id="image-list-container" class="space-y-2">
+            {initialImages.map(i => (
+              <li data-id={i.id} class="flex items-center justify-between">
+                <img src={i.image} alt="imagen actual" class="h-16 w-16 object-cover rounded" />
+                <button type="button" data-id={i.id} class="text-red-600 hover:underline delete-existing">Eliminar</button>
+              </li>
+            ))}
+          </ul>
         </div>
-
-        <!-- SLIDESHOW -->
-        <ProductSlideshow images={images.map(i => i.image)} />
-
-        <!-- LISTA DE IMÁGENES -->
-        <table class="w-full border border-gray-700 text-sm">
-          <thead class="bg-slate-800 text-slate-300">
-            <tr>
-              <th class="py-2 px-4 text-left">Imagen</th>
-              <th class="py-2 px-4 text-center">Eliminar</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              images.map(({image, id}) => (
-                <tr class="border-t border-slate-700" id={id}>
-                  <td class="py-2 px-4">
-                    <ProductImage src={image} alt={product.name} className="w-16 h-16 rounded object-cover" />
-                  </td>
-                  <td class="py-2 px-4 text-center">
-                    <button
-                         data-id={id}
-                         type="button" class="btn-delete-image">✕</button>
-                  </td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
       </div>
     </form>
 
-    <!-- BOTÓN GUARDAR -->
-    <div class="mt-10 text-right">
-      <button
-        type="submit"
-        form="product-form"
-        class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg shadow-md transition"
-      >
-        Guardar producto
-      </button>
+    <!-- Botón fijo -->
+    <div class="fixed bottom-0 left-0 lg:left-80 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4 z-50">
+      <div class="max-w-6xl mx-auto flex justify-end">
+        <button type="submit" form="product-form" id="save-button" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transition-transform hover:scale-105">
+          Guardar Cambios
+        </button>
+      </div>
     </div>
   </section>
-
-  <style>
-    .btn-delete-image {
-      @apply bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition;
-    }
-  </style>
-</ProductsLayout>
-
 <script>
-  import { actions } from 'astro:actions';
+  import { actions } from "astro:actions";
   import { navigate } from 'astro:transitions/client';
 
   document.addEventListener('astro:page-load', () => {
-    const form = document.querySelector('form') as HTMLFormElement;
-    const btnsDeleteImage = document.querySelectorAll('.btn-delete-image');
-
-    if (!form) {
+    // 1. OBTENER ELEMENTOS DEL DOM
+    const form = document.getElementById('product-form') as HTMLFormElement | null;
+    const dropZone = document.getElementById('drop-zone') as HTMLDivElement | null;
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement | null;
+    const previewContainer = document.getElementById('new-images-preview') as HTMLDivElement | null;
+    const imageListContainer = document.getElementById('image-list-container') as HTMLUListElement | null;
+    
+    if (!form || !dropZone || !fileInput || !previewContainer || !imageListContainer) {
+      console.error('Uno o más elementos no fueron encontrados en el DOM');
       return;
     }
- // Aplicar estilos iniciales a los checkboxes (CORRECCIÓN)
-    document.querySelectorAll<HTMLInputElement>('input[name="piercing_name"]').forEach(checkbox => {
-      const label = checkbox.closest('label');
-      if (!label) return;
-      
-      if (checkbox.checked) {
-        label.classList.add('text-yellow-400');
-        label.classList.remove('text-slate-300');
-      } else {
-        label.classList.remove('text-yellow-400');
-        label.classList.add('text-slate-300');
+
+    // 2. ARRAY CENTRAL PARA MANEJAR ARCHIVOS NUEVOS
+    let newFiles: File[] = [];
+
+    // 3. FUNCIÓN PARA UNIFICAR LA ACTUALIZACIÓN DE ARCHIVOS
+    const handleNewFiles = (incomingFiles: FileList) => {
+      const uniqueFiles = Array.from(incomingFiles).filter(
+        file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.lastModified === file.lastModified)
+      );
+      if (uniqueFiles.length === 0) return;
+
+      newFiles = [...newFiles, ...uniqueFiles];
+      renderNewPreviews();
+      updateFileInput();
+    };
+
+    // 4. FUNCIÓN PARA RENDERIZAR VISTAS PREVIAS DE NUEVOS ARCHIVOS
+    const renderNewPreviews = () => {
+      previewContainer.innerHTML = '';
+      newFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          if (!e.target?.result) return;
+          const wrapper = document.createElement('div');
+          wrapper.className = 'relative group';
+          wrapper.innerHTML = `
+            <img src="${e.target.result as string}" alt="${file.name}" class="h-24 w-full object-cover rounded-lg shadow-md" />
+            <button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+              &times;
+            </button>
+          `;
+          previewContainer.appendChild(wrapper);
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+
+    // 5. FUNCIÓN PARA ACTUALIZAR EL INPUT DE ARCHIVOS (CLAVE PARA DRAG & DROP)
+    const updateFileInput = () => {
+      const dataTransfer = new DataTransfer();
+      newFiles.forEach(file => dataTransfer.items.add(file));
+      fileInput.files = dataTransfer.files;
+    };
+    
+    // ======= EVENT LISTENERS =======
+
+    // A. Clic y Drag & Drop ahora usan el mismo manejador central
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files) {
+        handleNewFiles(fileInput.files);
       }
     });
 
+    // B. Lógica de Drag & Drop
+    const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      document.body.addEventListener(eventName, preventDefaults);
+      dropZone.addEventListener(eventName, preventDefaults);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('border-yellow-600')));
+    ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-yellow-600')));
+
+    dropZone.addEventListener('drop', (e: DragEvent) => {
+      if (e.dataTransfer?.files) {
+        handleNewFiles(e.dataTransfer.files);
+      }
+    });
+
+    // C. Eliminar previsualizaciones de nuevas imágenes (las que aún no se suben)
+    previewContainer.addEventListener('click', e => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('remove-new-btn')) {
+        const index = parseInt(target.dataset.index || '-1');
+        if (index > -1) {
+          newFiles.splice(index, 1);
+          renderNewPreviews();
+          updateFileInput();
+        }
+      }
+    });
+
+    // D. Eliminar imágenes existentes (ACCIÓN INMEDIATA)
+    imageListContainer.addEventListener('click', async (e) => {
+      const target = e.target as HTMLButtonElement;
+      if (target.classList.contains('delete-existing')) {
+        const id = target.dataset.id;
+        if (!id) return;
+        
+        if (confirm('¿Estás seguro de que quieres eliminar esta imagen permanentemente?')) {
+          target.disabled = true;
+          target.textContent = '...';
+          try {
+            // Se llama a la acción de eliminación directamente
+            const { error } = await actions.deleteProductImage(id);
+            if (error) {
+              throw new Error(error.message);
+            }
+            // Si tiene éxito, se elimina el elemento del DOM
+            target.closest('li')?.remove();
+          } catch (err: any) {
+            alert(`Error al eliminar la imagen: ${err.message}`);
+            target.disabled = false;
+            target.textContent = 'Eliminar';
+          }
+        }
+      }
+    });
+
+    // E. Envío del formulario
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-
-      // Validar que al menos un piercing esté seleccionado
-      const piercingCheckboxes = document.querySelectorAll<HTMLInputElement>(
-        'input[name="piercing_name"]:checked'
-      );
       
-      if (piercingCheckboxes.length === 0) {
-        if (!confirm('⚠️ No has seleccionado ningún tipo de perforación.\n¿Deseas continuar de todas formas?')) {
-          return;
-        }
+      const saveButton = document.getElementById('save-button') as HTMLButtonElement;
+      if (!saveButton) return;
+      
+      saveButton.disabled = true;
+      saveButton.textContent = 'Guardando...';
+      
+      try {
+        const formData = new FormData(form);
+        
+        // Ya no es necesario agregar los archivos manualmente,
+        // porque `updateFileInput` mantuvo el input sincronizado.
+        
+        const { data, error } = await actions.crateUpdateProduct(formData);
+        
+        if (error) throw new Error(error.message);
+        
+        navigate(`javascript:history.back()`);
+
+
+      } catch (err: any) {
+        alert(`Error al guardar: ${err.message}`);
+        console.error(err);
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = 'Guardar Cambios';
       }
-    
-      const formData = new FormData(form);
-
-      const { data, error } = await actions.crateUpdateProduct(formData);
-
-      if (error) {
-        return alert(error.message);
-      }
-
-      navigate(`javascript:history.back()`);
     });
-
-    // Eliminar imagenes
-    const btnsDeleteImages = document.querySelectorAll('.btn-delete-image');
-
-    btnsDeleteImages.forEach(btn => {
-        btn.addEventListener('click', async(e) => {
-            const id = btn.getAttribute('data-id') ?? '';
-
-            if(!id) return;
-
-            const {error} = await actions.deleteProductImage(id);
-
-            if (error) {
-                console.log(error)
-                alert(error)
-                return;
-            }
-            document.getElementById(id)?.remove();
-        });
-    });
-
-    // Drag & Drop
-    const lblSelectedFiles = document.querySelector('#lbl-selected-files') as HTMLParagraphElement;
-    const dropZone = document.querySelector('#drop-zone') as HTMLLabelElement;
-    const fileInput = document.querySelector(
-      '#file-upload'
-    ) as HTMLInputElement;
-
-    const preventDefaults = (e: DragEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
-    }
-
-    (['dragenter', 'dragover', 'dragleave', 'drop'] as const ).forEach(
-        (eventName) => {
-            dropZone.addEventListener(eventName, preventDefaults);
-            document.body.addEventListener(eventName, preventDefaults);
-        }
-    );
-
-    const highlight = (e: DragEvent) => {
-        dropZone.classList.add('border-blue-500', 'bg-gray-700')
-    }
-
-    const unHighlight = (e: DragEvent) => {
-        dropZone.classList.remove('border-blue-500', 'bg-gray-700')
-    }
-
-    (['dragenter', 'dragover'] as const ).forEach(
-        (eventName) => {
-            dropZone.addEventListener(eventName, highlight);
-        }
-    );
-
-    (['dragleave', 'drop'] as const ).forEach(
-        (eventName) => {
-            dropZone.addEventListener(eventName, unHighlight);
-        }
-    );
-
-    const createFileList = ( files:File[] ): FileList => {
-        const dataTransfer = new DataTransfer();
-        files.forEach( file => dataTransfer.items.add(file))
-        return dataTransfer.files;
-    }
-
-    const handleFiles = (files: FileList) => {
-        const validFiles = Array.from(files).filter(
-            file => file.type.startsWith('image/')
-        );
-
-        if ( fileInput && validFiles.length > 0 ) {
-            fileInput.files = createFileList(validFiles);
-        }
-
-        lblSelectedFiles.innerHTML = `<strong>${validFiles.length} archivos seleccionados</strong>`
-    }
-
-    // Solo imagenes
-    dropZone.addEventListener('drop', e => {
-        const files = e.dataTransfer?.files;
-        if ( files ) {
-            handleFiles(files);
-        }
-    })
-
-
   });
 </script>
+</AdminLayout>
+<style>
+  .card { @apply bg-white p-6 rounded-2xl shadow-lg ring-1 ring-slate-100; }
+  .card-title { @apply text-lg font-bold text-slate-800 mb-6 border-b border-slate-200 pb-4; }
+  .form-label { @apply block text-sm font-bold text-slate-600 mb-2; }
+  .form-input { 
+    @apply w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm 
+           focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors; 
+  };
+</style>

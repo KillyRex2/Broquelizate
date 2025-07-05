@@ -1,0 +1,19 @@
+---
+// src/pages/admin/orders/index.astro
+import OrdersTable from '@/components/admin/OrdersTable.astro';
+import AdminLayout from '@/layouts/AdminLayout.astro';
+
+const pageTitle = 'Gestión de Órdenes';
+---
+<AdminLayout title={pageTitle}>
+  <!-- Ajuste de margen para que el contenido no quede bajo el sidebar -->
+  <div class="ml-64 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-3xl font-bold text-gray-900">{pageTitle}</h1>
+    <p class="text-gray-500 mt-1">Tabla de pedidos.</p>
+
+    <!-- Tabla de órdenes -->
+    <div class="mt-6">
+      <OrdersTable />
+    </div>
+  </div>
+</AdminLayout>
