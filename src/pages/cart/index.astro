@@ -207,7 +207,7 @@ const total = subtotal + tax;
     // Vaciar carrito
     const clearCartBtn = document.getElementById('clear-cart-btn');
     if (clearCartBtn) {
-      clearCartBtn.addEventListener('click', () => {
+      clearCartBtn.addEventListener('click', () => { 
         CartCookiesClient.clearCart();
         itemsInCart.set(0);
         navigate('/cart');

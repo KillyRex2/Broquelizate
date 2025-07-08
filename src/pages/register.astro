@@ -1,149 +1,198 @@
 ---
+// src/pages/register.astro
 import AuthLayout from "@/layouts/AuthLayout.astro";
-import { actions } from "astro:actions";
-import Swal from "sweetalert2";
+import { navigate } from "astro:transitions/client";
 
 const email = Astro.cookies.get("email")?.value ?? "";
-const remmemberMe = !!email;
+const rememberMe = !!email;
 ---
 
 <AuthLayout>
   <div class="flex justify-center self-center z-10">
     <div class="p-12 bg-white mx-auto rounded-2xl w-100">
-      <div class="mb-4">
-        <h3 class="font-semibold text-2xl text-gray-800">Sign Up</h3>
-        <p class="text-gray-500">Crea una nueva cuenta.</p>
+      <div class="text-center mb-6">
+        <h2 class="text-3xl font-bold text-gray-800">Crear cuenta</h2>
+        <p class="mt-1 text-gray-600">Completa el formulario para registrarte</p>
       </div>
-      <form class="space-y-5" id="register-form">
-        <div class="space-y-2">
-          <label class="text-sm font-medium text-gray-700 tracking-wide">Name</label>
+      
+      <form id="register-form" class="space-y-4">
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700">Nombre completo</label>
           <input
-            class="w-full text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600"
-            type="text"
+            id="name"
             name="name"
+            type="text"
+            required
+            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
             placeholder="John Doe"
-            required
           />
         </div>
-        <div class="space-y-2">
-          <label class="text-sm font-medium text-gray-700 tracking-wide">Email</label>
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
           <input
-            class="w-full text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600"
-            type="email"
+            id="email"
             name="email"
+            type="email"
             value={email}
-            placeholder="mail@gmail.com"
             required
+            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+            placeholder="tu@email.com"
           />
         </div>
-        <div class="space-y-2">
-          <label class="mb-5 text-sm font-medium text-gray-700 tracking-wide">Password</label>
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
           <input
-            class="w-full content-center text-base px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600"
-            type="password"
+            id="password"
             name="password"
-            placeholder="Enter your password"
+            type="password"
             required
+            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+            placeholder="Tu contraseña"
           />
         </div>
+
         <div class="flex items-center justify-between">
-          <div class="flex items-center">
+          <label class="flex items-center text-sm">
             <input
               id="remember_me"
               name="remember_me"
               type="checkbox"
-              checked={remmemberMe}
-              class="h-4 w-4 bg-yellow-500 focus:ring-yellow-400 border-gray-300 rounded"
+              checked={rememberMe}
+              class="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 rounded"
             />
-            <label for="remember_me" class="ml-2 block text-sm text-gray-800">
-              Remember me
-            </label>
-          </div>
-          <div class="text-sm">
-            <a href="/login" class="text-yellow-500 hover:text-yellow-700">
-              Already have an account?
-            </a>
-          </div>
+            <span class="ml-2 text-gray-700">Recordarme</span>
+          </label>
         </div>
-        <div>
-          <button
-            type="submit"
-            id="btn-submit"
-            class="disabled:bg-gray-300 w-full flex justify-center bg-yellow-500 hover:bg-yellow-700 text-white p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-500"
-          >
-            Sign Up
-          </button>
-        </div>
+
+        <button
+          id="btn-submit"
+          type="submit"
+          class="w-full py-3 font-semibold text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition"
+        >
+          <span id="btn-text">Registrarse</span>
+        </button>
       </form>
+
+      <p class="mt-6 text-center text-sm text-gray-600">
+        ¿Ya tienes una cuenta? <a href="/login" class="text-yellow-500 font-semibold hover:underline">Inicia sesión</a>
+      </p>
+
       <div class="pt-5 text-center text-gray-400 text-xs">
         <span>Copyright Broquelizate © 2024-{new Date().getFullYear()}</span>
       </div>
     </div>
   </div>
+</AuthLayout>
 
 <script>
-const { signIn } = await import("auth-astro/client")
-import { actions } from "astro:actions";
+import { navigate } from "astro:transitions/client";
 import Swal from "sweetalert2";
+import { actions } from "astro:actions";
 
-const form = document.querySelector('#register-form') as HTMLFormElement;
-const btnSubmit = document.querySelector('#btn-submit') as HTMLButtonElement;
-const btnGoogle = document.querySelector('#btn-google') as HTMLButtonElement;
-// const btnText = document.querySelector('#btn-text') as HTMLSpanElement;
+document.addEventListener('astro:page-load', () => {
+  const form = document.getElementById('register-form') as HTMLFormElement;
+  const btnSubmit = document.getElementById('btn-submit') as HTMLButtonElement;
+  const btnText = document.getElementById('btn-text') as HTMLSpanElement;
+  
+  if (!form || !btnSubmit || !btnText) return;
 
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    btnSubmit.disabled = true;
+    btnText.textContent = 'Procesando...';
+    
+    const formData = new FormData(form);
+    
+    try {
+      const { error } = await actions.registerUser(formData);
+      
+      if (error) {
+        throw error;
+      }
+      
+      const rememberMe = (form.elements.namedItem('remember_me') as HTMLInputElement).checked;
+      if (rememberMe) {
+        document.cookie = `email=${formData.get('email')}; path=/; max-age=31536000; SameSite=Lax`;
+      } else {
+        document.cookie = `email=; path=/; max-age=0; SameSite=Lax`;
+      }
+      
+      const { signIn } = await import("auth-astro/client");
+      await signIn('credentials', {
+        email: formData.get('email') as string,
+        password: formData.get('password') as string,
+        redirect: false,
+      } as any);
+      
+      navigate('/');
+      
+    } catch (error: unknown) {
+      let title = 'Error en el registro';
+      let htmlContent = 'Ocurrió un problema al crear tu cuenta.';
+      let icon: 'error' | 'warning' = 'error';
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+      // Primero, nos aseguramos de que el error sea una instancia de Error.
+      if (error instanceof Error) {
+        const errorMessage = error.message;
 
-  // Deshabilita el botón y cambia el texto
-  btnSubmit.setAttribute('disabled', 'true');
-  // btnText.textContent = 'Loading...';
+        // Verificamos si es el error de validación específico de Astro Actions.
+        if (errorMessage.startsWith('Failed to validate:')) {
+          try {
+            // Extraemos solo la parte del JSON del string del mensaje.
+            const jsonString = errorMessage.replace('Failed to validate: ', '');
+            const validationErrors = JSON.parse(jsonString);
 
-  const formData = new FormData(form);
-  const rememberMe = form.remember_me?.checked;
-  const { data, error } = await actions.registerUser(formData);
-if (error) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Registration failed',
-      text: error.message || 'An error occurred during registration.'
-    });
-    // Rehabilita el botón y vuelve al texto original
-    btnSubmit.removeAttribute('disabled');
-    // btnText.textContent = 'Sign Up';
-    return;
-  }
+            // Si el JSON es un array (como en tu caso), creamos la lista HTML.
+            if (Array.isArray(validationErrors)) {
+              title = 'Revisa tus datos';
+              icon = 'warning';
+              htmlContent = `<ul class="text-left list-disc list-inside">${
+                validationErrors.map(err => `<li>${err.message}</li>`).join('')
+              }</ul>`;
+            }
+          } catch (e) {
+            // Fallback por si el parseo del JSON falla.
+            htmlContent = 'Hubo un problema al validar los datos ingresados.';
+          }
+        } else {
+          // Si no es un error de validación, es uno de nuestros errores personalizados.
+          if (errorMessage.includes('correo ya está registrado')) {
+            title = 'Correo electrónico en uso';
+            htmlContent = 'La dirección de correo que ingresaste ya pertenece a una cuenta. Por favor, <a href="/login" class="font-bold text-yellow-600 hover:underline">inicia sesión</a> o utiliza un correo diferente.';
+          } else {
+            htmlContent = errorMessage;
+          }
+        }
+      }
 
-  // Guardar la cookie de email si el usuario eligió recordar
-  if (rememberMe) {
-    document.cookie = `email=${formData.get('email')}; path=/; max-age=31536000;`;
-  } else {
-    document.cookie = `email=; path=/; max-age=0;`; // Elimina la cookie si no se recuerda
-  }
-
-
-      // Login automático
-const resp = await signIn('credentials', {
-  email: formData.get('email') as string,
-  password: formData.get('password') as string,
-  redirect: false,
-} as any);
-
-  if (resp) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Login failed',
-      text: 'User or email are not correct'
-    });
-    // Rehabilita el botón y vuelve al texto original
-    btnSubmit.removeAttribute('disabled');
-    return;
-  }
-
-  // Redirige si todo salió bien
-  window.location.replace('/');
-
-
+      Swal.fire({
+        icon: icon,
+        title: title,
+        html: htmlContent,
+        confirmButtonColor: '#d97706',
+        confirmButtonText: 'Entendido'
+      });
+      
+    } finally {
+      btnSubmit.disabled = false;
+      btnText.textContent = 'Registrarse';
+    }
+  });
 });
 </script>
-</AuthLayout>
+
+<style>
+body { 
+  background-color: #f9fafb; 
+}
+
+input {
+  transition: all 0.2s ease;
+}
+
+#btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background-color: #fbbf24;
+}
+</style>

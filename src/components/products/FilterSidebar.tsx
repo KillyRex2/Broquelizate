@@ -5,6 +5,7 @@ import { BsEar, BsEarFill } from "react-icons/bs";
 import { GiPlasticDuck, GiNoseFront, GiPearlEarring } from "react-icons/gi";
 import { MdTitle } from "react-icons/md";
 import { FaRegRegistered, FaA, FaEarDeaf, FaEarListen } from "react-icons/fa6";
+import { TbPointFilled } from "react-icons/tb";
 import { navigate } from "astro:transitions/client";
 
 interface FilterSidebarProps {
@@ -40,12 +41,13 @@ const piercings = [
   { label: "Tragus", value: "Tragus", icon: <BsEar className="inline mr-2" /> },
   { label: "Antitragus", value: "Antitragus", icon: <BsEarFill className="inline mr-2" /> },
   { label: "Rook", value: "Rook", icon: <BsEarFill className="inline mr-2" /> },
+  { label: "Flat", value: "Flat", icon: <FaEarListen className="inline mr-2" /> },
   { label: "Conch", value: "Conch", icon: <BsEarFill className="inline mr-2" /> },
   { label: "Daith", value: "Daith", icon: <BsEarFill className="inline mr-2" /> },
   { label: "Industrial", value: "Industrial", icon: <FaEarDeaf className="inline mr-2" /> },
   { label: "Séptum", value: "Séptum", icon: <GiNoseFront className="inline mr-2" /> },
   { label: "Nóstril", value: "Nóstril", icon: <GiNoseFront className="inline mr-2" /> },
-  { label: "Navel", value: "Navel", icon: <GiNoseFront className="inline mr-2" /> },
+  { label: "Navel", value: "Navel", icon: <TbPointFilled className="inline mr-2" /> },
 ];
 
 export const FilterSidebar = ({

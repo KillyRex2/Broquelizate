@@ -13,7 +13,7 @@ const validCategories = [
 const validPiercings = [
   'Lóbulo', 'Lóbulo Superior', 'Hélix', 'Antihelix', 'Tragus', 
   'Antitragus', 'Rook', 'Conch', 'Daith', 'Industrial', 
-  'Séptum', 'Nóstril', 'Navel'
+  'Séptum', 'Nóstril', 'Navel', 'Flat'
 ];
 
 export const inputSchema = z.object({
@@ -125,6 +125,7 @@ export const handler = async ({
         type: Product.type,
         stock: Product.stock,
         piercing_name: Product.piercing_name,
+        cost: Product.cost,
         user: Product.user
       })
       .from(Product)

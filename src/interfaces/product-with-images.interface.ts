@@ -10,4 +10,5 @@ export interface ProductWithImages {
     user: string;
     piercing_name: string[];
     images: string[];
+    cost?: number;
 }

@@ -11,7 +11,8 @@ const newProduct = {
     slug: 'nuevo-producto', 
     type: 'Broqueles', 
     stock: 1, 
-    piercing_name: ['Lóbulo']
+    piercing_name: ['Lóbulo'],
+    cost: 50.2
 
 }
 

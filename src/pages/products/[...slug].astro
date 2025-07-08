@@ -110,10 +110,10 @@ const product = {
     </section>
   </div>
 
-  <!-- Miniaturas si tienes más imágenes
-  {images.length > 1 && (
+
+  {images.length > 2 && (
     <div class="mt-12">
-      <h2 class="text-xl font-bold text-white mb-4">Más imágenes</h2>
+      <h2 class="text-xl font-bold text-white mb-4">Más imágenes...</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         {images.map((image) => (
           <img
@@ -124,74 +124,92 @@ const product = {
         ))}
       </div>
     </div>
-  )} -->
+  )} 
 
   <input type="hidden" id="product-id" value={product.id} />
 </ProductsLayout>
-
 <script>
-import { itemsInCart } from "@/store";
-import { navigate } from "astro:transitions/client";
+  import { itemsInCart } from "@/store";
+  import { navigate } from "astro:transitions/client";
+  import { CartCookiesClient } from "../../utils/cart-cookies";
 
-document.addEventListener("astro:page-load", async() => {
-  const qtyInput = document.getElementById("qty-input");
-  const decrementBtn = document.getElementById("qty-decr");
-  const incrementBtn = document.getElementById("qty-incr");
-  const addBtn = document.getElementById("add-to-cart");
-  const productIdInput = document.getElementById("product-id");
+  function setupProductPage() {
+    // Selectores de los elementos del DOM
+    const qtyInput = document.getElementById("qty-input") as HTMLInputElement;
+    const decrementBtn = document.getElementById("qty-decr") as HTMLButtonElement;
+    const incrementBtn = document.getElementById("qty-incr") as HTMLButtonElement;
+    const addBtn = document.getElementById("add-to-cart") as HTMLButtonElement;
+    const productIdInput = document.getElementById("product-id") as HTMLInputElement;
 
-  if (
-    !(qtyInput instanceof HTMLInputElement) ||
-    !(decrementBtn instanceof HTMLElement) ||
-    !(incrementBtn instanceof HTMLElement) ||
-    !(addBtn instanceof HTMLButtonElement) ||
-    !(productIdInput instanceof HTMLInputElement)
-  ) {
-    console.error("Elementos faltantes para cantidad / carrito.");
-    return;
+    // Si alguno de los elementos no existe, detenemos la ejecución
+    if (!qtyInput || !decrementBtn || !incrementBtn || !addBtn || !productIdInput) {
+      return;
+    }
+
+    // Función unificada para actualizar la cantidad en el input
+    const updateQuantity = (newQty: number) => {
+      // Limita la cantidad entre 1 y 99
+      const validatedQty = Math.max(1, Math.min(99, newQty));
+      qtyInput.value = validatedQty.toString();
+    };
+
+    // --- Event Listeners Simplificados ---
+
+    // Decrementar cantidad
+    decrementBtn.addEventListener("click", () => {
+      const currentQty = parseInt(qtyInput.value) || 1;
+      updateQuantity(currentQty - 1);
+    });
+
+    // Incrementar cantidad
+    incrementBtn.addEventListener("click", () => {
+      const currentQty = parseInt(qtyInput.value) || 1;
+      updateQuantity(currentQty + 1);
+    });
+
+    // Validar al cambiar el input manualmente
+    qtyInput.addEventListener("change", () => {
+      const currentQty = parseInt(qtyInput.value) || 1;
+      updateQuantity(currentQty);
+    });
+
+
+    // --- Lógica para Añadir al Carrito ---
+
+    addBtn.addEventListener("click", async () => {
+      // 1. Obtenemos la cantidad DIRECTAMENTE del input en el momento del clic
+      const quantityToAdd = parseInt(qtyInput.value) || 1;
+      const productId = productIdInput.value;
+
+      // 2. Deshabilitamos el botón y mostramos un indicador de carga
+      addBtn.disabled = true;
+      addBtn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Procesando...`;
+
+      try {
+        // 3. Añadimos el producto al carrito con la cantidad correcta
+        const cart = CartCookiesClient.addItem({
+          productId: productId,
+          quantity: quantityToAdd,
+        });
+
+        // 4. Actualizamos el estado global (nanostore)
+        itemsInCart.set(CartCookiesClient.getTotalItems());
+
+        // 5. Navegamos al carrito
+        await navigate("/cart");
+
+      } catch (error) {
+        console.error("Error al añadir al carrito:", error);
+        addBtn.disabled = false;
+        // Restaurar el contenido original del botón
+        addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg> Añadir al carrito`;
+      }
+    });
   }
 
-  let quantity = 1;
-
-  decrementBtn.addEventListener("click", () => {
-    quantity = Math.max(1, quantity - 1);
-    qtyInput.value = quantity.toString();
-  });
-  
-  incrementBtn.addEventListener("click", () => {
-    quantity = Math.min(999, quantity + 1);
-    qtyInput.value = quantity.toString();
-  });
-
-  addBtn.addEventListener("click", async () => {
-    addBtn.disabled = true;
-    addBtn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg> Procesando...`;
-    
-    try {
-      const { CartCookiesClient } = await import("../../utils/cart-cookies");
-      const cart = CartCookiesClient.addItem({
-        productId: productIdInput.value,
-        quantity,
-      });
-      itemsInCart.set(cart.length);
-      await navigate("/cart");
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      addBtn.disabled = false;
-      addBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-        </svg>
-        Añadir al carrito
-      `;
-    }
-  });
-});
+  // Ejecutamos el script en la carga de la página
+  document.addEventListener("astro:page-load", setupProductPage);
 </script>
-
 <style>
   .animate-spin {
     animation: spin 1s linear infinite;

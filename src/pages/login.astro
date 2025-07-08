@@ -1,144 +1,134 @@
 ---
+// src/pages/login.astro
 import AuthLayout from "@/layouts/AuthLayout.astro";
+import { navigate } from "astro:transitions/client";
 
 const email = Astro.cookies.get('email')?.value ?? '';
 const rememberMe = !!email;
-
-
 ---
 
 <AuthLayout>
-        <div class="flex justify-center self-center  z-10">
-        <div class="p-12 bg-white mx-auto rounded-2xl w-100 ">
-            <div class="mb-4">
-              <h3 class="font-semibold text-2xl text-gray-800">Login</h3>
-              <p class="text-gray-500">Porfavor inicie sesión en su cuenta.</p>
-            </div>
-            <form class="space-y-5">
-                        <div class="space-y-2">
-                              <label class="text-sm font-medium text-gray-700 tracking-wide">Email</label>
-              <input class=" w-full text-base px-4 py-2 border  border-gray-300 rounded-lg focus:outline-none focus:border-yellow-500" type="email" value={email} name="email" placeholder="mail@gmail.com">
-              </div>
-                          <div class="space-y-2">
-              <label class="mb-5 text-sm font-medium text-gray-700 tracking-wide">
-                Password
-              </label>
-              <input class="w-full content-center text-base px-4 py-2 border  border-gray-300 rounded-lg focus:outline-none focus:border-yellow-500" type="password" name="password" placeholder="Enter your password">
-            </div>
-              <div class="flex items-center justify-between">
-              <div class="flex items-center">
-                <input id="remember_me" name="remember_me" type="checkbox" checked= {rememberMe}="h-4 w-4 bg-yellow-500 focus:ring-yellow-500 border-gray-300 rounded">
-                <label for="remember_me" class="ml-2 block text-sm text-gray-800">
-                  Remember me
-                </label>
-              </div>
-              <div class="text-sm">
-                <p>Don't have an account?</p>
-                <a href="/register" class="text-yellow-600 hover:text-yellow-800">
-                  Create an account
-                </a>
-              </div>
-            </div>
-            <div>
-            <button
-              id="btn-login"
-              type="submit"
-              class="w-full flex justify-center items-center hover:bg-yellow-700  enabled:bg-yellow-500 enabled:hover:bg-yellow-700 disabled:bg-gray-300 text-gray-100 p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-300"
-            >
-              <span id="btn-text">Sign in</span>
-            </button>
-
-            <div class="flex flex-1 w-full my-2">
-              <div class="w-full border-t-2 border-gray-500"></div>
-            </div>
-            <button
-              id="btn-google"
-              type="button"
-              class="w-full flex justify-center items-center bg-green-400 enabled:bg-red-400 disabled:bg-gray-300 text-gray-100 p-3 rounded-full tracking-wide font-semibold shadow-lg cursor-pointer transition ease-in duration-300"
-            >
-              <span id="btn-text">Sign in with Google</span>
-            </button>
-
-            </div>
-            </form>
-            <div class="pt-5 text-center text-gray-400 text-xs">
-              <span>
-                Copyright © 2024-{new Date().getFullYear()}
-                
-            </div>
-        </div>
+  <div class="flex justify-center self-center  z-10">
+    <div class="p-12 bg-white mx-auto rounded-2xl w-100 ">
+      <div class="text-center mb-6">
+        <h2 class="text-3xl font-bold text-gray-800">Iniciar sesión</h2>
+        <p class="mt-1 text-gray-600">Ingresa tus credenciales para continuar</p>
       </div>
+      
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value={email}
+            required
+            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+            placeholder="tu@email.com"
+          />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+            placeholder="Tu contraseña"
+          />
+        </div>
+
+        <div class="flex items-center justify-between">
+          <label class="flex items-center text-sm">
+            <input
+              id="remember_me"
+              name="remember_me"
+              type="checkbox"
+              checked={rememberMe}
+              class="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 rounded"
+            />
+            <span class="ml-2 text-gray-700">Recordarme</span>
+          </label>
+          <a href="#" class="text-sm text-yellow-500 hover:underline">¿Olvidaste tu contraseña?</a>
+        </div>
+
+        <button
+          id="btn-login"
+          type="submit"
+          class="w-full py-3 font-semibold text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition"
+        >
+          <span id="btn-text">Iniciar sesión</span>
+        </button>
+      </form>
+
+      <div class="flex items-center my-6">
+        <hr class="flex-grow border-gray-300" />
+        <span class="mx-3 text-gray-500">o continúa con</span>
+        <hr class="flex-grow border-gray-300" />
+      </div>
+
+      <button
+        id="btn-google"
+        type="button"
+        class="w-full flex items-center justify-center py-3 border border-gray-300 rounded-lg space-x-2 hover:bg-gray-50 transition"
+      >
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.345-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/>
+        </svg>
+        <span class="text-gray-700 font-medium">Iniciar con Google</span>
+      </button>
+
+      <p class="mt-6 text-center text-sm text-gray-600">
+        ¿No tienes una cuenta? <a href="/register" class="text-yellow-500 font-semibold hover:underline">Regístrate</a>
+      </p>
+    </div>
+  </div>
 </AuthLayout>
 
 <script>
-import { actions } from "astro:actions";
+import { navigate } from "astro:transitions/client";
 import Swal from "sweetalert2";
 
-const form = document.querySelector('form') as HTMLFormElement;
-const btnSubmit = document.querySelector('#btn-login') as HTMLButtonElement;
-const btnGoogle = document.querySelector('#btn-google') as HTMLButtonElement;
-const btnText = document.querySelector('#btn-text') as HTMLSpanElement;
-const { signIn } = await import("auth-astro/client")
+document.addEventListener('astro:page-load', () => {
+  const form = document.getElementById('login-form') as HTMLFormElement;
+  const btnSubmit = document.getElementById('btn-login') as HTMLButtonElement;
+  const btnText = document.getElementById('btn-text');
+  if (!form || !btnSubmit || !btnText) return;
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    btnSubmit.disabled = true;
+    btnText.textContent = 'Cargando...';
 
-  // Deshabilita el botón y cambia el texto
-  btnSubmit.setAttribute('disabled', 'true');
-  btnText.textContent = 'Loading...';
+    try {
+      const { signIn } = await import("auth-astro/client");
+      await signIn('credentials', {
+        email: form.email.value,
+        password: form.password.value,
+        redirect: false,
+      } as any);
+      navigate('/');
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error al iniciar sesión', text: 'Credenciales inválidas', confirmButtonColor: '#d97706' });
+      btnSubmit.disabled = false;
+      btnText.textContent = 'Iniciar sesión';
+    }
+  });
 
-  const formData = new FormData(form);
-
-
-const resp = await signIn('credentials', {
-  email: formData.get('email') as string,
-  password: formData.get('password') as string,
-  redirect: false,
-} as any);
-
-  if (resp) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Login failed',
-      text: 'User or email are not correct'
-    });
-    // Rehabilita el botón y vuelve al texto original
-    btnSubmit.removeAttribute('disabled');
-    btnText.textContent = 'Sign in';
-    return;
-  }
-
-  // Redirige si todo salió bien
-  window.location.replace('/');
+  const btnGoogle = document.getElementById('btn-google');
+  btnGoogle?.addEventListener('click', async () => {
+    try {
+      const { signIn } = await import("auth-astro/client");
+      await signIn('google');
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error con Google', text: 'No se pudo autenticar', confirmButtonColor: '#d97706' });
+    }
+  });
 });
-
-// btnGoogle.addEventListener('click', async() => {
-//   btnSubmit.setAttribute('disabled', 'true');
-//   const provider = new GoogleAuthProvider();
-
-//   try {
-    
-//     const credentials = await signInWithPopup( firebase.auth, provider);
-
-//     const {error} = await actions.loginWithGoogle(credentials);
-
-//     if ( error ) {
-//       alert(error.message);
-//       btnSubmit.removeAttribute('disabled');
-//       return;
-//     }
-
-//     btnGoogle.innerText = 'Redirection...';
-//     window.location.replace('/protected')
-
-
-//   } catch (error) {
-//     console.log(error);
-//     btnSubmit.removeAttribute('disabled');
-//   }
-
-
-
-// });
-
 </script>
+
+<style>
+body { background-color: transparent; }
+</style>

@@ -52,7 +52,8 @@ const transformedProducts: ProductWithImages[] = products.map(product => {
   return {
     ...product,
     images: product.images || ['no-image.png'],
-    piercing_name: piercingArray
+    piercing_name: piercingArray,
+    cost: product.cost || 0 // Valor por defecto si falta
   };
 });
 
@@ -84,7 +85,7 @@ const filterState = {
 <ProductsLayout>
   <div class="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
     <FilterSidebar 
-      client:load
+      client:only="react" 
       initialValues={filterState}
     />
 
