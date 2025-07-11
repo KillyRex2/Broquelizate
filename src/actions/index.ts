@@ -5,6 +5,7 @@ import { loadProductsFromCart } from "./cart/load-products-from-cart.actions";
 import { crateUpdateProduct } from "./admin/create-update-product.action";
 import { deleteProductImage } from "./products/delete-product-image.actions";
 import { deleteProduct } from "./admin/create-update-product.action";
+import { getClientById, updateClient } from './admin/update-client.action'
 
 export const server = {
     // server actions
@@ -25,5 +26,9 @@ export const server = {
     // Admin (Products)
     crateUpdateProduct,
     deleteProductImage,
-    deleteProduct
+    deleteProduct,
+
+    // Admin Client
+    updateClient,
+    getClientById
 }

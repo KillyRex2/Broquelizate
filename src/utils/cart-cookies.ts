@@ -10,16 +10,18 @@ export class CartCookiesClient {
 
     static addItem(cartItem: CartItem): CartItem[] {
         const cart = this.getCart();
-        const existingItem = cart.find(item => item.productId === cartItem.productId);
-
-        if (existingItem) {
-            existingItem.quantity += cartItem.quantity;
+        const existingIndex = cart.findIndex(item => item.productId === cartItem.productId);
+        
+        // SOLUCIÓN: Actualizar en lugar de sumar
+        if (existingIndex > -1) {
+            // Reemplazar cantidad en lugar de sumar
+            cart[existingIndex].quantity = cartItem.quantity;
         } else {
             cart.push(cartItem);
         }
 
         this.setCart(cart);
-        updateCartStore(); // Actualiza el store
+        updateCartStore();
         return cart;
     }
 
@@ -31,20 +33,23 @@ export class CartCookiesClient {
         return updatedCart;
     }
 
-    static updateItemQuantity(productId: string, quantity: number): CartItem[] {
-        if (quantity <= 0) return this.removeItem(productId);
-        
-        const cart = this.getCart();
-        const item = cart.find(item => item.productId === productId);
-        
-        if (item) {
-            item.quantity = quantity;
-            this.setCart(cart);
-            updateCartStore(); // Actualiza el store
-        }
-        
-        return cart;
+ static updateItemQuantity(productId: string, quantity: number): CartItem[] {
+    // SOLUCIÓN: Validar cantidad máxima
+    const validQuantity = Math.max(1, Math.min(99, quantity));
+    
+    if (validQuantity <= 0) return this.removeItem(productId);
+    
+    const cart = this.getCart();
+    const item = cart.find(item => item.productId === productId);
+    
+    if (item) {
+        item.quantity = validQuantity;  // Usar cantidad validada
+        this.setCart(cart);
+        updateCartStore();
     }
+    
+    return cart;
+}
 
     static incrementQuantity(productId: string, amount: number = 1): CartItem[] {
         const cart = this.getCart();

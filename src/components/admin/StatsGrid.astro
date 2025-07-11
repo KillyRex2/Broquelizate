@@ -1,7 +1,7 @@
 ---
 // src/components/admin/StatsGrid.astro
-import { db, orders } from 'astro:db';
-import { sql, and, gte, lte } from 'drizzle-orm';
+import { db, orders, Client, order_items } from 'astro:db';
+import { sql, and, gte, lte, eq } from 'drizzle-orm';
 
 // Obtener la fecha actual y calcular rangos
 const now = new Date();
@@ -87,11 +87,101 @@ const ordersChange = previousMonthOrders > 0
   ? ((currentMonthOrders - previousMonthOrders) / previousMonthOrders) * 100 
   : currentMonthOrders > 0 ? 100 : 0;
 
+// --- NUEVAS CONSULTAS PARA CLIENTES ---
+// Consulta 7: Total de clientes
+const totalClientsResult = await db.select({
+  count: sql<number>`COUNT(*)`.mapWith(Number)
+}).from(Client);
+
+const totalClients = totalClientsResult[0]?.count || 0;
+
+// Consulta 8: Clientes del mes actual
+const currentMonthClientsResult = await db.select({
+  count: sql<number>`COUNT(*)`.mapWith(Number)
+}).from(Client)
+.where(and(
+  gte(Client.createdAt, startOfCurrentMonth),
+  lte(Client.createdAt, now)
+));
+
+const currentMonthClients = currentMonthClientsResult[0]?.count || 0;
+
+// Consulta 9: Clientes del mes pasado
+const previousMonthClientsResult = await db.select({
+  count: sql<number>`COUNT(*)`.mapWith(Number)
+}).from(Client)
+.where(and(
+  gte(Client.createdAt, startOfPreviousMonth),
+  lte(Client.createdAt, endOfPreviousMonth)
+));
+
+const previousMonthClients = previousMonthClientsResult[0]?.count || 0;
+
+// Calcular cambio porcentual para clientes
+const clientsChange = previousMonthClients > 0 
+  ? ((currentMonthClients - previousMonthClients) / previousMonthClients) * 100 
+  : currentMonthClients > 0 ? 100 : 0;
+
 // Formatear valores para mostrar
 const formattedTotalRevenue = formatCurrency(totalRevenue);
 const formattedCurrentMonthRevenue = formatCurrency(currentMonthRevenue);
 const formattedTotalOrders = totalOrders.toLocaleString('es-MX');
 const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
+const formattedTotalClients = totalClients.toLocaleString('es-MX');
+const formattedCurrentMonthClients = currentMonthClients.toLocaleString('es-MX');
+
+// --- NUEVAS CONSULTAS PARA ARTÍCULOS POR PEDIDO ---
+// Consulta 1: Total de artículos vendidos y total de pedidos
+const globalItemsResult = await db.select({
+  totalItems: sql<number>`SUM(${order_items.quantity})`.mapWith(Number),
+  totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`.mapWith(Number)
+}).from(order_items)
+.leftJoin(orders, eq(order_items.orderId, orders.id));
+
+const globalItems = globalItemsResult[0]?.totalItems || 0;
+const globalOrdersForAvg = globalItemsResult[0]?.totalOrders || 1; // Evitar división por cero
+
+// Consulta 2: Artículos y pedidos del mes actual
+const currentMonthItemsResult = await db.select({
+  totalItems: sql<number>`SUM(${order_items.quantity})`.mapWith(Number),
+  totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`.mapWith(Number)
+}).from(order_items)
+.leftJoin(orders, eq(order_items.orderId, orders.id))
+.where(and(
+  gte(orders.createdAt, startOfCurrentMonth),
+  lte(orders.createdAt, now)
+));
+
+const currentMonthItems = currentMonthItemsResult[0]?.totalItems || 0;
+const currentMonthOrdersForAvg = currentMonthItemsResult[0]?.totalOrders || 1;
+
+// Consulta 3: Artículos y pedidos del mes anterior
+const previousMonthItemsResult = await db.select({
+  totalItems: sql<number>`SUM(${order_items.quantity})`.mapWith(Number),
+  totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`.mapWith(Number)
+}).from(order_items)
+.leftJoin(orders, eq(order_items.orderId, orders.id))
+.where(and(
+  gte(orders.createdAt, startOfPreviousMonth),
+  lte(orders.createdAt, endOfPreviousMonth)
+));
+
+const previousMonthItems = previousMonthItemsResult[0]?.totalItems || 0;
+const previousMonthOrdersForAvg = previousMonthItemsResult[0]?.totalOrders || 1;
+
+// Calcular promedios
+const globalAvgItems = globalItems / globalOrdersForAvg;
+const currentMonthAvgItems = currentMonthItems / currentMonthOrdersForAvg;
+const previousMonthAvgItems = previousMonthItems / previousMonthOrdersForAvg;
+
+// Calcular cambio porcentual
+const avgItemsChange = previousMonthAvgItems > 0 
+  ? ((currentMonthAvgItems - previousMonthAvgItems) / previousMonthAvgItems) * 100 
+  : currentMonthAvgItems > 0 ? 100 : 0;
+
+// Formatear valores para mostrar
+const formattedGlobalAvg = globalAvgItems.toFixed(1);
+const formattedCurrentMonthAvg = currentMonthAvgItems.toFixed(1);
 ---
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -100,7 +190,7 @@ const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
     <div class="flex justify-between">
       <div>
         <p class="text-sm text-gray-500">Ingresos Totales</p>
-        <p class="text-2xl font-bold mt-1">{formattedTotalRevenue}</p>
+        <p class="text-2xl font-bold mt-1 text-black">{formattedTotalRevenue}</p>
       </div>
       <div class="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -121,7 +211,7 @@ const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
     <div class="flex justify-between">
       <div>
         <p class="text-sm text-gray-500">Pedidos</p>
-        <p class="text-2xl font-bold mt-1">{formattedTotalOrders}</p>
+        <p class="text-2xl font-bold mt-1 text-black">{formattedTotalOrders}</p>
       </div>
       <div class="bg-green-100 rounded-full w-12 h-12 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -137,12 +227,12 @@ const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
     </p>
   </div>
   
-  <!-- Cuadro de Clientes (a implementar más adelante) -->
+  <!-- Cuadro de Clientes (ACTUALIZADO) -->
   <div class="bg-white rounded-xl shadow-sm p-6">
     <div class="flex justify-between">
       <div>
         <p class="text-sm text-gray-500">Clientes</p>
-        <p class="text-2xl font-bold mt-1">2,980</p>
+        <p class="text-2xl font-bold mt-1 text-black">{formattedTotalClients}</p>
       </div>
       <div class="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,17 +240,20 @@ const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
         </svg>
       </div>
     </div>
-    <p class="text-sm text-green-500 mt-2">
-      <span>↑</span> 5.7% desde el mes pasado
+    <p class="text-sm mt-2">
+      <span class={clientsChange >= 0 ? 'text-green-500' : 'text-red-500'}>
+        {clientsChange >= 0 ? '↑' : '↓'} {Math.abs(clientsChange).toFixed(1)}%
+      </span>
+      <span class="text-gray-500"> este mes: {formattedCurrentMonthClients}</span>
     </p>
   </div>
   
   <!-- Cuadro de Tasa de Conversión (a implementar más adelante) -->
-  <div class="bg-white rounded-xl shadow-sm p-6">
+<div class="bg-white rounded-xl shadow-sm p-6">
     <div class="flex justify-between">
       <div>
-        <p class="text-sm text-gray-500">Tasa de Conversión</p>
-        <p class="text-2xl font-bold mt-1">3.8%</p>
+        <p class="text-sm text-gray-500">Articulo por Pedido</p>
+        <p class="text-2xl font-bold mt-1 text-black">{formattedGlobalAvg}</p>
       </div>
       <div class="bg-yellow-100 rounded-full w-12 h-12 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,8 +261,11 @@ const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
         </svg>
       </div>
     </div>
-    <p class="text-sm text-red-500 mt-2">
-      <span>↓</span> 1.2% desde el mes pasado
+    <p class="text-sm mt-2">
+      <span class={avgItemsChange >= 0 ? 'text-green-500' : 'text-red-500'}>
+        {avgItemsChange >= 0 ? '↑' : '↓'} {Math.abs(avgItemsChange).toFixed(1)}%
+      </span>
+      <span class="text-gray-500"> este mes: {formattedCurrentMonthAvg}</span>
     </p>
   </div>
 </div>

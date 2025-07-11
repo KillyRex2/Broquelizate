@@ -1,0 +1,194 @@
+---
+// src/components/ClientList.astro
+import { ViewTransitions } from 'astro:transitions';
+
+// Definir tipo para el cliente
+type ClientType = {
+  id: number;
+  nombre: string;
+  clave_elector: string | null;
+  saldo_actual: number;
+  observaciones: string | null;
+  telefono: string | null;
+};
+
+// --- LÓGICA DE SERVIDOR SIMPLIFICADA ---
+// Ahora solo nos encargamos de obtener los datos iniciales.
+// La eliminación se manejará en el cliente.
+let clients: ClientType[] = [];
+let error: string | null = null;
+let isLoading = true;
+
+try {
+  const response = await fetch(`${Astro.url.origin}/api/get-clients.action`);
+  if (response.ok) {
+    clients = await response.json() as ClientType[];
+  } else {
+    error = await response.text();
+  }
+} catch (err) {
+  error = 'Error de conexión con el servidor';
+} finally {
+  isLoading = false;
+}
+---
+
+<div class="overflow-x-auto rounded-lg shadow">
+  {/* Encabezado con botón */}
+  <div class="flex justify-between items-center mb-4 p-4 bg-white rounded-t-lg">
+    <h2 class="text-xl font-bold text-gray-800">Lista de Clientes</h2>
+    <a href="/clientes/nuevo" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+      Crear nuevo cliente
+    </a>
+  </div>
+
+  {/* Contenido principal */}
+  {isLoading ? (
+    <div class="text-center py-8">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <p class="mt-4 text-gray-600">Cargando clientes...</p>
+    </div>
+  ) : error ? (
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 m-4 rounded-md">
+      <p class="text-sm text-red-700">{error}</p>
+    </div>
+  ) : clients.length === 0 ? (
+    <div class="text-center py-12 bg-white rounded-b-lg">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+      <h3 class="mt-2 text-lg font-medium text-gray-900">No hay clientes registrados</h3>
+      <p class="mt-1 text-sm text-gray-500">Comienza agregando tu primer cliente.</p>
+    </div>
+  ) : (
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="table-header">ID</th>
+          <th class="table-header">Nombre</th>
+          <th class="table-header">Clave de Elector</th>
+          <th class="table-header">Saldo</th>
+          <th class="table-header">Teléfono</th>
+          <th class="table-header">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="client-list-body" class="bg-white divide-y divide-gray-200">
+        {clients.map(client => (
+          <tr id={`client-row-${client.id}`} class="hover:bg-gray-50 transition-colors">
+            <td class="table-cell text-gray-500">{client.id}</td>
+            <td class="table-cell font-medium text-gray-900">{client.nombre}</td>
+            <td class="table-cell text-gray-500">{client.clave_elector || '-'}</td>
+            <td class="table-cell">
+              <span class={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${client.saldo_actual >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                ${client.saldo_actual.toFixed(2)}
+              </span>
+            </td>
+            <td class="table-cell text-gray-500">{client.telefono || '-'}</td>
+            <td class="table-cell font-medium space-x-4">
+              <a href={`/admin/client/${client.id}`} class="text-blue-600 hover:text-blue-900">Editar</a>
+              <button 
+                type="button" 
+                class="text-red-600 hover:text-red-900 delete-btn"
+                data-client-id={client.id}
+                data-client-name={client.nombre}
+              >
+                Eliminar
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</div>
+
+<style>
+  .table-header { @apply px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider; }
+  .table-cell { @apply px-6 py-4 whitespace-nowrap text-sm; }
+  .animate-spin { animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  
+  /* Animación para eliminar fila */
+  .fade-out {
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    opacity: 0;
+    transform: translateX(20px);
+  }
+</style>
+
+<script>
+  import Swal from 'sweetalert2';
+  import 'sweetalert2/dist/sweetalert2.min.css';
+
+  function setupClientList() {
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+
+    deleteButtons.forEach(button => {
+      button.addEventListener('click', async (e) => {
+        const target = e.currentTarget as HTMLButtonElement;
+        const clientId = target.dataset.clientId;
+        const clientName = target.dataset.clientName;
+
+        if (!clientId) return;
+
+        const result = await Swal.fire({
+          title: '¿Estás seguro?',
+          html: `Estás a punto de eliminar a <strong>${clientName}</strong>. Esta acción no se puede deshacer.`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33',
+          cancelButtonColor: '#3085d6',
+          confirmButtonText: 'Sí, ¡eliminar!',
+          cancelButtonText: 'Cancelar'
+        });
+
+        if (!result.isConfirmed) {
+          return;
+        }
+
+        try {
+          // --- INICIO DE LA CORRECCIÓN ---
+          // Se cambia el método de envío para que coincida con la API,
+          // que espera datos de formulario (x-www-form-urlencoded).
+          const response = await fetch('/api/delete-client.action', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            // Se envían los datos como un string codificado para URL.
+            body: `id=${encodeURIComponent(clientId)}`,
+          });
+          // --- FIN DE LA CORRECCIÓN ---
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Error del servidor');
+          }
+
+          Swal.fire({
+            title: '¡Eliminado!',
+            text: `El cliente ${clientName} ha sido eliminado.`,
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false,
+          });
+
+          const row = document.getElementById(`client-row-${clientId}`);
+          if (row) {
+            row.classList.add('fade-out');
+            setTimeout(() => {
+              row.remove();
+            }, 500);
+          }
+
+        } catch (err) {
+          Swal.fire(
+            'Error',
+            err instanceof Error ? err.message : 'No se pudo eliminar el cliente.',
+            'error'
+          );
+        }
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', setupClientList);
+</script>

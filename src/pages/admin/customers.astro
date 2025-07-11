@@ -1,20 +1,21 @@
 ---
 // src/pages/admin/orders/index.astro
-import OrdersTable from '@/components/admin/OrdersTable.astro';
+
+import ClientList from '@/components/admin/ClientList.astro';
+import CreateClientForm from '@/components/admin/CreateClientForm.astro';
 import AdminLayout from '@/layouts/AdminLayout.astro';
 
-const pageTitle = 'Gestión de Órdenes';
+const pageTitle = 'Gestión de Clientes';
 ---
 <AdminLayout title={pageTitle}>
   <!-- Ajuste de margen para que el contenido no quede bajo el sidebar -->
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-3xl font-bold text-gray-200">{pageTitle}</h1>
-    <p class="text-gray-400 mt-1">Tabla de pedidos.</p>
+    <p class="text-gray-400 mt-1">Tabla de Clientes.</p>
 
     <!-- Tabla de órdenes -->
     <div class="mt-6">
-      <OrdersTable />
+      <ClientList/>
     </div>
-    
   </div>
 </AdminLayout>

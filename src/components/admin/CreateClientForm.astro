@@ -1,0 +1,121 @@
+---
+// El frontmatter ahora está limpio. No manejamos el POST aquí.
+// Toda la lógica se moverá al script del cliente para una mejor UX.
+---
+<div class="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-xl ring-1 ring-slate-100">
+  <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-4">Crear Nuevo Cliente</h2>
+  
+  <!-- Contenedor para mensajes de error -->
+  <div id="error-message-container" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded-md"></div>
+
+  <form id="create-client-form" class="space-y-6">
+    <!-- Campo: Nombre -->
+    <div>
+      <label for="nombre" class="form-label">Nombre Completo <span class="text-red-500">*</span></label>
+      <input id="nombre" name="nombre" type="text" class="form-input" required />
+    </div>
+    
+    <!-- Campo: Clave de Elector -->
+    <div>
+      <label for="clave_elector" class="form-label">Clave de Elector</label>
+      <input id="clave_elector" name="clave_elector" type="text" class="form-input" />
+      <p class="text-xs text-gray-500 mt-1">Debe ser única para cada cliente.</p>
+    </div>
+    
+    <!-- Campo: Saldo Inicial -->
+    <div>
+      <label for="saldo_actual" class="form-label">Saldo Inicial</label>
+      <input id="saldo_actual" name="saldo_actual" type="number" step="0.01" min="0" value="0" class="form-input" />
+    </div>
+    
+    <!-- Campo: Teléfono -->
+    <div>
+      <label for="telefono" class="form-label">Teléfono</label>
+      <input id="telefono" name="telefono" type="tel" class="form-input" />
+    </div>
+
+    <!-- Campo: Observaciones -->
+    <div>
+      <label for="observaciones" class="form-label">Observaciones</label>
+      <textarea id="observaciones" name="observaciones" rows="3" class="form-input"></textarea>
+    </div>
+    
+    <button type="submit" id="submit-button" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md transition-all duration-200 hover:scale-105">
+      <span id="submit-button-text">Crear Cliente</span>
+    </button>
+  </form>
+</div>
+
+<style>
+  .form-label { @apply block text-sm font-bold text-gray-600 mb-1; }
+  .form-input { @apply w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition; }
+  #submit-button:disabled { @apply bg-blue-400 cursor-not-allowed; }
+</style>
+
+<script>
+  import { navigate } from 'astro:transitions/client';
+  import Swal from 'sweetalert2';
+  import 'sweetalert2/dist/sweetalert2.min.css';
+
+  document.addEventListener('astro:page-load', () => {
+    const form = document.getElementById('create-client-form') as HTMLFormElement;
+    const submitButton = document.getElementById('submit-button') as HTMLButtonElement;
+    const buttonText = document.getElementById('submit-button-text') as HTMLSpanElement;
+    const errorContainer = document.getElementById('error-message-container') as HTMLDivElement;
+
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Deshabilitar botón y mostrar estado de carga
+      submitButton.disabled = true;
+      buttonText.textContent = 'Guardando...';
+      errorContainer.classList.add('hidden'); // Ocultar errores previos
+
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch('/api/create-client.action', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          // Si el servidor devuelve un error, lo leemos y lo lanzamos
+          const errorText = await response.text();
+          throw new Error(errorText || `Error ${response.status}`);
+        }
+
+        const newClient = await response.json();
+
+        // Mostrar alerta de éxito
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Cliente Creado!',
+          text: `El cliente "${newClient.nombre}" ha sido creado exitosamente.`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        // Redirigir a la lista de clientes
+        navigate('/admin/customers'); // Asegúrate de que esta URL sea correcta
+
+      } catch (err: unknown) {
+        let errorMessage = 'Ocurrió un error inesperado.';
+        if (err instanceof Error) {
+          errorMessage = err.message;
+        }
+        
+        // Mostrar el error en el contenedor
+        errorContainer.textContent = errorMessage;
+        errorContainer.classList.remove('hidden');
+
+      } finally {
+        // Volver a habilitar el botón
+        submitButton.disabled = false;
+        buttonText.textContent = 'Crear Cliente';
+      }
+    });
+  });
+</script>

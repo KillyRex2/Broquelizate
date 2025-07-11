@@ -1,0 +1,45 @@
+---
+// src/pages/clientes/nuevo.astro
+import Layout from '@/layouts/AdminLayout.astro';
+import CreateClientForm from '@/components/admin/CreateClientForm.astro';
+import { db, Client } from 'astro:db';
+
+// Estado para manejar mensajes
+let successMessage = '';
+let errorMessage = '';
+
+// Solo manejar POST si estamos en el servidor
+if (import.meta.env.SSR && Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    
+    // Validar campos requeridos
+    if (!formData.get('nombre')) {
+      throw new Error('El nombre es requerido');
+    }
+    
+    // Enviar datos a la API
+    const response = await fetch(Astro.url.origin + '/api/create-client.action', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      successMessage = `¡Cliente ${data.nombre} creado exitosamente con ID: ${data.id}!`;
+    } else {
+      errorMessage = await response.text();
+    }
+  } catch (err) {
+    errorMessage = 'Error al crear el cliente';
+    console.error('Error en el formulario:', err);
+  }
+}
+---
+
+<Layout title="Crear Nuevo Cliente">
+  <CreateClientForm 
+    successMessage={successMessage} 
+    errorMessage={errorMessage} 
+  />
+</Layout>

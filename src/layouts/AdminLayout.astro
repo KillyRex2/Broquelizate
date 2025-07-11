@@ -1,29 +1,105 @@
 ---
-import Sidebar from '@/components/admin/Sidebar.astro';
-import AdminHeader from '@/components/admin/AdminHeader.astro';
 import { ClientRouter } from 'astro:transitions';
+import SideBar from '@/components/admin/Sidebar.astro';
+import AdminHeader from '@/components/admin/AdminHeader.astro';
 
 const { title } = Astro.props;
+const { isLoggedIn, isAdmin } = Astro.locals;
+// Verificar permisos de administrador
+if (import.meta.env.SSR) {
+  if (!isLoggedIn) {
+    return Astro.redirect('/login');
+  }
+  if (!isAdmin) {
+    return Astro.redirect('/404');
+  }
+}
 ---
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-gray-900">
+<html lang="es" class="h-full">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title} - Joyería Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <ClientRouter/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} - Panel de Administración</title>
+  <ClientRouter />
+  <style>
+    /* Paleta Broquelizate */
+    :root {
+      --bg-dark: #1E1E1E;
+      --bg-gradient-end: rgba(243, 212, 38, 0.67);
+      --accent: #F3D426;
+      --text-light: #FFFFFF;
+      --text-dark: #000000;
+      --sidebar-bg: #2A2A2A;
+      --sidebar-hover: rgba(243, 212, 38, 0.1);
+    }
+    body {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-gradient-end) 100%);
+      background-attachment: fixed;
+      color: var(--text-light);
+      font-family: 'Inter', sans-serif;
+    }
+    a { text-decoration: none; }
+  </style>
 </head>
-<body class="h-full font-sans text-gray-200">
+<body class="h-full overflow-hidden">
   <div class="flex h-full">
-    <Sidebar />
+    <!-- Sidebar colapsable -->
+    <div id="sidebar-container" class="w-64 bg-[var(--sidebar-bg)] transition-all duration-300 ease-in-out flex-shrink-0">
+      <SideBar
+        activeClass="text-[var(--accent)]"
+        linkHover="bg-[var(--sidebar-hover)]"
+        textClass="text-[var(--text-light)]"
+      />
+    </div>
 
     <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Header premium -->
       <AdminHeader title={title} />
-      <main class="flex-1 overflow-y-auto bg-[#1E1E1E] text-black p-6">
-        <slot />
+
+      <!-- Contenido -->
+      <main class="flex-1 overflow-y-auto p-6 bg-[var(--bg-dark)]">
+        <div class="max-w-7xl mx-auto">
+          <slot />
+        </div>
       </main>
+
+      <!-- Footer sutil -->
+      <footer class="py-4 px-6 bg-[var(--bg-dark)] border-t border-[var(--accent)]">
+        <p class="text-center text-sm text-[var(--text-light)]">
+          &copy; {new Date().getFullYear()} Broquelizate Admin Panel
+        </p>
+      </footer>
     </div>
   </div>
+
+  <!-- Toggle script -->
+  <script>
+    function setupSidebarToggle() {
+      // Buscamos el botón dentro del header. Es importante que este ID sea único.
+      const btn = document.getElementById('toggle-sidebar');
+      const sidebar = document.getElementById('sidebar-container');
+      
+      if (btn && sidebar) {
+        btn.addEventListener('click', () => {
+          // Lógica de toggle más robusta
+          const isCollapsed = sidebar.classList.contains('w-0');
+
+          if (isCollapsed) {
+            // Expandir sidebar
+            sidebar.classList.remove('w-0', 'p-0', 'opacity-0');
+            sidebar.classList.add('w-64');
+          } else {
+            // Colapsar sidebar
+            sidebar.classList.remove('w-64');
+            sidebar.classList.add('w-0', 'p-0', 'opacity-0');
+          }
+        });
+      }
+    }
+
+    // Usamos 'astro:page-load' que se dispara en cada navegación.
+    // Esto asegura que el script se ejecute siempre.
+    document.addEventListener('astro:page-load', setupSidebarToggle);
+  </script>
 </body>
-</html>

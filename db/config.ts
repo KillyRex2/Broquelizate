@@ -71,6 +71,38 @@ const order_items = defineTable({
   }
 });
 
+const Client = defineTable({
+  columns: {
+    id: column.number({
+      primaryKey: true,
+      autoIncrement: true,
+    }),
+    nombre: column.text({
+      optional: false
+    }),
+    clave_elector: column.text({
+      unique: true,
+      optional: true
+    }),
+    saldo_actual: column.number({
+      default: 0,
+      optional: false,
+      // Corrección: tipado explícito para el parámetro 'col'
+      check: (col: { gte: (value: number) => unknown }) => col.gte(0)
+    }),
+    observaciones: column.text({
+      optional: true
+    }),
+    telefono: column.text({
+      optional: true
+    }),
+    createdAt: column.date({
+      default: new Date(),  // Fecha actual por defecto
+      optional: false
+    })
+  }
+});
+
 
 // https://astro.build/db/config
 export default defineDb({
@@ -80,6 +112,7 @@ export default defineDb({
     Product,
     ProductImage,
     orders,
-    order_items  
+    order_items,
+    Client  
   }
 });
