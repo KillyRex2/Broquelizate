@@ -31,22 +31,22 @@ const prevPage = Math.max(currentPage - 1, 1);
 const nextPage = Math.min(currentPage + 1, totalPages);
 ---
 
-<div class="flex justify-between items-center my-12 px-4 lg:px-0">
+<div class="flex flex-wrap justify-center sm:justify-between items-center my-12 px-4 lg:px-0 gap-4">
+  <span class="text-yellow-500 font-medium order-1 sm:order-2">
+    Página <span class="font-bold text-yellow-400">{currentPage}</span> de <span class="font-bold text-yellow-400">{totalPages}</span>
+  </span>
+
   <a
     href={generateUrl(prevPage)}
-    class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-2xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+    class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-2xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto order-2 sm:order-1 text-center"
     aria-disabled={currentPage === 1}
   >
     ← Anteriores
   </a>
 
-  <span class="text-yellow-500 font-medium">
-    Página <span class="font-bold text-yellow-400">{currentPage}</span> de <span class="font-bold text-yellow-400">{totalPages}</span>
-  </span>
-
   <a
     href={generateUrl(nextPage)}
-    class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-2xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+    class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-2xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto order-3 text-center"
     aria-disabled={currentPage === totalPages}
   >
     Siguientes →
@@ -56,5 +56,6 @@ const nextPage = Math.min(currentPage + 1, totalPages);
 <style>
   a[aria-disabled="true"] {
     pointer-events: none;
+    opacity: 0.5; /* Tailwind's disabled:opacity-50 might need this for full effect */
   }
 </style>

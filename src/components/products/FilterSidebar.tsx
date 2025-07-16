@@ -1,13 +1,15 @@
-import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
-import { FaGem, FaRegCircle, FaSearch } from "react-icons/fa";
+import { useState, useEffect, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { FaGem, FaRegCircle, FaSearch, FaUndo } from "react-icons/fa";
 import { AiFillGold } from "react-icons/ai";
 import { BsEar, BsEarFill } from "react-icons/bs";
 import { GiPlasticDuck, GiNoseFront, GiPearlEarring } from "react-icons/gi";
 import { MdTitle } from "react-icons/md";
 import { FaRegRegistered, FaA, FaEarDeaf, FaEarListen } from "react-icons/fa6";
 import { TbPointFilled } from "react-icons/tb";
+import { IoChevronDown } from "react-icons/io5";
 import { navigate } from "astro:transitions/client";
 
+// --- Interfaces y Datos ---
 interface FilterSidebarProps {
   initialValues?: {
     selectedCat?: string;
@@ -18,218 +20,233 @@ interface FilterSidebarProps {
   };
 }
 
+// ✅ Lista de categorías completa
 const categories = [
-  { label: "Todos los productos", value: "all", icon: <FaGem className="inline mr-2" /> },
-  { label: "Titanio", value: "Titanio", icon: <MdTitle className="inline mr-2" /> },
-  { label: "Acero Quirúrgico", value: "Acero Quirúrgico", icon: <FaA className="inline mr-2" /> },
-  { label: "Oro 10k", value: "Oro 10k", icon: <AiFillGold className="inline mr-2" /> },
-  { label: "Oro 14k", value: "Oro 14k", icon: <AiFillGold className="inline mr-2" /> },
-  { label: "Oro 18k", value: "Oro 18k", icon: <AiFillGold className="inline mr-2" /> },
-  { label: "Chapa de Oro 14K", value: "Chapa de Oro 14K", icon: <AiFillGold className="inline mr-2" /> },
-  { label: "Chapa de Oro 18K", value: "Chapa de Oro 18K", icon: <AiFillGold className="inline mr-2" /> },
-  { label: "Acero Inoxidable", value: "Acero Inoxidable", icon: <FaA className="inline mr-2" /> },
-  { label: "Plástico", value: "Plástico", icon: <GiPlasticDuck className="inline mr-2" /> },
-  { label: "Plata", value: "Plata", icon: <FaRegCircle className="inline mr-2" /> },
-  { label: "Rodio", value: "Rodio", icon: <FaRegRegistered className="inline mr-2" /> },
+  { label: "Todos los productos", value: "all", icon: <FaGem /> },
+  { label: "Titanio", value: "Titanio", icon: <MdTitle /> },
+  { label: "Acero Quirúrgico", value: "Acero Quirúrgico", icon: <FaA /> },
+  { label: "Oro 10k", value: "Oro 10k", icon: <AiFillGold /> },
+  { label: "Oro 14k", value: "Oro 14k", icon: <AiFillGold /> },
+  { label: "Oro 18k", value: "Oro 18k", icon: <AiFillGold /> },
+  { label: "Chapa de Oro 14K", value: "Chapa de Oro 14K", icon: <AiFillGold /> },
+  { label: "Chapa de Oro 18K", value: "Chapa de Oro 18K", icon: <AiFillGold /> },
+  { label: "Acero Inoxidable", value: "Acero Inoxidable", icon: <FaA /> },
+  { label: "Plástico", value: "Plástico", icon: <GiPlasticDuck /> },
+  { label: "Plata", value: "Plata", icon: <FaRegCircle /> },
+  { label: "Rodio", value: "Rodio", icon: <FaRegRegistered /> },
 ];
 
+// ✅ Lista de perforaciones completa
 const piercings = [
-  { label: "Lóbulo", value: "Lóbulo", icon: <GiPearlEarring className="inline mr-2" /> },
-  { label: "Lóbulo Superior", value: "Lóbulo Superior", icon: <GiPearlEarring className="inline mr-2" /> },
-  { label: "Hélix", value: "Hélix", icon: <BsEar className="inline mr-2" /> },
-  { label: "Antihelix", value: "Antihelix", icon: <BsEar className="inline mr-2" /> },
-  { label: "Tragus", value: "Tragus", icon: <BsEar className="inline mr-2" /> },
-  { label: "Antitragus", value: "Antitragus", icon: <BsEarFill className="inline mr-2" /> },
-  { label: "Rook", value: "Rook", icon: <BsEarFill className="inline mr-2" /> },
-  { label: "Flat", value: "Flat", icon: <FaEarListen className="inline mr-2" /> },
-  { label: "Conch", value: "Conch", icon: <BsEarFill className="inline mr-2" /> },
-  { label: "Daith", value: "Daith", icon: <BsEarFill className="inline mr-2" /> },
-  { label: "Industrial", value: "Industrial", icon: <FaEarDeaf className="inline mr-2" /> },
-  { label: "Séptum", value: "Séptum", icon: <GiNoseFront className="inline mr-2" /> },
-  { label: "Nóstril", value: "Nóstril", icon: <GiNoseFront className="inline mr-2" /> },
-  { label: "Navel", value: "Navel", icon: <TbPointFilled className="inline mr-2" /> },
+  { label: "Todos", value: "all", icon: <BsEar /> },
+  { label: "Lóbulo", value: "Lóbulo", icon: <GiPearlEarring /> },
+  { label: "Lóbulo Superior", value: "Lóbulo Superior", icon: <GiPearlEarring /> },
+  { label: "Hélix", value: "Hélix", icon: <BsEar /> },
+  { label: "Antihelix", value: "Antihelix", icon: <BsEar /> },
+  { label: "Tragus", value: "Tragus", icon: <BsEar /> },
+  { label: "Antitragus", value: "Antitragus", icon: <BsEarFill /> },
+  { label: "Rook", value: "Rook", icon: <BsEarFill /> },
+  { label: "Flat", value: "Flat", icon: <FaEarListen /> },
+  { label: "Conch", value: "Conch", icon: <BsEarFill /> },
+  { label: "Daith", value: "Daith", icon: <BsEarFill /> },
+  { label: "Industrial", value: "Industrial", icon: <FaEarDeaf /> },
+  { label: "Séptum", value: "Séptum", icon: <GiNoseFront /> },
+  { label: "Nóstril", value: "Nóstril", icon: <GiNoseFront /> },
+  { label: "Navel", value: "Navel", icon: <TbPointFilled /> },
 ];
 
-export const FilterSidebar = ({
-  initialValues
-}: FilterSidebarProps) => {
-  const [isMounted, setIsMounted] = useState(false);
-  // Inicializar estado con valores iniciales
-  const [selectedCat, setSelectedCat] = useState<string>(initialValues?.selectedCat || "all");
-  const [price, setPrice] = useState<number>(initialValues?.price || 5000);
-  const [inStock, setInStock] = useState<boolean>(initialValues?.inStock || false);
-  const [searchTerm, setSearchTerm] = useState<string>(initialValues?.search || "");
-  const [selectedPiercing, setSelectedPiercing] = useState<string>(initialValues?.piercing || "all");
+// --- Componente de Acordeón Reutilizable ---
+const Accordion = ({ title, children }: { title: string, children: ReactNode }) => {
+  const [isOpen, setIsOpen] = useState(true); // Abierto por defecto
+
+  return (
+    <div className="border-b border-gray-700">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex justify-between items-center py-3 text-left font-semibold text-white"
+      >
+        <span>{title}</span>
+        <IoChevronDown className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] py-2' : 'max-h-0'}`}>
+        {children}
+      </div>
+    </div>
+  );
+};
 
 
-  // Actualizar estado cuando cambian los valores iniciales
+// --- Componente Principal FilterSidebar ---
+export const FilterSidebar = ({ initialValues }: FilterSidebarProps) => {
+  const getInitialState = () => ({
+    category: initialValues?.selectedCat || "all",
+    price: initialValues?.price || 5000,
+    search: initialValues?.search || "",
+    piercing: initialValues?.piercing || "all",
+  });
+
+  const [filters, setFilters] = useState(getInitialState());
+
+  // Sincronizar estado si los valores iniciales cambian (al navegar atrás/adelante)
   useEffect(() => {
-    setIsMounted(true);
-    if (initialValues) {
-      setSelectedCat(initialValues.selectedCat || "all");
-      setPrice(initialValues.price || 5000);
-      setInStock(initialValues.inStock || false);
-      setSearchTerm(initialValues.search || "");
-    }
+    setFilters(getInitialState());
   }, [initialValues]);
 
-  const onCategoryChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setSelectedCat(e.target.value);
-
-  const onPriceChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setPrice(Number(e.target.value));
-
-  const onInStockChange = () => setInStock(prev => !prev);
-
-  const onSearchChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setSearchTerm(e.target.value);
-
-   const onPiercingChange = (e: ChangeEvent<HTMLInputElement>) => 
-    setSelectedPiercing(e.target.value);
-
-
- const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+  const handleInputChange = (field: string, value: string | number) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+  };
   
-  console.log("Valor de searchTerm al enviar:", searchTerm);
-  
-  const newFilters = {
-    category: selectedCat,
-    maxPrice: price,
-    inStock: inStock,
-    search: searchTerm,
-    piercing: selectedPiercing
+  const handleReset = () => {
+    const defaultState = { category: "all", price: 5000, search: "", piercing: "all" };
+    setFilters(defaultState);
+    // Navegar para limpiar los parámetros de la URL
+    const queryParams = new URLSearchParams({ page: '1', ...defaultState, price: defaultState.price.toString() });
+    navigate(`/products?${queryParams.toString()}`);
   };
 
-  const queryParams = new URLSearchParams({
-    page: '1',
-    category: newFilters.category,
-    maxPrice: newFilters.maxPrice.toString(),
-    inStock: newFilters.inStock.toString(),
-    search: newFilters.search,
-    piercing: newFilters.piercing
-  });
-  
-  // Usar navigate para transición suave
-  navigate(`/products?${queryParams.toString()}`);
-};
-  if (!isMounted) {
-    return (
-      <aside className="w-64 p-4 flex-shrink-0 rounded-lg shadow-md bg-gray-900 text-gray-200">
-        Cargando filtros...
-      </aside>
-    );
-  }
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const queryParams = new URLSearchParams({
+      page: '1',
+      category: filters.category,
+      maxPrice: filters.price.toString(),
+      search: filters.search,
+      piercing: filters.piercing,
+    });
+    navigate(`/products?${queryParams.toString()}`);
+  };
+
   return (
-    <aside className="w-64 p-4 flex-shrink-0 rounded-lg shadow-md bg-gray-900 text-gray-200">
+    // Se elimina el ancho fijo para que se adapte al contenedor padre
+    <aside className="p-4 bg-gray-900 text-gray-300 h-full">
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Filtros</h2>
-          <hr className="border-gray-700" />
+        {/* Encabezado y Botón de Limpiar */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold text-white">Filtros</h2>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition"
+            title="Limpiar filtros"
+          >
+            <FaUndo />
+            <span>Limpiar</span>
+          </button>
         </div>
 
-        {/* Campo de Búsqueda */}
+        {/* Búsqueda */}
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <FaSearch className="text-gray-400" />
-          </div>
+          <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             type="text"
             placeholder="Buscar productos..."
-            value={searchTerm}
-            onChange={onSearchChange}
-            className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={filters.search}
+            onChange={(e) => handleInputChange('search', e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg border-gray-700 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        {/* Categorías */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Categorías</h3>
-          <hr className="border-gray-700" />
-          {categories.map(cat => (
-            <label
-              key={cat.value}
-              className="flex items-center space-x-2 hover:text-white transition-colors"
-            >
-              <input
-                type="radio"
-                name="category"
-                value={cat.value}
-                checked={selectedCat === cat.value}
-                onChange={onCategoryChange}
-                className="accent-blue-500"
-              />
-              {cat.icon}
-              <span>{cat.label}</span>
-            </label>
-          ))}
-        </div>
-        {/* Nueva sección de Perforaciones */}
-        <div className="space-y-2">
-          <h3 className="font-medium">Perforaciones</h3>
-          <hr className="border-gray-700" />
-          {piercings.map(piercing => (
-            <label
-              key={piercing.value}
-              className="flex items-center space-x-2 hover:text-white transition-colors"
-            >
-              <input
-                type="radio"
-                name="piercing"
-                value={piercing.value}
-                checked={selectedPiercing === piercing.value}
-                onChange={onPiercingChange}
-                className="accent-blue-500"
-              />
-              {piercing.icon}
-              <span>{piercing.label}</span>
-            </label>
-          ))}
-        </div>
+        {/* Acordeón de Categorías */}
+        <Accordion title="Categorías">
+          <div className="space-y-2">
+            {categories.map(cat => (
+              <label key={cat.value} className="filter-label">
+                <input
+                  type="radio"
+                  name="category"
+                  value={cat.value}
+                  checked={filters.category === cat.value}
+                  onChange={(e) => handleInputChange('category', e.target.value)}
+                  className="sr-only" // Oculta el radio button real
+                />
+                <span className={`filter-tag ${filters.category === cat.value ? 'filter-tag-active' : ''}`}>
+                  {cat.icon} {cat.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </Accordion>
 
-        <hr className="border-gray-700" />
+        {/* Acordeón de Perforaciones */}
+        <Accordion title="Perforaciones">
+          <div className="space-y-2">
+            {piercings.map(p => (
+              <label key={p.value} className="filter-label">
+                <input
+                  type="radio"
+                  name="piercing"
+                  value={p.value}
+                  checked={filters.piercing === p.value}
+                  onChange={(e) => handleInputChange('piercing', e.target.value)}
+                  className="sr-only"
+                />
+                <span className={`filter-tag ${filters.piercing === p.value ? 'filter-tag-active' : ''}`}>
+                  {p.icon} {p.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </Accordion>
 
-        {/* Precio */}
-        <div>
-          <h3 className="font-medium">Precio máximo</h3>
+        {/* Filtro de Precio */}
+        <div className="pt-2">
+          <label htmlFor="price-range" className="font-semibold text-white">
+            Precio Máximo: <span className="font-bold text-blue-400">${filters.price.toLocaleString()}</span>
+          </label>
           <input
+            id="price-range"
             type="range"
             min={0}
             max={5000}
-            value={price}
-            onChange={onPriceChange}
-            className="w-full mt-2 accent-blue-500"
+            step={100}
+            value={filters.price}
+            onChange={(e) => handleInputChange('price', Number(e.target.value))}
+            className="w-full mt-3 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
           />
-          <div className="flex justify-between text-sm text-gray-400">
-            <span>$0 MXN</span>
-            <span>${price.toLocaleString()} MXN</span>
-            <span>$5,000 MXN</span>
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>$0</span>
+            <span>$5,000</span>
           </div>
         </div>
 
-        <hr className="border-gray-700" />
-
-        {/* Disponibilidad */}
-        {/* <div>
-          <h3 className="font-medium">Disponibilidad</h3>
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={inStock}
-              onChange={onInStockChange}
-              className="accent-blue-500"
-            />
-            <span>En stock</span>
-          </label>
-        </div> */}
-
+        {/* Botón de Aplicar Filtros */}
         <button
           type="submit"
-          className="w-full bg-blue-600 py-2 rounded hover:bg-blue-700 transition"
+          className="w-full bg-yellow-600 py-2.5 rounded-lg font-semibold text-white hover:bg-yellow-700 transition-all duration-200 shadow-lg hover:shadow-yellow-500/50"
         >
-          Aplicar filtros
+          Aplicar Filtros
         </button>
       </form>
+
+      {/* Estilos para los tags de filtros */}
+      <style>{`
+        .filter-label {
+          display: block;
+          cursor: pointer;
+        }
+        .filter-tag {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 0.75rem;
+          border-radius: 0.5rem;
+          background-color: #374151; /* bg-gray-700 */
+          color: #d1d5db; /* text-gray-300 */
+          transition: all 0.2s ease-in-out;
+          border: 1px solid transparent;
+        }
+        .filter-label:hover .filter-tag {
+          background-color: #4b5563; /* bg-gray-600 */
+          color: #ffffff;
+        }
+        .filter-tag-active {
+          background-color:rgb(241, 198, 4); /* bg-blue-600 */
+          color: #ffffff;
+          font-weight: 600;
+          border-color:rgb(240, 250, 96); /* border-blue-400 */
+        }
+      `}</style>
     </aside>
   );
 };

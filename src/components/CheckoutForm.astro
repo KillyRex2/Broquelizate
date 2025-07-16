@@ -1,10 +1,25 @@
 ---
 import { Formatter } from '../utils';
-import type { CartItem } from '@/interfaces';
 import { CartCookiesClient } from '@/utils/cart-cookies';
 import { actions } from 'astro:actions';
-import { navigate } from 'astro:transitions/client';
 const { isLoggedIn, isAdmin } = Astro.locals;
+
+type Client = {
+  id: number;
+  name: string;
+  email?: string | null;
+  address?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  elector_key: string | null;
+  current_balance: number;
+  observations: string | null;
+  phone: string | null;
+  created_at: Date;
+};
 
 // Obtener productos del carrito desde cookies
 const cartItems = CartCookiesClient.getCart();
@@ -12,6 +27,12 @@ const { data: products, error } = await Astro.callAction(
   actions.loadProductsFromCart,
   cartItems
 );
+
+const { data: clients, error: err } = await Astro.callAction(
+  actions.getAllClients,
+  {}   // pass empty input
+);
+// AÑADIDO: Obtener la lista de clientes
 
 if (error || !products) {
   return Astro.redirect('/');
@@ -30,6 +51,9 @@ const productsData = products.map(p => ({
   quantity: p.quantity,
   image: p.image || ''
 }));
+
+// Obtener lista de clientes
+const clientsList: Client[] = clients?.clients || [];
 
 ---
 <div class="bg-gray-200 p-4 rounded-xl shadow-md">
@@ -123,10 +147,8 @@ const productsData = products.map(p => ({
                 <div class="flex items-center">
                   <input type="radio" class="w-5 h-5 cursor-pointer" id="cash" name="payment-method" />
                   <label for="cash" class="ml-4 flex gap-2 cursor-pointer items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span class="text-lg text-gray-800">Efectivo</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width={24} height={24} viewBox="0 0 24 24"><path fill="#000" d="M4 6V4h16v2zm0 14v-6H3v-2l1-5h16l1 5v2h-1v6h-2v-6h-4v6zm2-2h6v-4H6z"></path></svg>
+                    <span class="text-lg text-gray-800">Pago</span>
                   </label>
                 </div>
               )
@@ -207,7 +229,22 @@ const productsData = products.map(p => ({
                     </button>
                   </div>
                 </div>
+                <div class="mt-6 bg-white p-6 rounded-lg shadow">
+                  <h3 class="text-xl font-semibold text-slate-900 mb-4">Seleccionar Cliente</h3>
+                  <label for="customer-select" class="block text-sm font-medium text-gray-700 mb-1">
+                    Elige un cliente existente para autocompletar la dirección.
+                  </label>
+                  <select id="customer-select" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-800">
+                    <option value="">-- Seleccionar un cliente --</option>
+                    {
+                      clientsList.map(client => (
+                        <option value={client.id}>{client.name}</option>
+                      ))
+                    }
+                  </select>
+                </div>
               </div>
+
             )
           }
         </div>
@@ -312,6 +349,7 @@ const productsData = products.map(p => ({
   }
 </style>
 
+
 <script>
   // Importar SweetAlert2 y otras dependencias
   import { CartCookiesClient } from '@/utils/cart-cookies';
@@ -333,86 +371,145 @@ const productsData = products.map(p => ({
       }).format(value);
     }
   };
-    type Product = {
+
+type Product = {
       name: string;
       quantity: number;
       price: number;
     };
 
+
+
 let stripe: Stripe | null = null;
 let cardElement: StripeCardElement | null = null;
 let elements: StripeElements | null = null;
+
+
 // Función para inicializar Stripe y los elementos de pago
-async function initializeStripe(): Promise<void> {
-  // Verificar que la clave de Stripe está definida
-  if (!import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
-    console.error('Stripe public key is not defined in environment variables');
-    await Swal.fire({
-      title: 'Error de configuración',
-      text: 'La clave de Stripe no está configurada correctamente.',
-      icon: 'error',
-      confirmButtonText: 'Entendido'
-    });
-    return;
-  }
-
-  try {
-    // Cargar Stripe - ahora puede ser null
-    const stripeInstance = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
-    if (!stripeInstance) {
-      throw new Error('Failed to load Stripe');
-    }
-    stripe = stripeInstance;
-
-    // Crear elementos de Stripe
-    const elementsInstance = stripe.elements();
-    if (!elementsInstance) {
-      throw new Error('Failed to create Stripe elements');
-    }
-    elements = elementsInstance;
-
-    // Montar elemento en el DOM
+async function initializeStripe() {
     const cardElementContainer = document.getElementById('card-element');
-    if (!cardElementContainer) {
-      throw new Error('Card element container not found');
-    }
-    
-    // Crear elemento de tarjeta
-    cardElement = elements.create('card', {
-      style: {
-        base: {
-          color: '#32325d',
-          fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
-          fontSmoothing: 'antialiased',
-          fontSize: '16px',
-          '::placeholder': {
-            color: '#aab7c4'
-          }
-        },
-        invalid: {
-          color: '#fa755a',
-          iconColor: '#fa755a'
+    if (!cardElementContainer) return;
+
+    // Si el elemento ya está montado en este contenedor, no hacer nada.
+    if (cardElement && cardElementContainer.childElementCount > 0) return;
+
+    try {
+      cardElementContainer.innerHTML = '<div class="stripe-loader">Cargando pasarela de pago...</div>';
+      
+      // Cargar Stripe solo una vez.
+      if (!stripe) {
+        if (!import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
+          throw new Error('La clave pública de Stripe no está configurada.');
         }
-      },
-      hidePostalCode: true
-    });
-    
-    cardElement.mount(cardElementContainer);
-    
-    // Manejar errores en tiempo real
-    cardElement.on('change', (event) => {
-      const displayError = document.getElementById('card-errors');
-      if (!displayError) return;
-      displayError.textContent = event.error ? event.error.message : '';
-    });
-    
-  } catch (error) {
-    console.error('Error initializing Stripe:', error);
+        const stripeInstance = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
+        if (!stripeInstance) throw new Error('No se pudo cargar Stripe');
+        stripe = stripeInstance;
+      }
+      
+      const elements = stripe.elements();
+      cardElement = elements.create('card', {
+        style: {
+          base: {
+            color: '#32325d',
+            fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+            fontSize: '16px',
+            '::placeholder': { color: '#aab7c4' }
+          },
+          invalid: { color: '#fa755a', iconColor: '#fa755a' }
+        },
+        hidePostalCode: true 
+      });
+
+      // Limpiar el contenedor y montar el nuevo elemento.
+      cardElementContainer.innerHTML = '';
+      cardElement.mount(cardElementContainer);
+
+      cardElement.on('change', (event) => {
+        const displayError = document.getElementById('card-errors');
+        if (displayError) displayError.textContent = event.error ? event.error.message : '';
+      });
+
+    } catch (error) {
+      console.error('Error inicializando Stripe:', error);
+      cardElementContainer.innerHTML = `<div class="stripe-error">Error al cargar la pasarela de pago </div>`;
+    }
   }
 
-  console.log('Stripe public key:', import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
-  console.log('Environment variables:', import.meta.env);
-}
+  function tryInitializeClients() {
+    const customerSelect = document.getElementById('customer-select');
+    const clientsDataElement = document.getElementById('clients-data');
+    
+    if (!customerSelect || !clientsDataElement) return;
+    
+    const clients: Client[] = JSON.parse(clientsDataElement.textContent || '[]');
+    
+    customerSelect.addEventListener('change', (e) => {
+      const selectedId = (e.target as HTMLSelectElement).value;
+      if (!selectedId) return;
+      
+      const client = clients.find(c => c.id == parseInt(selectedId));
+      if (!client) return;
+      
+      // Actualizar campos del formulario
+      updateFormField('street-address', client.address);
+      updateFormField('neighborhood', client.neighborhood);
+      updateFormField('city', client.city);
+      updateFormField('state', client.state);
+      updateFormField('postal-code', client.postalCode);
+      updateFormField('email', client.email);
+    });
+  }
+
+  function updateFormField(id: string, value: string | null | undefined) {
+    const element = document.getElementById(id) as HTMLInputElement | null;
+    if (element) {
+      element.value = value || '';
+    }
+  }
+function initializeClientsRobust() {
+    // Intentar inicializar clientes inmediatamente
+    tryInitializeClients();
+    
+    // Configurar observador para cuando aparezca el elemento de selección de clientes
+    if (!document.getElementById('customer-select')) {
+      const observer = new MutationObserver(() => {
+        if (document.getElementById('customer-select')) {
+          tryInitializeClients();
+          observer.disconnect();
+        }
+      });
+      
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+
+
+
+function initializeClients() {
+    const customerSelect = document.getElementById('customer-select') as HTMLSelectElement;
+    const clientsDataElement = document.getElementById('clients-data');
+    if (!customerSelect || !clientsDataElement) return;
+    
+    const clients: Client[] = JSON.parse(clientsDataElement.textContent || '[]');
+    
+    customerSelect.addEventListener('change', (e) => {
+      e.preventDefault(); // Previene cualquier comportamiento por defecto del formulario.
+      const selectedId = (e.currentTarget as HTMLSelectElement).value;
+      if (!selectedId) return;
+
+      const client = clients.find(c => c.id == parseInt(selectedId));
+      if (!client) return;
+      
+      // Rellenar campos del formulario
+      (document.getElementById('street-address') as HTMLInputElement).value = client.address || '';
+      (document.getElementById('neighborhood') as HTMLInputElement).value = client.neighborhood || '';
+      (document.getElementById('city') as HTMLInputElement).value = client.city || '';
+      (document.getElementById('state') as HTMLInputElement).value = client.state || '';
+      (document.getElementById('postal-code') as HTMLInputElement).value = client.postalCode || '';
+      (document.getElementById('email') as HTMLInputElement).value = client.email || '';
+    });
+  }
 
 
 
@@ -425,6 +522,7 @@ async function initializeStripe(): Promise<void> {
       </li>
     `).join('');
   }
+
 
   // Función para obtener los datos de forma segura
 function getCheckoutData(): {
@@ -779,6 +877,11 @@ async function createOrder(paymentMethod: string) {
   const state = (document.getElementById('state') as HTMLInputElement)?.value;
   const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value;
   const country = (document.getElementById('country') as HTMLInputElement)?.value || 'México';
+
+  
+  // Obtener cliente seleccionado
+  const customerSelect = document.getElementById('customer-select') as HTMLSelectElement | null;
+  const clientId = customerSelect?.value ? parseInt(customerSelect.value) : null;
   
   const shippingAddress = {
     streetAddress,
@@ -812,7 +915,8 @@ async function createOrder(paymentMethod: string) {
     subtotal: data.totalValue - data.taxValue,
     tax: data.taxValue,
     total: data.totalValue,
-    paymentMethod: paymentMethod
+    paymentMethod: paymentMethod,
+    clientId: clientId
   };
 
   try {
@@ -876,19 +980,50 @@ async function updateProductStock() {
     throw error;
   }
 }
+  type Client = {
+    id: number;
+    name: string;
+    email?: string;
+    address?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    elector_key: string;
+    current_balance: number;
+    observations: string;
+    phone: string;
+    created_at: string;
+  };
 
   // Inicialización cuando la página está lista
+  // Inicialización cuando la página está lista
   document.addEventListener('astro:page-load', async () => {
+    
+    // Inicializar clientes primero
+    initializeClientsRobust();
+    
     // Configurar eventos de los métodos de pago
 
-    await initializeStripe();
+    
     const paymentRadios = document.querySelectorAll('input[name="payment-method"]');
     paymentRadios.forEach(radio => {
-      radio.addEventListener('change', updatePaymentVisibility);
+      radio.addEventListener('change', 
+      updatePaymentVisibility);
     });
     
+    document.querySelectorAll('input[name="payment-method"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      // Cuando se selecciona efectivo, inicializar clientes
+      if (radio.id === 'cash') {
+        setTimeout(initializeClientsRobust, 100);
+      }
+    });
+  });
     // Configurar formulario de tarjeta
     const paymentForm = document.getElementById('submit-card-payment');
+     initializeStripe();
     if (paymentForm) {
       paymentForm.addEventListener('click', handleCheckout);
     }
@@ -902,7 +1037,7 @@ async function updateProductStock() {
     // Establecer estado inicial
     updatePaymentVisibility();
     
- // CORRECCIÓN: Mejorar UX de los métodos de pago (versión corregida)
+    // CORRECCIÓN: Mejorar UX de los métodos de pago (versión corregida)
     const paymentOptions = document.querySelectorAll('.flex.items-center');
     paymentOptions.forEach(option => {
       option.addEventListener('click', function(this: HTMLElement) {
@@ -940,3 +1075,6 @@ async function updateProductStock() {
 </div>
 <div id="tax-data" style="display: none;">{tax}</div>
 <div id="total-data" style="display: none;">{total}</div>
+<div id="clients-data" style="display: none;">
+  {JSON.stringify(clientsList)}
+</div>

@@ -53,6 +53,27 @@ export const updateClient = defineAction({
     }
   },
 });
+export const getAllClients = defineAction({
+  handler: async () => {
+    try {
+      // Obtener todos los clientes con sus direcciones
+      const clients = await db.select({
+        id: Client.id,
+        name: Client.nombre,
+        elector_key: Client.clave_elector,
+        current_balance: Client.saldo_actual,
+        observations: Client.observaciones,
+        phone: Client.telefono,
+        created_at: Client.createdAt,
+      }).from(Client);
+      
+      return { success: true, clients };
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      return { success: false, error: "No se pudieron obtener los clientes." };
+    }
+  }
+});
 
 // --- OBJETO SERVER PARA ASTRO ACTIONS ---
 // Astro Actions espera un objeto 'server' que contenga todas las acciones.
@@ -60,5 +81,6 @@ export const updateClient = defineAction({
 export const server = {
   getClientById,
   updateClient,
+  getAllClients,
   // Aquí puedes añadir otras acciones que ya tengas, como deleteClient, etc.
 };

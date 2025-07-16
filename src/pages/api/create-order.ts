@@ -6,13 +6,18 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const data = await request.json();
     
-    // Generate IDs using UUID
+    // Validar datos requeridos (CORREGIDO: paréntesis extra eliminado)
+    if (!data.products || !Array.isArray(data.products)) {
+      throw new Error('Datos de productos inválidos');
+    }
+
+    // Generar IDs
     const orderId = uuidv4();
     const orderNumber = `ORD-${Date.now()}`;
 
-    // Insert main order
+    // Insertar orden principal
     await db.insert(orders).values({
-      id: orderId,  // Include id here
+      id: orderId,
       orderNumber,
       customerEmail: data.customerEmail,
       shippingAddress: JSON.stringify(data.shippingAddress),
@@ -21,13 +26,14 @@ export const POST: APIRoute = async ({ request }) => {
       total: data.total,
       paymentMethod: data.paymentMethod,
       status: 'completed',
-      createdAt: new Date()
-    } as any);  // Use type assertion to bypass TS error
+      createdAt: new Date(),
+      clientId: data.clientId || null
+    } as any);
 
-    // Create order items
+    // Crear items de la orden
     const orderItems = data.products.map((product: any) => ({
       id: uuidv4(),
-      orderId,  // Use orderId as foreign key
+      orderId,
       productId: product.id,
       productName: product.name,
       quantity: product.quantity,
@@ -40,6 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({
       id: orderId,
       orderNumber,
+      clientId: data.clientId || null,
       message: 'Orden creada exitosamente'
     }), {
       status: 200,
@@ -48,7 +55,8 @@ export const POST: APIRoute = async ({ request }) => {
 
   } catch (error: any) {
     return new Response(JSON.stringify({
-      error: error.message || 'Error al crear la orden'
+      error: error.message || 'Error al crear la orden',
+      details: error.stack || null
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

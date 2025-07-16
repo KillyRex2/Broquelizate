@@ -55,7 +55,11 @@ const orders = defineTable({
     total: column.number(),
     paymentMethod: column.text(),
     status: column.text({ default: 'pending' }), // 'pending', 'completed', 'cancelled'
-    createdAt: column.date({ default: new Date() })
+    createdAt: column.date({ default: new Date() }),
+    clientId: column.number({ 
+      references: () => Client.columns.id,
+      optional: true  // Permite valores nulos para órdenes sin cliente asociado
+    })
   }
 });
 
@@ -99,7 +103,7 @@ const Client = defineTable({
     createdAt: column.date({
       default: new Date(),  // Fecha actual por defecto
       optional: false
-    })
+    }), 
   }
 });
 

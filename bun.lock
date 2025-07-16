@@ -37,6 +37,7 @@
         "uuid": "^11.1.0",
       },
       "devDependencies": {
+        "@iconify-json/mdi": "^1.2.3",
         "@types/js-cookie": "^3.0.6",
         "@types/uuid": "^10.0.0",
         "bcryptjs": "^3.0.2",
@@ -181,6 +182,8 @@
     "@foliojs-fork/pdfkit": ["@foliojs-fork/pdfkit@0.15.3", "", { "dependencies": { "@foliojs-fork/fontkit": "^1.9.2", "@foliojs-fork/linebreak": "^1.1.1", "crypto-js": "^4.2.0", "jpeg-exif": "^1.1.4", "png-js": "^1.0.0" } }, "sha512-Obc0Wmy3bm7BINFVvPhcl2rnSSK61DQrlHU8aXnAqDk9LCjWdUOPwhgD8Ywz5VtuFjRxmVOM/kQ/XLIBjDvltw=="],
 
     "@foliojs-fork/restructure": ["@foliojs-fork/restructure@2.0.2", "", {}, "sha512-59SgoZ3EXbkfSX7b63tsou/SDGzwUEK6MuB5sKqgVK1/XE0fxmpsOb9DQI8LXW3KfGnAjImCGhhEb7uPPAUVNA=="],
+
+    "@iconify-json/mdi": ["@iconify-json/mdi@1.2.3", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg=="],
 
     "@iconify/tools": ["@iconify/tools@4.1.2", "", { "dependencies": { "@iconify/types": "^2.0.0", "@iconify/utils": "^2.3.0", "@types/tar": "^6.1.13", "axios": "^1.8.3", "cheerio": "1.0.0", "domhandler": "^5.0.3", "extract-zip": "^2.0.1", "local-pkg": "^0.5.1", "pathe": "^1.1.2", "svgo": "^3.3.2", "tar": "^6.2.1" } }, "sha512-q6NzLQYEN9zkDfcyBqD3vItHcZw97w/s++3H3TBxUORr57EfHxj6tOW6fyufDjMq+Vl56WXWaPx1csBPYlI5CA=="],
 
