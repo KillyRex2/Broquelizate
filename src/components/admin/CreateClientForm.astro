@@ -99,7 +99,7 @@
         });
 
         // Redirigir a la lista de clientes
-        navigate('/admin/customers'); // Asegúrate de que esta URL sea correcta
+        navigate(`javascript:history.back()`);// Asegúrate de que esta URL sea correcta
 
       } catch (err: unknown) {
         let errorMessage = 'Ocurrió un error inesperado.';

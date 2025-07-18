@@ -3,74 +3,76 @@
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { actions } from 'astro:actions';
 
-// 1. Obtener el ID del cliente desde la URL
+// Obtener el ID del cliente desde la URL
 const { id } = Astro.params;
-if (!id) {
-  // Si no hay ID, no podemos hacer nada, así que redirigimos.
-  return Astro.redirect('/admin/customers'); 
-}
+if (!id) return Astro.redirect('/admin/customers');
 
-// 2. Llamar a la acción para obtener los datos del cliente en el servidor
+// Llamar a la acción para obtener datos del cliente
+type Client = {
+  id: string;
+  nombre: string;
+  clave_elector?: string;
+  telefono?: string;
+  saldo_actual: number;
+  observations?: string;
+};
 const { data: client, error } = await Astro.callAction(actions.getClientById, id);
-
-// Si la acción devuelve un error o no encuentra al cliente, redirigimos a una página 404.
-if (error || !client) {
-  return Astro.redirect('/404');
-}
+if (error || !client) return Astro.redirect('/404');
 ---
-<AdminLayout title={`Editando a ${client.nombre}`}>
-  <div class="ml-64 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    
-    <!-- Encabezado de la página -->
-    <header class="mb-8">
-      <a href="/admin/customers" class="text-blue-400 hover:text-blue-300 hover:underline mb-4 inline-block transition-colors">
-        &larr; Volver a la lista de clientes
+<AdminLayout title={`Editando a ${client.nombre}`}>  
+  <div class="ml-64 max-w-4xl mx-auto px-6 py-12">    
+    <!-- Header -->
+    <header class="mb-6 flex items-center justify-between">
+      <a href="/admin/customers" class="text-gold-500 hover:text-gold-400 transition-colors">
+        &larr; Volver a Clientes
       </a>
-      <h1 class="text-4xl font-extrabold text-gray-100">Editar Cliente</h1>
-      <p class="text-lg text-gray-400 mt-1">
-        Modificando el perfil de <span class="font-bold text-gray-200">{client.nombre}</span>
-      </p>
+      <h1 class="text-5xl font-extrabold text-white tracking-tight">Editar Cliente</h1>
     </header>
 
-    <!-- Formulario de Edición -->
-    <div class="bg-gray-100 p-8 rounded-2xl shadow-2xl border border-gray-700">
-      <form id="edit-client-form">
-        <!-- Campo oculto para el ID, crucial para la acción de actualizar -->
+    <div class="bg-gray-900/80 backdrop-blur-lg border border-gray-700 rounded-3xl p-10 shadow-2xl">
+      <form id="edit-client-form" class="space-y-8">
         <input type="hidden" name="id" value={client.id} />
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <!-- Columna Izquierda -->
+          <!-- Izquierda -->
           <div class="space-y-6">
-            <div>
-              <label for="nombre" class="form-label">Nombre Completo</label>
-              <input type="text" id="nombre" name="nombre" value={client.nombre} required class="form-input" />
-            </div>
-            <div>
-              <label for="clave_elector" class="form-label">Clave de Elector</label>
-              <input type="text" id="clave_elector" name="clave_elector" value={client.clave_elector ?? ''} class="form-input" />
-            </div>
-            <div>
-              <label for="telefono" class="form-label">Teléfono</label>
-              <input type="tel" id="telefono" name="telefono" value={client.telefono ?? ''} class="form-input" />
-            </div>
+            <label class="block">
+              <span class="text-gray-300">Nombre Completo</span>
+              <input type="text" name="nombre" value={client.nombre} required
+                class="mt-1 block w-full bg-gray-800 text-gray-100 border border-gray-600 rounded-lg px-4 py-2 focus:border-gold-500 focus:ring-gold-500 outline-none transition" />
+            </label>
+
+            <label class="block">
+              <span class="text-gray-300">Clave de Elector</span>
+              <input type="text" name="clave_elector" value={client.clave_elector ?? ''}
+                class="mt-1 block w-full bg-gray-800 text-gray-100 border border-gray-600 rounded-lg px-4 py-2 focus:border-gold-500 focus:ring-gold-500 outline-none transition" />
+            </label>
+
+            <label class="block">
+              <span class="text-gray-300">Teléfono</span>
+              <input type="tel" name="telefono" value={client.telefono ?? ''}
+                class="mt-1 block w-full bg-gray-800 text-gray-100 border border-gray-600 rounded-lg px-4 py-2 focus:border-gold-500 focus:ring-gold-500 outline-none transition" />
+            </label>
           </div>
-          
-          <!-- Columna Derecha -->
+
+          <!-- Derecha -->
           <div class="space-y-6">
-            <div>
-              <label for="saldo_actual" class="form-label">Saldo Actual</label>
-              <input type="number" step="0.01" id="saldo_actual" name="saldo_actual" value={client.saldo_actual} required class="form-input" />
-            </div>
-            <div>
-              <label for="observaciones" class="form-label">Observaciones</label>
-              <textarea id="observaciones" name="observaciones" rows="5" class="form-input">{client.observaciones ?? ''}</textarea>
-            </div>
+            <label class="block">
+              <span class="text-gray-300">Saldo Actual</span>
+              <input type="number" name="saldo_actual" step="0.01" value={client.saldo_actual} required
+                class="mt-1 block w-full bg-gray-800 text-gray-100 border border-gray-600 rounded-lg px-4 py-2 focus:border-gold-500 focus:ring-gold-500 outline-none transition" />
+            </label>
+
+            <label class="block">
+              <span class="text-gray-300">Observaciones</span>
+              <textarea name="observaciones" rows="4"
+                class="mt-1 block w-full bg-gray-800 text-gray-100 border border-gray-600 rounded-lg px-4 py-2 focus:border-gold-500 focus:ring-gold-500 outline-none transition">{client.observaciones ?? ''}</textarea>
+            </label>
           </div>
         </div>
 
-        <!-- Botón de Guardar -->
-        <div class="mt-10 pt-6 border-t border-gray-700 flex justify-end">
-          <button type="submit" class="btn-primary">
+        <div class="pt-6 border-t border-gray-700 flex justify-end">
+          <button type="submit"
+            class="inline-flex items-center px-8 py-3 bg-gold-500 hover:bg-gold-400 text-gray-900 font-semibold rounded-full shadow-lg transform hover:scale-105 transition">
             Guardar Cambios
           </button>
         </div>
@@ -79,77 +81,57 @@ if (error || !client) {
   </div>
 
   <style>
-    .form-label { @apply block text-sm font-medium text-gray-400 mb-2; }
-    .form-input { 
-      @apply w-full px-4 py-2 bg-gray-900/50 text-gray-200 border border-gray-600 rounded-lg 
-             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition; 
-    }
-    .btn-primary {
-      @apply inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700
-             focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500
-             transition-transform transform hover:scale-105 disabled:opacity-50 disabled:scale-100;
-    }
+    /* Gold color */
+    .text-gold-500 { @apply text-yellow-400; }
+    .hover\:text-gold-400:hover { @apply text-yellow-300; }
+    .bg-gold-500 { @apply bg-yellow-400; }
+    .hover\:bg-gold-400:hover { @apply bg-yellow-300; }
+    .focus\:ring-gold-500:focus { @apply ring-yellow-400; }
+    .focus\:border-gold-500:focus { @apply border-yellow-400; }
+     .form-input { 
+    @apply w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm 
+           focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors; 
+  };
   </style>
 
   <script>
-    import { actions } from 'astro:actions';
-    // 1. Se importa el TIPO de Swal desde el paquete de node_modules.
-    // Esto es solo para TypeScript y se elimina en el código final del navegador.
-    import type Swal from 'sweetalert2';
+    import Swal from 'sweetalert2';
+    import 'sweetalert2/dist/sweetalert2.min.css';
     import { navigate } from 'astro:transitions/client';
+    import { actions } from 'astro:actions';
 
-    document.addEventListener('astro:page-load', async () => {
-      // 2. Se importa la IMPLEMENTACIÓN de Swal desde el CDN.
-      const SwalModule = await import('https://cdn.jsdelivr.net/npm/sweetalert2@11/+esm');
-      
-      // 3. Se crea una instancia con el tipo correcto para que TypeScript no dé error.
-      const SwalInstance: typeof Swal = SwalModule.default;
-
-      const form = document.getElementById('edit-client-form') as HTMLFormElement;
-      if (!form) return;
-      
-      form.addEventListener('submit', async (e) => {
+    document.addEventListener('astro:page-load', () => {
+      const form = document.getElementById('edit-client-form');
+      form?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        const formData = new FormData(form);
-        const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-        
-        submitButton.disabled = true;
-        submitButton.textContent = 'Guardando...';
+        const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
 
         try {
+          const formData = new FormData(form as HTMLFormElement);
           const { error, data } = await actions.updateClient(formData);
-
-          if (error) {
-            throw new Error(error.message);
-          }
-
-          // 4. Se usa la nueva instancia tipada.
-          await SwalInstance.fire({
-            title: '¡Actualizado!',
-            text: `El cliente ${data.client.nombre} ha sido actualizado correctamente.`,
+          if (error) throw new Error(error.message);
+          Swal.fire({
+            title: '¡Cliente Actualizado!',
             icon: 'success',
             timer: 2000,
             showConfirmButton: false,
-            background: '#1f2937', // bg-gray-800
-            color: '#d1d5db' // text-gray-300
+            background: '#1f2937',
+            color: '#fef3c7'
           });
-
-          navigate('/admin/customers')
-
+          navigate('/admin/customers');
         } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Ocurrió un error desconocido.';
-          // 4. Se usa la nueva instancia tipada.
-          SwalInstance.fire({
+          Swal.fire({
             title: 'Error',
-            text: errorMessage,
+            text: err instanceof Error ? err.message : 'Error desconocido',
             icon: 'error',
             background: '#1f2937',
-            color: '#d1d5db'
+            color: '#fef3c7'
           });
         } finally {
-          submitButton.disabled = false;
-          submitButton.textContent = 'Guardar Cambios';
+          btn.disabled = false;
+          btn.textContent = 'Guardar Cambios';
         }
       });
     });

@@ -88,20 +88,20 @@ const Client = defineTable({
       unique: true,
       optional: true
     }),
-    saldo_actual: column.number({
+    saldo_actual: column.number({  // Cambia a REAL si Drizzle lo requiere
       default: 0,
       optional: false,
-      // Corrección: tipado explícito para el parámetro 'col'
-      check: (col: { gte: (value: number) => unknown }) => col.gte(0)
+      // Si Drizzle tiene tipo específico para floats:
+      // type: 'real'  // <-- Agrega esto si existe en tu versión de Drizzle
     }),
-    observaciones: column.text({
+    observaciones: column.text({  // Nombre corregido (singular)
       optional: true
     }),
     telefono: column.text({
       optional: true
     }),
     createdAt: column.date({
-      default: new Date(),  // Fecha actual por defecto
+      default: new Date(),
       optional: false
     }), 
   }

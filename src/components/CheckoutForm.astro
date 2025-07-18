@@ -2,24 +2,7 @@
 import { Formatter } from '../utils';
 import { CartCookiesClient } from '@/utils/cart-cookies';
 import { actions } from 'astro:actions';
-const { isLoggedIn, isAdmin } = Astro.locals;
 
-type Client = {
-  id: number;
-  name: string;
-  email?: string | null;
-  address?: string | null;
-  neighborhood?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-  elector_key: string | null;
-  current_balance: number;
-  observations: string | null;
-  phone: string | null;
-  created_at: Date;
-};
 
 // Obtener productos del carrito desde cookies
 const cartItems = CartCookiesClient.getCart();
@@ -28,10 +11,6 @@ const { data: products, error } = await Astro.callAction(
   cartItems
 );
 
-const { data: clients, error: err } = await Astro.callAction(
-  actions.getAllClients,
-  {}   // pass empty input
-);
 // AÑADIDO: Obtener la lista de clientes
 
 if (error || !products) {
@@ -52,21 +31,20 @@ const productsData = products.map(p => ({
   image: p.image || ''
 }));
 
-// Obtener lista de clientes
-const clientsList: Client[] = clients?.clients || [];
+
 
 ---
-<div class="bg-gray-200 p-4 rounded-xl shadow-md">
+<div class="bg-gradient-to-br from-gray-100 via-white to-gray-100 p-6 md:p-12 rounded-3xl shadow-2xl">
   <div class="md:max-w-5xl max-w-xl mx-auto">
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-12">
       <!-- Formulario de Pago -->
-      <div class="lg:col-span-2 max-md:order-1">
-        <h2 class="text-3xl font-semibold text-slate-900">Realizar pago</h2>
-        <p class="text-slate-500 text-sm mt-4">Completa tu transacción rápida y segura con nuestro sencillo proceso de pago.</p>
+      <div class="lg:col-span-2 order-2 md:order-1">
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Realizar pago</h2>
+        <p class="text-sm md:text-base text-gray-600 mb-6">Completa tu transacción rápida y segura con nuestro proceso de pago premium.</p>
 
-              <!-- Formulario de Dirección de Envío -->
-        <div class="mt-6 bg-white p-6 rounded-lg shadow">
-          <h3 class="text-xl font-semibold text-slate-900 mb-4">Dirección de envío</h3>
+        <!-- Formulario de Dirección de Envío -->
+      <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+          <h3 class="text-xl md:text-2xl font-semibold text-gray-900 mb-5">Dirección de envío</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Calle y número</label>
@@ -137,228 +115,102 @@ const clientsList: Client[] = clients?.clients || [];
         </div>
  <!-- fin formulario -->
         
-        <div class="mt-8 max-w-lg">
-          <h3 class="text-lg font-semibold text-slate-900">Elige tu método de pago</h3>
-          
-          <div class="flex flex-wrap gap-4 justify-between mt-6">
-            {
-              isAdmin && (
-                <!-- Opción de Efectivo -->
-                <div class="flex items-center">
-                  <input type="radio" class="w-5 h-5 cursor-pointer" id="cash" name="payment-method" />
-                  <label for="cash" class="ml-4 flex gap-2 cursor-pointer items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" width={24} height={24} viewBox="0 0 24 24"><path fill="#000" d="M4 6V4h16v2zm0 14v-6H3v-2l1-5h16l1 5v2h-1v6h-2v-6h-4v6zm2-2h6v-4H6z"></path></svg>
-                    <span class="text-lg text-gray-800">Pago</span>
-                  </label>
-                </div>
-              )
-            }
-            <!-- Opciones de tarjeta -->
-            <div class="flex items-center">
-              <input type="radio" class="w-5 h-5 cursor-pointer" id="card" name="payment-method" checked={!isAdmin} />
-              <label for="card" class="ml-4 flex gap-2 cursor-pointer">
-                <img src="https://readymadeui.com/images/visa.webp" class="w-12" alt="Visa" />
-                <img src="https://readymadeui.com/images/american-express.webp" class="w-12" alt="American Express" />
-                <img src="https://readymadeui.com/images/master.webp" class="w-12" alt="Mastercard" />
-              </label>
-            </div>
-            
-            <!-- Opción de PayPal -->
-            <div class="flex items-center">
-              <input type="radio" class="w-5 h-5 cursor-pointer" id="paypal-container" name="payment-method" />
-              <label for="paypal" class="ml-4 flex gap-2 cursor-pointer">
-                <img src="https://readymadeui.com/images/paypal.webp" class="w-20" alt="PayPal" />
-              </label>
-            </div>
+        <!-- Método de Pago -->
+        <div class="mt-10 bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+          <h3 class="text-xl md:text-2xl font-semibold text-gray-900 mb-5">Elige tu método de pago</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <label class="flex items-center p-4 border-2 border-transparent rounded-xl cursor-pointer transition hover:border-yellow-500 hover:bg-yellow-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-100">
+              <input id="card" type="radio" name="payment-method" class="w-5 h-5 text-yellow-600 border-gray-300 bg-white peer" />
+              <div class="ml-4 flex gap-3">
+                <img src="https://readymadeui.com/images/visa.webp" alt="Visa" class="w-12" />
+                <img src="https://readymadeui.com/images/american-express.webp" alt="AmEx" class="w-12" />
+                <img src="https://readymadeui.com/images/master.webp" alt="Mastercard" class="w-12" />
+              </div>
+            </label>
+            <label class="flex items-center p-4 border-2 border-transparent rounded-xl cursor-pointer transition hover:border-yellow-500 hover:bg-yellow-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-100">
+              <input id="paypal" type="radio" name="payment-method" class="w-5 h-5 text-yellow-600 border-gray-300 bg-white peer" />
+              <img src="https://readymadeui.com/images/paypal.webp" alt="PayPal" class="ml-4 w-24" />
+            </label>
           </div>
 
-          <!-- Formulario de pago con tarjeta (Stripe) - CORREGIDO -->
-          <div id="card-form" class={!isAdmin ? "mt-12" : "hidden mt-12"}>
-            <div id="card-errors" class="text-red-500 text-sm mt-2" role="alert"></div>
-            <form id="payment-form">
-              <div class="grid gap-4">
-                <div>
-                  <input 
-                    type="text" 
-                    id="card-holder-name"
-                    placeholder="Nombre del titular" 
-                    class="px-4 py-3.5 bg-gray-100 text-slate-900 w-full text-sm border border-gray-200 rounded-md focus:border-purple-500 focus:bg-transparent outline-0"
-                    required
-                  />
-                </div>
-                
-                <!-- Elemento para Stripe Card -->
-                <div id="card-element" class="p-4 bg-gray-100 border border-gray-200 rounded-md"></div>
-                
-                <!-- Mensaje de error para tarjeta -->
-                <div id="card-errors" class="text-red-500 text-sm mt-2" role="alert"></div>
-                <div id="paypal-container" class="hidden mt-6">
-                <div id="paypal-button-container" class="mt-4"></div>
-              </div>
-
-              </div>
-              
-              <button 
+          <!-- Formulario Tarjeta (Stripe) -->
+          <div id="card-form" class="mt-8 hidden">
+            <form id="payment-form" class="grid gap-6">
+              <input
+                type="text"
+                placeholder="Nombre del titular"
+                class="px-5 py-4 bg-gray-50 border border-gray-300 rounded-lg focus:border-yellow-500 focus:ring-yellow-200 text-gray-800"
+                required
+              />
+              <div id="card-element" class="StripeElement p-4 bg-gray-50 border border-gray-300 rounded-lg"></div>
+              <div id="card-errors" class="text-red-600 text-sm mt-2" role="alert"></div>
+              <button
+                type="button"
                 id="submit-card-payment"
-                type="button" 
-                class="mt-8 w-40 py-3 text-[15px] font-medium bg-purple-500 text-white rounded-md hover:bg-purple-600 tracking-wide cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                class="mt-6 w-full py-4 font-semibold bg-yellow-600 text-white uppercase rounded-lg hover:bg-yellow-700 transition"
               >
-                Pagar
+                Pagar Ahora
               </button>
             </form>
           </div>
-          
-          {
-            isAdmin && (
-              <!-- Mensaje para pago en efectivo -->
-              <div id="cash-message" class="hidden mt-8 p-4 bg-green-50 border border-green-200 rounded-md">
-                <div class="flex items-start">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <h3 class="font-medium text-green-800">Pago en efectivo seleccionado</h3>
-                    <p class="text-green-700 text-sm mt-1">
-                      Al finalizar tu compra, recibirás instrucciones para realizar el pago en efectivo al recibir tu pedido.
-                    </p>
-                    <button 
-                      id="pay-cash" 
-                      class="mt-4 w-full py-3 text-[15px] font-medium bg-green-500 text-white rounded-md hover:bg-green-600 tracking-wide cursor-pointer transition-colors"
-                    >
-                      Finalizar Compra
-                    </button>
-                  </div>
-                </div>
-                <div class="mt-6 bg-white p-6 rounded-lg shadow">
-                  <h3 class="text-xl font-semibold text-slate-900 mb-4">Seleccionar Cliente</h3>
-                  <label for="customer-select" class="block text-sm font-medium text-gray-700 mb-1">
-                    Elige un cliente existente para autocompletar la dirección.
-                  </label>
-                  <select id="customer-select" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-800">
-                    <option value="">-- Seleccionar un cliente --</option>
-                    {
-                      clientsList.map(client => (
-                        <option value={client.id}>{client.name}</option>
-                      ))
-                    }
-                  </select>
-                </div>
-              </div>
 
-            )
-          }
+          <!-- Contenedor PayPal -->
+          <div id="paypal-container" class="mt-8 hidden">
+            <div id="paypal-button-container"></div>
+          </div>
         </div>
       </div>
 
       <!-- Resumen de Compra -->
-      <div class="bg-gray-100 p-6 rounded-md h-fit sticky top-4">
-        <h2 class="text-2xl font-semibold text-slate-900">{Formatter.currency(total)}</h2>
-        
-        <ul class="text-slate-500 font-medium mt-8 space-y-4">
-          {products.map(product => (
-            <li class="flex flex-wrap gap-4 text-sm">
-              {product.name} (x{product.quantity})
-              <span class="ml-auto font-semibold text-slate-900">
-                {Formatter.currency(product.price * product.quantity)}
-              </span>
+      <aside class="order-1 md:order-2 bg-white p-8 rounded-2xl shadow-xl border border-gray-200 sticky top-8">
+        <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Resumen de tu compra</h2>
+        <ul class="space-y-4 text-gray-700">
+          {products.map(p => (
+            <li class="flex justify-between">
+              <span class="font-medium">{p.name} x{p.quantity}</span>
+              <span class="font-semibold">{Formatter.currency(p.price * p.quantity)}</span>
             </li>
           ))}
-          
-          <li class="flex flex-wrap gap-4 text-sm">
-            Impuestos (15%)
-            <span class="ml-auto font-semibold text-slate-900">
-              {Formatter.currency(tax)}
-            </span>
+          <li class="flex justify-between">
+            <span class="text-gray-600">Impuestos (15%)</span>
+            <span class="font-semibold">{Formatter.currency(tax)}</span>
           </li>
-          
-          <li class="flex flex-wrap gap-4 text-[15px] font-semibold text-slate-900 border-t border-gray-300 pt-4">
-            Total
-            <span class="ml-auto">{Formatter.currency(total)}</span>
+          <li class="border-t pt-4 flex justify-between text-lg font-semibold text-gray-900">
+            <span>Total</span>
+            <span>{Formatter.currency(total)}</span>
           </li>
         </ul>
-      </div>
+      </aside>
     </div>
   </div>
 </div>
 
 
 <style>
-  /* Estilos adicionales para mejorar la experiencia */
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-  
-  input[type="number"] {
-    -moz-appearance: textfield;
-  }
-  
-  .sticky {
-    position: sticky;
-  }
-  
-  @media (max-width: 768px) {
-    .max-md\:order-1 {
-      order: 1;
-    }
-  }
-  
-  /* Mejoras visuales */
-  .payment-option {
-    flex: 1;
-    min-width: 150px;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    padding: 12px;
-    transition: all 0.3s ease;
-  }
-  
-  .payment-option:hover {
-    border-color: #a855f7;
-    background-color: rgba(168, 85, 247, 0.05);
-  }
-  
-  .payment-option.selected {
-    border-color: #a855f7;
-    background-color: rgba(168, 85, 247, 0.1);
-  }
-
-  /* Estilos para elementos de Stripe */
   .StripeElement {
     box-sizing: border-box;
-    padding: 10px 12px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background-color: white;
-    box-shadow: 0 1px 3px 0 #e6ebf1;
-    -webkit-transition: box-shadow 150ms ease;
-    transition: box-shadow 150ms ease;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: #fafafa;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s ease;
   }
-
-  .StripeElement--focus {
-    box-shadow: 0 1px 3px 0 #cfd7df;
-  }
-
-  .StripeElement--invalid {
-    border-color: #fa755a;
-  }
-
-  .StripeElement--webkit-autofill {
-    background-color: #fefde5 !important;
-  }
+  .StripeElement--focus { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .StripeElement--invalid { border-color: #e53e3e; }
 </style>
 
 
 <script>
   // Importar SweetAlert2 y otras dependencias
   import { CartCookiesClient } from '@/utils/cart-cookies';
+  import { loadScript } from '@paypal/paypal-js';
   import { loadStripe } from '@stripe/stripe-js';
   import type { Stripe, StripeCardElement, StripeElements } from '@stripe/stripe-js';
   import Swal from 'sweetalert2';
   import { navigate } from 'astro:transitions/client';
   import { generateTicket, printTicket } from '@/services/ticketGenerator';
-  import { CartCookiesClient as Cookies } from '../utils/cart-cookies';
+  import { actions } from 'astro:actions';
 
   // Definir Formatter para el cliente
   const Formatter = {
@@ -382,7 +234,7 @@ type Product = {
 
 let stripe: Stripe | null = null;
 let cardElement: StripeCardElement | null = null;
-let elements: StripeElements | null = null;
+let isPaypalSdkLoaded = false;
 
 
 // Función para inicializar Stripe y los elementos de pago
@@ -435,94 +287,6 @@ async function initializeStripe() {
     }
   }
 
-  function tryInitializeClients() {
-    const customerSelect = document.getElementById('customer-select');
-    const clientsDataElement = document.getElementById('clients-data');
-    
-    if (!customerSelect || !clientsDataElement) return;
-    
-    const clients: Client[] = JSON.parse(clientsDataElement.textContent || '[]');
-    
-    customerSelect.addEventListener('change', (e) => {
-      const selectedId = (e.target as HTMLSelectElement).value;
-      if (!selectedId) return;
-      
-      const client = clients.find(c => c.id == parseInt(selectedId));
-      if (!client) return;
-      
-      // Actualizar campos del formulario
-      updateFormField('street-address', client.address);
-      updateFormField('neighborhood', client.neighborhood);
-      updateFormField('city', client.city);
-      updateFormField('state', client.state);
-      updateFormField('postal-code', client.postalCode);
-      updateFormField('email', client.email);
-    });
-  }
-
-  function updateFormField(id: string, value: string | null | undefined) {
-    const element = document.getElementById(id) as HTMLInputElement | null;
-    if (element) {
-      element.value = value || '';
-    }
-  }
-function initializeClientsRobust() {
-    // Intentar inicializar clientes inmediatamente
-    tryInitializeClients();
-    
-    // Configurar observador para cuando aparezca el elemento de selección de clientes
-    if (!document.getElementById('customer-select')) {
-      const observer = new MutationObserver(() => {
-        if (document.getElementById('customer-select')) {
-          tryInitializeClients();
-          observer.disconnect();
-        }
-      });
-      
-      observer.observe(document.body, { childList: true, subtree: true });
-    }
-  }
-
-
-
-
-function initializeClients() {
-    const customerSelect = document.getElementById('customer-select') as HTMLSelectElement;
-    const clientsDataElement = document.getElementById('clients-data');
-    if (!customerSelect || !clientsDataElement) return;
-    
-    const clients: Client[] = JSON.parse(clientsDataElement.textContent || '[]');
-    
-    customerSelect.addEventListener('change', (e) => {
-      e.preventDefault(); // Previene cualquier comportamiento por defecto del formulario.
-      const selectedId = (e.currentTarget as HTMLSelectElement).value;
-      if (!selectedId) return;
-
-      const client = clients.find(c => c.id == parseInt(selectedId));
-      if (!client) return;
-      
-      // Rellenar campos del formulario
-      (document.getElementById('street-address') as HTMLInputElement).value = client.address || '';
-      (document.getElementById('neighborhood') as HTMLInputElement).value = client.neighborhood || '';
-      (document.getElementById('city') as HTMLInputElement).value = client.city || '';
-      (document.getElementById('state') as HTMLInputElement).value = client.state || '';
-      (document.getElementById('postal-code') as HTMLInputElement).value = client.postalCode || '';
-      (document.getElementById('email') as HTMLInputElement).value = client.email || '';
-    });
-  }
-
-
-
-  // Función para renderizar los productos en el resumen
-  function renderProducts(products: Product[]) {
-    return products.map(p => `
-      <li class="flex justify-between text-sm">
-        <span>${p.name} (x${p.quantity})</span>
-        <span>${Formatter.currency(p.price * p.quantity)}</span>
-      </li>
-    `).join('');
-  }
-
 
   // Función para obtener los datos de forma segura
 function getCheckoutData(): {
@@ -562,24 +326,27 @@ function getCheckoutData(): {
 }
 
   // Función para actualizar la visibilidad de los métodos de pago
-  function updatePaymentVisibility() {
-    const selectedMethod = document.querySelector('input[name="payment-method"]:checked');
+function updatePaymentVisibility() {
+    const selectedMethod = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement;
     if (!selectedMethod) return;
-    
+
     const cardForm = document.getElementById('card-form');
     const cashMessage = document.getElementById('cash-message');
-    
+    const paypalContainer = document.getElementById('paypal-container'); // Div que contiene los botones
+
+    // Ocultar todos los contenedores primero
+    if (cardForm) cardForm.classList.add('hidden');
+    if (cashMessage) cashMessage.classList.add('hidden');
+    if (paypalContainer) paypalContainer.classList.add('hidden');
+
+    // Mostrar el contenedor correcto
     if (selectedMethod.id === 'card') {
       if (cardForm) cardForm.classList.remove('hidden');
-      if (cashMessage) cashMessage.classList.add('hidden');
-    } 
-    else if (selectedMethod.id === 'cash') {
-      if (cardForm) cardForm.classList.add('hidden');
-      if (cashMessage) cashMessage.classList.remove('hidden');
-    } 
-    else {
-      if (cardForm) cardForm.classList.add('hidden');
-      if (cashMessage) cashMessage.classList.add('hidden');
+      initializeStripe(); // Inicializar Stripe si se selecciona tarjeta
+    } else if (selectedMethod.id === 'paypal') {
+      if (paypalContainer) 
+      paypalContainer.classList.remove('hidden');
+      initializePayPal(); // Inicializar PayPal si se selecciona
     }
   }
 
@@ -777,12 +544,13 @@ async function handleCashPayment() {
       phone: "+528714617696",
       rfc: "XAXX010101000"
     };
-
+    const discount = 0;
+    const amount = 0;
     // Generar el ticket
     const data = getCheckoutData();
     if (!data) throw new Error('Datos de compra no disponibles');
     
-    const pdfDoc = generateTicket(data.productsData, data.taxValue, data.totalValue, storeInfo);
+    const pdfDoc = generateTicket(data.productsData, discount, data.taxValue, data.totalValue, storeInfo);
     
     // Cerrar loader de procesamiento
     Swal.close();
@@ -947,6 +715,180 @@ async function createOrder(paymentMethod: string) {
     throw new Error(errorMessage);
   }
 }
+  // [NUEVA FUNCIÓN AUXILIAR] - Para obtener el total y validar el formulario antes de pagar con PayPal
+function validateAndGetDataForPaypal() {
+  // Obtener todos los campos requeridos
+  const email = (document.getElementById('email') as HTMLInputElement)?.value.trim();
+  const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value.trim();
+  const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim();
+  const city = (document.getElementById('city') as HTMLInputElement)?.value.trim();
+  const state = (document.getElementById('state') as HTMLInputElement)?.value.trim();
+  const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim();
+  
+  // Crear lista de campos faltantes
+  const missingFields = [];
+  if (!email) missingFields.push('Correo Electrónico');
+  if (!streetAddress) missingFields.push('Calle y número');
+  if (!neighborhood) missingFields.push('Colonia');
+  if (!city) missingFields.push('Ciudad');
+  if (!state) missingFields.push('Estado');
+  if (!postalCode) missingFields.push('Código Postal');
+  
+  // Verificar si hay campos faltantes
+  if (missingFields.length > 0) {
+    Swal.fire({
+      title: 'Campos incompletos',
+      html: `Por favor completa los siguientes campos:<br><br>${missingFields.join('<br>')}`,
+      icon: 'warning',
+      confirmButtonText: 'Entendido',
+      customClass: {
+        popup: 'rounded-xl',
+        confirmButton: 'px-4 py-2 rounded-lg'
+      }
+    }).then(() => {
+      // Enfocar el primer campo faltante
+      if (!streetAddress) {
+        document.getElementById('street-address')?.focus();
+      } else if (!neighborhood) {
+        document.getElementById('neighborhood')?.focus();
+      } else if (!city) {
+        document.getElementById('city')?.focus();
+      } else if (!state) {
+        document.getElementById('state')?.focus();
+      } else if (!postalCode) {
+        document.getElementById('postal-code')?.focus();
+      } else if (!email) {
+        document.getElementById('email')?.focus();
+      }
+    });
+    
+    return null;
+  }
+
+  const data = getCheckoutData();
+  if (!data || !data.totalValue) {
+    Swal.fire({
+      title: 'Error en el carrito',
+      text: 'No se pudo obtener el total del carrito.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return null;
+  }
+
+  return {
+    total: data.totalValue
+  };
+}
+
+
+// Declaración global final
+
+
+async function initializePayPal() {
+  const container = document.getElementById('paypal-button-container');
+  if (!container) return;
+  
+  container.innerHTML = '<div class="text-center py-4">Cargando PayPal...</div>';
+  
+  try {
+    const paypal = await loadScript({
+      clientId: import.meta.env.PUBLIC_PAYPAL_CLIENT_ID || "AcBeVZggGRidpLZa0RrTje-kNfh0Q6vhNY1H4qTVjFxaEHrF-ltd1D3erIxPNbjVrtUXjHM-5qsa8-3y",
+      currency: "MXN",
+      intent: "capture",
+      commit: true,
+      vault: false,
+      components: "buttons",
+      disableFunding: "venmo,giropay,sofort,sepa",
+      enableFunding: "",
+      dataNamespace: "paypal_sdk",
+      dataPartnerAttributionId: "broquelizate_SP",
+      locale: "es_MX"
+    });
+    
+    if (paypal && paypal.Buttons) {
+      renderPayPalButtons(paypal);
+    } else {
+      container.innerHTML = '<div class="text-red-500">Componente PayPal no disponible</div>';
+    }
+  } catch (error) {
+    console.error('Error inicializando PayPal:', error);
+    container.innerHTML = '<div class="text-red-500">Error al cargar PayPal</div>';
+  }
+}
+function setupFormValidation() {
+  const requiredFields = [
+    'email', 'street-address', 'neighborhood', 
+    'city', 'state', 'postal-code'
+  ];
+  
+  requiredFields.forEach(id => {
+    const field = document.getElementById(id);
+    if (field) {
+      field.addEventListener('blur', () => {
+        if (!(field as HTMLInputElement).value.trim()) {
+          field.classList.add('border-red-500');
+        } else {
+          field.classList.remove('border-red-500');
+        }
+      });
+    }
+  });
+}
+
+function renderPayPalButtons(paypal: any) {
+  paypal.Buttons({
+    createOrder: async () => {
+      const checkoutData = validateAndGetDataForPaypal();
+      if (!checkoutData) return Promise.reject('Validación fallida');
+      
+      try {
+        const result = await actions.createPaypalOrder({ total: checkoutData.total });
+        if (result.error) throw new Error(result.error.message);
+        return result.data.orderId;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        Swal.fire('Error', message, 'error');
+        return Promise.reject(err);
+      }
+    },
+
+    onApprove: async (data: any) => {
+      Swal.fire({ 
+        title: 'Procesando pago...', 
+        text: 'Por favor, no cierres esta ventana.',
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+      });
+
+      try {
+        const result = await actions.capturePaypalOrder({ orderId: data.orderID });
+        if (result.error) throw new Error(result.error.message);
+        
+        await updateProductStock();
+        const internalOrder = await createOrder('paypal');
+        CartCookiesClient.clearCart();
+        Swal.close();
+        navigate(`/order-success?order_id=${internalOrder.id}`);
+      } catch (err) {
+        Swal.close();
+        const message = err instanceof Error ? err.message : 'Error desconocido';
+        Swal.fire('Error', `Pago fallido: ${message}`, 'error');
+      }
+    },
+
+    onError: (err: any) => {
+      console.error('Error de PayPal:', err);
+      Swal.fire('Error', 'Ocurrió un error con PayPal. Por favor, intenta de nuevo.', 'error');
+    },
+
+    onCancel: (data: any) => {
+      console.log('Pago cancelado por el usuario. OrderID:', data.orderID);
+    }
+
+  }).render('#paypal-button-container');
+}
+
 
  // Función para actualizar el stock (corregida)
 async function updateProductStock() {
@@ -980,47 +922,19 @@ async function updateProductStock() {
     throw error;
   }
 }
-  type Client = {
-    id: number;
-    name: string;
-    email?: string;
-    address?: string;
-    neighborhood?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-    country?: string;
-    elector_key: string;
-    current_balance: number;
-    observations: string;
-    phone: string;
-    created_at: string;
-  };
+
+
 
   // Inicialización cuando la página está lista
   // Inicialización cuando la página está lista
   document.addEventListener('astro:page-load', async () => {
-    
-    // Inicializar clientes primero
-    initializeClientsRobust();
-    
-    // Configurar eventos de los métodos de pago
+    setupFormValidation();
 
-    
     const paymentRadios = document.querySelectorAll('input[name="payment-method"]');
     paymentRadios.forEach(radio => {
-      radio.addEventListener('change', 
-      updatePaymentVisibility);
+      radio.addEventListener('change', updatePaymentVisibility);
     });
     
-    document.querySelectorAll('input[name="payment-method"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      // Cuando se selecciona efectivo, inicializar clientes
-      if (radio.id === 'cash') {
-        setTimeout(initializeClientsRobust, 100);
-      }
-    });
-  });
     // Configurar formulario de tarjeta
     const paymentForm = document.getElementById('submit-card-payment');
      initializeStripe();
@@ -1056,7 +970,7 @@ async function updateProductStock() {
         }
       });
     });
-  });
+  });  
 </script>
 
 <!-- Elementos ocultos con datos -->
@@ -1075,6 +989,3 @@ async function updateProductStock() {
 </div>
 <div id="tax-data" style="display: none;">{tax}</div>
 <div id="total-data" style="display: none;">{total}</div>
-<div id="clients-data" style="display: none;">
-  {JSON.stringify(clientsList)}
-</div>

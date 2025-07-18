@@ -1,0 +1,13 @@
+---
+import AdminLayout from "@/layouts/AdminLayout.astro"
+import AdminPOS from "@/components/admin/AdminPOS.astro"
+import UserList from "@/components/admin/UserList.astro";
+const pageTitle = 'Usuarios';
+---
+
+
+<AdminLayout title={pageTitle}>
+  <div class="w-full h-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <UserList />
+  </div>
+</AdminLayout>

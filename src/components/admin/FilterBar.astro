@@ -1,0 +1,79 @@
+---
+// src/components/admin/FilterBar.astro
+import { Icon } from 'astro-icon/components';
+
+interface Props {
+  categories: string[];
+  initialSearch?: string;
+  initialCategory?: string;
+}
+
+const { 
+  categories, 
+  initialSearch = '', 
+  initialCategory = 'all' 
+} = Astro.props;
+---
+<div class="flex flex-col md:flex-row items-center gap-4 w-full">
+  <div class="relative flex-grow w-full">
+    <Icon name="mdi:magnify" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+    <input
+      type="text"
+      id="search-input"
+      placeholder="Buscar por nombre..."
+      value={initialSearch}
+      class="w-full rounded-full border border-gray-300 bg-white py-2.5 pl-12 pr-4 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+    />
+  </div>
+  <select id="category-filter" class="w-full md:w-auto rounded-full border-gray-300 bg-white py-2.5 px-4 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500">
+    <option value="all">Todas las categorías</option>
+    {categories.map(category => (
+      <option value={category} selected={category === initialCategory}>{category}</option>
+    ))}
+  </select>
+</div>
+
+<script>
+  import { navigate } from 'astro:transitions/client';
+
+  // Función de "debounce" para no hacer peticiones en cada tecla
+  function debounce(func: Function, delay: number) {
+    // ✅ CORRECCIÓN: Se cambia el tipo a 'any' para ser compatible
+    // tanto con el 'number' del navegador como con el 'Timeout' de Node.js.
+    let timeoutId: any;
+    return (...args: any[]) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        func(...args);
+      }, delay);
+    };
+  }
+
+  function initializeFilters() {
+    const searchInput = document.getElementById('search-input') as HTMLInputElement;
+    const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement;
+
+    if (!searchInput || !categoryFilter) return;
+
+    const applyFilters = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      
+      // Actualizar parámetros
+      currentParams.set('search', searchInput.value);
+      currentParams.set('category', categoryFilter.value);
+      currentParams.set('page', '1'); // Siempre volver a la página 1 al filtrar
+
+      // Navegar a la nueva URL
+      navigate(`${window.location.pathname}?${currentParams.toString()}`);
+    };
+
+    // Usar debounce en la búsqueda para mejorar el rendimiento
+    const debouncedSearch = debounce(applyFilters, 300);
+
+    searchInput.addEventListener('input', debouncedSearch);
+    categoryFilter.addEventListener('change', applyFilters);
+  }
+
+  // Ejecutar en cada carga de página para compatibilidad con View Transitions
+  document.addEventListener('astro:page-load', initializeFilters);
+</script>

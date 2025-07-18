@@ -6,18 +6,30 @@ import { Formatter } from "@/utils";
 import { actions } from "astro:actions";
 // CORRECCIÓN: El nombre del archivo es 'InventoryStatCard' (singular)
 import InventoryStatCard from '@/components/admin/InventoryStatCard.astro';
+import FilterBar from '@/components/admin/FilterBar.astro';
 
 const searchParams = Astro.url.searchParams;
+
 const pageParam = Number(searchParams.get('page') ?? 1);
+const searchParam = searchParams.get('search') ?? '';
+const categoryParam = searchParams.get('category') ?? 'all';
 
 // Petición para los productos de la página actual
 const { data: pageData, error: pageError } = await Astro.callAction(
   actions.getProductsByPage,
-  { page: pageParam }
+  { 
+    page: pageParam,
+    search: searchParam,
+    category: categoryParam,
+  }
 );
 
 // Petición para las estadísticas del inventario
 const { data: stats, error: statsError } = await Astro.callAction(actions.getInventoryStats, {page: pageParam});
+
+// Obtener todas las categorías para pasarlas al filtro
+const { data: allProductsForCategories = [] } = await Astro.callAction(actions.getAllProductsWithImages, undefined);
+const allCategories = Array.from(new Set(allProductsForCategories.map(p => p.category).filter(Boolean)));
 
 // Si alguna de las peticiones falla, redirige
 if (pageError || statsError) {
@@ -77,6 +89,13 @@ const { products, totalPages } = pageData;
     )}
 
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+      <div class="p-6 border-b border-gray-200">
+        <FilterBar 
+          categories={allCategories}
+          initialSearch={searchParam}
+          initialCategory={categoryParam}
+        />
+      </div>
       <div class="overflow-x-auto">
         <table class="min-w-full bg-white">
           <thead class="bg-yellow-50">
@@ -148,7 +167,11 @@ const { products, totalPages } = pageData;
         </table>
       </div>
       <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
-        <Pagination totalPages={totalPages} currentPage={pageParam} queryParams={{}} />
+       <Pagination 
+          totalPages={totalPages} 
+          currentPage={pageParam} 
+          queryParams={{ search: searchParam, category: categoryParam }} 
+        />
       </div>
     </div>
   </div>

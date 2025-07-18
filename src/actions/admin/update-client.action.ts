@@ -1,4 +1,4 @@
-import { db, Client, eq } from 'astro:db';
+import { db, Client, eq, sql } from 'astro:db';
 // Zod se importa desde 'astro:actions' para la validación
 import { defineAction} from 'astro:actions';
 import { z } from 'astro:schema'
@@ -74,6 +74,30 @@ export const getAllClients = defineAction({
     }
   }
 });
+
+export const updateClientBalance = defineAction({
+  input: z.object({
+    clientId: z.number(),
+    amountToAdd: z.number(),
+  }),
+  handler: async ({ clientId, amountToAdd }) => {
+    // Usando SQL directo con parámetros seguros
+    await db.run(sql`
+      UPDATE client 
+      SET saldo_actual = saldo_actual + ${amountToAdd}
+      WHERE id = ${clientId}
+    `);
+    
+    // Obtener nuevo saldo
+    const [client] = await db.select().from(Client).where(eq(Client.id, clientId));
+    
+    return { 
+      success: true, 
+      newBalance: client?.saldo_actual || 0 
+    };
+  },
+});
+
 
 // --- OBJETO SERVER PARA ASTRO ACTIONS ---
 // Astro Actions espera un objeto 'server' que contenga todas las acciones.

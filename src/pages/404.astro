@@ -1,0 +1,39 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+---
+
+<MainLayout title="Página no encontrada">
+  <section class="grid grid-cols-1 md:grid-cols-2 h-screen bg-white">
+    <!-- Lado izquierdo: mensaje -->
+    <div class="flex flex-col justify-center px-8 md:px-20 lg:px-32">
+      <div class="max-w-md">
+        <div class="mb-6">
+          <img src="/public/assets/Broquelizate-logos/logo-relleno-negro.png" alt="Logo" class="h-100 w-100" /> <!-- Usa tu logo real -->
+        </div>
+        <p class="text-sm font-medium text-yellow-500">404</p>
+        <h1 class="mt-2 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">Página no encontrada</h1>
+        <p class="mt-4 text-base text-gray-600">
+          Lo sentimos, no pudimos encontrar la página que estás buscando.
+        </p>
+        <div class="mt-6">
+          <a href="/" class="inline-block rounded-lg bg-yellow-500 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-yellow-600 transition">
+            Volver al inicio
+          </a>
+        </div>
+        <div class="mt-6 text-sm text-gray-400 flex gap-4">
+          <a href="/contacto" class="hover:text-yellow-500 transition">Contactar soporte</a>
+          <a href="/status" class="hover:text-yellow-500 transition">Estado del sitio</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lado derecho: imagen -->
+    <div class="hidden md:block h-full">
+      <img
+        src="/public/assets/brokefondo.avif"
+        alt="Imagen decorativa"
+        class="h-full w-full object-cover"
+      />
+    </div>
+  </section>
+</MainLayout>

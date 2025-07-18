@@ -23,9 +23,9 @@ const pageTitle = "Panel de Administración";
               <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </a>
-          <h1 class="text-3xl lg:text-4xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+          <h1 class="text-3xl lg:text-4xl font-bold text-gray-200 tracking-tight">Dashboard</h1>
         </div>
-        <p class="text-md text-gray-500 mt-1">Resumen de actividades y estadísticas del negocio.</p>
+        <p class="text-md text-gray-400 mt-1">Resumen de actividades y estadísticas del negocio.</p>
       </div>
       
       <div class="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
@@ -66,7 +66,7 @@ const pageTitle = "Panel de Administración";
         <div class="card">
           <div class="flex justify-between items-center mb-4">
             <h2 class="card-title">Órdenes Recientes</h2>
-            <a href="/admin/ventas" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Ver todas</a>
+            <a href="/admin/orders" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Ver todas</a>
           </div>
           <RecentOrders />
         </div>
@@ -75,16 +75,12 @@ const pageTitle = "Panel de Administración";
       <!-- Columna Secundaria (Widgets) -->
       <div class="space-y-8">
         <div class="card">
-          <h2 class="card-title mb-4">Ventas por Categoría</h2>
+          
           <SalesByCategory />
         </div>
         <div class="card">
           <h2 class="card-title mb-4">Productos Más Vendidos</h2>
           <TopProducts />
-        </div>
-        <div class="card">
-          <h2 class="card-title mb-4">Actividad Reciente</h2>
-          <ActivityFeed />
         </div>
       </div>
     </div>

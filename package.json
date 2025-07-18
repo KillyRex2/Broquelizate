@@ -15,6 +15,7 @@
     "@astrojs/tailwind": "^6.0.2",
     "@auth/core": "^0.37.4",
     "@nanostores/react": "^1.0.0",
+    "@paypal/paypal-js": "^8.2.0",
     "@stripe/stripe-js": "^7.4.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/chart.js": "^4.0.1",

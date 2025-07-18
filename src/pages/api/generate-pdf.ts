@@ -20,10 +20,11 @@ export const POST: APIRoute = async ({ request }) => {
       quantity: product.quantity,
       price: product.price
     }));
-
+    const disc = 0
     // Generar el PDF
     const pdfDoc = generateTicket(
       ticketProducts,
+      disc,
       data.tax || 0,
       data.total || 0,
       {

@@ -3,9 +3,10 @@
 import { Icon } from 'astro-icon/components';
 import { actions } from 'astro:actions';
 
+// Corrected: Changed 'nombre' to 'name' to match the actual data.
 type Client = {
   id: number;
-  name: string;
+  name: string; // Was 'nombre'
   email?: string | null;
   address?: string | null;
   neighborhood?: string | null;
@@ -20,14 +21,13 @@ type Client = {
   created_at: Date;
 };
 
-// Aunque la creación de la orden no usa una acción, mantenemos esta
-// para obtener la lista de clientes.
 const { data: clientsData, error: err } = await Astro.callAction(
   actions.getAllClients,
   {}
 );
 
 const clientsList: Client[] = clientsData?.clients || [];
+
 ---
 
 <div class="flex h-screen bg-gray-50 font-sans text-gray-800 rounded-lg">
@@ -41,7 +41,7 @@ const clientsList: Client[] = clientsData?.clients || [];
     <section class="bg-white rounded-xl shadow-lg p-6">
       <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold text-gray-900">Cliente</h2>
-          <a href="/admin/clients/create" aria-label="Agregar nuevo cliente" class="bg-yellow-100 text-yellow-600 hover:bg-yellow-200 rounded-full p-3 transition">
+          <a href="/clientes/nuevo" aria-label="Agregar nuevo cliente" class="bg-yellow-100 text-yellow-600 hover:bg-yellow-200 rounded-full p-3 transition">
               <Icon name="mdi:plus" class="h-6 w-6" />
           </a>
       </div>
@@ -98,13 +98,31 @@ const clientsList: Client[] = clientsData?.clients || [];
           <span class="text-gray-600">Subtotal de productos</span>
           <span id="summary-subtotal" class="font-semibold text-yellow-600">$0.00</span>
         </div>
-        <div class="flex justify-between">
-          <span class="text-gray-600">Entrega</span>
-          <a href="#" class="font-semibold text-yellow-600 hover:underline">Añadir opción de entrega</a>
+        <div id="add-amount-row" class="flex justify-between items-center">
+            <span class="text-gray-600">Monto Adicional</span>
+            <button id="add-amount-btn" class="font-semibold text-yellow-600 hover:underline">Agregar monto</button>
         </div>
-        <div class="flex justify-between">
-          <span class="text-gray-600">Descuentos</span>
-          <a href="#" class="font-semibold text-yellow-600 hover:underline">Dar descuento</a>
+        <div id="additional-amount-summary-row" class="flex justify-between items-center hidden">
+            <span class="text-gray-500">Monto adicional</span>
+            <div class="flex items-center gap-2 bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-md">
+                <span id="summary-additional-amount-text"></span>
+                <button id="remove-additional-amount-btn" type="button" aria-label="Quitar monto adicional" class="hover:text-green-800">
+                    <Icon name="mdi:close" class="h-4 w-4" />
+                </button>
+            </div>
+        </div>
+        <div id="discount-apply-row" class="flex justify-between items-center">
+            <span class="text-gray-600">Descuentos</span>
+            <button id="apply-discount-btn" class="font-semibold text-yellow-600 hover:underline">Aplicar descuento</button>
+        </div>
+        <div id="discount-summary-row" class="flex justify-between items-center hidden">
+            <span class="text-gray-500">Descuento aplicado</span>
+            <div class="flex items-center gap-2 bg-red-50 text-red-600 font-semibold px-2 py-1 rounded-md">
+                <span id="summary-discount-text"></span>
+                <button id="remove-discount-btn" type="button" aria-label="Quitar descuento" class="hover:text-red-800">
+                    <Icon name="mdi:close" class="h-4 w-4" />
+                </button>
+            </div>
         </div>
       </div>
       <div class="border-t border-gray-200"></div>
@@ -121,7 +139,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         <!-- Efectivo -->
         <label class="block border rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 transition-all">
           <div class="flex items-center gap-4">
-            <input type="radio" name="payment-method" value="Efectivo" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" checked />
+            <input type="radio" name="payment-method" value="Efectivo" id="cash-radio" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" checked />
             <Icon name="mdi:cash-multiple" class="h-6 w-6 text-gray-600" />
             <span class="font-semibold text-gray-900">Efectivo</span>
           </div>
@@ -146,28 +164,18 @@ const clientsList: Client[] = clientsData?.clients || [];
           <Icon name="mdi:credit-card-outline" class="h-6 w-6 text-gray-600" />
           <span class="font-semibold text-gray-900">Crédito</span>
         </label>
-        <!-- Otros -->
-        <label class="flex items-center gap-4 border rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 transition-all">
-            <input type="radio" name="payment-method" value="Otros" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" />
-            <Icon name="mdi:dots-horizontal-circle-outline" class="h-6 w-6 text-gray-600" />
-            <span class="font-semibold text-gray-900">Otros</span>
-        </label>
-        <!-- Venta a crédito -->
-        <details class="border rounded-lg">
-          <summary class="p-4 flex items-center gap-4 cursor-pointer list-none">
-            <Icon name="mdi:chevron-down" class="h-6 w-6 transition-transform" />
+        
+        <!-- Venta a Crédito -->
+        <label id="credit-sale-label" class="block border rounded-lg p-4 transition-all has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 opacity-50 cursor-not-allowed">
+          <div class="flex items-center gap-4">
+            <input type="radio" name="payment-method" value="Venta a crédito" id="credit-sale-radio" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" disabled />
+            <Icon name="mdi:account-credit-card-outline" class="h-6 w-6 text-gray-600" />
             <span class="font-semibold text-gray-900">Venta a crédito</span>
-          </summary>
-          <div class="p-4 border-t border-gray-200">Contenido de venta a crédito...</div>
-        </details>
-        <!-- Link de pago (próximo) -->
-        <div class="flex items-center gap-4 border rounded-lg p-4 bg-gray-50 text-gray-400 opacity-70">
-          <Icon name="mdi:link-variant" class="h-6 w-6" />
-          <span class="font-semibold">Link de Pago</span>
-          <span class="ml-auto text-xs font-bold bg-gray-200 text-gray-600 px-2 py-1 rounded-full">PRONTO</span>
-        </div>
+          </div>
+          <p id="credit-sale-info" class="text-xs text-gray-500 mt-2 pl-10">Selecciona un cliente para habilitar esta opción.</p>
+        </label>
       </div>
-          <div class="fixed bottom-0 left-0 lg:left-80 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4 z-50">
+        <div class="fixed bottom-0 left-0 lg:left-80 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4 z-50">
           <div class="max-w-6xl mx-auto flex justify-end gap-4">
               <button type="button" id="finalize-sale-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transition-transform hover:scale-105">
                 Finalizar venta
@@ -176,22 +184,43 @@ const clientsList: Client[] = clientsData?.clients || [];
                 Descartar Venta
               </button>
           </div>
-      </div>
+        </div>
     </section>
   </aside>
 </div>
 
+<div id="clients-data" style="display: none;">
+  {JSON.stringify(clientsList)}
+</div>
+
 <style>
-  details[open] > summary > svg {
-    transform: rotate(180deg);
-  }
+  details[open] > summary > svg { transform: rotate(180deg); }
 </style>
 
-<script define:vars={{ clientsList }}>
-  import Swal from 'sweetalert2';
+<script>
+  import Swal, { type SweetAlertResult } from 'sweetalert2';
   import 'sweetalert2/dist/sweetalert2.min.css';
+  import { navigate } from 'astro:transitions/client';
+  import { generateTicket, printTicket } from '@/services/ticketGenerator';
+  import { actions } from 'astro:actions';
 
-  // --- INTERFACES ---
+   type Client = {
+    id: number;
+    name: string; // Ensure this matches the property from your data
+    email?: string | null;
+    address?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    elector_key: string | null;
+    current_balance: number;
+    observations: string | null;
+    phone: string | null;
+    created_at: Date;
+  };
+  // Define an interface for the items in our cart for better type safety.
   interface CartItem {
     id: number;
     name: string;
@@ -200,30 +229,147 @@ const clientsList: Client[] = clientsData?.clients || [];
     images?: string[];
   }
 
-  // Se define el tipo para la lista de clientes que se pasa desde Astro
-  type Client = {
-    id: number;
-    name: string;
-    email?: string | null;
-  };
-  // `clientsList` está disponible globalmente en este script gracias a `define:vars`
-  declare const clientsList: Client[];
-
-  // --- LÓGICA DE INICIALIZACIÓN ---
+  // This single function will handle all page setup and event listener binding.
   function initializeCheckout() {
+    let additionalAmount = 0;
+    // --- Element Selectors & Type Assertions ---
+    let discountInfo = {
+      amount: 0,
+      type: null as 'fixed' | 'percentage' | null,
+      percentageValue: 0
+    };
+    const clientsDataElement = document.getElementById('clients-data');
+    const clientsList: Client[] = clientsDataElement 
+      ? JSON.parse(clientsDataElement.textContent || '[]') 
+      : [];
+    
     const cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
     
     const headerTotalEl = document.getElementById('header-total');
     const summarySubtotalEl = document.getElementById('summary-subtotal');
     const summaryTotalEl = document.getElementById('summary-total');
-    const amountReceivedEl = document.getElementById('amount-received') as HTMLInputElement | null;
     const itemCountEl = document.getElementById('item-count');
     const cartSummaryListEl = document.getElementById('cart-items-summary');
-
-    const formatCurrency = (value: number) => `$${Number(value).toFixed(2)}`;
     
+    // Use type assertions to tell TypeScript the specific type of the element.
+    const amountReceivedEl = document.getElementById('amount-received') as HTMLInputElement | null;
+    const clientSelectEl = document.getElementById('client-select') as HTMLSelectElement | null;
+    const creditSaleRadio = document.getElementById('credit-sale-radio') as HTMLInputElement | null;
+    const creditSaleLabel = document.getElementById('credit-sale-label') as HTMLLabelElement | null;
+    const creditSaleInfo = document.getElementById('credit-sale-info') as HTMLParagraphElement | null;
+    const finalizeSaleBtn = document.getElementById('finalize-sale-btn');
+    const discardSaleBtn = document.getElementById('discard-sale-btn');
+    const cashRadio = document.getElementById('cash-radio') as HTMLInputElement | null;
+
+    // Selectors para los elementos de descuento
+    const applyDiscountBtn = document.getElementById('apply-discount-btn');
+    const discountApplyRowEl = document.getElementById('discount-apply-row');
+    const discountSummaryRowEl = document.getElementById('discount-summary-row');
+    const summaryDiscountTextEl = document.getElementById('summary-discount-text');
+    const removeDiscountBtn = document.getElementById('remove-discount-btn');
+
+    const addAmountBtn = document.getElementById('add-amount-btn');
+    const addAmountRowEl = document.getElementById('add-amount-row');
+    const additionalAmountSummaryRowEl = document.getElementById('additional-amount-summary-row');
+    const summaryAdditionalAmountTextEl = document.getElementById('summary-additional-amount-text');
+    const removeAdditionalAmountBtn = document.getElementById('remove-additional-amount-btn');
+
+
+    function updateTotals() {
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const total = subtotal + additionalAmount - discountInfo.amount;
+
+      if (headerTotalEl) headerTotalEl.textContent = formatCurrency(total);
+      if (summarySubtotalEl) summarySubtotalEl.textContent = formatCurrency(subtotal);
+      if (summaryTotalEl) summaryTotalEl.textContent = formatCurrency(total);
+      if (amountReceivedEl) amountReceivedEl.placeholder = `Valor recibido (${formatCurrency(total)})`;
+
+      if (addAmountRowEl && additionalAmountSummaryRowEl && summaryAdditionalAmountTextEl) {
+          if(additionalAmount > 0) {
+            summaryAdditionalAmountTextEl.textContent = `+${formatCurrency(additionalAmount)}`;
+            addAmountRowEl.classList.add('hidden');
+            additionalAmountSummaryRowEl.classList.remove('hidden');
+          } else {
+            addAmountRowEl.classList.remove('hidden');
+            additionalAmountSummaryRowEl.classList.add('hidden');
+          }
+      }
+      
+      if (discountApplyRowEl && discountSummaryRowEl && summaryDiscountTextEl) {
+        if (discountInfo.amount > 0) {
+          let discountText = '';
+          if (discountInfo.type === 'percentage') {
+            discountText = `(${discountInfo.percentageValue}%) -${formatCurrency(discountInfo.amount)}`;
+          } else {
+            discountText = `-${formatCurrency(discountInfo.amount)}`;
+          }
+          summaryDiscountTextEl.textContent = discountText;
+          
+          discountApplyRowEl.classList.add('hidden');
+          discountSummaryRowEl.classList.remove('hidden');
+        } else {
+          discountApplyRowEl.classList.remove('hidden');
+          discountSummaryRowEl.classList.add('hidden');
+        }
+      }
+    }
+    
+     function updateCartSummary() {
+      if (itemCountEl) itemCountEl.textContent = `${cart.length} ${cart.length === 1 ? 'Item' : 'Items'}`;
+      if (cartSummaryListEl) {
+        if (cart.length > 0) {
+          cartSummaryListEl.innerHTML = cart.map((item) => `
+            <li class="flex items-center gap-4">
+              <img src="${item.images?.[0] || 'https://placehold.co/100'}" alt="${item.name}" class="h-12 w-12 rounded-md object-cover" />
+              <div class="flex-grow">
+                <p class="font-semibold">${item.name}</p>
+                <p class="text-sm text-gray-600">${item.quantity} x ${formatCurrency(item.price)}</p>
+              </div>
+              <p class="font-semibold">${formatCurrency(item.price * item.quantity)}</p>
+            </li>
+          `).join('');
+        } else {
+          cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
+        }
+      }
+    }
+        // NUEVO: Función para agregar monto adicional
+    async function handleAddAmount() {
+        const { value: amountStr } = await Swal.fire({
+            title: 'Agregar Monto Adicional',
+            input: 'text',
+            inputLabel: 'Ingresa el monto a agregar (ej. para un servicio o cargo extra)',
+            inputPlaceholder: '0.00',
+            confirmButtonText: 'Agregar',
+            confirmButtonColor: '#d97706',
+            showCancelButton: true,
+            inputValidator: (value) => {
+                if (!value || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
+                    return 'Por favor, ingresa un número válido y positivo.'
+                }
+            }
+        });
+
+        if (amountStr) {
+            additionalAmount = parseFloat(amountStr);
+            updateTotals();
+        }
+    }
+
+    // NUEVO: Función para quitar el monto adicional
+    function handleRemoveAdditionalAmount() {
+      additionalAmount = 0;
+      updateTotals();
+    }
+    
+
+
+    // --- Utility Functions ---
+    const formatCurrency = (value: number): string => `$${Number(value).toFixed(2)}`;
+    
+    // --- State & UI Update ---
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = subtotal; // Aquí podrías sumar descuentos, envíos, etc.
+    const total = subtotal; // Assuming no tax or other fees for now
 
     if (headerTotalEl) headerTotalEl.textContent = formatCurrency(total);
     if (summarySubtotalEl) summarySubtotalEl.textContent = formatCurrency(subtotal);
@@ -244,134 +390,254 @@ const clientsList: Client[] = clientsData?.clients || [];
           </li>
         `).join('');
       } else {
-        cartSummaryListEl.innerHTML = '<p class="text-gray-500">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
+        cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
       }
     }
-  }
 
-  // --- LÓGICA DE CHECKOUT ---
-  async function handleFinalizeSale() {
-    Swal.fire({
-      title: 'Procesando Venta...',
-      html: 'Por favor, espera un momento.',
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-      customClass: { popup: 'rounded-xl' }
-    });
+    // --- Core Logic Functions ---
+    function toggleCreditOption() {
+      if (!clientSelectEl || !creditSaleRadio || !creditSaleLabel || !creditSaleInfo) return;
 
-    try {
-      // 1. Recopilar datos del carrito y del formulario
-      const cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
-      if (cart.length === 0) {
-        throw new Error("El carrito está vacío. No se puede finalizar la venta.");
+      const isClientSelected = clientSelectEl.value !== "";
+      creditSaleRadio.disabled = !isClientSelected;
+      creditSaleLabel.classList.toggle('opacity-50', !isClientSelected);
+      creditSaleLabel.classList.toggle('cursor-not-allowed', !isClientSelected);
+      creditSaleInfo.style.display = isClientSelected ? 'none' : 'block';
+      
+      if (!isClientSelected && creditSaleRadio.checked && cashRadio) {
+        cashRadio.checked = true;
       }
+    }
+    // NUEVO: Función para manejar el modal de descuento
+    async function handleApplyDiscount() {
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-      const clientSelectEl = document.getElementById('client-select') as HTMLSelectElement;
-      const paymentMethodEl = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement;
+        const { value: formValues, isConfirmed } = await Swal.fire({
+            title: 'Aplicar Descuento',
+            html: `
+                  <div class="p-6 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200 max-w-md mx-auto">
+                    <p class="text-sm text-gray-500 mb-6">Elige una opción. Solo se aplicará un tipo de descuento.</p>
+
+                    <div class="space-y-5">
+                      <!-- Descuento Fijo -->
+                      <div>
+                        <label for="swal-fixed-discount" class="block text-gray-700 font-medium mb-1">
+                          Descuento fijo ($)
+                        </label>
+                        <input
+                          id="swal-fixed-discount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
+                        />
+                      </div>
+
+                      <!-- Descuento Porcentaje -->
+                      <div>
+                        <label for="swal-percentage-discount" class="block text-gray-700 font-medium mb-1">
+                          Descuento por Porcentaje (%)
+                        </label>
+                        <input
+                          id="swal-percentage-discount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+            `,
+            confirmButtonText: 'Aplicar descuento',
+            confirmButtonColor: '#d97706',
+            cancelButtonText: 'Cancelar',
+            showCancelButton: true,
+            focusConfirm: false,
+            didOpen: () => {
+                const fixedInput = document.getElementById('swal-fixed-discount') as HTMLInputElement;
+                const percentageInput = document.getElementById('swal-percentage-discount') as HTMLInputElement;
+                
+                fixedInput.addEventListener('input', () => {
+                    if (fixedInput.value) percentageInput.value = '';
+                });
+                
+                percentageInput.addEventListener('input', () => {
+                    if (percentageInput.value) fixedInput.value = '';
+                });
+            },
+            preConfirm: () => {
+                const fixed = (document.getElementById('swal-fixed-discount') as HTMLInputElement).value;
+                const percentage = (document.getElementById('swal-percentage-discount') as HTMLInputElement).value;
+                return { fixed: parseFloat(fixed) || 0, percentage: parseFloat(percentage) || 0 };
+            }
+        });
+
+        if (isConfirmed && formValues) {
+            let calculatedDiscount = 0;
+            let type: 'fixed' | 'percentage' | null = null;
+            let percentageValue = 0;
+
+            if (formValues.fixed > 0) {
+                calculatedDiscount = formValues.fixed;
+                type = 'fixed';
+            } else if (formValues.percentage > 0) {
+                calculatedDiscount = subtotal * (formValues.percentage / 100);
+                type = 'percentage';
+                percentageValue = formValues.percentage;
+            }
+
+            if (calculatedDiscount > subtotal) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'El descuento no puede ser mayor que el subtotal.', confirmButtonColor: '#d97706' });
+                return;
+            }
+            if (calculatedDiscount < 0) {
+              calculatedDiscount = 0;
+            }
+            
+            discountInfo = {
+              amount: calculatedDiscount,
+              type,
+              percentageValue
+            };
+
+            updateTotals();
+        }
+    }
+
+    function handleRemoveDiscount() {
+      discountInfo = {
+        amount: 0,
+        type: null,
+        percentageValue: 0
+      };
+      updateTotals();
+    }
+
+    async function handleFinalizeSale() {
+      const paymentMethodEl = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement | null;
+      if (!paymentMethodEl || !clientSelectEl) return;
       
       const clientId = clientSelectEl.value ? parseInt(clientSelectEl.value, 10) : null;
       const paymentMethod = paymentMethodEl.value;
       
-      // ✅ CORRECCIÓN: Determinar el correo electrónico a usar
-      const selectedClient = clientId ? clientsList.find(c => c.id === clientId) : null;
-      const customerEmail = selectedClient?.email || 'mostrador@tienda.com'; // Usar email del cliente o uno por defecto
-
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const total = subtotal;
+      const total = subtotal + additionalAmount - discountInfo.amount;
 
-      // 2. Preparar datos para la API (payload)
-      const orderData = {
-        clientId: clientId,
-        customerEmail: customerEmail, // Se envía el email determinado
-        shippingAddress: {}, // Opcional: Recopilar de un formulario si es necesario
-        products: cart.map(p => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          quantity: p.quantity
-        })),
-        subtotal: subtotal,
-        tax: 0, // Ajustar si manejas impuestos
-        total: total,
-        paymentMethod: paymentMethod,
-      };
 
-      // 3. Llamar al endpoint de la API con fetch
-      const response = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || `Error HTTP: ${response.status}`);
+      if (paymentMethod === 'Venta a crédito' && !clientId) {
+        Swal.fire({ icon: 'error', title: 'Cliente no seleccionado', text: 'Debes seleccionar un cliente para realizar una venta a crédito.', confirmButtonColor: '#d97706' });
+        return;
       }
       
-      Swal.close();
+      Swal.fire({ title: 'Procesando Venta...', html: 'Por favor, espera.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      // 4. Mostrar mensaje de éxito
-      await Swal.fire({
-        icon: 'success',
-        title: '¡Venta Finalizada!',
-        html: `La orden <strong>#${result.orderNumber}</strong> ha sido registrada exitosamente.`,
-        confirmButtonText: 'Genial',
-        customClass: { popup: 'rounded-xl' }
-      });
-      
-      // 5. Limpiar carrito y redirigir
-      localStorage.removeItem('admin-pos-cart');
-      window.location.href = '/admin/pos'; // Redirigir al punto de venta
+      try {
+        const selectedClient = clientId ? clientsList.find(c => c.id === clientId) : null;
+        const customerEmail = selectedClient?.email || 'mostrador@tienda.com';
+        
+        const orderData = {
+          clientId,
+          customerEmail,
+          shippingAddress: {},
+          products: cart.map(p => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity })),
+          subtotal,
+          additionalCharges: additionalAmount,
+          discount: discountInfo.amount,
+          tax: 0,
+          total,
+          paymentMethod,
+        };
 
-    } catch (error: any) {
-      Swal.close();
-      console.error('Error al finalizar la venta:', error);
-      
-      await Swal.fire({
-        icon: 'error',
-        title: 'Error en la Venta',
-        text: error.message || 'Ocurrió un problema al procesar la venta. Intenta de nuevo.',
-        confirmButtonText: 'Entendido',
-        customClass: { popup: 'rounded-xl' }
+        const response = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderData)
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Error del servidor');
+         if (paymentMethod === 'Venta a crédito' && clientId) {
+        
+        const updateResult = await actions.updateClientBalance({
+          clientId: clientId,
+          amountToAdd: total
+        });
+
+        if (updateResult.error) {
+          // Si hay un error, lo mostramos, pero la venta ya se registró.
+          console.error("Error al actualizar el saldo del cliente:", updateResult.error.message);
+          // Opcional: Mostrar una alerta al usuario.
+          Swal.fire('Venta registrada', 'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.', 'warning');
+        }
+      }
+        
+        localStorage.removeItem('admin-pos-cart');
+
+        const storeInfo = { name: "Broquelizate", address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.", phone: "+528714617696", rfc: "XAXX010101000" };
+        // ✅ INICIO DE LA CORRECCIÓN
+        const pdfDoc = generateTicket(
+          cart,
+          discountInfo.amount,
+          additionalAmount,
+          total,
+          storeInfo
+        );
+        Swal.fire({
+          icon: 'success',
+          title: '¡Venta Finalizada!',
+          html: `La orden <strong>#${result.orderNumber}</strong> ha sido registrada.`,
+          showCancelButton: true,
+          confirmButtonText: '🖨️ Imprimir Ticket',
+          cancelButtonText: 'Nueva Venta',
+        }).then((res: SweetAlertResult) => {
+          if (res.isConfirmed) {
+            printTicket(pdfDoc);
+          }
+          navigate('/admin/sale');
+        });
+
+      } catch (err: unknown) {
+        Swal.fire('Error', err instanceof Error ? err.message : 'No se pudo finalizar la venta.', 'error');
+      }
+    }
+
+    function handleDiscardSale() {
+      Swal.fire({
+        title: '¿Descartar Venta?',
+        text: "Se perderán todos los productos del carrito.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonText: 'No, continuar',
+        confirmButtonText: 'Sí, descartar'
+      }).then((result: SweetAlertResult) => {
+        if (result.isConfirmed) {
+          localStorage.removeItem('admin-pos-cart');
+          navigate('/admin/sale')
+        }
       });
     }
+
+    // --- Event Listeners ---
+    // Make sure to only attach listeners if the element exists.
+    clientSelectEl?.addEventListener('change', toggleCreditOption);
+    finalizeSaleBtn?.addEventListener('click', handleFinalizeSale);
+    discardSaleBtn?.addEventListener('click', handleDiscardSale);
+    applyDiscountBtn?.addEventListener('click', handleApplyDiscount);
+    removeDiscountBtn?.addEventListener('click', handleRemoveDiscount);
+    addAmountBtn?.addEventListener('click', handleAddAmount);
+    removeAdditionalAmountBtn?.addEventListener('click', handleRemoveAdditionalAmount);
+
+
+    // Initial call to set the state correctly on page load.
+    updateCartSummary();
+    updateTotals(); // MODIFICADO: Llamada a la nueva función central
+    toggleCreditOption();
   }
 
-  // --- MANEJADORES DE EVENTOS ---
-  function setupEventListeners() {
-    const finalizeBtn = document.getElementById('finalize-sale-btn');
-    finalizeBtn?.addEventListener('click', handleFinalizeSale);
-    
-    const discardBtn = document.getElementById('discard-sale-btn');
-    discardBtn?.addEventListener('click', () => {
-        Swal.fire({
-            title: '¿Descartar Venta?',
-            text: "Se perderán todos los productos del carrito.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Sí, descartar',
-            cancelButtonText: 'No, cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                localStorage.removeItem('admin-pos-cart');
-                window.location.href = '/admin/pos';
-            }
-        })
-    });
-  }
-
-  document.addEventListener('astro:page-load', () => {
-    initializeCheckout();
-    setupEventListeners();
-  });
-
-  // Ejecución inicial en caso de que no sea una navegación del lado del cliente
-  initializeCheckout();
-  setupEventListeners();
+  // The 'astro:page-load' event is the standard way to run scripts
+  // on page load and after client-side navigation in Astro.
+  document.addEventListener('astro:page-load', initializeCheckout);
 </script>
