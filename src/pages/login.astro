@@ -99,9 +99,9 @@ document.addEventListener('astro:page-load', () => {
   
 
   if (!form || !btnSubmit || !btnText || !googleSignInBtn) return;
-    googleSignInBtn.addEventListener('click', () => {
+    googleSignInBtn.addEventListener('click', async () => {
     // La función signIn maneja la redirección y el flujo de OAuth automáticamente.
-    signIn('google');
+    await signIn('google');
   });
 
   form.addEventListener('submit', async (e) => {

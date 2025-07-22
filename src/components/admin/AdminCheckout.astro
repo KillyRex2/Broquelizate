@@ -201,7 +201,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   import Swal, { type SweetAlertResult } from 'sweetalert2';
   import 'sweetalert2/dist/sweetalert2.min.css';
   import { navigate } from 'astro:transitions/client';
-  import { generateTicket, printTicket } from '@/services/ticketGenerator';
+  import { generateAndPrintTicket} from '@/services/ticketGenerator';
   import { actions } from 'astro:actions';
 
    type Client = {
@@ -575,15 +575,11 @@ const clientsList: Client[] = clientsData?.clients || [];
         
         localStorage.removeItem('admin-pos-cart');
 
-        const storeInfo = { name: "Broquelizate", address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.", phone: "+528714617696", rfc: "XAXX010101000" };
+        const storeInfo = { name: "Broquelizate", address: "Calle Escobedo esquina con Calle Bravo (segundo piso), Colonia Centro, Gómez Palacio, Durango. -", phone: "528 714 617696", rfc: "XAXX010101000" };
         // ✅ INICIO DE LA CORRECCIÓN
-        const pdfDoc = generateTicket(
-          cart,
-          discountInfo.amount,
-          additionalAmount,
-          total,
-          storeInfo
-        );
+        const showOnReceiptCheckbox = document.getElementById('show-on-receipt') as HTMLInputElement | null;
+        const observationsTextarea = document.getElementById('observation') as HTMLTextAreaElement | null;
+        const observationsText = (showOnReceiptCheckbox?.checked && observationsTextarea) ? observationsTextarea.value : undefined;
         Swal.fire({
           icon: 'success',
           title: '¡Venta Finalizada!',
@@ -593,7 +589,16 @@ const clientsList: Client[] = clientsData?.clients || [];
           cancelButtonText: 'Nueva Venta',
         }).then((res: SweetAlertResult) => {
           if (res.isConfirmed) {
-            printTicket(pdfDoc);
+          generateAndPrintTicket(
+          cart,
+          total,
+          result.orderNumber,
+          paymentMethod,
+          storeInfo,
+          orderData.discount,
+          orderData.additionalCharges,
+          observationsText
+        );
           }
           navigate('/admin/sale');
         });

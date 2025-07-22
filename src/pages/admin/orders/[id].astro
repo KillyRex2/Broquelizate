@@ -15,17 +15,17 @@ const items = await db.select().from(order_items).where(eq(order_items.orderId, 
 
 let clientName = 'Cliente de Mostrador';
 if (order.clientId) {
-  try {
-    const { data: client } = await Astro.callAction(actions.getClientById, order.clientId.toString());
-    if (client) {
-      clientName = client.nombre; 
-    } else {
-      clientName = `Cliente no encontrado (ID: ${order.clientId})`;
-    }
-  } catch (error) {
-    console.error('Error al obtener el cliente:', error);
-    clientName = `Error al buscar (ID: ${order.clientId})`;
-  }
+  try {
+    const { data: client } = await Astro.callAction(actions.getClientById, order.clientId.toString());
+    if (client) {
+      clientName = client.nombre; 
+    } else {
+      clientName = `Cliente no encontrado (ID: ${order.clientId})`;
+    }
+  } catch (error) {
+    console.error('Error al obtener el cliente:', error);
+    clientName = `Error al buscar (ID: ${order.clientId})`;
+  }
 }
 
 const formatCurrency = (value: number | null) => value == null ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
@@ -33,145 +33,163 @@ const formatDate = (date: Date | null) => date ? new Date(date).toLocaleDateStri
 
 let shippingAddress = { streetAddress: 'N/A', city: 'N/A', state: 'N/A', zip: 'N/A', country: 'N/A' };
 if (order.shippingAddress) {
-  try { shippingAddress = { ...shippingAddress, ...JSON.parse(order.shippingAddress) } } catch {} 
+  try { shippingAddress = { ...shippingAddress, ...JSON.parse(order.shippingAddress) } } catch {} 
 }
 
-// --- INICIO DE LA CORRECCIÓN: Cálculo matemático ---
-// Calculamos la diferencia neta entre el total y los costos base (subtotal + impuestos).
+// --- Lógica para Descuentos y Cargos Adicionales ---
 const netAdjustment = (order.total ?? 0) - (order.subtotal ?? 0) - (order.tax ?? 0);
-
-// Si la diferencia es positiva, es un cargo adicional.
 const additionalCharges = netAdjustment > 0 ? netAdjustment : 0;
-// Si la diferencia es negativa, es un descuento. Usamos Math.abs para hacerlo positivo.
 const discount = netAdjustment < 0 ? Math.abs(netAdjustment) : 0;
-// --- FIN DE LA CORRECCIÓN ---
-
 ---
+
 <AdminLayout title={`Orden #${order.orderNumber || order.id.slice(0,8)}`}>
-  
-  {/* --- Datos ocultos para el script --- */}
-  <div id="products-data" style="display:none;">
-    {JSON.stringify(items.map(i => ({ name: i.productName, price: i.price, quantity: i.quantity || 1 })))}
-  </div>
-  {/* Pasamos las variables calculadas al script */}
-  <div id="discount-data" style="display:none;">{discount}</div>
-  <div id="additional-charges-data" style="display:none;">{additionalCharges}</div>
-  <div id="total-data" style="display:none;">{order.total ?? 0}</div>
+  
+  {/* --- Datos ocultos para el script de impresión --- */}
+  <div id="products-data" style="display:none;">
+    {JSON.stringify(items.map(i => ({ name: i.productName, price: i.price, quantity: i.quantity || 1 })))}
+  </div>
+  <div id="total-data" style="display:none;">{order.total ?? 0}</div>
+  <div id="order-number-data" style="display:none;">{order.orderNumber || order.id.slice(0,8)}</div>
+  <div id="payment-method-data" style="display:none;">{order.paymentMethod || 'Desconocido'}</div>
+  <div id="discount-data" style="display:none;">{discount}</div>
+  <div id="additional-charges-data" style="display:none;">{additionalCharges}</div>
 
-  <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-    <div class="bg-gradient-to-r from-amber-500 to-yellow-400 p-6 flex justify-between items-center">
-      <h1 class="text-2xl md:text-3xl font-semibold text-white">
-        Orden <span class="font-mono text-white">#{order.orderNumber || order.id.slice(0,8)}</span>
-      </h1>
-      <div class="flex items-center gap-4">
-        <button
-          id="print-ticket-btn"
-          class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-4 py-2 rounded-lg shadow transition-transform hover:scale-105"
-        >
-          Imprimir Ticket
-        </button>
-        <a href="/admin/orders" class="flex items-center text-white hover:opacity-80 transition-opacity">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver a Órdenes
-        </a>
-      </div>
-    </div>
+  <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+    <div class="bg-gradient-to-r from-amber-500 to-yellow-400 p-6 flex justify-between items-center">
+      <h1 class="text-2xl md:text-3xl font-semibold text-white">
+        Orden <span class="font-mono text-white">#{order.orderNumber || order.id.slice(0,8)}</span>
+      </h1>
+      <div class="flex items-center gap-4">
+        <button
+          id="print-ticket-btn"
+          class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-4 py-2 rounded-lg shadow transition-transform hover:scale-105"
+        >
+          Imprimir Ticket
+        </button>
+        <a href="/admin/orders" class="flex items-center text-white hover:opacity-80 transition-opacity">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Volver a Órdenes
+        </a>
+      </div>
+    </div>
 
-    <div class="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div class="lg:col-span-2 space-y-8">
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h2 class="text-xl font-semibold text-gray-800 border-b pb-4 mb-4">
-            Artículos del Pedido ({items.length})
-          </h2>
-          <ul class="divide-y divide-gray-200">
-            {items.map(item => (
-              <li class="py-4 flex items-center justify-between hover:bg-amber-50 transition-colors cursor-pointer">
-                <div>
-                  <p class="font-semibold text-gray-900">{item.productName}</p>
-                  <p class="text-sm text-gray-500">Cantidad: {item.quantity}</p>
-                </div>
-                <div class="text-right">
-                  <p class="font-medium text-gray-800">{formatCurrency(item.price * (item.quantity ?? 1))}</p>
-                  <p class="text-sm text-gray-500">{formatCurrency(item.price)} c/u</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+    <div class="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 space-y-8">
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+          <h2 class="text-xl font-semibold text-gray-800 border-b pb-4 mb-4">
+            Artículos del Pedido ({items.length})
+          </h2>
+          <ul class="divide-y divide-gray-200">
+            {items.map(item => (
+              <li class="py-4 flex items-center justify-between hover:bg-amber-50 transition-colors cursor-pointer">
+                <div>
+                  <p class="font-semibold text-gray-900">{item.productName}</p>
+                  <p class="text-sm text-gray-500">Cantidad: {item.quantity}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-medium text-gray-800">{formatCurrency(item.price * (item.quantity ?? 1))}</p>
+                  <p class="text-sm text-gray-500">{formatCurrency(item.price)} c/u</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div class="space-y-3 text-lg">
-            <div class="flex justify-between"><span class="text-gray-600">Subtotal:</span> <span class="font-medium">{formatCurrency(order.subtotal)}</span></div>
-            {/* --- Usamos las variables calculadas para mostrar los valores --- */}
-            {additionalCharges > 0 && (
-              <div class="flex justify-between"><span class="text-gray-600">Monto adicional:</span> <span class="font-medium">{formatCurrency(additionalCharges)}</span></div>
-            )}
-            {discount > 0 && (
-              <div class="flex justify-between"><span class="text-gray-600">Descuento:</span> <span class="font-medium text-red-600">-{formatCurrency(discount)}</span></div>
-            )}
-            <div class="flex justify-between"><span class="text-gray-600">Impuestos:</span> <span class="font-medium">{formatCurrency(order.tax)}</span></div>
-            <div class="border-t pt-3 mt-3 flex justify-between text-2xl font-bold">
-              <span class="text-gray-900">Total:</span> <span class="text-amber-600">{formatCurrency(order.total)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+          <div class="space-y-3 text-lg">
+            
+                        <div class="flex justify-between">
+              <span class="text-gray-600">Subtotal:</span>
+              <span class="font-medium">{formatCurrency(order.subtotal)}</span>
+            </div>
+    
+                        {additionalCharges > 0 && (
+              <div class="flex justify-between">
+                <span class="text-gray-600">Monto adicional:</span>
+                <span class="font-medium">{formatCurrency(additionalCharges)}</span>
+              </div>
+            )}
+    
+                        {discount > 0 && (
+              <div class="flex justify-between">
+                <span class="text-gray-600">Descuento:</span>
+                <span class="font-medium text-red-600">-{formatCurrency(discount)}</span>
+              </div>
+            )}
+    
+                        <div class="border-t pt-3 mt-3 flex justify-between text-2xl font-bold">
+              <span class="text-gray-900">Total:</span>
+              <span class="text-amber-600">{formatCurrency(order.total)}</span>
+            </div>
+    
+          </div>
+        </div>
+              </div>
 
-      <div class="space-y-8">
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h2 class="text-xl font-semibold text-gray-800 mb-4">Detalles de la Orden</h2>
-          <div class="space-y-3 text-gray-700">
-            <p><strong>Fecha:</strong> {formatDate(order.createdAt)}</p>
-            <p><strong>Cliente:</strong> {clientName}</p>
-            <p><strong>Estado:</strong> <span class="px-2 py-1 bg-amber-100 text-amber-800 rounded-full uppercase text-sm font-semibold">{order.status}</span></p>
-            <p><strong>Método de pago:</strong> <span class="font-semibold">{order.paymentMethod || 'No especificado'}</span></p>
-          </div>
-        </div>
+      <div class="space-y-8">
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">Detalles de la Orden</h2>
+          <div class="space-y-3 text-gray-700">
+            <p><strong>Fecha:</strong> {formatDate(order.createdAt)}</p>
+            <p><strong>Cliente:</strong> {clientName}</p>
+            <p><strong>Estado:</strong> <span class="px-2 py-1 bg-amber-100 text-amber-800 rounded-full uppercase text-sm font-semibold">{order.status}</span></p>
+            <p><strong>Método de pago:</strong> <span class="font-semibold">{order.paymentMethod || 'No especificado'}</span></p>
+          </div>
+        </div>
 
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h2 class="text-xl font-semibold text-gray-800 mb-4">Información del Cliente</h2>
-          <div class="space-y-3 text-gray-700">
-            <p><strong>Email:</strong> <a href={`mailto:${order.customerEmail}`} class="text-amber-600 hover:underline">{order.customerEmail}</a></p>
-            <div class="border-t pt-3 mt-3">
-              <h3 class="font-semibold text-gray-800 mb-2">Dirección de Envío</h3>
-              <p>{shippingAddress.streetAddress}</p>
-              <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zip}</p>
-              <p>{shippingAddress.country}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">Información del Cliente</h2>
+          <div class="space-y-3 text-gray-700">
+            <p><strong>Email:</strong> <a href={`mailto:${order.customerEmail}`} class="text-amber-600 hover:underline">{order.customerEmail}</a></p>
+            <div class="border-t pt-3 mt-3">
+              <h3 class="font-semibold text-gray-800 mb-2">Dirección de Envío</h3>
+              <p>{shippingAddress.streetAddress}</p>
+              <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zip}</p>
+              <p>{shippingAddress.country}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </AdminLayout>
 
 <script>
-  import { generateTicket, printTicket } from '@/services/ticketGenerator';
+  import { generateAndPrintTicket } from '@/services/ticketGenerator';
 
-  // El script ahora lee los valores correctos de los divs ocultos
-  const productsDataEl = document.getElementById('products-data');
-  const discountDataEl = document.getElementById('discount-data');
-  const additionalChargesDataEl = document.getElementById('additional-charges-data');
-  const totalDataEl = document.getElementById('total-data');
+  // Se leen todos los datos necesarios desde el DOM
+  const productsDataEl = document.getElementById('products-data');
+  const totalDataEl = document.getElementById('total-data');
+  const orderNumberDataEl = document.getElementById('order-number-data');
+  const paymentMethodDataEl = document.getElementById('payment-method-data');
+  const discountDataEl = document.getElementById('discount-data');
+  const additionalChargesDataEl = document.getElementById('additional-charges-data');
 
-  const products = productsDataEl ? JSON.parse(productsDataEl.textContent || '[]') : [];
-  const discount = discountDataEl ? parseFloat(discountDataEl.textContent || '0') : 0;
-  const additionalCharges = additionalChargesDataEl ? parseFloat(additionalChargesDataEl.textContent || '0') : 0;
-  const total = totalDataEl ? parseFloat(totalDataEl.textContent || '0') : 0;
+  const products = productsDataEl ? JSON.parse(productsDataEl.textContent || '[]') : [];
+  const total = totalDataEl ? parseFloat(totalDataEl.textContent || '0') : 0;
+  const orderNumber = orderNumberDataEl ? orderNumberDataEl.textContent || '' : 'N/A';
+  const paymentMethod = paymentMethodDataEl ? paymentMethodDataEl.textContent || 'Desconocido' : 'Desconocido';
+  const discountValue = discountDataEl ? parseFloat(discountDataEl.textContent || '0') : 0;
+  const additionalChargesValue = additionalChargesDataEl ? parseFloat(additionalChargesDataEl.textContent || '0') : 0;
 
-  const btn = document.getElementById('print-ticket-btn');
-  btn?.addEventListener('click', () => {
-    const storeInfo = {
-      name: 'Broquelizate',
-      address: 'esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.',
-      phone: '+528714617696',
-      rfc: 'XAXX010101000'
-    };
+  const btn = document.getElementById('print-ticket-btn');
+  btn?.addEventListener('click', () => {
+    const storeInfo = {
+      name: 'Broquelizate',
+      address: 'esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.',
+      phone: '+528714617696',
+    };
 
-    // La llamada a la función ahora es correcta
-    const pdfDoc = generateTicket(products, discount, additionalCharges, total, storeInfo);
-    printTicket(pdfDoc);
-  });
+    generateAndPrintTicket(
+      products, 
+      total, 
+      orderNumber, 
+      paymentMethod, 
+      storeInfo,
+      discountValue,
+      additionalChargesValue
+    );
+  });
 </script>

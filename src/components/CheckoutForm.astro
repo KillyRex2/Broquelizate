@@ -209,7 +209,7 @@ const productsData = products.map(p => ({
   import type { Stripe, StripeCardElement, StripeElements } from '@stripe/stripe-js';
   import Swal from 'sweetalert2';
   import { navigate } from 'astro:transitions/client';
-  import { generateTicket, printTicket } from '@/services/ticketGenerator';
+  import { generateAndPrintTicket } from '@/services/ticketGenerator';
   import { actions } from 'astro:actions';
 
   // Definir Formatter para el cliente
@@ -550,7 +550,7 @@ async function handleCashPayment() {
     const data = getCheckoutData();
     if (!data) throw new Error('Datos de compra no disponibles');
     
-    const pdfDoc = generateTicket(data.productsData, discount, data.taxValue, data.totalValue, storeInfo);
+   
     
     // Cerrar loader de procesamiento
     Swal.close();
@@ -578,6 +578,7 @@ async function handleCashPayment() {
         popup: 'rounded-xl'
       }
     });
+    const selectedMethod = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement;
     
     // Agregar eventos a los botones
     setTimeout(() => {
@@ -586,7 +587,7 @@ async function handleCashPayment() {
       
       if (printButton) {
         printButton.addEventListener('click', () => {
-          printTicket(pdfDoc);
+           generateAndPrintTicket(data.productsData,data.totalValue, order.orderNumber, selectedMethod.id, storeInfo);
         });
       }
       

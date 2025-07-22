@@ -1,26 +1,13 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
+import type { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
 
-// Configurar fuentes
+// Configurar fuentes. vfs es necesario para que pdfmake funcione en el navegador.
 pdfMake.vfs = pdfFonts.vfs;
 
-// Definir las fuentes disponibles
-pdfMake.fonts = {
-  Roboto: {
-    normal: 'Roboto-Regular.ttf',
-    bold: 'Roboto-Medium.ttf',
-    italics: 'Roboto-Italic.ttf',
-    bolditalics: 'Roboto-MediumItalic.ttf'
-  },
-  Helvetica: {
-    normal: 'Helvetica',
-    bold: 'Helvetica-Bold',
-    italics: 'Helvetica-Oblique',
-    bolditalics: 'Helvetica-BoldOblique'
-  }
-};
+// Usaremos Roboto, que ya está incluido en pdfFonts.vfs y no necesita ser declarado.
 
-// Definir interfaces para tipado
+// --- INTERFACES Y TIPOS ---
 interface Product {
   name: string;
   quantity: number;
@@ -28,181 +15,181 @@ interface Product {
 }
 
 interface StoreInfo {
-  name: string;
+  name:string;
   address: string;
   phone: string;
-  rfc?: string;
 }
 
-// Definir tipo para el documento PDF
-type PdfDocument = ReturnType<typeof pdfMake.createPdf>;
-
-// Tipo para márgenes (tupla de 4 números)
-type Margin = [number, number, number, number];
-
-// MODIFICADO: La firma de la función ahora acepta los nuevos valores.
-export const generateTicket = (
-  products: Product[],
-  discount: number,
-  additionalCharges: number,
-  total: number,
-  storeInfo: StoreInfo
-): PdfDocument => {
-  const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
-
-  const pageMargins: Margin = [1, 8, 1, 8];
-  const printableWidth = 226.77 - pageMargins[0] - pageMargins[2];
-
-  const compactTableLayout = {
-      hLineWidth: () => 0,
-      vLineWidth: () => 0,
-      paddingLeft: (i: number) => (i === 0 ? 0 : 2),
-      paddingRight: (i: number, node: any) => (i === node.table.widths.length - 1 ? 0 : 2),
-      paddingTop: () => 1,
-      paddingBottom: () => 1,
-  };
-
-  // --- Contenido del Ticket ---
-  const content = [
-    // Encabezado (sin cambios)
-    { text: storeInfo.name, style: 'header', alignment: 'center' as const },
-    { text: storeInfo.address, style: 'subheader', alignment: 'center' as const },
-    { text: `Tel: ${storeInfo.phone}`, style: 'subheader', alignment: 'center' as const },
-    { text: `RFC: ${storeInfo.rfc || 'XAXX010101000'}`, style: 'subheader', alignment: 'center' as const },
-    
-    // Divisor (sin cambios)
-    { canvas: [{ type: 'line' as const, x1: 0, y1: 5, x2: printableWidth, y2: 5, lineWidth: 0.5, lineColor: '#555555' }] },
-    { text: `FECHA: ${new Date().toLocaleString('es-MX')}`, style: 'date', alignment: 'center' as const },
-    { text: 'TICKET DE COMPRA', style: 'title', alignment: 'center' as const },
-    { canvas: [{ type: 'line' as const, x1: 0, y1: 5, x2: printableWidth, y2: 5, lineWidth: 0.5, lineColor: '#555555' }] },
-    
-    // Tabla de Productos (sin cambios)
-    {
-      layout: compactTableLayout,
-      table: {
-        widths: ['*', 24, 70],
-        body: [
-          [
-            { text: 'DESCRIPCIÓN', style: 'tableHeader' },
-            { text: 'CANT', style: 'tableHeader', alignment: 'center' as const },
-            { text: 'IMPORTE', style: 'tableHeader', alignment: 'right' as const }
-          ],
-          ...products.map(product => [
-            { text: product.name, style: 'tableItem' },
-            { text: product.quantity.toString(), style: 'tableItem', alignment: 'center' as const },
-            { text: `$${(product.price * product.quantity).toFixed(2)}`, style: 'tableItem', alignment: 'right' as const }
-          ])
-        ]
-      },
-    },
-    
-    { canvas: [{ type: 'line' as const, x1: 0, y1: 5, x2: printableWidth, y2: 5, lineWidth: 0.5, lineColor: '#555555' }] },
-    
-    // --- Tabla de Totales (MODIFICADA) ---
-    // Se construye el cuerpo de la tabla dinámicamente para mostrar solo los valores que aplican.
-    (() => {
-        const totalsBody = [
-            // Siempre se muestra el subtotal
-            [
-                { text: 'SUBTOTAL:', style: 'tableFooter' },
-                { text: `$${subtotal.toFixed(2)}`, style: 'tableFooter', alignment: 'right' as const }
-            ]
-        ];
-
-        // Se añade la fila de Monto Adicional solo si es mayor a cero
-        if (additionalCharges > 0) {
-            totalsBody.push([
-                { text: 'MONTO ADICIONAL:', style: 'tableFooter' },
-                { text: `$${additionalCharges.toFixed(2)}`, style: 'tableFooter', alignment: 'right' as const }
-            ]);
-        }
-
-        // Se añade la fila de Descuento solo si es mayor a cero
-        if (discount > 0) {
-            totalsBody.push([
-                { text: 'DESCUENTO:', style: 'tableFooter'},
-                { text: `-$${discount.toFixed(2)}`, style: 'tableFooter', alignment: 'right' as const }
-            ]);
-        }
-        
-        // Siempre se muestra el total final
-        totalsBody.push([
-            { text: 'TOTAL:', style: 'tableFooter'},
-            { text: `$${total.toFixed(2)}`, style: 'tableFooter', alignment: 'right' as const }
-        ]);
-
-        return {
-            layout: 'noBorders',
-            table: {
-                widths: ['*', 75],
-                body: totalsBody
-            },
-        };
-    })(),
-    
-    // Pie de página (sin cambios)
-    { text: '¡GRACIAS POR SU COMPRA!', style: 'footer', alignment: 'center' as const, margin: [0, 15, 0, 2] as Margin },
-    { text: 'Vuelva pronto', style: 'footerSmall', alignment: 'center' as const },
-  ];
-  
-  const styles = {
-    header:      { fontSize: 9, bold: true, margin: [0, 0, 0, 2] as Margin },
-    subheader:   { fontSize: 6, margin: [0, 0, 0, 1] as Margin },
-    date:        { fontSize: 6.5, margin: [0, 5, 0, 2] as Margin },
-    title:       { fontSize: 8, bold: true, margin: [0, 2, 0, 5] as Margin },
-    tableHeader: { fontSize: 7, bold: true, margin: [0, 2, 0, 2] as Margin },
-    tableItem:   { fontSize: 6.5, margin: [0, 1, 0, 1] as Margin },
-    tableFooter: { fontSize: 8, margin: [0, 1, 0, 1] as Margin },
-    footer:      { fontSize: 9, bold: true, italics: true },
-    footerSmall: { fontSize: 7, margin: [0, 2, 0, 0] as Margin }
-  };
-  
-  const docDefinition = {
-    pageSize: { 
-      width: 226.77,
-      height: 'auto' as const 
-    },
-    pageMargins: pageMargins,
-    content: content,
-    styles: styles,
-    defaultStyle: {
-      font: 'Roboto',
-      fontSize: 8,
-      lineHeight: 1.15
-    }
-  };
-  
-  return pdfMake.createPdf(docDefinition);
+// --- FUNCIÓN AUXILIAR PARA CONVERTIR IMAGEN A BASE64 ---
+const getBase64ImageFromURL = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.setAttribute("crossOrigin", "anonymous");
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("No se pudo obtener el contexto del canvas"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL("image/png");
+      resolve(dataURL);
+    };
+    img.onerror = (error) => reject(new Error(`Error al cargar la imagen: ${error}`));
+    img.src = url;
+  });
 };
 
-// La función de impresión no necesita cambios.
-export const printTicket = (pdfDoc: PdfDocument): void => {
-  pdfDoc.getBlob((blob: Blob) => {
-    const blobUrl = URL.createObjectURL(blob);
-    const printWindow = window.open(blobUrl, '_blank');
+// --- FUNCIÓN PRINCIPAL PARA GENERAR Y MOSTRAR EL TICKET ---
+export const generateAndPrintTicket = async (
+  products: Product[],
+  total: number,
+  orderNumber: string,
+  paymentMethod: string,
+  storeInfo: StoreInfo,
+  // ✅ NUEVO: Parámetros opcionales para descuentos, montos y observaciones
+  discount?: number,
+  addedMount?: number,
+  observations?: string
+): Promise<void> => {
+  try {
+    // 1. Obtener el logo y convertirlo a Base64
+    const logoUrl = '/assets/Broquelizate-logos/logo-relleno-negro.png';
+    const logoBase64 = await getBase64ImageFromURL(logoUrl);
+
+    const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0);
+    const uniqueItems = products.length;
+    const date = new Date().toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     
-    if (printWindow) {
-      printWindow.onload = () => {
-        try {
-          printWindow.print();
-          // Considerar un tiempo de espera más corto si es posible
-          setTimeout(() => {
-            printWindow.close();
-            URL.revokeObjectURL(blobUrl);
-          }, 10000); // 5 segundos
-        } catch (error) {
-          console.error('Error al imprimir:', error);
-          printWindow.close();
-          URL.revokeObjectURL(blobUrl);
-        }
-      };
-    } else {
-      console.error('No se pudo abrir la ventana de impresión. Verifica los bloqueadores de ventanas emergentes.');
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = 'ticket.pdf';
-      link.click();
-      URL.revokeObjectURL(blobUrl);
+    // ✅ NUEVO: Calcular subtotal a partir de los productos
+    const subtotal = products.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+
+    // ✅ CORRECCIÓN: Tipar explícitamente totalsBody como Content[][] para evitar errores de inferencia de tipo.
+    const totalsBody: Content[][] = [
+      // Fila de Subtotal
+      [{ text: 'Subtotal:', style: 'totalLabel', alignment: 'right' }, { text: `$${subtotal.toFixed(2)}`, style: 'totalAmount', alignment: 'right' }],
+    ];
+
+    // Añadir fila de Descuento si existe y es mayor a 0
+    if (discount && discount > 0) {
+      totalsBody.push([
+        { text: 'Descuento:', style: 'totalLabel', alignment: 'right' }, 
+        { text: `-$${discount.toFixed(2)}`, style: 'discountAmount', alignment: 'right' }
+      ]);
     }
-  });
+
+    // Añadir fila de Monto Agregado si existe y es mayor a 0
+    if (addedMount && addedMount > 0) {
+      totalsBody.push([
+        { text: 'Monto Agregado:', style: 'totalLabel', alignment: 'right' }, 
+        { text: `$${addedMount.toFixed(2)}`, style: 'addedAmount', alignment: 'right' }
+      ]);
+    }
+    
+    // Línea separadora antes del total final
+    totalsBody.push([
+        { 
+            canvas: [{ type: 'line', x1: 0, y1: 2, x2: 120, y2: 2, lineWidth: 0.5, lineColor: '#555555' }], 
+            colSpan: 2, 
+            alignment: 'right', 
+            border: [false, false, false, false], 
+            margin: [0, 2, 0, 2] 
+        } as Content, // ✅ CORRECCIÓN: Se añade una aserción de tipo para resolver el error de TS.
+        '' // Usar un string vacío como placeholder para la celda expandida.
+    ]);
+
+    // Fila de Total Final y Método de Pago
+    totalsBody.push(
+      [{ text: 'Total:', style: 'finalTotalLabel', alignment: 'right' }, { text: `$${total.toFixed(2)}`, style: 'finalTotalAmount', alignment: 'right' }],
+      [{ text: `${paymentMethod}:`, style: 'paymentMethodLabel', alignment: 'right' }, { text: `$${total.toFixed(2)}`, style: 'paymentMethodAmount', alignment: 'right' }]
+    );
+
+    // ✅ NUEVO: Construir el contenido principal del PDF
+    const content: Content[] = [
+      { image: logoBase64, width: 70, alignment: 'center', margin: [0, 0, 0, 8] },
+      { text: `RECIBO #${orderNumber}`, style: 'receiptNumber', alignment: 'center', margin: [0, 0, 0, 12] },
+      { stack: [{ text: storeInfo.name, style: 'storeName' }, { text: storeInfo.address, style: 'storeInfo' }, { text: `+${storeInfo.phone}`, style: 'storeInfo' }], alignment: 'center', margin: [0, 0, 0, 12] },
+      { text: `${uniqueItems} Item(s) (Total Pzas: ${totalQuantity})`, style: 'itemCount', margin: [0, 0, 0, 8] },
+      { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 205, y2: 5, lineWidth: 1, lineColor: '#000000' }], margin: [0, 4, 0, 8] },
+      {
+        layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingTop: () => 6, paddingBottom: () => 6 },
+        table: {
+          widths: ['*', 'auto'],
+          body: products.map(product => [
+            { text: [{ text: `${product.quantity}x `, style: 'quantity' }, { text: `${product.name}`, style: 'productName' }, { text: ' (pieza)', style: 'pieceText' }], border: [false, false, false, false] },
+            { text: `$${(product.price * product.quantity).toFixed(2)}`, style: 'price', alignment: 'right', border: [false, false, false, false] },
+          ])
+        }
+      },
+      { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 205, y2: 5, lineWidth: 1, dash: { length: 2 }, lineColor: '#555555' }], margin: [0, 4, 0, 8] },
+      {
+        layout: 'noBorders',
+        table: {
+          widths: ['*', 'auto'],
+          body: totalsBody
+        }
+      },
+    ];
+
+    // ✅ NUEVO: Añadir sección de observaciones si existe
+    if (observations) {
+      content.push(
+        { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 205, y2: 5, lineWidth: 1, dash: { length: 2 }, lineColor: '#555555' }], margin: [0, 10, 0, 8] },
+        { text: 'OBSERVACIONES', style: 'observationsLabel', alignment: 'center', margin: [0, 0, 0, 4] },
+        { text: observations, style: 'observationsText', alignment: 'left', margin: [0, 0, 0, 10] }
+      );
+    }
+    
+    // Añadir pie de página
+    content.push(
+      { text: '¡Gracias por tu compra!', style: 'footer', alignment: 'center', margin: [0, 20, 0, 2] },
+      { text: date, style: 'footerDate', alignment: 'center' }
+    );
+
+    // 2. Definir la estructura del documento
+    const docDefinition: TDocumentDefinitions = {
+      pageSize: { width: 226.77, height: 'auto' }, // Ancho de ticket de 80mm
+      pageMargins: [10, 10, 10, 10],
+      content: content,
+      styles: {
+        receiptNumber: { fontSize: 10, bold: true },
+        storeName: { fontSize: 10, bold: true, alignment: 'center' },
+        storeInfo: { fontSize: 9, color: '#333333', alignment: 'center' },
+        itemCount: { fontSize: 10, bold: true },
+        quantity: { fontSize: 10, color: '#555555' },
+        productName: { fontSize: 10, bold: true },
+        pieceText: { fontSize: 10, color: '#555555' },
+        price: { fontSize: 10, bold: true },
+        // Estilos de totales
+        totalLabel: { fontSize: 10, bold: false },
+        totalAmount: { fontSize: 10, bold: true },
+        discountAmount: { fontSize: 10, bold: true, color: 'green' },
+        addedAmount: { fontSize: 10, bold: true, color: 'red' },
+        finalTotalLabel: { fontSize: 12, bold: true },
+        finalTotalAmount: { fontSize: 12, bold: true },
+        // Estilos de pago
+        paymentMethodLabel: { fontSize: 9, color: '#333333' },
+        paymentMethodAmount: { fontSize: 9, color: '#333333' },
+        // ✅ NUEVO: Estilos para observaciones
+        observationsLabel: { fontSize: 10, bold: true, italics: true },
+        observationsText: { fontSize: 9, color: '#333333' },
+        // Estilos de pie de página
+        footer: { fontSize: 10, italics: true },
+        footerDate: { fontSize: 8, color: '#555555' },
+      },
+      defaultStyle: { font: 'Roboto', fontSize: 10, color: '#000000' }
+    };
+    
+    // 3. Crear y abrir el documento PDF
+    const pdfDoc = pdfMake.createPdf(docDefinition);
+    pdfDoc.open();
+
+  } catch (error) {
+    console.error("Error al generar o imprimir el ticket:", error);
+    // Evitar usar alert en producción, es mejor un sistema de notificaciones
+    // alert("No se pudo generar el ticket. Por favor, revisa la consola para más detalles.");
+  }
 };
