@@ -157,11 +157,11 @@ export const generateAndPrintTicket = async (
       styles: {
         receiptNumber: { fontSize: 10, bold: true },
         storeName: { fontSize: 10, bold: true, alignment: 'center' },
-        storeInfo: { fontSize: 9, color: '#333333', alignment: 'center' },
+        storeInfo: { fontSize: 9, color: '#000', alignment: 'center' },
         itemCount: { fontSize: 10, bold: true },
-        quantity: { fontSize: 10, color: '#555555' },
+        quantity: { fontSize: 10, color: '#000' },
         productName: { fontSize: 10, bold: true },
-        pieceText: { fontSize: 10, color: '#555555' },
+        pieceText: { fontSize: 10, color: '#000' },
         price: { fontSize: 10, bold: true },
         // Estilos de totales
         totalLabel: { fontSize: 10, bold: false },
@@ -171,16 +171,16 @@ export const generateAndPrintTicket = async (
         finalTotalLabel: { fontSize: 12, bold: true },
         finalTotalAmount: { fontSize: 12, bold: true },
         // Estilos de pago
-        paymentMethodLabel: { fontSize: 9, color: '#333333' },
-        paymentMethodAmount: { fontSize: 9, color: '#333333' },
+        paymentMethodLabel: { fontSize: 9, color: '#000' },
+        paymentMethodAmount: { fontSize: 9, color: '#000' },
         // ✅ NUEVO: Estilos para observaciones
         observationsLabel: { fontSize: 10, bold: true, italics: true },
-        observationsText: { fontSize: 9, color: '#333333' },
+        observationsText: { fontSize: 9, color: '#000' },
         // Estilos de pie de página
         footer: { fontSize: 10, italics: true },
-        footerDate: { fontSize: 8, color: '#555555' },
+        footerDate: { fontSize: 8, color: '#000' },
       },
-      defaultStyle: { font: 'Roboto', fontSize: 10, color: '#000000' }
+      defaultStyle: { font: 'Roboto', fontSize: 10, color: '#000' }
     };
     
     // 3. Crear y abrir el documento PDF
