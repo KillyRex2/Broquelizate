@@ -192,6 +192,8 @@ const clientsList: Client[] = clientsData?.clients || [];
 <div id="clients-data" style="display: none;">
   {JSON.stringify(clientsList)}
 </div>
+<!-- Cambio 1 -->
+<div id="products-data" style="display: none;"></div>
 
 <style>
   details[open] > summary > svg { transform: rotate(180deg); }
@@ -244,6 +246,11 @@ const clientsList: Client[] = clientsData?.clients || [];
       : [];
     
     const cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
+     const productsDataElement = document.getElementById('products-data');
+    if (productsDataElement) {
+        // Guardamos los datos del carrito en el div para que la función de stock los pueda leer.
+        productsDataElement.textContent = JSON.stringify(cart);
+    }
     
     const headerTotalEl = document.getElementById('header-total');
     const summarySubtotalEl = document.getElementById('summary-subtotal');
@@ -273,6 +280,44 @@ const clientsList: Client[] = clientsData?.clients || [];
     const additionalAmountSummaryRowEl = document.getElementById('additional-amount-summary-row');
     const summaryAdditionalAmountTextEl = document.getElementById('summary-additional-amount-text');
     const removeAdditionalAmountBtn = document.getElementById('remove-additional-amount-btn');
+
+    async function updateProductStock() {
+      if (!productsDataElement) {
+        console.error('Elemento de datos de productos no encontrado, no se puede actualizar el stock.');
+        return; // Salir silenciosamente si el div no existe
+      }
+
+      // Parsear los datos de productos desde el div
+      const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
+      if (rawProductsData.length === 0) return; // No hay productos que actualizar
+
+      // Crear datos para actualizar stock (id y cantidad vendida)
+      const stockUpdateData = rawProductsData.map((p: any) => ({
+        id: p.id,
+        quantity: p.quantity // La cantidad vendida
+      }));
+      
+      try {
+        const response = await fetch('/api/update-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: stockUpdateData })
+        });
+
+        if (!response.ok) {
+          const errorResponse = await response.json();
+          // Lanza un error para que sea capturado por el catch de handleFinalizeSale
+          throw new Error(errorResponse.error || 'Error al actualizar el stock');
+        }
+
+        console.log('Stock actualizado exitosamente.');
+
+      } catch (error) {
+        console.error('Error crítico al actualizar el stock:', error);
+        // Re-lanzamos el error para que el proceso de venta principal sepa que algo falló.
+        throw error;
+      }
+    }
 
 
     function updateTotals() {
@@ -558,6 +603,8 @@ const clientsList: Client[] = clientsData?.clients || [];
 
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Error del servidor');
+
+         await updateProductStock();
          if (paymentMethod === 'Venta a crédito' && clientId) {
         
         const updateResult = await actions.updateClientBalance({

@@ -7,22 +7,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const { products } = await request.json();
 
+    // El bucle ahora procesará cada producto sin verificar el stock primero.
     for (const item of products) {
-      // Verificar stock suficiente
-      const [product] = await db.select()
-        .from(Product)
-        .where(eq(Product.id, item.id))
-        .limit(1);
-
-      if (!product) {
-        throw new Error(`Producto no encontrado: ${item.id}`);
-      }
-
-      if (product.stock < item.quantity) {
-        throw new Error(`Stock insuficiente para: ${product.name}`);
-      }
-
-      // Actualizar stock
+      // ✅ SE HA ELIMINADO EL BLOQUE DE VERIFICACIÓN DE STOCK.
+      // Ahora la actualización se realiza directamente.
+      // Si el stock es 5 y se venden 10, el nuevo stock será -5.
       await db.update(Product)
         .set({ stock: sql`${Product.stock} - ${item.quantity}` })
         .where(eq(Product.id, item.id));
