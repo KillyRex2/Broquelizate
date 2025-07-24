@@ -908,7 +908,7 @@ async function updateProductStock() {
   }));
   
   try {
-    const response = await fetch('/api/update-stock', {
+    const response = await fetch('/api/update-stock-online', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ products: stockUpdateData })
