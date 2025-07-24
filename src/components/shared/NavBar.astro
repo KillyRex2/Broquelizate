@@ -4,58 +4,94 @@ import { CartCounter } from '@/components';
 const { isLoggedIn, isAdmin } = Astro.locals;
 ---
 
-<!-- component -->
-<nav
-  class="flex justify-between px-20 py-10 items-center fixed top-0 w-full z-10 h-20"
-  style="background-color: #FFfff;"
->
+<nav class="flex justify-between px-20 py-10 items-center fixed top-0 w-full z-10 h-20" style="background-color: transparent;">
+  <!-- Logo -->
   <h1 class="text-xl text-gray-200 font-bold p-4">
     <a href="/">Broquelizate</a>
   </h1>
-  <div class="flex items-center">
-    <ul class="flex items-center space-x-6">
-      <CartCounter client:load transition:persist />
 
-      <li class="font-semibold text-gray-200">
+  <!-- Desktop Menu -->
+  <ul class="hidden md:flex items-center space-x-6 text-gray-200">
+    <CartCounter client:load transition:persist />
+    <li class="font-semibold hover:text-white">
+      <a href="/">Home</a>
+    </li>
+    {isAdmin && (
+      <li class="font-semibold hover:text-white">
+        <a href="/admin/dashboard">Admin</a>
+      </li>
+    )}
+    {!isLoggedIn ? (
+      <li class="font-semibold hover:text-white">
+        <a href="/login">Ingresar</a>
+      </li>
+    ) : (
+      <li id="logout" class="font-semibold hover:text-white cursor-pointer">
+        Salir
+      </li>
+    )}
+  </ul>
+
+  <!-- Mobile Menu Button -->
+  <div class="md:hidden flex items-center">
+    <button id="menu-btn" class="text-gray-200 focus:outline-none">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Mobile Menu -->
+  <div id="mobile-menu" class="hidden md:hidden absolute top-20 left-0 w-full bg-transparent">
+    <ul class="flex flex-col items-center space-y-4 py-4 text-gray-200">
+      <CartCounter client:load transition:persist />
+      <li class="font-semibold hover:text-white">
         <a href="/">Home</a>
       </li>
-      {
-        isAdmin && (
-          <li class="font-semibold text-gray-200">
-            <a href="/admin/dashboard">Admin</a>
-          </li>
-        )
-      }
-
-      {
-        !isLoggedIn ? (
-          <li class="font-semibold text-gray-200">
-            <a href="/login">Ingresar</a>
-          </li>
-        ) : (
-          <li id="logout" class="font-semibold text-gray-200">
-            <a href="#">Salir</a>
-          </li>
-        )
-      }
+      {isAdmin && (
+        <li class="font-semibold hover:text-white">
+          <a href="/admin/dashboard">Admin</a>
+        </li>
+      )}
+      {!isLoggedIn ? (
+        <li class="font-semibold hover:text-white">
+          <a href="/login">Ingresar</a>
+        </li>
+      ) : (
+        <li id="logout-mobile" class="font-semibold hover:text-white cursor-pointer">
+          Salir
+        </li>
+      )}
     </ul>
   </div>
 </nav>
 
 <script>
   const { signOut } = await import('auth-astro/client');
+  import { navigate } from "astro:transitions/client";
 
-  
-  // Add event listener to the logout element
   document.addEventListener('astro:page-load', () => {
-    const logoutElem = document.querySelector('#logout') as HTMLLIElement;
-    // Ensure the logout element exists before adding the event listener
-    if (logoutElem) {
-      logoutElem.addEventListener('click', async () => {
+    // Toggle mobile menu
+    const menuBtn = document.querySelector('#menu-btn');
+    const mobileMenu = document.querySelector('#mobile-menu');
+    if (menuBtn && mobileMenu) {
+      menuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+    }
+
+    // Logout handlers
+    const logoutBtn = document.querySelector('#logout');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
         await signOut();
-        window.location.href = '/';
+        navigate('/');
+      });
+    }
+    const logoutMobile = document.querySelector('#logout-mobile');
+    if (logoutMobile) {
+      logoutMobile.addEventListener('click', async () => {
+        await signOut();
+        navigate('/');
       });
     }
   });
-
 </script>
