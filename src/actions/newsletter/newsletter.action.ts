@@ -21,7 +21,7 @@ export const subscribeToNewsletter = defineAction({
       await resend.emails.send({
         // ✅ CORRECCIÓN: Se usa la dirección de remitente permitida por Resend para pruebas.
         from: 'Notificaciones Broquelízate <onboarding@resend.dev>',
-        to: ['anggelarcce09@outlook.com'], // Tu correo para recibir notificaciones
+        to: ['broquelizate@gmail.com'], // Tu correo para recibir notificaciones
         subject: '¡Nueva suscripción al Newsletter! 🎉',
         html: `<p>El correo <strong>${email}</strong> se ha suscrito al newsletter.</p>`,
       });
