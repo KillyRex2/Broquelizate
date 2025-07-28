@@ -14,6 +14,10 @@ if (error) {
 }
 const { product: rawProduct, images } = data;
 
+const image = images[0].image.startsWith("http")
+  ? images[0].image
+  : `${import.meta.env.PUBLIC_URL}/images/products/${images[0].image}`;
+
 // SOLUCIÓN: Manejo de tipos seguro
 let piercing_name: string[] = [];
 if (typeof rawProduct.piercing_name === 'string') {
@@ -28,7 +32,9 @@ const product = {
 };
 ---
 
-<ProductsLayout title={product.name} description={product.description}>
+<ProductsLayout title={product.name} 
+                description={product.description}
+                image={image}>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
     <!-- Swiper ajustado -->
     <div class="relative w-full h-[400px]">

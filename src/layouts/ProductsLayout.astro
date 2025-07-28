@@ -10,7 +10,9 @@ interface Props {
   image?: string;
 }
 
-const { title = 'Productos' } = Astro.props;
+const { title = 'Productos', 
+        description = 'Broquelizate', 
+        image = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Ficono%20relleno.svg?alt=media&token=0ab9a46f-70c5-4136-9bec-d2db45fc1108' } = Astro.props;
 ---
 
 <html lang="es">
@@ -21,6 +23,23 @@ const { title = 'Productos' } = Astro.props;
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <ClientRouter />
+
+    <meta name="title" content={title} />
+    <meta name="description" content={description} />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:title" content={title} />
+    <meta property="og:url" content={Astro.url} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={image} />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content={Astro.url} />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={image} />
   </head>
   <body class="bg-[#1E1E1E] text-white">
     <NavBar />

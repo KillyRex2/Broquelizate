@@ -8,6 +8,7 @@ import { deleteProduct } from "./admin/create-update-product.action";
 import { getClientById, updateClient, getAllClients, updateClientBalance } from './admin/update-client.action'
 import { getAllProductsWithImages } from "./admin/get-all-products.action";
 import { capturePaypalOrder, createPaypalOrder } from "./admin/paypal";
+import { subscribeToNewsletter } from "./newsletter/newsletter.action";
 
 export const server = {
     // server actions
@@ -40,5 +41,8 @@ export const server = {
 
     // Paypal
     createPaypalOrder,
-    capturePaypalOrder
+    capturePaypalOrder,
+
+    // Newsletter
+    subscribeToNewsletter
 }

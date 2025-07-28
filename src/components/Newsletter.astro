@@ -1,58 +1,101 @@
 ---
-let email: string = '';
-const subscribe = () => {
-  // Aquí iría la lógica para enviar el email al backend
-  console.log(`Suscribiendo: ${email}`);
-  email = '';
-};
-function handleInput(e: InputEvent) {
-  const target = e.target as HTMLInputElement;
-  email = target.value;
-}
+// src/components/Newsletter.astro
 ---
+<section 
+  class="relative py-20 bg-cover bg-center font-sans" 
+  style="background-image: url('https://images.unsplash.com/photo-1610495232624-818713aaa33a?q=80&w=2070&auto=format&fit=crop');"
+>
+  <!-- Overlay oscuro para legibilidad -->
+  <div class="absolute inset-0 bg-black bg-opacity-60"></div>
 
-<section class="py-16 bg-black text-white">
-  <div class="max-w-3xl mx-auto px-4 text-center">
-    <h2 class="text-3xl font-bold mb-4">Suscríbete a nuestro newsletter</h2>
-    <p class="text-gray-400 mb-8">
-      Recibe información sobre nuevas colecciones, ofertas exclusivas y consejos de cuidado para tus joyas.
+  <div class="relative z-10 max-w-3xl mx-auto px-6 text-center text-white">
+    <h2 class="text-4xl sm:text-5xl font-semibold mb-4 tracking-tight text-amber-400">
+      Únete a nuestro Círculo Exclusivo
+    </h2>
+    <p class="text-lg sm:text-xl mb-8 text-gray-200">
+      Sé de los primeros en descubrir nuestras colecciones de alta joyería, ofertas secretas y consejos exclusivos para el cuidado de tus piezas.
     </p>
-    <form
-      class="flex flex-col sm:flex-row items-center justify-center gap-4"
-      on:submit|preventDefault={subscribe}
-    >
+
+    <form id="newsletter-form" class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
       <input
         type="email"
-        placeholder="Tu email"
-        class="
-          w-full sm:flex-1
-          px-4 py-2
-          bg-black border border-gray-700
-          rounded
-          text-white placeholder-gray-500
-          focus:outline-none focus:border-white
-          hover:text-gray-500
-          transition-colors
-        "
-        value={email}
-        oninput="handleInput"
+        name="email"
+        placeholder="Tu correo electrónico"
+        class="w-full sm:flex-1 px-6 py-4 bg-white/10 backdrop-blur-sm border border-gray-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
         required
       />
       <button
         type="submit"
-        class="
-          px-6 py-2
-          bg-gray-800 text-white
-          font-semibold rounded
-          hover:bg-gray-700
-          transition
-        "
+        id="newsletter-submit-btn"
+        class="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
       >
-        Suscribirme
+        {/* ✅ CORRECCIÓN: Se movió la clase al atributo 'class' */}
+        <span id="newsletter-btn-text" class="font-semibold">Suscribirme</span>
       </button>
     </form>
-    <p class="text-xs text-gray-500 mt-4">
-      Al suscribirte, aceptas nuestra política de privacidad. Puedes darte de baja en cualquier momento.
+
+    <p class="text-xs text-gray-400 mt-6">
+      Respetamos tu privacidad. Nunca compartiremos tu información.
     </p>
   </div>
 </section>
+
+<script>
+  import { actions } from 'astro:actions';
+  import Swal from 'sweetalert2';
+  import 'sweetalert2/dist/sweetalert2.min.css';
+
+  function setupNewsletterForm() {
+    const form = document.getElementById('newsletter-form') as HTMLFormElement | null;
+    const submitBtn = document.getElementById('newsletter-submit-btn') as HTMLButtonElement | null;
+    const btnText = document.getElementById('newsletter-btn-text') as HTMLSpanElement | null;
+
+    if (!form || !submitBtn || !btnText) return;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const originalBtnText = btnText.textContent;
+      submitBtn.disabled = true;
+      btnText.textContent = 'Enviando...';
+
+      const formData = new FormData(form);
+
+      try {
+        const { data, error } = await actions.subscribeToNewsletter(formData);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Gracias por suscribirte!',
+            text: 'Hemos enviado un correo de bienvenida. ¡Revisa tu bandeja de entrada!',
+            confirmButtonColor: '#f59e0b', // Color ámbar
+            background: '#1f2937', // Fondo oscuro
+            color: '#ffffff' // Texto blanco
+          });
+          form.reset();
+        }
+
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Ocurrió un error inesperado.';
+        Swal.fire({
+          icon: 'error',
+          title: '¡Ups! Algo salió mal',
+          text: message,
+          confirmButtonColor: '#f59e0b',
+          background: '#1f2937',
+          color: '#ffffff'
+        });
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = originalBtnText;
+      }
+    });
+  }
+
+  document.addEventListener('astro:page-load', setupNewsletterForm);
+</script>
