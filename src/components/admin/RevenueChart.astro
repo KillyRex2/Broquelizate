@@ -17,267 +17,478 @@ const dailyRevenue: DailyResult[] = await db.select({
 .groupBy(sql`DATE(${orders.createdAt})`)
 .orderBy(sql`DATE(${orders.createdAt}) ASC`)
 .all();
-
-const chartOptions: ChartOptions<'line'> = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'top',
-      align: 'end',
-      labels: {
-        usePointStyle: true,
-        boxWidth: 10,
-        color: '#333',
-        font: {
-          family: 'Poppins, sans-serif',
-          weight: 'bold'
-        }
-      }
-    },
-    tooltip: {
-      backgroundColor: '#111',
-      titleColor: '#D4AF37',
-      bodyColor: '#fff',
-      borderColor: '#D4AF37',
-      borderWidth: 1,
-      callbacks: {
-        label: function(context: TooltipItem<'line'>) {
-          return ` ${new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN'
-          }).format(context.parsed.y)}`;
-        }
-      }
-    }
-  },
-  scales: {
-    y: {
-      grid: { color: '#F3E9D2' }, // dorado claro
-      ticks: {
-        color: '#8B8000',
-        font: { family: 'Poppins, sans-serif' },
-        callback: function(value: number | string) {
-          const numValue = typeof value === 'string' ? parseFloat(value) : value;
-          return numValue >= 1000
-            ? '$' + (numValue / 1000) + 'k'
-            : '$' + numValue;
-        }
-      }
-    },
-    x: {
-      grid: { display: false },
-      ticks: {
-        color: '#8B8000',
-        font: { family: 'Poppins, sans-serif' },
-        maxRotation: 0,
-        autoSkip: true,
-        maxTicksLimit: 12
-      }
-    }
-  }
-};
-
-const chartConfig = {
-  type: 'line',
-  data: {
-    datasets: [
-      {
-        label: `Ingresos`,
-        borderColor: '#D4AF37', // dorado metálico
-        backgroundColor: {
-          primary: 'rgba(212, 175, 55, 0.4)',   // dorado con opacidad
-          transparent: 'rgba(212, 175, 55, 0)'  // gradiente transparente
-        },
-        pointBackgroundColor: '#D4AF37',
-        pointBorderColor: '#fff',
-        tension: 0.4,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      }
-    ]
-  },
-  options: chartOptions,
-};
 ---
-<div class="bg-white rounded-xl shadow-sm p-6">
-  <div class="flex justify-between items-center">
-    <h3 class="text-lg font-semibold text-gray-800">Resumen de Ingresos</h3>
-    <div id="chart-filters" class="flex items-center gap-2">
-      <button class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-300 transition-colors duration-200"
-  data-period="30"
-  class="bg-[#FAF3E0] text-[#8B8000]">1 Mes</button>
-      <button class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-300 transition-colors duration-200"
-  data-period="90"
-  class="bg-[#FAF3E0] text-[#8B8000]">3 Meses</button>
-      <button class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-300 transition-colors duration-200"
-  data-period="365"
-  class="bg-[#FAF3E0] text-[#8B8000]">1 año</button>
+
+
+<div class="bg-white rounded-2xl shadow-lg p-6">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h3 class="text-xl font-semibold text-gray-800">Resumen de Ingresos</h3>
+      <p class="text-sm text-gray-500 mt-1">Visualiza ingresos diarios y tendencias — estilo premium.</p>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <div class="hidden sm:flex gap-4 items-center bg-[#FAF3E0] p-2 rounded-lg">
+        <div class="text-sm text-[#8B8000]">Periodo:</div>
+        <div id="chart-filters" class="flex items-center gap-2">
+          <button data-period="30" class="period-btn px-3 py-1 text-sm font-medium rounded-md bg-[#FAF3E0] text-[#8B8000] hover:bg-yellow-300 transition">1 Mes</button>
+          <button data-period="90" class="period-btn px-3 py-1 text-sm font-medium rounded-md bg-[#FAF3E0] text-[#8B8000] hover:bg-yellow-300 transition">3 Meses</button>
+          <button data-period="365" class="period-btn px-3 py-1 text-sm font-medium rounded-md bg-[#FAF3E0] text-[#8B8000] hover:bg-yellow-300 transition">1 Año</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="flex gap-3 items-center">
+        <div class="text-right">
+          <div class="text-xs text-gray-500">Total (periodo)</div>
+          <div id="kpi-total" class="text-lg font-bold text-gray-800">$0</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-gray-500">MTD</div>
+          <div id="kpi-mtd" class="text-lg font-semibold text-gray-800">$0</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-gray-500">% cambio</div>
+          <div id="kpi-pct" class="text-lg font-semibold text-gray-800">0%</div>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="relative h-[350px] mt-4">
-    <canvas id="revenueChart"></canvas>
+
+  <div class="mt-5 grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="lg:col-span-3 bg-white rounded-xl p-4 shadow-inner">
+      <div class="relative h-[420px]">
+        <canvas id="revenueChart" class="w-full h-full"></canvas>
+      </div>
+    </div>
+
+    <div class="lg:col-span-1 bg-white rounded-xl p-4 shadow-inner flex flex-col gap-4">
+      <div>
+        <div class="text-sm text-gray-500">Tendencia (7d MA)</div>
+        <div class="h-28">
+          <canvas id="sparkline" class="w-full h-full"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <div class="text-sm text-gray-500">Insights rápidos</div>
+        <ul id="insights" class="mt-2 text-sm text-gray-600 space-y-1">
+          <li>— Máximo diario: <span id="insight-max" class="font-medium">$0</span></li>
+          <li>— Promedio diario: <span id="insight-avg" class="font-medium">$0</span></li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
 
-<script define:vars={{ chartConfig, dailyRevenue }}>
+<script define:vars={{ dailyRevenue }}>
   let chartInstance = null;
+  let sparkInstance = null;
   const CHARTJS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js';
 
-  function createGradient(ctx, colors) {
-    const gradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
-    gradient.addColorStop(0, colors.primary);
-    gradient.addColorStop(1, colors.transparent);
-    return gradient;
+  /* -----------------------
+     Utilidades de datos
+     ----------------------- */
+  function isoDate(d) {
+    return d.toISOString().split('T')[0];
   }
 
-  function processDataForPeriod(periodInDays) {
-    const now = new Date();
-    const startDate = new Date();
-    startDate.setDate(now.getDate() - periodInDays);
-    
+  // Transformar dailyRevenue (server) a mapa { 'YYYY-MM-DD': number }
+  const revenueMap = new Map(dailyRevenue.map(d => [d.day, Number(d.total)]));
+
+  function rangeDatesArray(start, end) {
+    const arr = [];
+    const cur = new Date(start);
+    while (cur <= end) {
+      arr.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return arr;
+  }
+
+  // Llena días faltantes con 0 y devuelve arrays de labels y values (en orden ascendente)
+  function buildSeries(periodDays) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - (periodDays - 1));
+
+    const dates = rangeDatesArray(start, end);
     const labels = [];
-    const data = [];
-    
-    for (let i = periodInDays - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      // Formatear etiquetas según el período
-      let label;
-      if (periodInDays <= 30) {
-        // Para 1 mes: día del mes
-        label = date.getDate().toString();
-      } else if (periodInDays <= 90) {
-        // Para 3 meses: día y mes abreviado
-        label = date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-      } else {
-        // Para 1 año: solo mes en el primer día del mes
-        if (date.getDate() === 1) {
-          label = date.toLocaleDateString('es-MX', { month: 'short' });
-        } else {
-          label = '';
-        }
-      }
-      
-      labels.push(label);
-      
-      const dailyData = dailyRevenue.find(d => d.day === dateStr);
-      data.push(dailyData ? dailyData.total : 0);
-    }
-    
-    return { labels, data };
-  }
-  
-  function updateChart(period) {
-    if (!chartInstance) return;
-    
-    const { labels, data } = processDataForPeriod(period);
-    
-    chartInstance.data.labels = labels;
-    chartInstance.data.datasets[0].data = data;
-    
-    // Actualizar etiqueta según el período seleccionado
-    if (period === 30) {
-      chartInstance.data.datasets[0].label = "Último Mes";
-    } else if (period === 90) {
-      chartInstance.data.datasets[0].label = "Últimos 3 Meses";
-    } else {
-      chartInstance.data.datasets[0].label = "Este Año";
-    }
-    
-    chartInstance.update();
+    const values = [];
+
+    dates.forEach(d => {
+      const key = isoDate(d);
+      labels.push(key);
+      values.push(revenueMap.has(key) ? revenueMap.get(key) : 0);
+    });
+
+    return { labels, values };
   }
 
-  async function setupAndInitChart() {
-    if (typeof window.Chart === 'undefined') {
-      try {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = CHARTJS_URL;
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Error cargando Chart.js'));
-          document.head.appendChild(script);
+  function aggregateToMonthly(labels, values) {
+    // retorna arrays: months (e.g. 'Jan 2025') y totals
+    const monthMap = new Map();
+    for (let i = 0; i < labels.length; i++) {
+      const dt = new Date(labels[i]);
+      const key = dt.toLocaleDateString('es-MX', { year: 'numeric', month: 'short' });
+      monthMap.set(key, (monthMap.get(key) || 0) + values[i]);
+    }
+    const months = Array.from(monthMap.keys());
+    const totals = Array.from(monthMap.values());
+    return { months, totals };
+  }
+
+  function movingAverage(arr, windowSize = 7) {
+    const res = [];
+    for (let i = 0; i < arr.length; i++) {
+      const start = Math.max(0, i - windowSize + 1);
+      const slice = arr.slice(start, i + 1);
+      const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+      res.push(Number(avg.toFixed(2)));
+    }
+    return res;
+  }
+
+  function formatMoney(value) {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+  }
+
+  /* -----------------------
+     Chart.js helpers/plugins
+     ----------------------- */
+  function createGradient(ctx, primaryColor) {
+    const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    g.addColorStop(0, primaryColor.replace('1)', '0.28)')); // assumes rgba like 'rgba(212,175,55,1)'
+    g.addColorStop(1, primaryColor.replace('1)', '0)'));
+    return g;
+  }
+
+  // plugin para sombra suave debajo de la línea
+  const shadowPlugin = {
+    id: 'lineShadow',
+    beforeDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      chart.data.datasets.forEach((dataset, i) => {
+        if (dataset._meta && dataset._meta.hidden) return;
+        const meta = chart.getDatasetMeta(i);
+        if (meta.type !== 'line') return;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.08)';
+        ctx.shadowBlur = 20;
+        ctx.globalCompositeOperation = 'destination-over';
+        ctx.strokeStyle = dataset.borderColor;
+        ctx.lineWidth = dataset.borderWidth || 3;
+        ctx.beginPath();
+        meta.data.forEach((point, idx) => {
+          const pos = point.getProps(['x','y'], true);
+          if (idx === 0) ctx.moveTo(pos.x, pos.y);
+          else ctx.lineTo(pos.x, pos.y);
         });
-      } catch (e) {
-        console.error("Error al cargar Chart.js", e);
-        return;
-      }
-    }
-
-    const canvas = document.getElementById('revenueChart');
-    if (!canvas) {
-      console.error("Elemento canvas no encontrado");
-      return;
-    }
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error("No se pudo obtener contexto 2D");
-      return;
-    }
-
-    if (chartInstance) {
-      chartInstance.destroy();
-      chartInstance = null;
-    }
-
-    const config = JSON.parse(JSON.stringify(chartConfig));
-    
-    // Crear gradiente
-    const bgColors = config.data.datasets[0].backgroundColor;
-    config.data.datasets[0].backgroundColor = createGradient(ctx, bgColors);
-    
-    // Inicializar gráfico
-    try {
-      chartInstance = new window.Chart(ctx, config);
-      updateChart(365); // Mostrar año por defecto
-    } catch (error) {
-      console.error("Error inicializando gráfico:", error);
-    }
-  }
-  
-  document.addEventListener('astro:page-load', () => {
-    setupAndInitChart();
-    
-    const filterContainer = document.getElementById('chart-filters');
-    if (filterContainer) {
-      // Establecer el botón activo inicial
-      const activeButton = filterContainer.querySelector('[data-period="365"]');
-      if (activeButton) {
-        activeButton.classList.add('bg-blue-600', 'text-white');
-        activeButton.classList.remove('bg-gray-100', 'text-gray-600');
-      }
-      
-      filterContainer.addEventListener('click', (e) => {
-        const target = e.target.closest('button');
-        if (target && target.dataset.period) {
-          const period = parseInt(target.dataset.period);
-          
-          // Actualizar todos los botones
-          filterContainer.querySelectorAll('button').forEach(btn => {
-            if (btn === target) {
-              btn.classList.add('bg-blue-600', 'text-white');
-              btn.classList.remove('bg-gray-100', 'text-gray-600');
-            } else {
-              btn.classList.add('bg-gray-100', 'text-gray-600');
-              btn.classList.remove('bg-blue-600', 'text-white');
-            }
-          });
-
-          updateChart(period);
-        }
+        ctx.stroke();
+        ctx.restore();
       });
     }
+  };
+
+  // plugin para resaltar el punto max con un pequeño glow
+  const highlightMaxPlugin = {
+    id: 'highlightMax',
+    afterDatasetsDraw(chart) {
+      const dataset = chart.data.datasets[0];
+      if (!dataset) return;
+      const meta = chart.getDatasetMeta(0);
+      const values = dataset.data;
+      const maxVal = Math.max(...values);
+      const maxIndex = values.indexOf(maxVal);
+      if (maxIndex < 0) return;
+      const point = meta.data[maxIndex];
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(212,175,55,0.18)';
+      ctx.arc(point.x, point.y, 18, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+    }
+  };
+
+  /* -----------------------
+     Chart initialization
+     ----------------------- */
+  async function ensureChartJs() {
+    if (typeof window.Chart === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = CHARTJS_URL;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Error cargando Chart.js'));
+        document.head.appendChild(script);
+      });
+    }
+    // registrar plugins si es necesario
+    if (window.Chart) {
+      const { Chart, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend, Title } = window.Chart;
+      // Cuando se usa UMD, los elementos ya están incluidos; registrar en caso de bundler
+      if (Chart.register) {
+        try {
+          Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip, Legend, Title, shadowPlugin, highlightMaxPlugin);
+        } catch (e) {
+          // ignore si ya están registrados
+        }
+      }
+    }
+  }
+
+  function buildMainConfig(labels, values) {
+    const canvas = document.getElementById('revenueChart');
+    const ctx = canvas.getContext('2d');
+
+    // colores dorados y neutrales
+    const gold = 'rgba(212,175,55,1)';
+    const gradient = createGradient(ctx, 'rgba(212,175,55,1)');
+
+    return {
+      type: 'line',
+      data: {
+        labels: labels.map(l => new Date(l).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })),
+        datasets: [
+          {
+            label: 'Ingresos',
+            data: values,
+            borderColor: gold,
+            borderWidth: 2.5,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: gold,
+            pointRadius: 4,
+            tension: 0.35,
+            fill: true,
+            backgroundColor: gradient,
+            hoverRadius: 6,
+            hoverBorderWidth: 2,
+            datalabels: { display: false }
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: '#111',
+            titleColor: '#D4AF37',
+            bodyColor: '#fff',
+            borderColor: '#D4AF37',
+            borderWidth: 1,
+            callbacks: {
+              title: (items) => {
+                if (!items.length) return '';
+                const idx = items[0].dataIndex;
+                const rawLabel = labels[idx];
+                return new Date(rawLabel).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+              },
+              label: (context) => {
+                const v = context.parsed.y || 0;
+                return ` ${formatMoney(v)}`;
+              },
+              afterBody: (ctx) => {
+                // agregar cambio diario (si aplica)
+                if (!ctx || !ctx[0]) return '';
+                const i = ctx[0].dataIndex;
+                const current = values[i] || 0;
+                const prev = values[i - 1] || 0;
+                const diff = current - prev;
+                const pct = prev === 0 ? null : ((diff / prev) * 100);
+                if (pct === null) return `Cambio día: ${formatMoney(diff)}`;
+                return `Cambio día: ${formatMoney(diff)} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+              }
+            }
+          },
+          title: { display: false }
+        },
+        scales: {
+          y: {
+            grid: { color: '#F3E9D2' },
+            ticks: {
+              color: '#8B8000',
+              callback: function(value) {
+                const num = typeof value === 'string' ? parseFloat(value) : value;
+                if (isNaN(num)) return value;
+                if (num >= 1000) return '$' + (num / 1000) + 'k';
+                return '$' + num;
+              },
+              font: { family: 'Poppins, sans-serif' }
+            }
+          },
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: '#6b5e00',
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 12,
+              font: { family: 'Poppins, sans-serif' }
+            }
+          }
+        }
+      },
+      plugins: [shadowPlugin, highlightMaxPlugin]
+    };
+  }
+
+  function buildSparkConfig(labels, maValues) {
+    const canvas = document.getElementById('sparkline');
+    const ctx = canvas.getContext('2d');
+    const gold = 'rgba(212,175,55,1)';
+
+    return {
+      type: 'line',
+      data: {
+        labels: labels.map(l => new Date(l)),
+        datasets: [{
+          data: maValues,
+          borderColor: gold,
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false }, y: { display: false }
+        }
+      }
+    };
+  }
+
+  /* -----------------------
+     UI updates (KPIs & insights)
+     ----------------------- */
+  function updateKpis(values, labels) {
+    const total = values.reduce((a, b) => a + b, 0);
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // sumar MTD
+    let mtd = 0;
+    for (let i = 0; i < labels.length; i++) {
+      if (new Date(labels[i]) >= startMonth) mtd += values[i];
+    }
+    // comparación vs periodo anterior (simple: compare last N days vs previous N days)
+    const n = values.length;
+    const half = Math.floor(n / 2) || 1;
+    const recent = values.slice(n - half, n).reduce((a, b) => a + b, 0);
+    const prev = values.slice(Math.max(0, n - 2 * half), n - half).reduce((a, b) => a + b, 0);
+    const pct = prev === 0 ? null : ((recent - prev) / prev) * 100;
+
+    const elTotal = document.getElementById('kpi-total');
+    const elMtd = document.getElementById('kpi-mtd');
+    const elPct = document.getElementById('kpi-pct');
+    const insightMax = document.getElementById('insight-max');
+    const insightAvg = document.getElementById('insight-avg');
+
+    if (elTotal) elTotal.textContent = formatMoney(total);
+    if (elMtd) elMtd.textContent = formatMoney(mtd);
+    if (elPct) elPct.textContent = pct === null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+
+    // insights
+    const max = Math.max(...values);
+    const avg = values.reduce((a, b) => a + b, 0) / (values.length || 1);
+    if (insightMax) insightMax.textContent = formatMoney(max);
+    if (insightAvg) insightAvg.textContent = formatMoney(Number(avg.toFixed(2)));
+  }
+
+  /* -----------------------
+     Interacción & montaje
+     ----------------------- */
+  async function initChartForPeriod(periodDays) {
+    await ensureChartJs();
+
+    const { labels, values } = buildSeries(periodDays);
+
+    // preparar datos para chart principal (usar labels como fechas ISO)
+    // Chart.js mostrará etiquetas legibles
+    const config = buildMainConfig(labels, values);
+
+    const canvas = document.getElementById('revenueChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    // destruir existente
+    if (chartInstance) {
+      try { chartInstance.destroy(); } catch(e) {}
+      chartInstance = null;
+    }
+
+    // reemplazar background gradient (depende del ctx size)
+    config.data.datasets[0].backgroundColor = createGradient(ctx, 'rgba(212,175,55,1)');
+
+    // init
+    chartInstance = new window.Chart(ctx, config);
+
+    // sparkline (7d moving average)
+    const ma = movingAverage(values, 7);
+    if (sparkInstance) {
+      try { sparkInstance.destroy(); } catch (e) {}
+      sparkInstance = null;
+    }
+    const sparkConfig = buildSparkConfig(labels, ma);
+    sparkInstance = new window.Chart(document.getElementById('sparkline').getContext('2d'), sparkConfig);
+
+    // KPIs
+    updateKpis(values, labels);
+  }
+
+  // setup eventos botones (delegación)
+  document.addEventListener('astro:page-load', () => {
+    // establecer evento para filtros
+    const filterContainer = document.getElementById('chart-filters');
+    if (filterContainer) {
+      const buttons = filterContainer.querySelectorAll('.period-btn');
+      // establecer por defecto 365
+      buttons.forEach(btn => {
+        if (btn.dataset.period === '365') {
+          btn.classList.add('bg-[#8B8000]', 'text-white');
+          btn.classList.remove('bg-[#FAF3E0]');
+        } else {
+          btn.classList.remove('bg-[#8B8000]', 'text-white');
+          btn.classList.add('bg-[#FAF3E0]');
+        }
+      });
+
+      filterContainer.addEventListener('click', (e) => {
+        const target = e.target.closest('button[data-period]');
+        if (!target) return;
+        const p = Number(target.dataset.period);
+        filterContainer.querySelectorAll('.period-btn').forEach(b => {
+          b.classList.remove('bg-[#8B8000]', 'text-white');
+          b.classList.add('bg-[#FAF3E0]', 'text-[#8B8000]');
+        });
+        target.classList.add('bg-[#8B8000]', 'text-white');
+        target.classList.remove('bg-[#FAF3E0]');
+        initChartForPeriod(p);
+      });
+    }
+
+    // iniciar gráfico por defecto
+    initChartForPeriod(365);
   });
 
-  // Limpieza al cambiar de página
+  // limpieza
   document.addEventListener('astro:before-swap', () => {
     if (chartInstance) {
-      chartInstance.destroy();
+      try { chartInstance.destroy(); } catch(e) {}
       chartInstance = null;
+    }
+    if (sparkInstance) {
+      try { sparkInstance.destroy(); } catch(e) {}
+      sparkInstance = null;
     }
   });
 </script>
