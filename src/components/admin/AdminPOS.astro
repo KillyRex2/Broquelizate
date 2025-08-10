@@ -47,7 +47,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
   <aside class="flex w-full max-w-sm flex-col border-l border-gray-200 bg-white shadow-lg">
     <div class="flex items-center justify-between border-b p-4">
       <h2 class="text-xl font-bold text-gray-800">Orden Actual</h2>
-      <button id="clear-cart-btn" class="text-sm font-medium text-red-500 hover:text-red-700 transition-colors">Vaciar Carrito</button>
+      <button id="admin-clear-cart-btn" class="text-sm font-medium text-red-500 hover:text-red-700 transition-colors">Vaciar Carrito</button>
     </div>
     <ul id="cart-items-list" class="flex-1 space-y-3 overflow-y-auto p-4">
       <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400">
@@ -103,7 +103,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     const checkoutButton = document.getElementById('checkout-button') as HTMLButtonElement;
     const searchInput = document.getElementById('search-input') as HTMLInputElement;
     const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement;
-    const clearCartBtn = document.getElementById('clear-cart-btn');
+    const clearCartBtn = document.getElementById('admin-clear-cart-btn');
 
     let cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
 
