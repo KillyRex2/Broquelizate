@@ -9,9 +9,9 @@ const { data: allProducts = [], error } = await Astro.callAction(actions.getAllP
 const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
 ---
 
-<div class="flex bg-gray-100 font-sans text-gray-800 rounded-lg">
+<div class="flex bg-gray-100 font-sans text-gray-800 rounded-lg ">
   {/* ✅ CORRECCIÓN 1: Se añade 'overflow-hidden' para forzar al contenido a respetar los límites de altura */}
-  <main class="flex-1 flex flex-col p-4 md:p-6 bg-gray-100 rounded-lg">
+  <main class="flex-1 flex flex-col p-4 md:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
     <header class="mb-6 flex flex-col md:flex-row items-center gap-4">
       <h1 class="text-2xl font-bold text-gray-900 hidden lg:block">Broqueventa</h1>
       <div class="relative flex-grow w-full">
@@ -32,10 +32,9 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     </header>
     
     {/* ✅ CORRECCIÓN 2: Se usa un grid automático que asegura un tamaño mínimo para las tarjetas. */}
- <div 
-   id="product-grid" 
-   class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-5 overflow-y-scroll p-2"
-   style="max-height: calc(100vh - 7rem);"
+<div id="product-grid"
+      class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5 overflow-y-auto p-2 min-h-0"
+     style="max-height: calc(100vh - 7rem);"
  >
       {allProducts.map(product => (
         <AdminProductCard product={product} />
@@ -44,7 +43,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
   </main>
   
   {/* --- La barra lateral del carrito se mantiene igual --- */}
-  <aside class="flex w-full max-w-sm flex-col border-l border-gray-200 bg-white shadow-lg">
+  <aside class="flex w-full max-w-sm flex-col border-l border-gray-200 bg-white shadow-lg h-screen overflow-y-auto">
     <div class="flex items-center justify-between border-b p-4">
       <h2 class="text-xl font-bold text-gray-800">Orden Actual</h2>
       <button id="admin-clear-cart-btn" class="text-sm font-medium text-red-500 hover:text-red-700 transition-colors">Vaciar Carrito</button>
@@ -135,7 +134,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
               loading="lazy"
             />
           </div>
-          <div class="flex flex-1 flex-col justify-between p-4 h-28">
+          <div class="flex flex-1 flex-col justify-between p-4 min-h-[9rem]">
             <h3 class="flex-1 text-sm font-medium text-gray-800 line-clamp-2">
               ${product.name}
             </h3>
