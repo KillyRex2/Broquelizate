@@ -14,7 +14,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   
   const stripe = new Stripe(stripeSecret, {
-    apiVersion: "2025-05-28.basil", // Usa la última versión estable
+    apiVersion: "2025-08-27.basil", // Usa la última versión estable
   });
 
   try {
