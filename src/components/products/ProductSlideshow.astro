@@ -1,62 +1,114 @@
 ---
-
-import 'swiper/css'
-import 'swiper/css/pagination'
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/navigation';
 
 interface Props {
     images: string[];
 }
 
-const {images} = Astro.props
+const { images } = Astro.props;
 
 const fullImages = images.map(image => {
     return image.startsWith('http')
-    ? image
-    : `${import.meta.env.PUBLIC_URL}/images/products/${ image }`
-})
+        ? image
+        : `${import.meta.env.PUBLIC_URL}/images/products/${image}`;
+});
 ---
 
+<div class="swiper product-swiper">
+    <div class="swiper-wrapper">
+        {
+            fullImages.map((image, index) => (
+                <div class="swiper-slide">
+                    <div class="w-full h-[400px] flex justify-center items-center bg-gray-100 rounded-2xl overflow-hidden">
+                        <img
+                            src={image}
+                            alt={`Product image ${index + 1}`}
+                            class="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
+                            loading={index === 0 ? "eager" : "lazy"}
+                        />
+                    </div>
+                </div>
+            ))
+        }
+    </div>
 
-<div class="swiper col-span-1 sm:col-span-2">
-  <!-- Wrapper necesario -->
-  <div class="swiper-wrapper">
-    {
-      fullImages.map(image => (
-        <div class="swiper-slide flex justify-center items-center">
-          <img
-            src={image}
-            alt="Product image"
-            class="rounded-2xl border border-gray-300 shadow-md transition-transform duration-300 "
-          />
-        </div>
-      ))
-    }
-  </div>
-
-  <div class="swiper-pagination mt-4"></div>
+    <div class="swiper-pagination mt-4"></div>
+    <div class="swiper-button-next"></div>
+    <div class="swiper-button-prev"></div>
 </div>
 
 <style>
-  .swiper {
-    width: 100%;
-    height: auto;
-  }
+    .product-swiper {
+        width: 100%;
+        height: auto;
+    }
+    
+    .swiper-slide {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .swiper-pagination-bullet {
+        background: #6b7280;
+        opacity: 0.7;
+    }
+    
+    .swiper-pagination-bullet-active {
+        background: #eab308;
+        opacity: 1;
+    }
+    
+    .swiper-button-next,
+    .swiper-button-prev {
+        color: #eab308;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        margin-top: -20px;
+    }
+    
+    .swiper-button-next:after,
+    .swiper-button-prev:after {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    @media (max-width: 640px) {
+        .swiper-button-next,
+        .swiper-button-prev {
+            display: none;
+        }
+    }
 </style>
 
 <script>
 import Swiper from 'swiper';
-import {Pagination} from 'swiper/modules';
+import { Pagination, Navigation } from 'swiper/modules';
 
 document.addEventListener('astro:page-load', () => {
-    const swiper = new Swiper('.swiper', {
+    const swiperElement = document.querySelector('.product-swiper') as any;
     
-      pagination: {
-        el: '.swiper-pagination'
-      },
-      modules: [Pagination]
-      
+    if (swiperElement?.swiper) {
+        swiperElement.swiper.destroy(true, true);
+    }
+
+    new Swiper('.product-swiper', {
+        modules: [Pagination, Navigation],
+        slidesPerView: 1,
+        spaceBetween: 0,
+        loop: false,
+        pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+        },
+        navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+        },
     });
-
-})
-
+});
 </script>

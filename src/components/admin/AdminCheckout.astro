@@ -3,10 +3,9 @@
 import { Icon } from 'astro-icon/components';
 import { actions } from 'astro:actions';
 
-// Corrected: Changed 'nombre' to 'name' to match the actual data.
 type Client = {
   id: number;
-  name: string; // Was 'nombre'
+  name: string;
   email?: string | null;
   address?: string | null;
   neighborhood?: string | null;
@@ -27,7 +26,6 @@ const { data: clientsData, error: err } = await Astro.callAction(
 );
 
 const clientsList: Client[] = clientsData?.clients || [];
-
 ---
 
 <div class="flex h-screen bg-gray-50 font-sans text-gray-800 rounded-lg">
@@ -192,8 +190,6 @@ const clientsList: Client[] = clientsData?.clients || [];
 <div id="clients-data" style="display: none;">
   {JSON.stringify(clientsList)}
 </div>
-<!-- Cambio 1 -->
-<div id="products-data" style="display: none;"></div>
 
 <style>
   details[open] > summary > svg { transform: rotate(180deg); }
@@ -208,7 +204,7 @@ const clientsList: Client[] = clientsData?.clients || [];
 
    type Client = {
     id: number;
-    name: string; // Ensure this matches the property from your data
+    name: string;
     email?: string | null;
     address?: string | null;
     neighborhood?: string | null;
@@ -222,35 +218,34 @@ const clientsList: Client[] = clientsData?.clients || [];
     phone: string | null;
     created_at: Date;
   };
-  // Define an interface for the items in our cart for better type safety.
+
   interface CartItem {
-    id: number;
+    productId: string;
+    variantId?: string;
     name: string;
+    variantName?: string;
     price: number;
     quantity: number;
     images?: string[];
+    stock: number;
+    sku?: string;
+    outOfStock?: boolean;
   }
 
-  // This single function will handle all page setup and event listener binding.
   function initializeCheckout() {
     let additionalAmount = 0;
-    // --- Element Selectors & Type Assertions ---
     let discountInfo = {
       amount: 0,
       type: null as 'fixed' | 'percentage' | null,
       percentageValue: 0
     };
+    
     const clientsDataElement = document.getElementById('clients-data');
     const clientsList: Client[] = clientsDataElement 
       ? JSON.parse(clientsDataElement.textContent || '[]') 
       : [];
     
     const cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
-     const productsDataElement = document.getElementById('products-data');
-    if (productsDataElement) {
-        // Guardamos los datos del carrito en el div para que la función de stock los pueda leer.
-        productsDataElement.textContent = JSON.stringify(cart);
-    }
     
     const headerTotalEl = document.getElementById('header-total');
     const summarySubtotalEl = document.getElementById('summary-subtotal');
@@ -258,7 +253,6 @@ const clientsList: Client[] = clientsData?.clients || [];
     const itemCountEl = document.getElementById('item-count');
     const cartSummaryListEl = document.getElementById('cart-items-summary');
     
-    // Use type assertions to tell TypeScript the specific type of the element.
     const amountReceivedEl = document.getElementById('amount-received') as HTMLInputElement | null;
     const clientSelectEl = document.getElementById('client-select') as HTMLSelectElement | null;
     const creditSaleRadio = document.getElementById('credit-sale-radio') as HTMLInputElement | null;
@@ -268,7 +262,6 @@ const clientsList: Client[] = clientsData?.clients || [];
     const discardSaleBtn = document.getElementById('discard-sale-btn');
     const cashRadio = document.getElementById('cash-radio') as HTMLInputElement | null;
 
-    // Selectors para los elementos de descuento
     const applyDiscountBtn = document.getElementById('apply-discount-btn');
     const discountApplyRowEl = document.getElementById('discount-apply-row');
     const discountSummaryRowEl = document.getElementById('discount-summary-row');
@@ -281,20 +274,14 @@ const clientsList: Client[] = clientsData?.clients || [];
     const summaryAdditionalAmountTextEl = document.getElementById('summary-additional-amount-text');
     const removeAdditionalAmountBtn = document.getElementById('remove-additional-amount-btn');
 
+    // ACTUALIZADO: Permite stocks negativos
     async function updateProductStock() {
-      if (!productsDataElement) {
-        console.error('Elemento de datos de productos no encontrado, no se puede actualizar el stock.');
-        return; // Salir silenciosamente si el div no existe
-      }
+      if (cart.length === 0) return;
 
-      // Parsear los datos de productos desde el div
-      const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
-      if (rawProductsData.length === 0) return; // No hay productos que actualizar
-
-      // Crear datos para actualizar stock (id y cantidad vendida)
-      const stockUpdateData = rawProductsData.map((p: any) => ({
-        id: p.id,
-        quantity: p.quantity // La cantidad vendida
+      const stockUpdateData = cart.map((item: CartItem) => ({
+        productId: item.productId,
+        variantId: item.variantId || null,
+        quantity: item.quantity
       }));
       
       try {
@@ -306,19 +293,17 @@ const clientsList: Client[] = clientsData?.clients || [];
 
         if (!response.ok) {
           const errorResponse = await response.json();
-          // Lanza un error para que sea capturado por el catch de handleFinalizeSale
-          throw new Error(errorResponse.error || 'Error al actualizar el stock');
+          console.error('Error al actualizar stock:', errorResponse.error);
+          // No lanzamos error, solo lo registramos
+        } else {
+          console.log('Stock actualizado exitosamente (puede quedar negativo).');
         }
 
-        console.log('Stock actualizado exitosamente.');
-
       } catch (error) {
-        console.error('Error crítico al actualizar el stock:', error);
-        // Re-lanzamos el error para que el proceso de venta principal sepa que algo falló.
-        throw error;
+        console.error('Error al actualizar el stock:', error);
+        // No lanzamos error, la venta ya se procesó
       }
     }
-
 
     function updateTotals() {
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -359,26 +344,46 @@ const clientsList: Client[] = clientsData?.clients || [];
       }
     }
     
-     function updateCartSummary() {
-      if (itemCountEl) itemCountEl.textContent = `${cart.length} ${cart.length === 1 ? 'Item' : 'Items'}`;
+    function updateCartSummary() {
+      const uniqueItemsCount = cart.length;
+      const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+      
+      if (itemCountEl) {
+        itemCountEl.textContent = `${uniqueItemsCount} ${uniqueItemsCount === 1 ? 'Producto' : 'Productos'} (${totalQuantity} unidades)`;
+      }
+      
       if (cartSummaryListEl) {
         if (cart.length > 0) {
-          cartSummaryListEl.innerHTML = cart.map((item) => `
-            <li class="flex items-center gap-4">
-              <img src="${item.images?.[0] || 'https://placehold.co/100'}" alt="${item.name}" class="h-12 w-12 rounded-md object-cover" />
-              <div class="flex-grow">
-                <p class="font-semibold">${item.name}</p>
-                <p class="text-sm text-gray-600">${item.quantity} x ${formatCurrency(item.price)}</p>
-              </div>
-              <p class="font-semibold">${formatCurrency(item.price * item.quantity)}</p>
-            </li>
-          `).join('');
+          cartSummaryListEl.innerHTML = cart.map((item) => {
+            const displayName = item.variantName 
+              ? `${item.name} - ${item.variantName}` 
+              : item.name;
+            
+            return `
+              <li class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors ${item.outOfStock ? 'bg-orange-50 border border-orange-200' : ''}">
+                <img 
+                  src="${item.images?.[0] || 'https://placehold.co/100'}" 
+                  alt="${displayName}" 
+                  class="h-16 w-16 rounded-md object-cover shadow-sm" 
+                />
+                <div class="flex-grow">
+                  <p class="font-semibold text-gray-900">${displayName}</p>
+                  ${item.sku ? `<p class="text-xs text-gray-500">SKU: ${item.sku}</p>` : ''}
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="text-sm text-gray-600">${item.quantity} x ${formatCurrency(item.price)}</span>
+                    ${item.outOfStock ? `<span class="text-xs text-orange-600 font-medium">⚠️ Sin stock en sistema</span>` : ''}
+                  </div>
+                </div>
+                <p class="font-bold text-lg text-gray-900">${formatCurrency(item.price * item.quantity)}</p>
+              </li>
+            `;
+          }).join('');
         } else {
-          cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
+          cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic text-center py-8">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
         }
       }
     }
-        // NUEVO: Función para agregar monto adicional
+
     async function handleAddAmount() {
         const { value: amountStr } = await Swal.fire({
             title: 'Agregar Monto Adicional',
@@ -401,45 +406,13 @@ const clientsList: Client[] = clientsData?.clients || [];
         }
     }
 
-    // NUEVO: Función para quitar el monto adicional
     function handleRemoveAdditionalAmount() {
       additionalAmount = 0;
       updateTotals();
     }
-    
 
-
-    // --- Utility Functions ---
     const formatCurrency = (value: number): string => `$${Number(value).toFixed(2)}`;
-    
-    // --- State & UI Update ---
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const total = subtotal; // Assuming no tax or other fees for now
 
-    if (headerTotalEl) headerTotalEl.textContent = formatCurrency(total);
-    if (summarySubtotalEl) summarySubtotalEl.textContent = formatCurrency(subtotal);
-    if (summaryTotalEl) summaryTotalEl.textContent = formatCurrency(total);
-    if (amountReceivedEl) amountReceivedEl.placeholder = `Valor recibido (${formatCurrency(total)})`;
-    if (itemCountEl) itemCountEl.textContent = `${cart.length} ${cart.length === 1 ? 'Item' : 'Items'}`;
-
-    if (cartSummaryListEl) {
-      if (cart.length > 0) {
-        cartSummaryListEl.innerHTML = cart.map((item) => `
-          <li class="flex items-center gap-4">
-            <img src="${item.images?.[0] || 'https://placehold.co/100'}" alt="${item.name}" class="h-12 w-12 rounded-md object-cover" />
-            <div class="flex-grow">
-              <p class="font-semibold">${item.name}</p>
-              <p class="text-sm text-gray-600">${item.quantity} x ${formatCurrency(item.price)}</p>
-            </div>
-            <p class="font-semibold">${formatCurrency(item.price * item.quantity)}</p>
-          </li>
-        `).join('');
-      } else {
-        cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
-      }
-    }
-
-    // --- Core Logic Functions ---
     function toggleCreditOption() {
       if (!clientSelectEl || !creditSaleRadio || !creditSaleLabel || !creditSaleInfo) return;
 
@@ -453,7 +426,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         cashRadio.checked = true;
       }
     }
-    // NUEVO: Función para manejar el modal de descuento
+
     async function handleApplyDiscount() {
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -464,7 +437,6 @@ const clientsList: Client[] = clientsData?.clients || [];
                     <p class="text-sm text-gray-500 mb-6">Elige una opción. Solo se aplicará un tipo de descuento.</p>
 
                     <div class="space-y-5">
-                      <!-- Descuento Fijo -->
                       <div>
                         <label for="swal-fixed-discount" class="block text-gray-700 font-medium mb-1">
                           Descuento fijo ($)
@@ -478,7 +450,6 @@ const clientsList: Client[] = clientsData?.clients || [];
                         />
                       </div>
 
-                      <!-- Descuento Porcentaje -->
                       <div>
                         <label for="swal-percentage-discount" class="block text-gray-700 font-medium mb-1">
                           Descuento por Porcentaje (%)
@@ -493,7 +464,6 @@ const clientsList: Client[] = clientsData?.clients || [];
                       </div>
                     </div>
                   </div>
-
             `,
             confirmButtonText: 'Aplicar descuento',
             confirmButtonColor: '#d97706',
@@ -560,6 +530,7 @@ const clientsList: Client[] = clientsData?.clients || [];
       updateTotals();
     }
 
+    // ACTUALIZADO: Sin validación de stock
     async function handleFinalizeSale() {
       const paymentMethodEl = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement | null;
       if (!paymentMethodEl || !clientSelectEl) return;
@@ -570,13 +541,24 @@ const clientsList: Client[] = clientsData?.clients || [];
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const total = subtotal + additionalAmount - discountInfo.amount;
 
-
       if (paymentMethod === 'Venta a crédito' && !clientId) {
-        Swal.fire({ icon: 'error', title: 'Cliente no seleccionado', text: 'Debes seleccionar un cliente para realizar una venta a crédito.', confirmButtonColor: '#d97706' });
+        Swal.fire({ 
+          icon: 'error', 
+          title: 'Cliente no seleccionado', 
+          text: 'Debes seleccionar un cliente para realizar una venta a crédito.', 
+          confirmButtonColor: '#d97706' 
+        });
         return;
       }
+
+      // SIN VALIDACIÓN DE STOCK - permite vender con stock negativo
       
-      Swal.fire({ title: 'Procesando Venta...', html: 'Por favor, espera.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      Swal.fire({ 
+        title: 'Procesando Venta...', 
+        html: 'Por favor, espera.', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+      });
 
       try {
         const selectedClient = clientId ? clientsList.find(c => c.id === clientId) : null;
@@ -586,7 +568,14 @@ const clientsList: Client[] = clientsData?.clients || [];
           clientId,
           customerEmail,
           shippingAddress: {},
-          products: cart.map(p => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity })),
+          products: cart.map(item => ({ 
+            id: item.productId,
+            variantId: item.variantId || null,
+            name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+            price: item.price, 
+            quantity: item.quantity,
+            sku: item.sku || null
+          })),
           subtotal,
           additionalCharges: additionalAmount,
           discount: discountInfo.amount,
@@ -604,54 +593,75 @@ const clientsList: Client[] = clientsData?.clients || [];
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Error del servidor');
 
-         await updateProductStock();
-         if (paymentMethod === 'Venta a crédito' && clientId) {
+        // Actualizar stock (puede quedar negativo)
+        await updateProductStock();
         
-        const updateResult = await actions.updateClientBalance({
-          clientId: clientId,
-          amountToAdd: total
-        });
+        if (paymentMethod === 'Venta a crédito' && clientId) {
+          const updateResult = await actions.updateClientBalance({
+            clientId: clientId,
+            amountToAdd: total
+          });
 
-        if (updateResult.error) {
-          // Si hay un error, lo mostramos, pero la venta ya se registró.
-          console.error("Error al actualizar el saldo del cliente:", updateResult.error.message);
-          // Opcional: Mostrar una alerta al usuario.
-          Swal.fire('Venta registrada', 'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.', 'warning');
+          if (updateResult.error) {
+            console.error("Error al actualizar el saldo del cliente:", updateResult.error.message);
+            Swal.fire('Venta registrada', 'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.', 'warning');
+          }
         }
-      }
         
         localStorage.removeItem('admin-pos-cart');
 
-        const storeInfo = { name: "Broquelizate", address: "Calle Escobedo esquina con Calle Bravo (segundo piso), Colonia Centro, Gómez Palacio, Durango. -", phone: "528 714 617696", rfc: "XAXX010101000" };
-        // ✅ INICIO DE LA CORRECCIÓN
+        const storeInfo = { 
+          name: "Broquelizate", 
+          address: "Calle Escobedo esquina con Calle Bravo (segundo piso), Colonia Centro, Gómez Palacio, Durango.", 
+          phone: "528 714 617696", 
+          rfc: "XAXX010101000" 
+        };
+        
         const showOnReceiptCheckbox = document.getElementById('show-on-receipt') as HTMLInputElement | null;
         const observationsTextarea = document.getElementById('observation') as HTMLTextAreaElement | null;
         const observationsText = (showOnReceiptCheckbox?.checked && observationsTextarea) ? observationsTextarea.value : undefined;
+        
         Swal.fire({
           icon: 'success',
           title: '¡Venta Finalizada!',
-          html: `La orden <strong>#${result.orderNumber}</strong> ha sido registrada.`,
+          html: `La orden <strong>#${result.orderNumber}</strong> ha sido registrada exitosamente.`,
           showCancelButton: true,
-          confirmButtonText: '🖨️ Imprimir Ticket',
+          confirmButtonText: 'Imprimir Ticket',
           cancelButtonText: 'Nueva Venta',
+          confirmButtonColor: '#d97706',
+          cancelButtonColor: '#6b7280'
         }).then((res: SweetAlertResult) => {
           if (res.isConfirmed) {
-          generateAndPrintTicket(
-          cart,
-          total,
-          result.orderNumber,
-          paymentMethod,
-          storeInfo,
-          orderData.discount,
-          orderData.additionalCharges,
-          observationsText
-        );
+            const ticketCart = cart.map(item => ({
+              id: parseInt(item.productId),
+              name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+              price: item.price,
+              quantity: item.quantity,
+              images: item.images
+            }));
+            
+            generateAndPrintTicket(
+              ticketCart,
+              total,
+              result.orderNumber,
+              paymentMethod,
+              storeInfo,
+              orderData.discount,
+              orderData.additionalCharges,
+              observationsText
+            );
           }
+          Swal.close();
           navigate('/admin/sale');
         });
 
       } catch (err: unknown) {
-        Swal.fire('Error', err instanceof Error ? err.message : 'No se pudo finalizar la venta.', 'error');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: err instanceof Error ? err.message : 'No se pudo finalizar la venta.',
+          confirmButtonColor: '#d97706'
+        });
       }
     }
 
@@ -667,13 +677,13 @@ const clientsList: Client[] = clientsData?.clients || [];
       }).then((result: SweetAlertResult) => {
         if (result.isConfirmed) {
           localStorage.removeItem('admin-pos-cart');
+          Swal.close();
           navigate('/admin/sale')
         }
       });
     }
 
-    // --- Event Listeners ---
-    // Make sure to only attach listeners if the element exists.
+    // Event Listeners
     clientSelectEl?.addEventListener('change', toggleCreditOption);
     finalizeSaleBtn?.addEventListener('click', handleFinalizeSale);
     discardSaleBtn?.addEventListener('click', handleDiscardSale);
@@ -682,14 +692,25 @@ const clientsList: Client[] = clientsData?.clients || [];
     addAmountBtn?.addEventListener('click', handleAddAmount);
     removeAdditionalAmountBtn?.addEventListener('click', handleRemoveAdditionalAmount);
 
-
-    // Initial call to set the state correctly on page load.
+    // Inicialización
     updateCartSummary();
-    updateTotals(); // MODIFICADO: Llamada a la nueva función central
+    updateTotals();
     toggleCreditOption();
+
+    // Verificar si el carrito está vacío
+    if (cart.length === 0) {
+      navigate('/admin/sale');
+      return;
+    }
   }
 
-  // The 'astro:page-load' event is the standard way to run scripts
-  // on page load and after client-side navigation in Astro.
-  document.addEventListener('astro:page-load', initializeCheckout);
+// Por esto:
+document.addEventListener('astro:page-load', () => {
+  // Verificar que estamos en la página correcta
+  if (window.location.pathname !== '/admin/checkout') {
+    return; // No ejecutar si no estamos en checkout
+  }
+  
+  initializeCheckout();
+});
 </script>

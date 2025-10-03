@@ -70,23 +70,23 @@ export const handler = async ({
       filters.push(gt(Product.stock, 0));
     }
     
-  // FILTRO POR PIERCING - ACTUALIZADO (conserva acentos)
+    // FILTRO POR PIERCING - CORREGIDO con validación null
     if (piercing && piercing !== 'all' && validPiercings.includes(piercing)) {
       console.log(`Filtrando por piercing: ${piercing}`);
       
-      // Buscar coincidencia exacta con acentos
-      filters.push(sql`${Product.piercing_name} LIKE ${'%' + piercing + '%'}`);
+      // Buscar coincidencia exacta con acentos - usando placeholders seguros
+      const piercingPattern = `%${piercing}%`;
+      filters.push(sql`${Product.piercing_name} LIKE ${piercingPattern}`);
     }
 
-        if (search && search.trim() !== '') {
+    // FILTRO POR BÚSQUEDA - CORREGIDO con validación null
+    if (search && search.trim() !== '') {
       console.log(`Filtrando por término de búsqueda: ${search}`);
-      filters.push(sql`(LOWER(${Product.name}) LIKE ${'%' + search.toLowerCase() + '%'} OR LOWER(${Product.description}) LIKE ${'%' + search.toLowerCase() + '%'})`);
+      const searchPattern = `%${search.toLowerCase()}%`;
+      filters.push(
+        sql`(LOWER(${Product.name}) LIKE ${searchPattern} OR LOWER(${Product.description}) LIKE ${searchPattern})`
+      );
     }
-
-    //    // Validar piercings
-    // if (piercing !== 'all' && !validPiercings.includes(piercing)) {
-    //   filteredCategory = 'all';
-    // }
     
     // Consulta para el conteo total
     const countQuery = db
@@ -141,14 +141,23 @@ export const handler = async ({
     // Obtener IDs de productos para buscar imágenes
     const productIds = products.map(p => p.id);
     
-    // Consulta para imágenes
-    const imagesQuery = await db
-      .select({
-        productId: ProductImage.productId,
-        image: ProductImage.image
-      })
-      .from(ProductImage)
-      .where(inArray(ProductImage.productId, productIds));
+    // Consulta para imágenes - con validación de IDs vacíos y null safety
+    let imagesQuery: Array<{ productId: string; image: string }> = [];
+    if (productIds.length > 0) {
+      const rawImagesQuery = await db
+        .select({
+          productId: ProductImage.productId,
+          image: ProductImage.image
+        })
+        .from(ProductImage)
+        .where(inArray(ProductImage.productId, productIds));
+      
+      // Filtrar solo las imágenes con productId válido (no null)
+      imagesQuery = rawImagesQuery
+        .filter((img): img is { productId: string; image: string } => 
+          img.productId !== null
+        );
+    }
     
     // Agrupar imágenes por producto
     const imagesMap = new Map<string, string[]>();
@@ -185,48 +194,48 @@ export const getProductsByPage = defineAction({
   handler
 });
 
- export const getInventoryStats = defineAction({
-    handler: async () => {
-      // Obtenemos TODOS los productos para los cálculos
-      const allProducts = await db.select().from(Product);
+export const getInventoryStats = defineAction({
+  handler: async () => {
+    // Obtenemos TODOS los productos para los cálculos
+    const allProducts = await db.select().from(Product);
 
-      // Definimos el umbral para "Stock bajo"
-      const LOW_STOCK_THRESHOLD = 5;
+    // Definimos el umbral para "Stock bajo"
+    const LOW_STOCK_THRESHOLD = 5;
 
-      // Realizamos los cálculos
-      const stats = allProducts.reduce((acc, product) => {
-        const stock = product.stock ?? 0;
-        const price = product.price ?? 0;
-        const cost = product.cost ?? 0;
+    // Realizamos los cálculos
+    const stats = allProducts.reduce((acc, product) => {
+      const stock = product.stock ?? 0;
+      const price = product.price ?? 0;
+      const cost = product.cost ?? 0;
 
-        if (stock > 0) {
-          acc.totalValue += price * stock;
-          acc.totalCost += cost * stock;
-          acc.inStockCount++;
-        }
+      if (stock > 0) {
+        acc.totalValue += price * stock;
+        acc.totalCost += cost * stock;
+        acc.inStockCount++;
+      }
 
-        if (stock === 0) {
-          acc.outOfStockCount++;
-        }
+      if (stock === 0) {
+        acc.outOfStockCount++;
+      }
 
-        if (stock > 0 && stock <= LOW_STOCK_THRESHOLD) {
-          acc.lowStockCount++;
-        }
+      if (stock > 0 && stock <= LOW_STOCK_THRESHOLD) {
+        acc.lowStockCount++;
+      }
 
-        return acc;
-      }, {
-        totalValue: 0,
-        totalCost: 0,
-        inStockCount: 0,
-        outOfStockCount: 0,
-        lowStockCount: 0,
-      });
+      return acc;
+    }, {
+      totalValue: 0,
+      totalCost: 0,
+      inStockCount: 0,
+      outOfStockCount: 0,
+      lowStockCount: 0,
+    });
 
-      const estimatedProfit = stats.totalValue - stats.totalCost;
+    const estimatedProfit = stats.totalValue - stats.totalCost;
 
-      return {
-        ...stats,
-        estimatedProfit
-      };
-    }
-  })
+    return {
+      ...stats,
+      estimatedProfit
+    };
+  }
+});

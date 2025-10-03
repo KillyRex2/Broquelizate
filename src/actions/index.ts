@@ -3,12 +3,13 @@ import { getProductBySlug } from "./products/get-product-by-slug.action";
 import { getInventoryStats, getProductsByPage } from "./products/get-products-by-page.action";
 import { loadProductsFromCart } from "./cart/load-products-from-cart.actions";
 import { crateUpdateProduct } from "./admin/create-update-product.action";
-import { deleteProductImage } from "./products/delete-product-image.actions";
+import { deleteProductImage } from "./admin/create-update-product.action";
 import { deleteProduct } from "./admin/create-update-product.action";
 import { getClientById, updateClient, getAllClients, updateClientBalance } from './admin/update-client.action'
 import { getAllProductsWithImages } from "./admin/get-all-products.action";
 import { capturePaypalOrder, createPaypalOrder } from "./admin/paypal";
 import { subscribeToNewsletter } from "./newsletter/newsletter.action";
+import { createBatchVariants, generateVariantCombinations, updateCombinationStock, getGroupedProductVariants, deleteVariant, deleteVariantGroup, updateVariant, getVariantCombination,  } from "./admin/product-variants.action";
 
 export const server = {
     // server actions
@@ -44,5 +45,15 @@ export const server = {
     capturePaypalOrder,
 
     // Newsletter
-    subscribeToNewsletter
+    subscribeToNewsletter,
+    
+    // Variants
+    getVariantCombination,
+    getGroupedProductVariants,
+    createBatchVariants,
+    generateVariantCombinations,
+    updateCombinationStock,
+    deleteVariant,
+    deleteVariantGroup,
+    updateVariant,
 }

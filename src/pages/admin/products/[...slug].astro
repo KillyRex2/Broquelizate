@@ -1,47 +1,100 @@
 ---
-// --- TU FRONTMATTER SE MANTIENE IGUAL ---
-import ProductImage from '@/components/products/ProductImage.astro';
 import ProductSlideshow from '@/components/products/ProductSlideshow.astro';
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { actions } from 'astro:actions';
 
-const { slug } = Astro.params;
-const { data: productData, error } = await Astro.callAction(actions.getProductBySlug, slug ?? '');
-
-if (error) {
-  return Astro.redirect('/404');
+// Definir tipos para las imágenes y el producto
+interface ProductImage {
+  id: string;
+  image: string;
+  productId?: string;
+  variantId?: string | null;
 }
 
-const { product: rawProduct, images: initialImages } = productData;
+interface ProductData {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  cost: number | null;
+  stock: number;
+  category: string;
+  type: string;
+  piercing_name: string[] | string;
+  hasVariants: boolean;
+  user?: string;
+}
 
-const product = {
-  ...rawProduct,
-  piercing_name:
-    Array.isArray(rawProduct.piercing_name)
-      ? rawProduct.piercing_name
-      : rawProduct.piercing_name
-        ? rawProduct.piercing_name.split(',').map(p => p.trim())
-        : []
-};
+// Determinar si es creación o edición
+const slugs = Astro.params.slug?.split('/') || [];
+const isCreate = slugs[0] === 'new';
+const productSlug = !isCreate ? slugs.join('/') : '';
+
+let product: ProductData | null = null;
+let initialImages: ProductImage[] = [];
+let variantData = null;
+
+if (!isCreate) {
+  // Modo edición: cargar producto existente
+  const { data: productData, error } = await Astro.callAction(actions.getProductBySlug, productSlug);
+  
+  if (error) {
+    return Astro.redirect('/404');
+  }
+  
+  // Asegurar que el producto tiene todas las propiedades necesarias
+  product = {
+    ...productData.product,
+    hasVariants: productData.product.hasVariants ?? false,
+    cost: productData.product.cost ?? 0,
+    piercing_name: Array.isArray(productData.product.piercing_name)
+      ? productData.product.piercing_name
+      : productData.product.piercing_name
+        ? productData.product.piercing_name.split(',').map((p: string) => p.trim())
+        : []
+  } as ProductData;
+  
+  initialImages = productData.images || [];
+  
+  // Cargar variantes si el producto las tiene
+  if (product.hasVariants) {
+    const { data: variants } = await Astro.callAction(actions.getGroupedProductVariants, product.id);
+    variantData = variants;
+  }
+} else {
+  // Modo creación: valores por defecto
+  product = {
+    id: '',
+    name: 'Broquel Perron',
+    slug: 'nuevo-producto',
+    description: 'Elegante [inserte nombre] que realza tu estilo con sofisticación y calidad excepcional.',
+    price: 0,
+    cost: 0,
+    stock: 0,
+    category: 'Titanio',
+    type: 'Broqueles',
+    piercing_name: [],
+    hasVariants: false
+  };
+}
+
+const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}`;
 ---
 
-<AdminLayout title={`Editando: ${product.name}`}>
+<AdminLayout title={pageTitle}>
   <section class="p-4 md:p-8 text-gray-800">
     <header class="mb-8">
-      <h1 class="text-4xl font-extrabold tracking-tight text-yellow-600">{product.name}</h1>
+      <h1 class="text-4xl font-extrabold tracking-tight text-yellow-600">
+        {isCreate ? 'Crear Nuevo Producto' : product.name}
+      </h1>
       <a href="/admin/products" class="inline-block mt-4 text-yellow-600 hover:underline font-medium">
         ← Volver a la lista de productos
       </a>
     </header>
 
-    <form 
-      id="product-form" 
-      class="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-24" 
-      
-      enctype="multipart/form-data"
-      
-    >
-      <input type="hidden" name="id" value={product.id} />
+    <form id="product-form" class="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-24" enctype="multipart/form-data">
+      {!isCreate && <input type="hidden" name="id" value={product.id} />}
 
       <div class="lg:col-span-2 space-y-8">
         <!-- Datos Generales -->
@@ -73,11 +126,12 @@ const product = {
             </div>
             <div>
               <label for="cost" class="form-label">Costo</label>
-              <input id="cost" name="cost" type="number" step="0.01" value={product.cost} required class="form-input" />
+              <input id="cost" name="cost" type="number" step="0.01" value={product.cost || 0} required class="form-input" />
             </div>
             <div>
-              <label for="stock" class="form-label">Inventario</label>
+              <label for="stock" class="form-label">Inventario Base</label>
               <input id="stock" name="stock" type="number" value={product.stock} required class="form-input" />
+              <span class="text-xs text-slate-500 mt-1 block">Stock general del producto sin variantes</span>
             </div>
             <div>
               <label for="category" class="form-label">Material</label>
@@ -98,12 +152,151 @@ const product = {
           </div>
         </div>
 
+        <!-- Configuración de Variantes -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="card-title mb-0">Configuración de Variantes</h2>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                id="hasVariants" 
+                name="hasVariants" 
+                checked={product.hasVariants}
+                class="h-5 w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600"
+              />
+              <span class="font-medium text-slate-700">Habilitar variantes</span>
+            </label>
+          </div>
+          
+          <div id="variants-container" class={product.hasVariants ? '' : 'hidden'}>
+            <!-- Panel de gestión de variantes -->
+            <div class="space-y-4">
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p class="text-sm text-amber-800">
+                  Las variantes te permiten ofrecer diferentes versiones del mismo producto (ej: colores, tamaños).
+                  Cada variante puede tener su propio precio, stock y SKU. Puedes editar o eliminar cada variante individualmente.
+                </p>
+              </div>
+
+              <!-- Botones de acción para variantes -->
+              {!isCreate && (
+                <div class="flex flex-wrap gap-3">
+                  <button type="button" id="add-variant-btn" class="btn-secondary">
+                    + Agregar Variante
+                  </button>
+                  <button type="button" id="generate-combinations-btn" class="btn-secondary">
+                    ⚡ Generar Combinaciones
+                  </button>
+                </div>
+              )}
+
+              <!-- Lista de variantes existentes con opciones de edición -->
+              <div id="variants-list" class="space-y-3">
+                {variantData?.groupedVariants && Object.entries(variantData.groupedVariants).map(([variantName, group]: [string, any]) => (
+                  <div class="border border-slate-200 rounded-lg p-4 bg-slate-50 variant-group" data-variant-name={variantName}>
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="font-semibold text-slate-800">{variantName}</h4>
+                      <button 
+                        type="button" 
+                        class="delete-variant-group text-red-600 hover:text-red-800 text-sm font-medium"
+                        data-variant-name={variantName}
+                      >
+                        Eliminar grupo
+                      </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {group.options.map((option: any) => (
+                        <div class="flex items-center justify-between bg-white rounded px-3 py-2 border border-slate-200 variant-item" data-variant-id={option.id}>
+                          <div class="flex-1">
+                            <span class="text-sm font-medium">{option.value}</span>
+                            <div class="flex items-center gap-3 mt-1 text-xs text-slate-600">
+                              {option.priceAdjustment !== 0 && (
+                                <span class={option.priceAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}
+                                </span>
+                              )}
+                              <span>Stock: {option.stock}</span>
+                              {option.sku && <span>SKU: {option.sku}</span>}
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <button 
+                              type="button" 
+                              class="edit-variant text-blue-600 hover:text-blue-800 p-1"
+                              data-variant-id={option.id}
+                              data-variant-name={variantName}
+                              data-variant-value={option.value}
+                              data-price-adjustment={option.priceAdjustment}
+                              data-stock={option.stock}
+                              data-sku={option.sku || ''}
+                            >
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button 
+                              type="button" 
+                              class="delete-variant text-red-600 hover:text-red-800 p-1"
+                              data-variant-id={option.id}
+                            >
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <!-- Combinaciones generadas -->
+              {variantData?.combinations && variantData.combinations.length > 0 && (
+                <div class="mt-6">
+                  <h3 class="font-semibold text-slate-800 mb-3">Combinaciones Activas</h3>
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200">
+                      <thead class="bg-slate-50">
+                        <tr>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Combinación</th>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Precio</th>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Stock</th>
+                          <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">SKU</th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-slate-200">
+                        {variantData.combinations.map((combo: any) => (
+                          <tr>
+                            <td class="px-4 py-2 text-sm">{combo.combinationName}</td>
+                            <td class="px-4 py-2 text-sm">${combo.price}</td>
+                            <td class="px-4 py-2 text-sm">
+                              <input 
+                                type="number" 
+                                value={combo.stock} 
+                                data-combination-id={combo.id}
+                                class="w-20 px-2 py-1 border rounded combination-stock-input"
+                              />
+                            </td>
+                            <td class="px-4 py-2 text-sm">{combo.sku || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <!-- Tipos de Perforación -->
         <div class="card">
           <h2 class="card-title">Tipos de Perforación</h2>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             {['Lóbulo','Lóbulo Superior','Hélix','Antihelix','Tragus','Antitragus','Rook','Conch','Daith','Industrial','Séptum','Nóstril','Navel','Flat','Ninguno'].map(p => {
-              const isChecked = product.piercing_name.includes(p);
+              const piercingArray = Array.isArray(product.piercing_name) ? product.piercing_name : [];
+              const isChecked = piercingArray.includes(p);
               return (
                 <label class="flex items-center space-x-3 cursor-pointer">
                   <input type="checkbox" name="piercing_name" value={p} checked={isChecked} class="h-5 w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" />
@@ -115,19 +308,27 @@ const product = {
         </div>
       </div>
 
+      <!-- Columna lateral derecha para imágenes -->
       <div class="lg:col-span-1 space-y-8">
         <!-- Imágenes -->
         <div class="card">
           <h2 class="card-title">Imágenes</h2>
-          <div id="slideshow-container">
-            <ProductSlideshow images={initialImages.map(i => i.image)} />
-          </div>
+          
+          {!isCreate && initialImages.length > 0 && (
+            <div id="slideshow-container" class="mb-6">
+              <ProductSlideshow images={initialImages.map(i => i.image)} />
+            </div>
+          )}
 
           <!-- Subir nuevas -->
           <div class="mt-6">
-            <label for="file-upload" class="form-label">Añadir nuevas imágenes</label>
+            <label for="file-upload" class="form-label">
+              {isCreate ? 'Agregar imágenes' : 'Añadir nuevas imágenes'}
+            </label>
             <div id="drop-zone" class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer bg-white hover:bg-slate-50 hover:border-yellow-600 transition-colors">
-              <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+              <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+              </svg>
               <p class="text-sm text-slate-500">Click o arrastra para subir</p>
               <input id="file-upload" name="imageFiles" type="file" accept="image/*" multiple class="hidden" />
             </div>
@@ -135,15 +336,19 @@ const product = {
           <div id="new-images-preview" class="mt-4 grid grid-cols-3 gap-2"></div>
 
           <!-- Imágenes actuales -->
-          <h3 class="form-label mt-6 mb-2">Imágenes Actuales</h3>
-          <ul id="image-list-container" class="space-y-2">
-            {initialImages.map(i => (
-              <li data-id={i.id} class="flex items-center justify-between">
-                <img src={i.image} alt="imagen actual" class="h-16 w-16 object-cover rounded" />
-                <button type="button" data-id={i.id} class="text-red-600 hover:underline delete-existing">Eliminar</button>
-              </li>
-            ))}
-          </ul>
+          {!isCreate && initialImages.length > 0 && (
+            <>
+              <h3 class="form-label mt-6 mb-2">Imágenes Actuales</h3>
+              <ul id="image-list-container" class="space-y-2">
+                {initialImages.map(i => (
+                  <li data-id={i.id} class="flex items-center justify-between">
+                    <img src={i.image} alt="imagen actual" class="h-16 w-16 object-cover rounded" />
+                    <button type="button" data-id={i.id} class="text-red-600 hover:underline delete-existing">Eliminar</button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       </div>
     </form>
@@ -152,177 +357,701 @@ const product = {
     <div class="fixed bottom-0 left-0 lg:left-80 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4 z-50">
       <div class="max-w-6xl mx-auto flex justify-end">
         <button type="submit" form="product-form" id="save-button" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transition-transform hover:scale-105">
-          Guardar Cambios
+          {isCreate ? 'Crear Producto' : 'Guardar Cambios'}
         </button>
       </div>
     </div>
   </section>
-<script>
-  import { actions } from "astro:actions";
-  import { navigate } from 'astro:transitions/client';
 
-  document.addEventListener('astro:page-load', () => {
-    // 1. OBTENER ELEMENTOS DEL DOM
-    const form = document.getElementById('product-form') as HTMLFormElement | null;
-    const dropZone = document.getElementById('drop-zone') as HTMLDivElement | null;
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement | null;
-    const previewContainer = document.getElementById('new-images-preview') as HTMLDivElement | null;
-    const imageListContainer = document.getElementById('image-list-container') as HTMLUListElement | null;
-    
-    if (!form || !dropZone || !fileInput || !previewContainer || !imageListContainer) {
-      console.error('Uno o más elementos no fueron encontrados en el DOM');
-      return;
-    }
-
-    // 2. ARRAY CENTRAL PARA MANEJAR ARCHIVOS NUEVOS
-    let newFiles: File[] = [];
-
-    // 3. FUNCIÓN PARA UNIFICAR LA ACTUALIZACIÓN DE ARCHIVOS
-    const handleNewFiles = (incomingFiles: FileList) => {
-      const uniqueFiles = Array.from(incomingFiles).filter(
-        file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.lastModified === file.lastModified)
-      );
-      if (uniqueFiles.length === 0) return;
-
-      newFiles = [...newFiles, ...uniqueFiles];
-      renderNewPreviews();
-      updateFileInput();
-    };
-
-    // 4. FUNCIÓN PARA RENDERIZAR VISTAS PREVIAS DE NUEVOS ARCHIVOS
-    const renderNewPreviews = () => {
-      previewContainer.innerHTML = '';
-      newFiles.forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          if (!e.target?.result) return;
-          const wrapper = document.createElement('div');
-          wrapper.className = 'relative group';
-          wrapper.innerHTML = `
-            <img src="${e.target.result as string}" alt="${file.name}" class="h-24 w-full object-cover rounded-lg shadow-md" />
-            <button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-              &times;
-            </button>
-          `;
-          previewContainer.appendChild(wrapper);
-        };
-        reader.readAsDataURL(file);
-      });
-    };
-
-    // 5. FUNCIÓN PARA ACTUALIZAR EL INPUT DE ARCHIVOS (CLAVE PARA DRAG & DROP)
-    const updateFileInput = () => {
-      const dataTransfer = new DataTransfer();
-      newFiles.forEach(file => dataTransfer.items.add(file));
-      fileInput.files = dataTransfer.files;
-    };
-    
-    // ======= EVENT LISTENERS =======
-
-    // A. Clic y Drag & Drop ahora usan el mismo manejador central
-    dropZone.addEventListener('click', () => fileInput.click());
-    
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files) {
-        handleNewFiles(fileInput.files);
-      }
-    });
-
-    // B. Lógica de Drag & Drop
-    const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      document.body.addEventListener(eventName, preventDefaults);
-      dropZone.addEventListener(eventName, preventDefaults);
-    });
-    ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('border-yellow-600')));
-    ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-yellow-600')));
-
-    dropZone.addEventListener('drop', (e: DragEvent) => {
-      if (e.dataTransfer?.files) {
-        handleNewFiles(e.dataTransfer.files);
-      }
-    });
-
-    // C. Eliminar previsualizaciones de nuevas imágenes (las que aún no se suben)
-    previewContainer.addEventListener('click', e => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('remove-new-btn')) {
-        const index = parseInt(target.dataset.index || '-1');
-        if (index > -1) {
-          newFiles.splice(index, 1);
-          renderNewPreviews();
-          updateFileInput();
-        }
-      }
-    });
-
-    // D. Eliminar imágenes existentes (ACCIÓN INMEDIATA)
-    imageListContainer.addEventListener('click', async (e) => {
-      const target = e.target as HTMLButtonElement;
-      if (target.classList.contains('delete-existing')) {
-        const id = target.dataset.id;
-        if (!id) return;
+  <!-- Modal para agregar variantes -->
+  <div id="variant-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <h3 class="text-xl font-bold text-slate-800 mb-4">Agregar Nueva Variante</h3>
         
-        if (confirm('¿Estás seguro de que quieres eliminar esta imagen permanentemente?')) {
-          target.disabled = true;
-          target.textContent = '...';
-          try {
-            // Se llama a la acción de eliminación directamente
-            const { error } = await actions.deleteProductImage(id);
-            if (error) {
-              throw new Error(error.message);
-            }
-            // Si tiene éxito, se elimina el elemento del DOM
-            target.closest('li')?.remove();
-          } catch (err: any) {
-            alert(`Error al eliminar la imagen: ${err.message}`);
-            target.disabled = false;
-            target.textContent = 'Eliminar';
+        <form id="variant-form" class="space-y-4">
+          <div>
+            <label class="form-label">Tipo de Variante (ej: Color, Tamaño)</label>
+            <input type="text" id="variant-name" class="form-input" placeholder="Color" required />
+          </div>
+          
+          <div id="variant-options" class="space-y-3">
+            <label class="form-label">Opciones de Variante</label>
+            <div class="variant-option-row grid grid-cols-12 gap-2">
+              <input type="text" placeholder="Valor (ej: Dorado)" class="col-span-4 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-value" required />
+              <input type="number" placeholder="Ajuste precio" step="0.01" class="col-span-3 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-price" />
+              <input type="number" placeholder="Stock" class="col-span-2 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-stock" required />
+              <input type="text" placeholder="SKU" class="col-span-2 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-sku" />
+              <button type="button" class="col-span-1 text-red-600 hover:text-red-800 text-2xl font-bold flex items-center justify-center remove-option">×</button>
+            </div>
+          </div>
+          
+          <button type="button" id="add-option-btn" class="btn-secondary w-full">
+            + Agregar otra opción
+          </button>
+          
+          <div class="flex gap-3 mt-6">
+            <button type="button" id="cancel-variant-btn" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+              Guardar Variante
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para editar variante -->
+  <div id="edit-variant-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg max-w-md w-full">
+      <div class="p-6">
+        <h3 class="text-xl font-bold text-slate-800 mb-4">Editar Variante</h3>
+        
+        <form id="edit-variant-form" class="space-y-4">
+          <input type="hidden" id="edit-variant-id" />
+          
+          <div>
+            <label class="form-label">Tipo de Variante</label>
+            <input type="text" id="edit-variant-name" class="form-input bg-slate-100" readonly />
+          </div>
+          
+          <div>
+            <label class="form-label">Valor</label>
+            <input type="text" id="edit-variant-value" class="form-input" required />
+          </div>
+          
+          <div>
+            <label class="form-label">Ajuste de Precio</label>
+            <input type="number" id="edit-price-adjustment" step="0.01" class="form-input" />
+          </div>
+          
+          <div>
+            <label class="form-label">Stock</label>
+            <input type="number" id="edit-stock" class="form-input" required />
+          </div>
+          
+          <div>
+            <label class="form-label">SKU (opcional)</label>
+            <input type="text" id="edit-sku" class="form-input" />
+          </div>
+          
+          <div class="flex gap-3 mt-6">
+            <button type="button" id="cancel-edit-variant" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+              Guardar Cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Importar SweetAlert2 -->
+  
+  <script>
+    import { actions } from "astro:actions";
+    import Swal from 'sweetalert2';
+    import { navigate } from 'astro:transitions/client';
+
+    // Declarar Swal para TypeScript
+    // declare const Swal: any;
+
+    document.addEventListener('astro:page-load', () => {
+      const form = document.getElementById('product-form') as HTMLFormElement;
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      const previewContainer = document.getElementById('new-images-preview');
+      const imageListContainer = document.getElementById('image-list-container');
+      const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
+      const variantsContainer = document.getElementById('variants-container');
+      const isCreate = !form.querySelector('input[name="id"]');
+      
+      let newFiles: File[] = [];
+
+      // Manejo de archivos
+      const handleNewFiles = (incomingFiles: FileList) => {
+        const uniqueFiles = Array.from(incomingFiles).filter(
+          file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name)
+        );
+        if (uniqueFiles.length === 0) return;
+        newFiles = [...newFiles, ...uniqueFiles];
+        renderNewPreviews();
+        updateFileInput();
+      };
+
+      const renderNewPreviews = () => {
+        if (!previewContainer) return;
+        previewContainer.innerHTML = '';
+        newFiles.forEach((file, index) => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            if (!e.target?.result) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative group';
+            wrapper.innerHTML = `
+              <img src="${e.target.result as string}" alt="${file.name}" class="h-24 w-full object-cover rounded-lg shadow-md" />
+              <button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+            `;
+            previewContainer.appendChild(wrapper);
+          };
+          reader.readAsDataURL(file);
+        });
+      };
+
+      const updateFileInput = () => {
+        const dataTransfer = new DataTransfer();
+        newFiles.forEach(file => dataTransfer.items.add(file));
+        fileInput.files = dataTransfer.files;
+      };
+
+      // Event listeners para drag & drop
+      if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+          if (fileInput.files) handleNewFiles(fileInput.files);
+        });
+
+        const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, preventDefaults);
+        });
+        
+        dropZone.addEventListener('drop', (e: DragEvent) => {
+          if (e.dataTransfer?.files) handleNewFiles(e.dataTransfer.files);
+        });
+      }
+
+      // Toggle de variantes
+      if (hasVariantsCheckbox && variantsContainer) {
+        hasVariantsCheckbox.addEventListener('change', () => {
+          variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked);
+        });
+      }
+
+      // Modales de variantes
+      const variantModal = document.getElementById('variant-modal');
+      const editVariantModal = document.getElementById('edit-variant-modal');
+      const addVariantBtn = document.getElementById('add-variant-btn');
+      const cancelVariantBtn = document.getElementById('cancel-variant-btn');
+      const variantForm = document.getElementById('variant-form') as HTMLFormElement;
+      const editVariantForm = document.getElementById('edit-variant-form') as HTMLFormElement;
+      const addOptionBtn = document.getElementById('add-option-btn');
+      const variantOptions = document.getElementById('variant-options');
+
+      // Abrir modal de agregar variante
+      if (addVariantBtn && variantModal) {
+        addVariantBtn.addEventListener('click', () => {
+          variantModal.classList.remove('hidden');
+        });
+      }
+
+      // Cerrar modal de agregar variante
+      if (cancelVariantBtn && variantModal) {
+        cancelVariantBtn.addEventListener('click', () => {
+          variantModal.classList.add('hidden');
+          if (variantForm) variantForm.reset();
+        });
+      }
+
+      // Agregar nueva fila de opción en el modal
+      // Agregar nueva fila de opción en el modal
+      if (addOptionBtn && variantOptions) {
+          addOptionBtn.addEventListener('click', () => {
+              const newRow = document.createElement('div');
+              newRow.className = 'variant-option-row grid grid-cols-12 gap-2';
+              newRow.innerHTML = `
+                  <input type="text" placeholder="Valor (ej: Plateado)" class="col-span-4 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-value" required />
+                  <input type="number" placeholder="Ajuste precio" step="0.01" class="col-span-3 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-price" />
+                  <input type="number" placeholder="Stock" class="col-span-2 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-stock" required />
+                  <input type="text" placeholder="SKU" class="col-span-2 px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors variant-sku" />
+                  <button type="button" class="col-span-1 text-red-600 hover:text-red-800 text-2xl font-bold flex items-center justify-center remove-option">×</button>
+              `;
+              variantOptions.appendChild(newRow);
+          });
+      }
+
+      // ===== FUNCIONALIDAD DE EDITAR Y ELIMINAR VARIANTES CON SWEETALERT2 =====
+      document.addEventListener('click', async (e) => {
+        const target = e.target as HTMLElement;
+        const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+        
+        // Editar variante individual
+        if (target.closest('.edit-variant')) {
+          const button = target.closest('.edit-variant') as HTMLElement;
+          const variantId = button.dataset.variantId;
+          const variantName = button.dataset.variantName;
+          const variantValue = button.dataset.variantValue;
+          const priceAdjustment = button.dataset.priceAdjustment;
+          const stock = button.dataset.stock;
+          const sku = button.dataset.sku;
+
+          if (editVariantModal) {
+            (document.getElementById('edit-variant-id') as HTMLInputElement).value = variantId || '';
+            (document.getElementById('edit-variant-name') as HTMLInputElement).value = variantName || '';
+            (document.getElementById('edit-variant-value') as HTMLInputElement).value = variantValue || '';
+            (document.getElementById('edit-price-adjustment') as HTMLInputElement).value = priceAdjustment || '0';
+            (document.getElementById('edit-stock') as HTMLInputElement).value = stock || '0';
+            (document.getElementById('edit-sku') as HTMLInputElement).value = sku || '';
+            
+            editVariantModal.classList.remove('hidden');
           }
         }
+
+        // Eliminar variante individual con SweetAlert2
+        if (target.closest('.delete-variant')) {
+          const button = target.closest('.delete-variant') as HTMLElement;
+          const variantId = button.dataset.variantId;
+          
+          const result = await Swal.fire({
+            title: '¿Eliminar esta variante?',
+            text: 'Esta acción no se puede deshacer',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+          });
+
+          if (result.isConfirmed) {
+            try {
+              const { data, error } = await actions.deleteVariant(variantId!);
+              if (error) throw new Error(error.message);
+              
+              const variantItem = button.closest('.variant-item');
+              if (variantItem) {
+                variantItem.remove();
+              }
+              
+              if (data?.shouldRegenerateCombinations) {
+                const regenResult = await Swal.fire({
+                  title: 'Actualización necesaria',
+                  text: 'Las combinaciones necesitan actualizarse. ¿Deseas regenerarlas ahora?',
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonColor: '#eab308',
+                  cancelButtonColor: '#6b7280',
+                  confirmButtonText: 'Sí, regenerar',
+                  cancelButtonText: 'Más tarde'
+                });
+
+                if (regenResult.isConfirmed) {
+                  await regenerateCombinations(productId!);
+                }
+              }
+              
+              const variantGroup = button.closest('.variant-group');
+              if (variantGroup) {
+                const remainingItems = variantGroup.querySelectorAll('.variant-item');
+                if (remainingItems.length === 0) {
+                  variantGroup.remove();
+                }
+              }
+
+              Swal.fire({
+                icon: 'success',
+                title: '¡Eliminado!',
+                text: 'La variante ha sido eliminada correctamente',
+                timer: 2000,
+                showConfirmButton: false
+              });
+              
+            } catch (err: any) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: `Error al eliminar variante: ${err.message}`
+              });
+            }
+          }
+        }
+
+        // Eliminar grupo de variantes completo con SweetAlert2
+        if (target.closest('.delete-variant-group')) {
+          const button = target.closest('.delete-variant-group') as HTMLElement;
+          const variantName = button.dataset.variantName;
+          
+          const result = await Swal.fire({
+            title: `¿Eliminar grupo "${variantName}"?`,
+            text: 'Se eliminarán todas las variantes de este tipo',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, eliminar todo',
+            cancelButtonText: 'Cancelar'
+          });
+
+          if (result.isConfirmed) {
+            try {
+              if (!productId) {
+                throw new Error('No se pudo identificar el producto');
+              }
+              
+              const { error } = await actions.deleteVariantGroup({ 
+                productId, 
+                variantName: variantName! 
+              });
+              
+              if (error) throw new Error(error.message);
+              
+              const variantGroup = button.closest('.variant-group');
+              if (variantGroup) {
+                variantGroup.remove();
+              }
+              
+              const remainingGroups = document.querySelectorAll('.variant-group');
+              if (remainingGroups.length === 0) {
+                if (hasVariantsCheckbox) {
+                  hasVariantsCheckbox.checked = false;
+                  variantsContainer?.classList.add('hidden');
+                }
+              }
+              
+              Swal.fire({
+                icon: 'success',
+                title: '¡Eliminado!',
+                text: 'El grupo de variantes ha sido eliminado correctamente',
+                timer: 2000,
+                showConfirmButton: false
+              });
+              
+            } catch (err: any) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: `Error al eliminar grupo: ${err.message}`
+              });
+            }
+          }
+        }
+
+        // Eliminar opción de variante en el modal
+        if (target.classList.contains('remove-option')) {
+          target.closest('.variant-option-row')?.remove();
+        }
+      });
+
+      // Cerrar modal de editar variante
+      const cancelEditBtn = document.getElementById('cancel-edit-variant');
+      if (cancelEditBtn && editVariantModal) {
+        cancelEditBtn.addEventListener('click', () => {
+          editVariantModal.classList.add('hidden');
+          if (editVariantForm) editVariantForm.reset();
+        });
       }
-    });
 
-    // E. Envío del formulario
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const saveButton = document.getElementById('save-button') as HTMLButtonElement;
-      if (!saveButton) return;
-      
-      saveButton.disabled = true;
-      saveButton.textContent = 'Guardando...';
-      
-      try {
-        const formData = new FormData(form);
-        
-        // Ya no es necesario agregar los archivos manualmente,
-        // porque `updateFileInput` mantuvo el input sincronizado.
-        
-        const { data, error } = await actions.crateUpdateProduct(formData);
-        
-        if (error) throw new Error(error.message);
-        
-        navigate(`javascript:history.back()`);
-
-
-      } catch (err: any) {
-        alert(`Error al guardar: ${err.message}`);
-        console.error(err);
-      } finally {
-        saveButton.disabled = false;
-        saveButton.textContent = 'Guardar Cambios';
+      // Guardar cambios de variante editada con SweetAlert2
+      if (editVariantForm) {
+        editVariantForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const variantId = (document.getElementById('edit-variant-id') as HTMLInputElement).value;
+          const variantValue = (document.getElementById('edit-variant-value') as HTMLInputElement).value;
+          const priceAdjustment = parseFloat((document.getElementById('edit-price-adjustment') as HTMLInputElement).value) || 0;
+          const stock = parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0;
+          const sku = (document.getElementById('edit-sku') as HTMLInputElement).value || null;
+          
+          try {
+            const { error } = await actions.updateVariant({
+              variantId,
+              variantValue,
+              priceAdjustment,
+              stock,
+              sku
+            });
+            
+            if (error) throw new Error(error.message);
+            
+            editVariantModal?.classList.add('hidden');
+            
+            await Swal.fire({
+              icon: 'success',
+              title: '¡Actualizado!',
+              text: 'La variante ha sido actualizada correctamente',
+              timer: 1500,
+              showConfirmButton: false
+            });
+            
+            window.location.reload();
+            
+          } catch (err: any) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: `Error al actualizar variante: ${err.message}`
+            });
+          }
+        });
       }
+
+      // Función auxiliar para regenerar combinaciones
+      async function regenerateCombinations(productId: string) {
+        try {
+          const { error } = await actions.generateVariantCombinations(productId);
+          if (error) throw new Error(error.message);
+          
+          await Swal.fire({
+            icon: 'success',
+            title: '¡Combinaciones regeneradas!',
+            timer: 1500,
+            showConfirmButton: false
+          });
+          
+          window.location.reload();
+        } catch (err: any) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: `Error al regenerar combinaciones: ${err.message}`
+          });
+        }
+      }
+
+      // Guardar nuevas variantes con SweetAlert2
+      if (variantForm) {
+        variantForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+          if (!productId) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Atención',
+              text: 'Primero debes guardar el producto antes de agregar variantes'
+            });
+            return;
+          }
+
+          const variantName = (document.getElementById('variant-name') as HTMLInputElement).value;
+          const rows = document.querySelectorAll('.variant-option-row');
+          const variants = Array.from(rows).map(row => ({
+            variantName,
+            variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value,
+            priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0,
+            stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0,
+            sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
+          }));
+
+          try {
+            const { error } = await actions.createBatchVariants({ productId, variants });
+            if (error) throw new Error(error.message);
+            
+            await Swal.fire({
+              icon: 'success',
+              title: '¡Variantes creadas!',
+              text: 'Las variantes se han agregado correctamente',
+              timer: 1500,
+              showConfirmButton: false
+            });
+            
+            window.location.reload();
+          } catch (err: any) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: `Error al crear variantes: ${err.message}`
+            });
+          }
+        });
+      }
+
+      // Generar combinaciones con SweetAlert2
+      const generateBtn = document.getElementById('generate-combinations-btn');
+      if (generateBtn) {
+        generateBtn.addEventListener('click', async () => {
+          const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+          if (!productId) return;
+
+          const result = await Swal.fire({
+            title: '¿Generar combinaciones?',
+            text: 'Esto reemplazará las combinaciones existentes',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#eab308',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, generar',
+            cancelButtonText: 'Cancelar'
+          });
+
+          if (result.isConfirmed) {
+            try {
+              const { error } = await actions.generateVariantCombinations(productId);
+              if (error) throw new Error(error.message);
+              
+              await Swal.fire({
+                icon: 'success',
+                title: '¡Combinaciones generadas!',
+                timer: 1500,
+                showConfirmButton: false
+              });
+              
+              window.location.reload();
+            } catch (err: any) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: `Error: ${err.message}`
+              });
+            }
+          }
+        });
+      }
+
+      // Actualizar stock de combinaciones
+      document.querySelectorAll('.combination-stock-input').forEach(input => {
+        let timeout: NodeJS.Timeout;
+        input.addEventListener('change', async (e) => {
+          clearTimeout(timeout);
+          const target = e.target as HTMLInputElement;
+          const combinationId = target.dataset.combinationId;
+          if (!combinationId) return;
+
+          timeout = setTimeout(async () => {
+            try {
+              const { error } = await actions.updateCombinationStock({
+                combinationId,
+                newStock: parseInt(target.value)
+              });
+              if (error) throw new Error(error.message);
+              target.classList.add('border-green-500');
+              setTimeout(() => target.classList.remove('border-green-500'), 1000);
+            } catch (err: any) {
+              console.error(`Error: ${err.message}`);
+            }
+          }, 500);
+        });
+      });
+
+      // Eliminar imágenes existentes con SweetAlert2
+      if (imageListContainer) {
+        imageListContainer.addEventListener('click', async (e) => {
+          const target = e.target as HTMLButtonElement;
+          if (target.classList.contains('delete-existing')) {
+            const id = target.dataset.id;
+            if (!id) return;
+            
+            const result = await Swal.fire({
+              title: '¿Eliminar imagen?',
+              text: 'Esta acción es permanente',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#dc2626',
+              cancelButtonColor: '#6b7280',
+              confirmButtonText: 'Sí, eliminar',
+              cancelButtonText: 'Cancelar'
+            });
+
+            if (result.isConfirmed) {
+              try {
+                const { error } = await actions.deleteProductImage(id);
+                if (error) throw new Error(error.message);
+                target.closest('li')?.remove();
+                
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Imagen eliminada',
+                  timer: 1500,
+                  showConfirmButton: false
+                });
+              } catch (err: any) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Error',
+                  text: `Error: ${err.message}`
+                });
+              }
+            }
+          }
+        });
+      }
+
+      // Eliminar preview de nuevas imágenes
+      if (previewContainer) {
+        previewContainer.addEventListener('click', e => {
+          const target = e.target as HTMLElement;
+          if (target.classList.contains('remove-new-btn')) {
+            const index = parseInt(target.dataset.index || '-1');
+            if (index > -1) {
+              newFiles.splice(index, 1);
+              renderNewPreviews();
+              updateFileInput();
+            }
+          }
+        });
+      }
+
+      // Auto-generar slug
+      const nameInput = document.getElementById('name') as HTMLInputElement;
+      const slugInput = document.getElementById('slug') as HTMLInputElement;
+      if (nameInput && slugInput && isCreate) {
+        nameInput.addEventListener('input', () => {
+          const slug = nameInput.value
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          slugInput.value = slug;
+        });
+      }
+
+      // Envío del formulario principal con SweetAlert2
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveButton = document.getElementById('save-button') as HTMLButtonElement;
+        if (!saveButton) return;
+        
+        saveButton.disabled = true;
+        saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
+        
+        try {
+          const formData = new FormData(form);
+          const { data, error } = await actions.crateUpdateProduct(formData);
+          
+          if (error) throw new Error(error.message);
+          
+          await Swal.fire({
+            icon: 'success',
+            title: isCreate ? '¡Producto creado!' : '¡Cambios guardados!',
+            text: 'El producto se ha guardado correctamente',
+            timer: 1500,
+            showConfirmButton: false
+          });
+          
+          navigate('/admin/products');
+        } catch (err: any) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al guardar',
+            text: err.message
+          });
+        } finally {
+          saveButton.disabled = false;
+          saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar Cambios';
+        }
+      });
     });
-  });
-</script>
-</AdminLayout>
-<style>
-  .card { @apply bg-white p-6 rounded-2xl shadow-lg ring-1 ring-slate-100; }
-  .card-title { @apply text-lg font-bold text-slate-800 mb-6 border-b border-slate-200 pb-4; }
-  .form-label { @apply block text-sm font-bold text-slate-600 mb-2; }
-  .form-input { 
-    @apply w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm 
-           focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors; 
-  };
-</style>
+  </script>
+    <style>
+    .card { 
+      @apply bg-white p-6 rounded-2xl shadow-lg ring-1 ring-slate-100; 
+    }
+    .card-title { 
+      @apply text-lg font-bold text-slate-800 mb-6 border-b border-slate-200 pb-4; 
+    }
+    .form-label { 
+      @apply block text-sm font-bold text-slate-600 mb-2; 
+    }
+    .form-input { 
+      @apply w-full px-4 py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm 
+             focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors; 
+    }
+    .btn-secondary {
+      @apply px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium;
+    }
+    
+  </style>

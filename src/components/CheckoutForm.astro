@@ -20,7 +20,7 @@ if (error || !products) {
 // Calcular totales
 const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
 const tax = subtotal * 0.15;
-const total = subtotal + tax;
+const total = subtotal + 0;
 
 // Generar datos de productos para el cliente
 const productsData = products.map(p => ({ 
@@ -172,8 +172,8 @@ const productsData = products.map(p => ({
             </li>
           ))}
           <li class="flex justify-between">
-            <span class="text-gray-600">Impuestos (15%)</span>
-            <span class="font-semibold">{Formatter.currency(tax)}</span>
+            <span class="text-gray-600">Envio</span>
+            <span class="font-semibold">Por calcular</span>
           </li>
           <li class="border-t pt-4 flex justify-between text-lg font-semibold text-gray-900">
             <span>Total</span>

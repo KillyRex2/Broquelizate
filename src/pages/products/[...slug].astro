@@ -14,9 +14,16 @@ if (error) {
 }
 const { product: rawProduct, images } = data;
 
-const image = images[0].image.startsWith("http")
+// Obtener variantes si el producto las tiene
+let variantsData = null;
+if (rawProduct.hasVariants) {
+  const { data: variants } = await Astro.callAction(actions.getGroupedProductVariants, rawProduct.id);
+  variantsData = variants;
+}
+
+const image = images[0]?.image.startsWith("http")
   ? images[0].image
-  : `${import.meta.env.PUBLIC_URL}/images/products/${images[0].image}`;
+  : `${import.meta.env.PUBLIC_URL}/images/products/${images[0]?.image}`;
 
 // SOLUCIÓN: Manejo de tipos seguro
 let piercing_name: string[] = [];
@@ -30,26 +37,91 @@ const product = {
   ...rawProduct,
   piercing_name
 };
+
+interface VariantOption {
+  id: string;
+  value: string;
+  priceAdjustment: number;
+  stock: number;
+}
+
+interface VariantGroup {
+  options: VariantOption[];
+}
+
+interface ProcessedVariantOption extends VariantOption {
+  isOutOfStock: boolean;
+  buttonClass: string;
+}
+
+interface ProcessedVariantGroup {
+  variantName: string;
+  options: ProcessedVariantOption[];
+}
+
+// Preprocesar las variantes para evitar el uso de <= en la plantilla
+const processVariants = (variantsData: any): ProcessedVariantGroup[] | null => {
+  if (!variantsData?.hasVariants) return null;
+
+  return Object.entries(variantsData.groupedVariants).map(([variantName, group]: [string, any]) => {
+    const processedOptions = group.options.map((option: VariantOption, index: number) => {
+      const isOutOfStock = option.stock <= 0;
+      let buttonClasses = ["variant-option", "relative", "p-3", "border-2", "rounded-lg", "text-left", "transition-all", "duration-200"];
+
+      if (isOutOfStock) {
+        buttonClasses.push("border-gray-600", "bg-gray-800", "text-gray-500", "cursor-not-allowed", "opacity-50");
+      } else {
+        buttonClasses.push("border-gray-600", "bg-gray-700", "text-white", "hover:border-yellow-500", "hover:bg-gray-600");
+      }
+
+      if (index === 0 && !isOutOfStock) {
+        buttonClasses.push("border-yellow-500", "bg-gray-600", "selected");
+      }
+
+      const processedOption: ProcessedVariantOption = {
+        ...option,
+        isOutOfStock,
+        buttonClass: buttonClasses.join(" ")
+      };
+
+      return processedOption;
+    });
+
+    return {
+      variantName,
+      options: processedOptions
+    };
+  });
+};
+
+const processedVariants = processVariants(variantsData);
 ---
 
-<ProductsLayout title={product.name} 
-                description={product.description}
-                image={image}>
+<ProductsLayout 
+  title={product.name} 
+  description={product.description}
+  image={image}
+>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-    <!-- Swiper ajustado -->
-    <div class="relative w-full h-[400px]">
+    <!-- Contenedor sin altura fija -->
+    <div class="relative w-full">
       <ProductSlideshow
         images={images.map(i => i.image)}
       />
     </div>
 
-    <!-- Detalles -->
     <section class="flex flex-col justify-between">
       <div>
         <h1 class="text-4xl font-bold text-gray-100 mb-2">{product.name}</h1>
-        <p class="text-2xl font-semibold text-yellow-500 mb-4">
-          {Formatter.currency(product.price)}
-        </p>
+        
+        <div class="mb-4">
+          <p id="product-price" class="text-2xl font-semibold text-yellow-500">
+            {Formatter.currency(product.price)}
+          </p>
+          <p id="price-range" class="text-sm text-gray-400 hidden">
+            Desde {Formatter.currency(product.price)}
+          </p>
+        </div>
 
         <div class="flex flex-wrap gap-3 mb-6">
           <span class="inline-block bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium">
@@ -59,15 +131,78 @@ const product = {
           <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
             {product.type}
           </span>
+
+          <span id="stock-badge" class="inline-block bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+            Stock: {product.stock}
+          </span>
         </div>
 
-        <!-- Sección de perforaciones -->
+        {product.hasVariants && processedVariants && (
+          <div class="mb-8 space-y-6">
+            <h3 class="text-lg font-medium text-gray-300 mb-4">Personaliza tu producto</h3>
+            
+            {processedVariants.map((variantGroup) => (
+                <div class="variant-group" data-variant-name={variantGroup.variantName}>
+                <label class="block text-sm font-medium text-gray-300 mb-3 capitalize">
+                  {variantGroup.variantName}
+                </label>
+                
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {variantGroup.options.map((option) => (
+                    <button
+                      type="button"
+                      data-variant-id={option.id}
+                      data-variant-name={variantGroup.variantName}
+                      data-variant-value={option.value}
+                      data-price-adjustment={option.priceAdjustment}
+                      data-stock={option.stock}
+                      class={option.buttonClass}
+                      disabled={option.isOutOfStock}
+                    >
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <span class="font-medium text-sm">{option.value}</span>
+                          {option.priceAdjustment !== 0 && (
+                            <p class={`text-xs mt-1 ${option.priceAdjustment > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {option.priceAdjustment > 0 ? '+' : ''}{Formatter.currency(option.priceAdjustment)}
+                            </p>
+                          )}
+                        </div>
+                        <span class="text-xs text-gray-400">
+                          {option.isOutOfStock ? 'Agotado' : `${option.stock} disponibles`}
+                        </span>
+                      </div>
+                      
+                      <div class="selection-indicator absolute top-2 right-2 w-3 h-3 rounded-full border-2 border-gray-400 hidden">
+                        <div class="w-full h-full bg-yellow-500 rounded-full transform scale-0 transition-transform duration-150"></div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div id="variant-info" class="hidden bg-gray-800 border border-gray-600 rounded-lg p-4">
+              <div class="flex justify-between items-center">
+                <div>
+                  <p class="text-sm text-gray-300">Combinación seleccionada:</p>
+                  <p id="selected-combination" class="font-medium text-white"></p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm text-gray-300">SKU:</p>
+                  <p id="combination-sku" class="text-xs text-gray-400">-</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {product.piercing_name.length > 0 && (
           <div class="mb-6">
             <h3 class="text-lg font-medium text-gray-300 mb-2">Perforaciones compatibles</h3>
             <div class="flex flex-wrap gap-2">
               {product.piercing_name.map(piercing => (
-                <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                <span data-variant-name={piercing} class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                   </svg>
@@ -83,7 +218,6 @@ const product = {
         </p>
       </div>
 
-      <!-- Cantidad y CTA -->
       <div class="space-y-4">
         <div class="flex items-center space-x-4">
           <button
@@ -105,117 +239,318 @@ const product = {
 
         <button
           id="add-to-cart"
-          class="w-full py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition flex items-center justify-center gap-2"
+          class="w-full py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
           </svg>
           Añadir al carrito
         </button>
+
+        <div id="variant-message" class="hidden p-3 rounded-lg text-sm">
+        </div>
       </div>
     </section>
   </div>
 
-
+  <!-- Galería adicional -->
   {images.length > 2 && (
     <div class="mt-12">
       <h2 class="text-xl font-bold text-white mb-4">Más imágenes...</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {images.map((image) => (
-          <img
-            src={image.image}
-            alt={product.name}
-            class="w-full h-32 object-cover rounded-xl shadow-sm"
-          />
-        ))}
+        {images.map((imageObj) => {
+          const imageSrc = imageObj.image.startsWith("http")
+            ? imageObj.image
+            : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
+          
+          return (
+            <img
+              data-variant-name={imageObj.image}
+              src={imageSrc}
+              alt={product.name}
+              class="w-full h-32 object-cover rounded-xl shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+              loading="lazy"
+            />
+          );
+        })}
       </div>
     </div>
   )} 
 
   <input type="hidden" id="product-id" value={product.id} />
+  <input type="hidden" id="product-has-variants" value={`${product.hasVariants}`} />
+  <input type="hidden" id="base-price" value={product.price} />
+  <input type="hidden" id="base-stock" value={product.stock} />
 </ProductsLayout>
+
 <script>
   import { itemsInCart } from "@/store";
   import { navigate } from "astro:transitions/client";
   import { CartCookiesClient } from "../../utils/cart-cookies";
+  import { actions } from "astro:actions";
 
   function setupProductPage() {
-    // Selectores de los elementos del DOM
+    // IMPORTANTE: Verificar que estamos en la página del producto
+    // Si no encontramos el elemento product-id, no estamos en la página del producto
+    const productIdInput = document.getElementById("product-id") as HTMLInputElement;
+    if (!productIdInput) {
+      // No estamos en la página del producto, salir sin error
+      return;
+    }
+
+    // Ahora sí buscar los demás elementos
     const qtyInput = document.getElementById("qty-input") as HTMLInputElement;
     const decrementBtn = document.getElementById("qty-decr") as HTMLButtonElement;
     const incrementBtn = document.getElementById("qty-incr") as HTMLButtonElement;
     const addBtn = document.getElementById("add-to-cart") as HTMLButtonElement;
-    const productIdInput = document.getElementById("product-id") as HTMLInputElement;
+    const hasVariantsInput = document.getElementById("product-has-variants") as HTMLInputElement;
+    const baseStockInput = document.getElementById("base-stock") as HTMLInputElement;
+    const basePriceInput = document.getElementById("base-price") as HTMLInputElement;
+    
+    const priceElement = document.getElementById("product-price");
+    const stockBadge = document.getElementById("stock-badge");
+    const variantInfo = document.getElementById("variant-info");
+    const selectedCombination = document.getElementById("selected-combination");
+    const combinationSku = document.getElementById("combination-sku");
+    const variantMessage = document.getElementById("variant-message");
 
-    // Si alguno de los elementos no existe, detenemos la ejecución
-    if (!qtyInput || !decrementBtn || !incrementBtn || !addBtn || !productIdInput) {
+    // Verificar elementos esenciales
+    if (!qtyInput || !addBtn) {
+      console.log("Algunos elementos del producto no se encontraron, posiblemente no estamos en la página del producto");
       return;
     }
 
-    // Función unificada para actualizar la cantidad en el input
+    const hasVariants = hasVariantsInput?.value === 'true';
+    const baseStock = parseInt(baseStockInput?.value || '0');
+    let currentCombination: any = null;
+    let selectedVariants: Record<string, string> = {};
+
+    function showMessage(message: string, type: 'info' | 'error' = 'info') {
+      if (!variantMessage) return;
+      
+      variantMessage.textContent = message;
+      variantMessage.className = `p-3 rounded-lg text-sm ${
+        type === 'error' 
+          ? 'bg-red-100 text-red-700 border border-red-200' 
+          : 'bg-blue-100 text-blue-700 border border-blue-200'
+      }`;
+      variantMessage.classList.remove('hidden');
+      
+      setTimeout(() => {
+        variantMessage.classList.add('hidden');
+      }, 5000);
+    }
+
     const updateQuantity = (newQty: number) => {
-      // Limita la cantidad entre 1 y 99
-      const validatedQty = Math.max(1, Math.min(99, newQty));
+      const maxStock = hasVariants && currentCombination ? currentCombination.stock : baseStock;
+      const validatedQty = Math.max(1, Math.min(maxStock, newQty));
       qtyInput.value = validatedQty.toString();
     };
+    
+    async function updateCombination() {
+      if (!hasVariants) return;
 
-    // --- Event Listeners Simplificados ---
+      const variantGroups = document.querySelectorAll('.variant-group');
+      if (Object.keys(selectedVariants).length < variantGroups.length) {
+          addBtn.disabled = true;
+          showMessage('Por favor, selecciona una opción para cada variante.', 'info');
+          return;
+      }
 
-    // Decrementar cantidad
-    decrementBtn.addEventListener("click", () => {
-      const currentQty = parseInt(qtyInput.value) || 1;
-      updateQuantity(currentQty - 1);
-    });
+      try {
+        const { data, error } = await actions.getVariantCombination({
+          productId: productIdInput.value,
+          selectedVariants
+        });
 
-    // Incrementar cantidad
-    incrementBtn.addEventListener("click", () => {
-      const currentQty = parseInt(qtyInput.value) || 1;
-      updateQuantity(currentQty + 1);
-    });
+        if (error || !data) {
+          showMessage('Esta combinación no está disponible.', 'error');
+          addBtn.disabled = true;
+          addBtn.textContent = 'No Disponible';
+          currentCombination = null;
+          return;
+        }
 
-    // Validar al cambiar el input manualmente
-    qtyInput.addEventListener("change", () => {
-      const currentQty = parseInt(qtyInput.value) || 1;
-      updateQuantity(currentQty);
-    });
+        currentCombination = data;
+        // Añadir el nombre de la combinación si no viene del servidor
+        if (!currentCombination.combinationName) {
+          currentCombination.combinationName = Object.entries(selectedVariants)
+            .map(([variantName, variantId]) => {
+              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
+              return button ? `${variantName}: ${button.dataset.variantValue}` : '';
+            })
+            .filter(Boolean)
+            .join(' / ');
+        }
+        
+        if (priceElement) {
+          priceElement.textContent = new Intl.NumberFormat('es-MX', { 
+            style: 'currency', 
+            currency: 'MXN' 
+          }).format(data.price);
+        }
 
+        if (stockBadge) {
+          const stockClass = data.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+          stockBadge.className = `inline-block px-3 py-1 rounded-full text-sm font-medium ${stockClass}`;
+          stockBadge.textContent = `Stock: ${data.stock}`;
+        }
+        
+        if (variantInfo && selectedCombination && combinationSku) {
+          const combinationText = Object.values(selectedVariants).map(variantId => {
+              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
+              return button ? button.dataset.variantValue : '';
+          }).join(' / ');
+          
+          selectedCombination.textContent = combinationText;
+          combinationSku.textContent = data.sku || '-';
+          variantInfo.classList.remove('hidden');
+        }
 
-    // --- Lógica para Añadir al Carrito ---
+        const isOutOfStock = data.stock <= 0;
+        addBtn.disabled = isOutOfStock;
+        
+        if (isOutOfStock) {
+          addBtn.textContent = 'Sin stock disponible';
+        } else {
+          addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 1a1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg> Añadir al carrito`;
+        }
+        
+        qtyInput.max = data.stock.toString();
+        if (parseInt(qtyInput.value) > data.stock) {
+          qtyInput.value = Math.max(1, data.stock).toString();
+        }
+        
+      } catch (e) {
+        console.error('Error al actualizar la combinación:', e);
+        showMessage('Error al consultar el producto.', 'error');
+      }
+    }
+    
+    function selectVariantOption(button: HTMLElement) {
+      const variantName = button.dataset.variantName;
+      const variantId = button.dataset.variantId;
+      const group = button.closest('.variant-group');
 
-    addBtn.addEventListener("click", async () => {
-      // 1. Obtenemos la cantidad DIRECTAMENTE del input en el momento del clic
+      if (!group || !variantName || !variantId) return;
+
+      group.querySelectorAll('.variant-option').forEach(opt => {
+        opt.classList.remove('selected', 'border-yellow-500');
+      });
+
+      button.classList.add('selected', 'border-yellow-500');
+      selectedVariants[variantName] = variantId;
+      
+      updateCombination();
+    }
+    
+    if (hasVariants) {
+      document.querySelectorAll('.variant-option').forEach(button => {
+        button.addEventListener('click', () => selectVariantOption(button as HTMLElement));
+      });
+    }
+
+    decrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) - 1));
+    incrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) + 1));
+    qtyInput?.addEventListener("change", () => updateQuantity(parseInt(qtyInput.value)));
+
+    addBtn?.addEventListener("click", async () => {
       const quantityToAdd = parseInt(qtyInput.value) || 1;
       const productId = productIdInput.value;
 
-      // 2. Deshabilitamos el botón y mostramos un indicador de carga
+      // Verificar si hay variantes y si se ha seleccionado una combinación
+      if (hasVariants && !currentCombination) {
+        showMessage('Por favor, selecciona todas las opciones de variante.', 'error');
+        return;
+      }
+
+      // Deshabilitamos el botón y mostramos indicador de carga
       addBtn.disabled = true;
       addBtn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Procesando...`;
 
       try {
-        // 3. Añadimos el producto al carrito con la cantidad correcta
-        const cart = CartCookiesClient.addItem({
-          productId: productId,
-          quantity: quantityToAdd,
-        });
+        // Preparar el objeto del carrito con información completa
+        const cartItem: any = {
+            productId: productId,
+            quantity: quantityToAdd,
+            combinationId: currentCombination?.id,  // Asegúrate de que esto se guarde
+            variantName: currentCombination?.combinationName,
+            variantSku: currentCombination?.sku
+        };
 
-        // 4. Actualizamos el estado global (nanostore)
+        // Si hay variantes seleccionadas, agregar la información correcta
+        if (hasVariants && currentCombination) {
+          // IMPORTANTE: Usar combinationId para combinaciones
+          cartItem.combinationId = currentCombination.id;
+          
+          // Agregar el nombre de la combinación
+          cartItem.variantName = currentCombination.combinationName || 
+            Object.entries(selectedVariants)
+              .map(([name, id]) => {
+                const btn = document.querySelector(`[data-variant-id="${id}"]`) as HTMLElement;
+                return btn ? `${name}: ${btn.dataset.variantValue}` : '';
+              })
+              .filter(Boolean)
+              .join(' / ');
+          
+          // Agregar SKU si existe
+          if (currentCombination.sku) {
+            cartItem.variantSku = currentCombination.sku;
+          }
+          
+          // Calcular y agregar el ajuste de precio
+          const basePrice = parseInt(basePriceInput?.value || '0');
+          if (currentCombination.price && currentCombination.price !== basePrice) {
+            cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
+          }
+        }
+
+        console.log("Añadiendo al carrito:", cartItem); // Debug
+
+        // Añadir al carrito
+        const cart = CartCookiesClient.addItem(cartItem);
+
+        // Actualizar el estado global
         itemsInCart.set(CartCookiesClient.getTotalItems());
 
-        // 5. Navegamos al carrito
-        await navigate("/cart");
+        // Mostrar mensaje de éxito breve
+        showMessage('Producto añadido al carrito', 'info');
+
+        // Navegar al carrito después de un breve delay
+        setTimeout(async () => {
+          await navigate("/cart");
+        }, 500);
 
       } catch (error) {
         console.error("Error al añadir al carrito:", error);
+        showMessage('Error al añadir el producto al carrito', 'error');
+        
+        // Restaurar el botón
         addBtn.disabled = false;
-        // Restaurar el contenido original del botón
         addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg> Añadir al carrito`;
       }
     });
+
+    // Inicializar variantes si existen
+    if (hasVariants) {
+      document.querySelectorAll('.variant-group').forEach(group => {
+        const firstAvailableOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement;
+        if (firstAvailableOption) {
+          selectVariantOption(firstAvailableOption);
+        }
+      });
+    } else {
+        addBtn.disabled = baseStock <= 0;
+        if (baseStock <= 0) {
+          addBtn.innerHTML = '<span class="relative z-10">Sin stock disponible</span>';
+        }
+    }
   }
 
-  // Ejecutamos el script en la carga de la página
+  // Ejecutar cuando la página se carga
   document.addEventListener("astro:page-load", setupProductPage);
 </script>
+
 <style>
   .animate-spin {
     animation: spin 1s linear infinite;
@@ -224,5 +559,35 @@ const product = {
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  .variant-option.selected .selection-indicator {
+    display: block;
+    border-color: #eab308;
+  }
+
+  .variant-option.selected .selection-indicator div {
+    transform: scale(1);
+  }
+
+  .variant-option:hover:not([disabled]) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .variant-option[disabled] {
+    position: relative;
+  }
+
+  .variant-option[disabled]:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background-color: #ef4444;
+    transform: rotate(-45deg);
+    z-index: 1;
   }
 </style>

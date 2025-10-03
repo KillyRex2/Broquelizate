@@ -15,21 +15,25 @@ if (error || !products) {
   return Astro.redirect('/');
 }
 
-// Calcular totales
-const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
-const tax = subtotal * 0.15;
-const total = subtotal + tax;
+// Calcular totales considerando los precios ajustados por variantes
+const subtotal = products.reduce((sum, p) => {
+  // Si tiene variante, usar el precio ajustado, sino el precio base
+  const price = p.variantPrice ?? p.price;
+  return sum + price * p.quantity;
+}, 0);
+
+const total = subtotal + 0;
 ---
 
 <ProductsLayout>
   
   <h1 class="text-4xl font-bold mb-8 text-white">Tu Carrito</h1>
-            <button
-            id="clear-cart-btn"
-            class="text-red-500 hover:text-red-700 transition font-medium padding-2 rounded-full hover:bg-red-100 mb-4"
-          >
-            Vaciar carrito
-          </button>
+  <button
+    id="clear-cart-btn"
+    class="text-red-500 hover:text-red-700 transition font-medium padding-2 rounded-full hover:bg-red-100 mb-4"
+  >
+    Vaciar carrito
+  </button>
   
   {products.length === 0 ? (
     <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
@@ -47,65 +51,112 @@ const total = subtotal + tax;
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Lista de Productos -->
       <div class="lg:col-span-2 space-y-6">
-        {products.map(product => (
-          <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg transition hover:shadow-xl">
-            <!-- Contenedor de imagen mejorado -->
-            <div class="w-full md:w-40 flex-shrink-0 flex items-center justify-center bg-gray-100">
-              <img
-                src={product.image}
-                alt={product.name}
-                class="object-contain w-full h-48 p-4 md:w-full md:h-auto"
-              />
-            </div>
-
-            <div class="flex-1 p-6 flex flex-col justify-between">
-              <div>
-                <a
-                  href={`/products/${product.slug}`}
-                  class="text-xl font-semibold text-gray-900 hover:text-yellow-500 transition"
-                >
-                  {product.name}
-                </a>
-                <p class="mt-1 text-sm text-yellow-500 uppercase">
-                  {product.category}
-                </p>
-                <p class="mt-2 text-gray-900">
-                  {Formatter.currency(product.price)} × {product.quantity} = 
-                  <span class="font-semibold ml-1">
-                    {Formatter.currency(product.price * product.quantity)}
-                  </span>
-                </p>
+        {products.map(product => {
+          // Usar precio ajustado si tiene variante
+          const displayPrice = product.variantPrice ?? product.price;
+          const hasVariant = product.variantCombination || product.variantId;
+          
+          return (
+            <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg transition hover:shadow-xl">
+              <!-- Contenedor de imagen mejorado -->
+              <div class="w-full md:w-40 flex-shrink-0 flex items-center justify-center bg-gray-100">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  class="object-contain w-full h-48 p-4 md:w-full md:h-auto"
+                />
               </div>
 
-              <div class="mt-4 flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <label for={`qty-${product.productId}`} class="sr-only">Cantidad</label>
-                  <select
-                    id={`qty-${product.productId}`}
-                    class="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+              <div class="flex-1 p-6 flex flex-col justify-between">
+                <div>
+                  <a
+                    href={`/products/${product.slug}`}
+                    class="text-xl font-semibold text-gray-900 hover:text-yellow-500 transition"
                   >
-                    {[1,2,3,4,5].map(n => (
-                      <option
-                        value={n}
-                        selected={n === product.quantity}
-                      >
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-
+                    {product.name}
+                  </a>
+                  
+                  {/* Mostrar información de la variante si existe */}
+                  {hasVariant && product.variantCombination && (
+                    <div class="mt-2 space-y-1">
+                      <p class="text-sm text-gray-600">
+                        <span class="font-medium">Variante:</span> 
+                        <span class="ml-1 text-gray-800">{product.variantCombination}</span>
+                      </p>
+                      {product.variantSku && (
+                        <p class="text-xs text-gray-500">
+                          SKU: {product.variantSku}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  <p class="mt-1 text-sm text-yellow-500 uppercase">
+                    {product.category}
+                  </p>
+                  
+                  <div class="mt-3">
+                    {/* Mostrar precio base y ajuste si hay variante */}
+                    {hasVariant && product.variantPrice !== product.price ? (
+                      <div class="space-y-1">
+                        <p class="text-sm text-gray-500">
+                          Precio base: <span class="line-through">{Formatter.currency(product.price)}</span>
+                        </p>
+                        <p class="text-gray-900 font-medium">
+                          Precio con variante: {Formatter.currency(displayPrice)} × {product.quantity} = 
+                          <span class="font-semibold ml-1 text-lg text-green-600">
+                            {Formatter.currency(displayPrice * product.quantity)}
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p class="text-gray-900">
+                        {Formatter.currency(displayPrice)} × {product.quantity} = 
+                        <span class="font-semibold ml-1">
+                          {Formatter.currency(displayPrice * product.quantity)}
+                        </span>
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <button
-                  data-id={product.productId}
-                  class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-100"
-                  aria-label="Remover producto"
-                >
-                  ✕
-                </button>
+
+                <div class="mt-4 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <label for={`qty-${product.productId}${product.combinationId ? `-${product.combinationId}` : ''}`} class="sr-only">
+                      Cantidad
+                    </label>
+                    <select
+                      id={`qty-${product.productId}${product.combinationId ? `-${product.combinationId}` : ''}`}
+                      data-product-id={product.productId}
+                      data-variant-id={product.variantId || ''}
+                      data-combination-id={product.combinationId || ''}
+                      class="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 qty-selector"
+                    >
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                        <option
+                          value={n}
+                          selected={n === product.quantity}
+                        >
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <button
+                    data-id={product.productId}
+                    data-variant-id={product.variantId || ''}
+                    data-combination-id={product.combinationId || ''}
+                    class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-100 remove-item"
+                    aria-label="Remover producto"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div class="flex justify-between items-center mt-8">
           <a
@@ -117,8 +168,6 @@ const total = subtotal + tax;
             </svg>
             Seguir comprando
           </a>
-          
-
         </div>
       </div>
 
@@ -131,13 +180,33 @@ const total = subtotal + tax;
             <span>Subtotal ({products.reduce((sum, p) => sum + p.quantity, 0)} items)</span>
             <span class="font-medium">{Formatter.currency(subtotal)}</span>
           </div>
-          <div class="flex justify-between">
-            <span>Impuesto (15%)</span>
-            <span class="font-medium">{Formatter.currency(tax)}</span>
-          </div>
+          
+          {/* Mostrar ahorro si hay descuentos por variantes */}
+          {(() => {
+            const baseTotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+            const savings = baseTotal - subtotal;
+            if (savings > 0) {
+              return (
+                <div class="flex justify-between text-green-600">
+                  <span>Ahorro por variantes</span>
+                  <span class="font-medium">-{Formatter.currency(savings)}</span>
+                </div>
+              );
+            } else if (savings < 0) {
+              return (
+                <div class="flex justify-between text-amber-600">
+                  <span>Ajuste por variantes</span>
+                  <span class="font-medium">+{Formatter.currency(Math.abs(savings))}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+          
+          
           <div class="flex justify-between">
             <span>Envío</span>
-            <span class="text-green-600 font-medium">Gratis</span>
+            <span class="text-green-600 font-medium">Por calcular</span>
           </div>
         </div>
 
@@ -167,36 +236,52 @@ const total = subtotal + tax;
   import { CartCookiesClient } from '../../utils/cart-cookies';
   import { navigate } from 'astro:transitions/client';
   import { itemsInCart } from '@/store';
+  import Swal from 'sweetalert2';
 
-  document.addEventListener('astro:page-load', () => {
-    // Eliminar producto
-    document.querySelectorAll('[data-id]').forEach(btn => {
+  // Función principal que maneja toda la lógica del carrito
+  function initializeCart() {
+    // Eliminar producto (sin Swal, solo confirmación nativa)
+    const removeButtons = document.querySelectorAll('.remove-item');
+    removeButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const target = e.currentTarget;
-        if (!(target instanceof HTMLButtonElement)) return;
+        const target = e.currentTarget as HTMLButtonElement;
+        if (!target) return;
         
-        const id = target.dataset.id || '';
-        const cart = CartCookiesClient.removeItem(id);
-        itemsInCart.set(cart.length);
+        const productId = target.dataset.id || '';
+        const variantId = target.dataset.variantId || undefined;
+        const combinationId = target.dataset.combinationId || undefined;
+        
+        // Eliminar directamente sin confirmación (o usar confirm nativo si prefieres)
+        const cart = CartCookiesClient.removeItem(productId, variantId, combinationId);
+        
+        // Actualizar el contador total
+        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        itemsInCart.set(totalItems);
+        
+        // Navegar para recargar el carrito
         navigate('/cart');
       });
     });
     
-    // Actualizar cantidad - SOLUCIÓN AL PROBLEMA DEL SELECTOR
-    document.querySelectorAll('select').forEach(select => {
+    // Actualizar cantidad
+    const qtySelectors = document.querySelectorAll('.qty-selector');
+    qtySelectors.forEach(select => {
       select.addEventListener('change', (e) => {
-        const target = e.currentTarget;
-        if (!(target instanceof HTMLSelectElement)) return;
+        const target = e.currentTarget as HTMLSelectElement;
+        if (!target) return;
         
-        const id = target.id.replace('qty-', '');
+        const productId = target.dataset.productId || '';
+        const variantId = target.dataset.variantId || undefined;
+        const combinationId = target.dataset.combinationId || undefined;
         const quantity = parseInt(target.value);
         
-        if (id && quantity > 0) {
-          // SOLUCIÓN: Actualizar la cantidad en el carrito
-          const cart = CartCookiesClient.updateItemQuantity(id, quantity);
+        if (productId && quantity > 0) {
+          // Actualizar la cantidad del item específico
+          const cart = CartCookiesClient.updateItemQuantity(productId, quantity, variantId, combinationId);
           
           // Actualizar el contador global del carrito
-          itemsInCart.set(cart.reduce((total, item) => total + item.quantity, 0));
+          const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+          itemsInCart.set(totalItems);
           
           // Recargar la página para ver los cambios
           navigate('/cart');
@@ -204,23 +289,66 @@ const total = subtotal + tax;
       });
     });
     
-    // Vaciar carrito
+    // Vaciar carrito (con Swal)
     const clearCartBtn = document.getElementById('clear-cart-btn');
     if (clearCartBtn) {
-      clearCartBtn.addEventListener('click', () => { 
-        CartCookiesClient.clearCart();
-        itemsInCart.set(0);
-        navigate('/cart');
+      clearCartBtn.addEventListener('click', async () => {
+        try {
+          const result = await Swal.fire({
+            title: '¿Vaciar el carrito?',
+            text: "Se eliminarán todos los productos del carrito",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, vaciar',
+            cancelButtonText: 'Cancelar',
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          });
+
+          if (result.isConfirmed) {
+            CartCookiesClient.clearCart();
+            itemsInCart.set(0);
+            
+            await Swal.fire({
+              title: '¡Carrito vaciado!',
+              text: 'Todos los productos han sido eliminados.',
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false,
+              allowOutsideClick: false
+            });
+            
+            navigate('/cart');
+          }
+        } catch (error) {
+          console.error('Error al vaciar carrito:', error);
+        }
       });
     }
     
-    document.querySelector('#checkout-btn')?.addEventListener('click', () => {
-    // Redirigir al usuario a la página de checkout
-    navigate('/checkout');
-  });
-  });
+    // Proceder al checkout
+    const checkoutBtn = document.querySelector('#checkout-btn');
+    if (checkoutBtn) {
+      checkoutBtn.addEventListener('click', () => {
+        navigate('/checkout');
+      });
+    }
+  }
 
-
+  // Ejecutar cuando la página se carga
+  document.addEventListener('astro:page-load', () => {
+    // Asegurarse de que Swal esté disponible antes de inicializar
+    if (typeof Swal !== 'undefined') {
+      initializeCart();
+    } else {
+      // Si Swal no está cargado, intentar de nuevo en un momento
+      setTimeout(() => {
+        initializeCart();
+      }, 100);
+    }
+  });
 </script>
 
 <style>
@@ -233,6 +361,11 @@ const total = subtotal + tax;
     background-color: #f3f4f6;
   }
   
+  /* Animación suave para hover en productos */
+  .hover\:shadow-xl {
+    transition: box-shadow 0.3s ease;
+  }
+  
   /* Estilos para mejorar la experiencia móvil */
   @media (max-width: 768px) {
     .flex-col.md\:flex-row {
@@ -243,5 +376,14 @@ const total = subtotal + tax;
       width: 100%;
       height: 200px;
     }
+  }
+  
+  /* Estilos personalizados para SweetAlert2 */
+  :global(.swal2-container) {
+    z-index: 99999 !important;
+  }
+  
+  :global(.swal2-popup) {
+    font-family: inherit;
   }
 </style>

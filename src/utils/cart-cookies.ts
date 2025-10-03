@@ -1,7 +1,7 @@
 // src/utils/cart-cookies.ts
 import type { CartItem } from "@/interfaces";
 import Cookies from 'js-cookie';
-import { updateCartStore, clearCartStore } from '@/store'; // Importa los métodos del store
+import { updateCartStore, clearCartStore } from '@/store';
 
 export class CartCookiesClient {
     static getCart(): CartItem[] {
@@ -10,13 +10,19 @@ export class CartCookiesClient {
 
     static addItem(cartItem: CartItem): CartItem[] {
         const cart = this.getCart();
-        const existingIndex = cart.findIndex(item => item.productId === cartItem.productId);
         
-        // SOLUCIÓN: Actualizar en lugar de sumar
+        // Buscar por productId y también por variantId/combinationId si existen
+        const existingIndex = cart.findIndex(item => 
+            item.productId === cartItem.productId && 
+            item.variantId === cartItem.variantId &&
+            item.combinationId === cartItem.combinationId
+        );
+        
         if (existingIndex > -1) {
-            // Reemplazar cantidad en lugar de sumar
+            // Si existe el mismo producto con la misma variante, actualizar cantidad
             cart[existingIndex].quantity = cartItem.quantity;
         } else {
+            // Si no existe o es una variante diferente, agregar como nuevo item
             cart.push(cartItem);
         }
 
@@ -25,41 +31,84 @@ export class CartCookiesClient {
         return cart;
     }
 
-    static removeItem(productId: string): CartItem[] {
+    static removeItem(productId: string, variantId?: string, combinationId?: string): CartItem[] {
         const cart = this.getCart();
-        const updatedCart = cart.filter(item => item.productId !== productId);
+        
+        // Filtrar considerando variantes
+        const updatedCart = cart.filter(item => {
+            if (variantId || combinationId) {
+                // Si se especifica variante, comparar todo
+                return !(
+                    item.productId === productId && 
+                    item.variantId === variantId && 
+                    item.combinationId === combinationId
+                );
+            } else {
+                // Si no hay variante, solo remover items sin variante del mismo producto
+                return !(
+                    item.productId === productId && 
+                    !item.variantId && 
+                    !item.combinationId
+                );
+            }
+        });
+        
         this.setCart(updatedCart);
-        updateCartStore(); // Actualiza el store
+        updateCartStore();
         return updatedCart;
     }
 
- static updateItemQuantity(productId: string, quantity: number): CartItem[] {
-    // SOLUCIÓN: Validar cantidad máxima
-    const validQuantity = Math.max(1, Math.min(99, quantity));
-    
-    if (validQuantity <= 0) return this.removeItem(productId);
-    
-    const cart = this.getCart();
-    const item = cart.find(item => item.productId === productId);
-    
-    if (item) {
-        item.quantity = validQuantity;  // Usar cantidad validada
-        this.setCart(cart);
-        updateCartStore();
-    }
-    
-    return cart;
-}
-
-    static incrementQuantity(productId: string, amount: number = 1): CartItem[] {
+    static updateItemQuantity(
+        productId: string, 
+        quantity: number, 
+        variantId?: string, 
+        combinationId?: string
+    ): CartItem[] {
+        const validQuantity = Math.max(1, Math.min(99, quantity));
+        
+        if (validQuantity <= 0) {
+            return this.removeItem(productId, variantId, combinationId);
+        }
+        
         const cart = this.getCart();
-        const item = cart.find(item => item.productId === productId);
+        
+        // Buscar el item específico considerando variantes
+        const item = cart.find(item => 
+            item.productId === productId && 
+            item.variantId === variantId && 
+            item.combinationId === combinationId
+        );
+        
+        if (item) {
+            item.quantity = validQuantity;
+            this.setCart(cart);
+            updateCartStore();
+        }
+        
+        return cart;
+    }
+
+    static incrementQuantity(
+        productId: string, 
+        amount: number = 1,
+        variantId?: string,
+        combinationId?: string
+    ): CartItem[] {
+        const cart = this.getCart();
+        
+        const item = cart.find(item => 
+            item.productId === productId && 
+            item.variantId === variantId && 
+            item.combinationId === combinationId
+        );
         
         if (item) {
             item.quantity += amount;
-            if (item.quantity <= 0) return this.removeItem(productId);
+            if (item.quantity <= 0) {
+                return this.removeItem(productId, variantId, combinationId);
+            }
             this.setCart(cart);
-            updateCartStore(); // Actualiza el store
+            updateCartStore();
         }
         
         return cart;
@@ -67,13 +116,23 @@ export class CartCookiesClient {
 
     static clearCart(): CartItem[] {
         this.setCart([]);
-        clearCartStore(); // Actualiza el store a 0
+        clearCartStore();
         return [];
     }
 
-    static getItemQuantity(productId: string): number {
+    static getItemQuantity(
+        productId: string,
+        variantId?: string,
+        combinationId?: string
+    ): number {
         const cart = this.getCart();
-        const item = cart.find(item => item.productId === productId);
+        
+        const item = cart.find(item => 
+            item.productId === productId && 
+            item.variantId === variantId && 
+            item.combinationId === combinationId
+        );
+        
         return item ? item.quantity : 0;
     }
 
@@ -82,11 +141,30 @@ export class CartCookiesClient {
         return cart.reduce((total, item) => total + item.quantity, 0);
     }
 
-    static getTotalPrice(products: {id: string, price: number}[] = []): number {
+    static getTotalPrice(products: {
+        id: string, 
+        price: number,
+        variantId?: string,
+        combinationId?: string,
+        variantPrice?: number
+    }[] = []): number {
         const cart = this.getCart();
+        
         return cart.reduce((total, cartItem) => {
-            const product = products.find(p => p.id === cartItem.productId);
-            return total + (product ? product.price * cartItem.quantity : 0);
+            // Buscar el producto correspondiente
+            const product = products.find(p => 
+                p.id === cartItem.productId &&
+                p.variantId === cartItem.variantId &&
+                p.combinationId === cartItem.combinationId
+            );
+            
+            if (product) {
+                // Usar precio con variante si existe, sino precio base
+                const price = product.variantPrice ?? product.price;
+                return total + (price * cartItem.quantity);
+            }
+            
+            return total;
         }, 0);
     }
 
