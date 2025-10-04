@@ -497,6 +497,8 @@ const processedVariants = processVariants(variantsData);
           if (currentCombination.sku) {
             cartItem.variantSku = currentCombination.sku;
           }
+
+          cartItem.variantPrice = currentCombination.price;
           
           // Calcular y agregar el ajuste de precio
           const basePrice = parseInt(basePriceInput?.value || '0');

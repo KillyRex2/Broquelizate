@@ -10,6 +10,7 @@ export interface CartItem {
     variantName?: string;
     variantSku?: string;
     variantPriceAdjustment?: number;
+    variantPrice?: number; // ⭐ AGREGAR ESTA LÍNEA
 }
 
 // Tipo para el producto cargado desde el carrito con toda la información
