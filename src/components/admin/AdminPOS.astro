@@ -8,85 +8,123 @@ const { data: allProducts = [], error } = await Astro.callAction(actions.getAllP
 const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
 ---
 
-<div class="flex bg-gray-100 font-sans text-gray-800 rounded-lg">
-  <main class="flex-1 flex flex-col p-4 md:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
-    <header class="mb-6 flex flex-col md:flex-row items-center gap-4">
-      <h1 class="text-2xl font-bold text-gray-900 hidden lg:block">Broqueventa</h1>
-      <div class="relative flex-grow w-full">
-        <Icon name="mdi:magnify" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-        <input
-          type="text"
-          id="search-input"
-          placeholder="Buscar por nombre o SKU..."
-          class="w-full rounded-full border border-gray-300 bg-white py-2.5 pl-12 pr-4 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-        />
+<div class="flex bg-gray-100 font-sans text-gray-800 rounded-lg relative h-screen overflow-hidden">
+  <!-- Backdrop del carrito móvil -->
+  <div id="cart-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
+
+  <main class="flex-1 flex flex-col p-3 md:p-4 lg:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
+    <header class="mb-4 md:mb-6 flex flex-col gap-3 md:gap-4">
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Broqueventa</h1>
+        <!-- Botón carrito móvil -->
+        <button id="mobile-cart-toggle" class="lg:hidden bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 font-semibold">
+          <Icon name="mdi:cart" class="h-5 w-5" />
+          <span id="mobile-cart-count" class="bg-white text-amber-600 rounded-full px-2 py-0.5 text-xs font-bold">0</span>
+        </button>
       </div>
-      <select id="category-filter" class="w-full md:w-auto rounded-full border-gray-300 bg-white py-2.5 px-4 focus:border-amber-500 focus:ring-1 focus:ring-amber-500">
-        <option value="all">Todas las categorías</option>
-        {categories.map(category => (
-          <option value={category}>{category}</option>
-        ))}
-      </select>
+      
+      <div class="flex flex-col sm:flex-row gap-2 md:gap-4">
+        <div class="relative flex-grow">
+          <Icon name="mdi:magnify" class="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Buscar producto o SKU..."
+            class="w-full rounded-full border border-gray-300 bg-white py-2 md:py-2.5 pl-10 md:pl-12 pr-3 md:pr-4 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm md:text-base"
+          />
+        </div>
+        <select id="category-filter" class="rounded-full border-gray-300 bg-white py-2 md:py-2.5 px-3 md:px-4 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm md:text-base">
+          <option value="all">Todas las categorías</option>
+          {categories.map(category => (
+            <option value={category}>{category}</option>
+          ))}
+        </select>
+      </div>
     </header>
     
     <div id="product-grid"
-         class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-5 overflow-y-auto p-2 min-h-0"
-         style="max-height: calc(100vh - 7rem);">
+         class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4 lg:gap-5 overflow-y-auto p-1 md:p-2 min-h-0"
+         style="max-height: calc(100vh - 10rem);">
       <!-- Los productos se renderizan via JavaScript -->
     </div>
   </main>
   
-  <!-- Modal de Variantes Mejorado -->
-  <div id="variant-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
+  <!-- Modal de Variantes Responsive -->
+  <div id="variant-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-3 md:p-4">
+    <div class="bg-white rounded-xl md:rounded-2xl w-full max-w-3xl max-h-[90vh] md:max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
       <!-- Header -->
-      <div class="p-6 border-b bg-gradient-to-r from-amber-50 to-orange-50">
-        <div class="flex items-start justify-between">
-          <div>
-            <h2 class="text-2xl font-bold text-gray-900" id="modal-product-name">Seleccionar Variante</h2>
-            <p class="text-sm text-gray-600 mt-1" id="modal-product-description">Elige la variante que desea el cliente</p>
+      <div class="p-4 md:p-6 border-b bg-gradient-to-r from-amber-50 to-orange-50">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <h2 class="text-lg md:text-2xl font-bold text-gray-900 truncate" id="modal-product-name">Seleccionar Variante</h2>
+            <p class="text-xs md:text-sm text-gray-600 mt-1" id="modal-product-description">Elige la variante</p>
           </div>
-          <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors">
-            <Icon name="mdi:close" class="h-6 w-6" />
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
+            <Icon name="mdi:close" class="h-5 w-5 md:h-6 md:w-6" />
           </button>
         </div>
       </div>
       
       <!-- Contenido -->
-      <div class="p-6 overflow-y-auto max-h-[60vh] bg-gray-50">
-        <div id="variant-list" class="grid gap-4 sm:grid-cols-2"></div>
+      <div class="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-8rem)] md:max-h-[60vh] bg-gray-50">
+        <div id="variant-list" class="grid gap-3 md:gap-4"></div>
       </div>
     </div>
   </div>
   
-  <!-- Carrito Lateral -->
-  <aside class="flex w-full max-w-sm flex-col border-l border-gray-200 bg-white shadow-lg h-screen overflow-y-auto">
-    <div class="flex items-center justify-between border-b p-4">
-      <h2 class="text-xl font-bold text-gray-800">Orden Actual</h2>
-      <button id="admin-clear-cart-btn" class="text-sm font-medium text-red-500 hover:text-red-700 transition-colors">
-        Vaciar Carrito
-      </button>
+  <!-- Carrito Lateral (Desktop) / Drawer (Mobile) -->
+  <aside id="cart-drawer" class="fixed lg:relative right-0 top-0 lg:top-auto flex w-full sm:w-96 lg:w-full lg:max-w-sm flex-col border-l border-gray-200 bg-white shadow-2xl lg:shadow-lg overflow-hidden z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out" style="height: 100vh; max-height: 100vh;">
+    <!-- Header del carrito con botones importantes -->
+    <div class="flex flex-col border-b bg-white sticky top-0 z-10 shadow-sm">
+      <!-- Fila 1: Título y botón cerrar -->
+      <div class="flex items-center justify-between p-3 md:p-4">
+        <h2 class="text-lg md:text-xl font-bold text-gray-800">Orden Actual</h2>
+        <div class="flex items-center gap-2">
+          <!-- Botón vaciar en desktop -->
+          <button id="admin-clear-cart-btn-desktop" class="hidden lg:block text-xs md:text-sm font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-1 hover:bg-red-50 rounded">
+            Vaciar
+          </button>
+          <!-- Botón cerrar carrito móvil -->
+          <button id="close-cart-mobile" class="lg:hidden text-gray-500 hover:text-gray-700 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <Icon name="mdi:close" class="h-6 w-6" />
+          </button>
+        </div>
+      </div>
+      
+      <!-- Fila 2: Botones de acción (solo móvil) -->
+      <div class="lg:hidden border-t border-gray-100 grid grid-cols-2 gap-2 p-2">
+        <button id="back-to-products-mobile" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
+          <Icon name="mdi:arrow-left" class="h-5 w-5" />
+          <span>Seguir</span>
+        </button>
+        <button id="admin-clear-cart-btn" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+          <Icon name="mdi:delete-outline" class="h-5 w-5" />
+          <span>Vaciar</span>
+        </button>
+      </div>
     </div>
-    <ul id="cart-items-list" class="flex-1 space-y-3 overflow-y-auto p-4">
-      <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400">
-        <Icon name="mdi:cart-outline" class="h-16 w-16" />
-        <p>Los productos agregados aparecerán aquí.</p>
+    
+    <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-gray-50">
+      <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400 py-12">
+        <Icon name="mdi:cart-outline" class="h-12 w-12 md:h-16 md:w-16" />
+        <p class="text-sm md:text-base mt-2">Los productos aparecerán aquí</p>
       </div>
     </ul>
-    <div class="border-t bg-gray-50 p-4">
-      <div class="space-y-2 text-sm">
+    
+    <div class="border-t bg-white p-3 md:p-4 sticky bottom-0 shadow-up">
+      <div class="space-y-2 text-sm md:text-base">
         <div class="flex justify-between">
           <span class="text-gray-600">Subtotal</span>
           <span id="subtotal-amount" class="font-medium text-gray-800">$0.00</span>
         </div>
-        <div class="flex justify-between text-lg">
+        <div class="flex justify-between text-base md:text-lg">
           <span class="font-bold text-gray-900">Total</span>
           <span id="total-amount" class="font-bold text-gray-900">$0.00</span>
         </div>
       </div>
       <button
         id="checkout-button"
-        class="mt-4 w-full rounded-lg bg-amber-500 py-3 text-base font-bold text-white shadow-md transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+        class="mt-3 md:mt-4 w-full rounded-lg bg-amber-500 py-3 md:py-3.5 text-sm md:text-base font-bold text-white shadow-md transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-300 active:scale-95"
         disabled>
         Ir al Pago
       </button>
@@ -103,9 +141,8 @@ import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
 let cleanupFunction: (() => void) | null = null;
-let isInitialized = false; // Flag para evitar múltiples inicializaciones
+let isInitialized = false;
 
-// Función debounce para optimizar el search
 function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -118,7 +155,6 @@ function debounce<T extends (...args: any[]) => any>(
 }
 
 function initializePOS() {
-  // Evitar múltiples inicializaciones
   if (isInitialized) {
     return;
   }
@@ -157,15 +193,48 @@ function initializePOS() {
   const searchInput = document.getElementById('search-input') as HTMLInputElement;
   const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement;
   const clearCartBtn = document.getElementById('admin-clear-cart-btn');
+  const clearCartBtnDesktop = document.getElementById('admin-clear-cart-btn-desktop');
   const variantModal = document.getElementById('variant-modal');
   const closeModalBtn = document.getElementById('close-modal');
   const modalProductName = document.getElementById('modal-product-name');
   const modalProductDescription = document.getElementById('modal-product-description');
   const variantList = document.getElementById('variant-list');
+  
+  // Elementos móviles
+  const cartDrawer = document.getElementById('cart-drawer');
+  const cartBackdrop = document.getElementById('cart-backdrop');
+  const mobileCartToggle = document.getElementById('mobile-cart-toggle');
+  const closeCartMobile = document.getElementById('close-cart-mobile');
+  const mobileCartCount = document.getElementById('mobile-cart-count');
+  const backToProductsMobile = document.getElementById('back-to-products-mobile');
 
   let cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
 
   const formatCurrency = (value: number) => `$${Number(value).toFixed(2)}`;
+
+  // Funciones para el carrito móvil
+  function openMobileCart() {
+    if (window.innerWidth < 1024) {
+      cartDrawer?.classList.remove('translate-x-full');
+      cartBackdrop?.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeMobileCart() {
+    if (window.innerWidth < 1024) {
+      cartDrawer?.classList.add('translate-x-full');
+      cartBackdrop?.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+  }
+
+  function updateMobileCartCount() {
+    if (mobileCartCount) {
+      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+      mobileCartCount.textContent = totalItems.toString();
+    }
+  }
 
   function renderProductGrid(productsToRender: ProductForPOS[]) {
     if (!productGrid) return;
@@ -174,12 +243,12 @@ function initializePOS() {
         const imageUrl = product.images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
         
         const outOfStockDot = product.stock <= 0
-          ? `<span class="absolute top-2 left-2 block h-3 w-3 rounded-full bg-orange-500 shadow-md animate-pulse" aria-label="Sin stock (verificar físicamente)"></span>`
+          ? `<span class="absolute top-1.5 left-1.5 md:top-2 md:left-2 block h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-orange-500 shadow-md animate-pulse" aria-label="Sin stock"></span>`
           : '';
 
         const variantBadge = product.hasVariants && product.variantOptions && product.variantOptions.length > 0
-          ? `<span class="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full shadow-md">
-               ${product.variantOptions.length} ${product.variantOptions.length === 1 ? 'variante' : 'variantes'}
+          ? `<span class="absolute top-1.5 right-1.5 md:top-2 md:right-2 bg-purple-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full shadow-md">
+               ${product.variantOptions.length}
              </span>`
           : '';
 
@@ -195,7 +264,7 @@ function initializePOS() {
 
         return `
         <article
-          class="group relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border border-gray-200"
+          class="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg md:rounded-xl bg-white shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border border-gray-200 active:scale-95"
           data-product-id="${product.id}"
           data-has-variants="${product.hasVariants}"
         >
@@ -210,26 +279,26 @@ function initializePOS() {
               onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'"
             />
           </div>
-          <div class="flex flex-col justify-between p-4 min-h-[9rem]">
-            <div class="flex-1 space-y-1">
-              <h3 class="text-sm font-medium text-gray-800 line-clamp-2">
+          <div class="flex flex-col justify-between p-2 md:p-3 lg:p-4 min-h-[7rem] md:min-h-[9rem]">
+            <div class="flex-1 space-y-0.5 md:space-y-1">
+              <h3 class="text-xs md:text-sm font-medium text-gray-800 line-clamp-2">
                 ${product.name}
               </h3>
-              ${product.category ? `<p class="text-xs text-amber-600 font-medium">${product.category}</p>` : ''}
+              ${product.category ? `<p class="text-[10px] md:text-xs text-amber-600 font-medium">${product.category}</p>` : ''}
             </div>
-            <div class="mt-2">
-              <p class="text-lg font-bold text-gray-900">
+            <div class="mt-1 md:mt-2">
+              <p class="text-sm md:text-base lg:text-lg font-bold text-gray-900">
                 ${priceDisplay}
               </p>
               ${product.stock > 0 ? 
-                `<p class="text-xs text-gray-500">Stock: ${product.stock}</p>` : 
-                `<p class="text-xs text-orange-600 font-medium">Sin stock - Verificar físicamente</p>`
+                `<p class="text-[10px] md:text-xs text-gray-500">Stock: ${product.stock}</p>` : 
+                `<p class="text-[10px] md:text-xs text-orange-600 font-medium">Sin stock</p>`
               }
             </div>
           </div>
-          <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
-            <div class="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 group-hover:scale-110 transform scale-90 transition-all duration-300 pointer-events-none shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center pointer-events-none">
+            <div class="w-10 h-10 md:w-12 md:h-12 bg-amber-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 group-hover:scale-110 transform scale-90 transition-all duration-300 shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </div>
@@ -244,7 +313,7 @@ function initializePOS() {
     if (!variantModal || !modalProductName || !variantList || !modalProductDescription) return;
     
     modalProductName.textContent = product.name;
-    modalProductDescription.textContent = `Selecciona una de las ${product.variantOptions?.length || 0} opciones disponibles`;
+    modalProductDescription.textContent = `${product.variantOptions?.length || 0} opciones disponibles`;
     
     variantList.innerHTML = product.variantOptions?.map(variant => {
       const variantImage = variant.images?.[0] || product.images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
@@ -252,15 +321,15 @@ function initializePOS() {
       const hasDiscount = variant.priceAdjustment < 0;
       
       return `
-        <div class="variant-card hover:shadow-xl cursor-pointer bg-white border-2 border-gray-200 rounded-xl p-4 transition-all duration-300 hover:border-amber-500 hover:-translate-y-1"
+        <div class="variant-card hover:shadow-xl cursor-pointer bg-white border-2 border-gray-200 rounded-lg md:rounded-xl p-3 md:p-4 transition-all duration-300 hover:border-amber-500 hover:-translate-y-1 active:scale-95"
              data-variant-id="${variant.id}"
              data-product-id="${product.id}"
              data-no-stock="${hasNoStock}">
-          <div class="flex gap-4">
-            <div class="relative">
+          <div class="flex flex-col sm:flex-row gap-3 md:gap-4">
+            <div class="relative flex-shrink-0">
               <img src="${variantImage}" 
                    alt="${variant.name}" 
-                   class="w-24 h-24 object-cover rounded-lg shadow-sm"
+                   class="w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 object-cover rounded-lg shadow-sm"
                    onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
               ${hasDiscount ? `
                 <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">
@@ -273,22 +342,22 @@ function initializePOS() {
                 </span>
               ` : ''}
             </div>
-            <div class="flex-1">
-              <h3 class="font-semibold text-gray-900 text-lg">${variant.name}</h3>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold text-gray-900 text-base md:text-lg truncate">${variant.name}</h3>
               ${variant.sku ? `<p class="text-xs text-gray-500 mb-1">SKU: ${variant.sku}</p>` : ''}
               
               <div class="flex items-center gap-2 mt-2">
-                <p class="text-2xl font-bold text-amber-600">${formatCurrency(variant.finalPrice)}</p>
+                <p class="text-xl md:text-2xl font-bold text-amber-600">${formatCurrency(variant.finalPrice)}</p>
                 ${hasDiscount ? `
-                  <span class="text-sm line-through text-gray-400">${formatCurrency(product.price)}</span>
+                  <span class="text-xs md:text-sm line-through text-gray-400">${formatCurrency(product.price)}</span>
                 ` : ''}
               </div>
               
-              <div class="flex items-center gap-3 mt-3">
-                <p class="text-sm ${variant.stock > 10 ? 'text-green-600' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
-                  ${variant.stock > 0 ? `${variant.stock} disponibles` : 'Sin stock - Verificar físicamente'}
+              <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mt-3">
+                <p class="text-xs md:text-sm ${variant.stock > 10 ? 'text-green-600' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
+                  ${variant.stock > 0 ? `${variant.stock} disponibles` : 'Sin stock'}
                 </p>
-                <button class="add-variant-btn ml-auto px-4 py-2 bg-gradient-to-r ${hasNoStock ? 'from-orange-500 to-amber-500' : 'from-amber-500 to-orange-500'} text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-md hover:shadow-lg font-medium">
+                <button class="add-variant-btn w-full sm:w-auto sm:ml-auto px-3 md:px-4 py-2 bg-gradient-to-r ${hasNoStock ? 'from-orange-500 to-amber-500' : 'from-amber-500 to-orange-500'} text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-md hover:shadow-lg font-medium text-sm md:text-base active:scale-95">
                   ${hasNoStock ? 'Agregar (sin stock)' : 'Agregar'}
                 </button>
               </div>
@@ -296,14 +365,16 @@ function initializePOS() {
           </div>
         </div>
       `;
-    }).join('') || '<p class="text-center text-gray-500">No hay variantes disponibles</p>';
+    }).join('') || '<p class="text-center text-gray-500 py-8">No hay variantes disponibles</p>';
     
     variantModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
   }
 
   function hideVariantModal() {
     if (variantModal) {
       variantModal.classList.add('hidden');
+      document.body.style.overflow = '';
     }
   }
 
@@ -322,8 +393,8 @@ function initializePOS() {
       if (hasNoStock && !forceAdd) {
         Swal.fire({
           icon: 'warning',
-          title: 'Producto sin stock en sistema',
-          text: 'Este producto aparece sin stock. ¿Confirma que está disponible físicamente?',
+          title: 'Sin stock en sistema',
+          text: '¿Confirma que está disponible físicamente?',
           showCancelButton: true,
           confirmButtonColor: '#f59e0b',
           cancelButtonColor: '#6b7280',
@@ -362,8 +433,8 @@ function initializePOS() {
       if (hasNoStock && !forceAdd) {
         Swal.fire({
           icon: 'warning',
-          title: 'Producto sin stock en sistema',
-          text: 'Este producto aparece sin stock. ¿Confirma que está disponible físicamente?',
+          title: 'Sin stock en sistema',
+          text: '¿Confirma que está disponible físicamente?',
           showCancelButton: true,
           confirmButtonColor: '#f59e0b',
           cancelButtonColor: '#6b7280',
@@ -398,14 +469,19 @@ function initializePOS() {
     updateAndSaveCart();
     hideVariantModal();
     
+    // Solo abrir carrito en móvil si está cerrado
+    if (window.innerWidth < 1024 && cartDrawer?.classList.contains('translate-x-full')) {
+      openMobileCart();
+    }
+    
     const addedItem = variantId ? 
       cart.find(i => i.productId === productId && i.variantId === variantId) :
       cart.find(i => i.productId === productId && !i.variantId);
     
     Swal.fire({
       icon: 'success',
-      title: 'Agregado al carrito',
-      html: `<strong>${addedItem?.name}</strong>${addedItem?.variantName ? ` - ${addedItem.variantName}` : ''}<br>Cantidad: ${addedItem?.quantity}${addedItem?.outOfStock ? '<br><span class="text-orange-600">⚠️ Sin stock en sistema</span>' : ''}`,
+      title: 'Agregado',
+      html: `<strong>${addedItem?.name}</strong>${addedItem?.variantName ? ` - ${addedItem.variantName}` : ''}<br>Cantidad: ${addedItem?.quantity}${addedItem?.outOfStock ? '<br><span class="text-orange-600">⚠️ Sin stock</span>' : ''}`,
       timer: 1500,
       showConfirmButton: false,
       position: 'top-end',
@@ -423,18 +499,18 @@ function initializePOS() {
         const displayName = item.variantName ? `${item.name} - ${item.variantName}` : item.name;
         
         return `
-          <li class="flex items-center gap-3 text-sm p-3 rounded-lg hover:bg-gray-50 transition-colors border ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100'}">
+          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2 md:p-3 rounded-lg hover:bg-gray-50 transition-colors border ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100'}">
             <img src="${imageUrl}" 
                  alt="${displayName}" 
-                 class="h-14 w-14 rounded-md object-cover shadow-sm"
+                 class="h-12 w-12 md:h-14 md:w-14 rounded-md object-cover shadow-sm flex-shrink-0"
                  onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'" />
-            <div class="flex-grow">
-              <p class="font-medium text-gray-800 line-clamp-1">${displayName}</p>
-              ${item.sku ? `<p class="text-xs text-gray-500">SKU: ${item.sku}</p>` : ''}
-              ${item.outOfStock ? `<p class="text-xs text-orange-600 font-medium">⚠️ Sin stock en sistema</p>` : ''}
-              <div class="flex items-center gap-2 mt-2">
+            <div class="flex-grow min-w-0">
+              <p class="font-medium text-gray-800 line-clamp-2 text-xs md:text-sm">${displayName}</p>
+              ${item.sku ? `<p class="text-[10px] md:text-xs text-gray-500 truncate">SKU: ${item.sku}</p>` : ''}
+              ${item.outOfStock ? `<p class="text-[10px] md:text-xs text-orange-600 font-medium">⚠️ Sin stock</p>` : ''}
+              <div class="flex items-center gap-1.5 md:gap-2 mt-2">
                 <button data-action="decr" data-index="${index}" class="qty-btn">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 md:h-3 md:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
                   </svg>
                 </button>
@@ -442,20 +518,20 @@ function initializePOS() {
                        value="${item.quantity}" 
                        min="1" 
                        data-index="${index}" 
-                       class="w-14 border rounded-md bg-white text-center font-medium qty-input" />
+                       class="w-10 md:w-14 border rounded-md bg-white text-center font-medium qty-input text-xs md:text-sm" />
                 <button data-action="incr" data-index="${index}" class="qty-btn">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 md:h-3 md:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
               </div>
             </div>
-            <div class="text-right">
-              <p class="font-bold text-gray-900">${formatCurrency(item.price * item.quantity)}</p>
-              <p class="text-xs text-gray-500">${formatCurrency(item.price)} c/u</p>
+            <div class="text-right flex-shrink-0">
+              <p class="font-bold text-gray-900 text-xs md:text-sm">${formatCurrency(item.price * item.quantity)}</p>
+              <p class="text-[10px] md:text-xs text-gray-500">${formatCurrency(item.price)} c/u</p>
             </div>
-            <button data-action="remove" data-index="${index}" class="remove-btn text-gray-400 hover:text-red-500 p-1 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <button data-action="remove" data-index="${index}" class="remove-btn text-gray-400 hover:text-red-500 p-0.5 md:p-1 transition-colors flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
@@ -472,6 +548,8 @@ function initializePOS() {
     const subtotal = cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
     subtotalAmount.textContent = formatCurrency(subtotal);
     totalAmount.textContent = formatCurrency(subtotal);
+    
+    updateMobileCartCount();
   }
 
   function updateQuantity(index: number, newQuantity: string | number) {
@@ -495,8 +573,8 @@ function initializePOS() {
 
   async function clearCart() {
     const result = await Swal.fire({
-      title: '¿Vaciar el carrito?',
-      text: "Se eliminarán todos los productos de la orden actual",
+      title: '¿Vaciar carrito?',
+      text: "Se eliminarán todos los productos",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#f59e0b',
@@ -536,7 +614,6 @@ function initializePOS() {
     renderProductGrid(filteredProducts);
   }
 
-  // Crear versión debounced de filterAndRender
   const debouncedFilterAndRender = debounce(filterAndRender, 300);
 
   // EVENT LISTENERS
@@ -584,7 +661,7 @@ function initializePOS() {
       updateQuantity(index, 0);
       Swal.fire({
         icon: 'info',
-        title: 'Producto eliminado',
+        title: 'Eliminado',
         timer: 1000,
         showConfirmButton: false,
         position: 'top-end',
@@ -610,7 +687,6 @@ function initializePOS() {
     if (e.target === variantModal) hideVariantModal();
   };
   
-  // Usar la versión debounced para el search
   const handleSearch = () => debouncedFilterAndRender();
   const handleCategoryChange = () => filterAndRender();
   
@@ -625,13 +701,13 @@ function initializePOS() {
       if (hasOutOfStockItems) {
         Swal.fire({
           icon: 'warning',
-          title: 'Productos sin stock en sistema',
-          text: 'Hay productos sin stock en el sistema. ¿Confirma que están disponibles físicamente?',
+          title: 'Productos sin stock',
+          text: '¿Confirma que están disponibles físicamente?',
           showCancelButton: true,
           confirmButtonColor: '#f59e0b',
           cancelButtonColor: '#6b7280',
           confirmButtonText: 'Sí, continuar',
-          cancelButtonText: 'Revisar carrito'
+          cancelButtonText: 'Revisar'
         }).then((result) => {
           if (result.isConfirmed) {
             localStorage.setItem('admin-pos-cart', JSON.stringify(cart));
@@ -646,12 +722,28 @@ function initializePOS() {
   };
   
   const handleKeyboard = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && !variantModal?.classList.contains('hidden')) {
-      hideVariantModal();
+    if (e.key === 'Escape') {
+      if (!variantModal?.classList.contains('hidden')) {
+        hideVariantModal();
+      } else if (window.innerWidth < 1024 && !cartDrawer?.classList.contains('translate-x-full')) {
+        closeMobileCart();
+      }
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
       searchInput?.focus();
+    }
+  };
+
+  const handleMobileCartToggle = () => openMobileCart();
+  const handleCloseCartMobile = () => closeMobileCart();
+  const handleBackToProducts = () => closeMobileCart();
+  const handleBackdropClick = () => closeMobileCart();
+
+  // Cerrar carrito móvil al redimensionar a desktop
+  const handleResize = () => {
+    if (window.innerWidth >= 1024) {
+      closeMobileCart();
     }
   };
 
@@ -665,8 +757,14 @@ function initializePOS() {
   searchInput?.addEventListener('input', handleSearch);
   categoryFilter?.addEventListener('change', handleCategoryChange);
   clearCartBtn?.addEventListener('click', handleClearCart);
+  clearCartBtnDesktop?.addEventListener('click', handleClearCart);
   checkoutButton?.addEventListener('click', handleCheckout);
   document.addEventListener('keydown', handleKeyboard);
+  mobileCartToggle?.addEventListener('click', handleMobileCartToggle);
+  closeCartMobile?.addEventListener('click', handleCloseCartMobile);
+  backToProductsMobile?.addEventListener('click', handleBackToProducts);
+  cartBackdrop?.addEventListener('click', handleBackdropClick);
+  window.addEventListener('resize', handleResize);
 
   // Función de limpieza
   cleanupFunction = () => {
@@ -679,13 +777,21 @@ function initializePOS() {
     searchInput?.removeEventListener('input', handleSearch);
     categoryFilter?.removeEventListener('change', handleCategoryChange);
     clearCartBtn?.removeEventListener('click', handleClearCart);
+    clearCartBtnDesktop?.removeEventListener('click', handleClearCart);
     checkoutButton?.removeEventListener('click', handleCheckout);
     document.removeEventListener('keydown', handleKeyboard);
+    mobileCartToggle?.removeEventListener('click', handleMobileCartToggle);
+    closeCartMobile?.removeEventListener('click', handleCloseCartMobile);
+    backToProductsMobile?.removeEventListener('click', handleBackToProducts);
+    cartBackdrop?.removeEventListener('click', handleBackdropClick);
+    window.removeEventListener('resize', handleResize);
+    
+    // Limpiar estilos del body
+    document.body.style.overflow = '';
     
     isInitialized = false;
   };
 
-  // Marcar como inicializado
   isInitialized = true;
 
   // Inicializar
@@ -693,7 +799,6 @@ function initializePOS() {
   renderProductGrid(allProducts);
 }
 
-// Limpiar antes de preparar la navegación
 document.addEventListener('astro:before-preparation', () => {
   if (cleanupFunction) {
     cleanupFunction();
@@ -702,7 +807,6 @@ document.addEventListener('astro:before-preparation', () => {
   isInitialized = false;
 });
 
-// Inicializar cuando la página se carga
 document.addEventListener('astro:page-load', initializePOS);
 </script>
 
@@ -710,8 +814,17 @@ document.addEventListener('astro:page-load', initializePOS);
 #product-grid::-webkit-scrollbar, 
 #cart-items-list::-webkit-scrollbar,
 #variant-list::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
+}
+
+@media (min-width: 768px) {
+  #product-grid::-webkit-scrollbar, 
+  #cart-items-list::-webkit-scrollbar,
+  #variant-list::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 }
 
 #product-grid::-webkit-scrollbar-track, 
@@ -735,8 +848,8 @@ document.addEventListener('astro:page-load', initializePOS);
 }
 
 .qty-btn { 
-  height: 1.75rem; 
-  width: 1.75rem; 
+  height: 1.5rem; 
+  width: 1.5rem; 
   border-radius: 9999px; 
   background-color: #f3f4f6; 
   color: #374151; 
@@ -747,6 +860,14 @@ document.addEventListener('astro:page-load', initializePOS);
   transition: all 0.2s ease; 
   border: 1px solid #e5e7eb;
   user-select: none;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .qty-btn {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
 }
 
 .qty-btn:hover { 
@@ -771,7 +892,7 @@ document.addEventListener('astro:page-load', initializePOS);
 .qty-input:focus { 
   border-color: #f59e0b; 
   outline: none; 
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1); 
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1); 
 }
 
 input[type="number"]::-webkit-inner-spin-button, 
@@ -864,4 +985,45 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-</style>  
+
+/* Smooth transitions para el carrito móvil */
+#cart-drawer {
+  will-change: transform;
+}
+
+/* Sombra superior para el footer del carrito */
+.shadow-up {
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Botones de acción del carrito móvil */
+#back-to-products-mobile,
+#admin-clear-cart-btn {
+  min-height: 44px; /* Tamaño táctil mínimo recomendado */
+}
+
+/* Prevenir scroll del body cuando los modales están abiertos */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Mejorar el rendimiento de las animaciones */
+.transition-transform {
+  will-change: transform;
+}
+
+/* Touch feedback mejorado para móviles */
+@media (hover: none) and (pointer: coarse) {
+  .hover\:shadow-xl:active {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+  
+  .group:active .group-hover\:scale-110 {
+    transform: scale(1.1);
+  }
+  
+  .group:active .group-hover\:opacity-100 {
+    opacity: 1;
+  }
+}
+</style>
