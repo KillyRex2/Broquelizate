@@ -5,6 +5,7 @@ import AdminHeader from '@/components/admin/AdminHeader.astro';
 
 const { title } = Astro.props;
 const { isLoggedIn, isAdmin } = Astro.locals;
+
 // Verificar permisos de administrador
 if (import.meta.env.SSR) {
   if (!isLoggedIn) {
@@ -15,6 +16,7 @@ if (import.meta.env.SSR) {
   }
 }
 ---
+
 <!DOCTYPE html>
 <html lang="es" class="h-full">
 <head>
@@ -28,24 +30,65 @@ if (import.meta.env.SSR) {
       --bg-dark: #1E1E1E;
       --bg-gradient-end: rgba(243, 212, 38, 0.67);
       --accent: #F3D426;
-      
       --text-dark: #000000;
       --sidebar-bg: #2A2A2A;
       --sidebar-hover: rgba(243, 212, 38, 0.1);
     }
+    
     body {
       background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-gradient-end) 100%);
       background-attachment: fixed;
       color: var(--text-light);
       font-family: 'Inter', sans-serif;
     }
-    a { text-decoration: none; }
+    
+    a { 
+      text-decoration: none; 
+    }
+
+    /* Sidebar overlay en móvil */
+    @media (max-width: 767px) {
+      #sidebar-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 40;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+      }
+      
+      #sidebar-container.open {
+        transform: translateX(0);
+      }
+      
+      #sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 39;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease-in-out;
+      }
+      
+      #sidebar-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
   </style>
 </head>
 <body class="h-full overflow-hidden">
+  <!-- Overlay para cerrar sidebar en móvil -->
+  <div id="sidebar-overlay"></div>
+  
   <div class="flex h-full">
     <!-- Sidebar colapsable -->
-    <div id="sidebar-container" class="w-64 bg-[var(--sidebar-bg)] transition-all duration-300 ease-in-out flex-shrink-0">
+    <div 
+      id="sidebar-container" 
+      class="w-64 md:w-64 bg-[var(--sidebar-bg)] transition-all duration-300 ease-in-out flex-shrink-0"
+    >
       <SideBar
         activeClass="text-[var(--accent)]"
         linkHover="bg-[var(--sidebar-hover)]"
@@ -53,53 +96,81 @@ if (import.meta.env.SSR) {
       />
     </div>
 
-    <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 flex flex-col overflow-hidden w-full">
       <!-- Header premium -->
       <AdminHeader title={title} />
 
       <!-- Contenido -->
-      <main class="flex-1 overflow-y-auto p-6 bg-[var(--bg-dark)]">
+      <main class="flex-1 overflow-y-auto p-3 md:p-6 bg-[var(--bg-dark)]">
         <div class="w-full h-full mx-auto">
           <slot />
         </div>
       </main>
 
-      <!-- Footer sutil -->
-      <footer class="py-4 px-6 bg-[var(--bg-dark)] border-t border-[var(--accent)]">
-        <p class="text-center text-sm text-[var(--text-light)]">
-          &copy; {new Date().getFullYear()} Broquelizate Admin Panel
+      <!-- Footer sutil - más compacto en móvil -->
+      <footer class="py-2 md:py-4 px-3 md:px-6 bg-[var(--bg-dark)] border-t border-[var(--accent)]">
+        <p class="text-center text-xs md:text-sm text-[var(--text-light)]">
+          &copy; {new Date().getFullYear()} Broquelizate
         </p>
       </footer>
     </div>
   </div>
 
-  <!-- Toggle script -->
+  <!-- Toggle script mejorado para móvil -->
   <script>
     function setupSidebarToggle() {
-      // Buscamos el botón dentro del header. Es importante que este ID sea único.
       const btn = document.getElementById('toggle-sidebar');
       const sidebar = document.getElementById('sidebar-container');
+      const overlay = document.getElementById('sidebar-overlay');
       
-      if (btn && sidebar) {
-        btn.addEventListener('click', () => {
-          // Lógica de toggle más robusta
-          const isCollapsed = sidebar.classList.contains('w-0');
-
-          if (isCollapsed) {
-            // Expandir sidebar
-            sidebar.classList.remove('w-0', 'p-0', 'opacity-0');
-            sidebar.classList.add('w-64');
+      if (btn && sidebar && overlay) {
+        // Función para abrir/cerrar sidebar
+        const toggleSidebar = () => {
+          const isMobile = window.innerWidth < 768;
+          
+          if (isMobile) {
+            // En móvil: usar overlay
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
           } else {
-            // Colapsar sidebar
-            sidebar.classList.remove('w-64');
-            sidebar.classList.add('w-0', 'p-0', 'opacity-0');
+            // En desktop: colapsar
+            const isCollapsed = sidebar.classList.contains('w-0');
+            if (isCollapsed) {
+              sidebar.classList.remove('w-0', 'p-0', 'opacity-0');
+              sidebar.classList.add('w-64');
+            } else {
+              sidebar.classList.remove('w-64');
+              sidebar.classList.add('w-0', 'p-0', 'opacity-0');
+            }
+          }
+        };
+
+        // Click en el botón toggle
+        btn.addEventListener('click', toggleSidebar);
+        
+        // Click en overlay para cerrar (solo móvil)
+        overlay.addEventListener('click', () => {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('open');
+          if (btn instanceof HTMLInputElement) {
+            btn.checked = false;
+          }
+        });
+
+        // Cerrar sidebar al cambiar de página en móvil
+        document.addEventListener('astro:after-swap', () => {
+          if (window.innerWidth < 768) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+            if (btn instanceof HTMLInputElement) {
+              btn.checked = false;
+            }
           }
         });
       }
     }
 
-    // Usamos 'astro:page-load' que se dispara en cada navegación.
-    // Esto asegura que el script se ejecute siempre.
     document.addEventListener('astro:page-load', setupSidebarToggle);
   </script>
 </body>
+</html>
