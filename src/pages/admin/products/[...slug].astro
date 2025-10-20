@@ -167,7 +167,7 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
               </svg>
               <p class="text-xs text-slate-500">Click para subir</p>
-              <input id="file-upload-mobile" name="imageFiles" type="file" accept="image/*" multiple class="hidden" />
+              <input id="file-upload-mobile" type="file" accept="image/*" multiple class="hidden" />
             </div>
           </div>
           <div id="new-images-preview-mobile" class="mt-3 grid grid-cols-3 gap-2"></div>
@@ -358,7 +358,7 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
               </svg>
               <p class="text-sm text-slate-500">Click o arrastra</p>
-              <input id="file-upload" name="imageFiles" type="file" accept="image/*" multiple class="hidden" />
+              <input id="file-upload" type="file" accept="image/*" multiple class="hidden" />
             </div>
           </div>
           <div id="new-images-preview" class="mt-4 grid grid-cols-3 gap-2"></div>
@@ -484,31 +484,53 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
     import Swal from 'sweetalert2';
     import { navigate } from 'astro:transitions/client';
 
+    // Flag para evitar múltiples inicializaciones
+    let isInitialized = false;
+
     document.addEventListener('astro:page-load', () => {
+      // Prevenir inicialización múltiple
+      if (isInitialized) return;
+      isInitialized = true;
+
       const form = document.getElementById('product-form') as HTMLFormElement;
-      const dropZones = [document.getElementById('drop-zone'), document.getElementById('drop-zone-mobile')];
+      if (!form) return;
+
+      const dropZones = [document.getElementById('drop-zone'), document.getElementById('drop-zone-mobile')].filter(Boolean);
       const fileInputs = [
         document.getElementById('file-upload') as HTMLInputElement,
         document.getElementById('file-upload-mobile') as HTMLInputElement
-      ];
+      ].filter(Boolean);
       const previewContainers = [
         document.getElementById('new-images-preview'),
         document.getElementById('new-images-preview-mobile')
-      ];
+      ].filter(Boolean);
       const imageListContainers = [
         document.getElementById('image-list-container'),
         document.getElementById('image-list-container-mobile')
-      ];
+      ].filter(Boolean);
       const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
       const variantsContainer = document.getElementById('variants-container');
       const isCreate = !form.querySelector('input[name="id"]');
       
       let newFiles: File[] = [];
+      let isProcessing = false; // Flag para prevenir operaciones simultáneas
 
-      // Manejo de archivos unificado
+      // Configurar SweetAlert2 con valores por defecto responsivos
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        customClass: {
+          popup: 'text-sm md:text-base'
+        }
+      });
+
+      // Manejo de archivos unificado - CORREGIDO para evitar duplicación
       const handleNewFiles = (incomingFiles: FileList) => {
         const uniqueFiles = Array.from(incomingFiles).filter(
-          file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name)
+          file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size)
         );
         if (uniqueFiles.length === 0) return;
         newFiles = [...newFiles, ...uniqueFiles];
@@ -550,18 +572,48 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
         const fileInput = fileInputs[idx];
         if (!dropZone || !fileInput) return;
 
-        dropZone.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', () => {
-          if (fileInput.files) handleNewFiles(fileInput.files);
-        });
+        // Click handler
+        const clickHandler = () => fileInput.click();
+        dropZone.addEventListener('click', clickHandler);
 
-        const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+        // Change handler con debounce
+        let changeTimeout: NodeJS.Timeout;
+        const changeHandler = () => {
+          clearTimeout(changeTimeout);
+          changeTimeout = setTimeout(() => {
+            if (fileInput.files && fileInput.files.length > 0) {
+              handleNewFiles(fileInput.files);
+            }
+          }, 100);
+        };
+        fileInput.addEventListener('change', changeHandler);
+
+        // Drag & drop handlers
+        const preventDefaults = (e: Event) => { 
+          e.preventDefault(); 
+          e.stopPropagation(); 
+        };
+
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
           dropZone.addEventListener(eventName, preventDefaults);
         });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('border-yellow-600', 'bg-yellow-50');
+          });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('border-yellow-600', 'bg-yellow-50');
+          });
+        });
         
         dropZone.addEventListener('drop', (e: DragEvent) => {
-          if (e.dataTransfer?.files) handleNewFiles(e.dataTransfer.files);
+          if (e.dataTransfer?.files) {
+            handleNewFiles(e.dataTransfer.files);
+          }
         });
       });
 
@@ -585,12 +637,14 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
       if (addVariantBtn && variantModal) {
         addVariantBtn.addEventListener('click', () => {
           variantModal.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
         });
       }
 
       if (cancelVariantBtn && variantModal) {
         cancelVariantBtn.addEventListener('click', () => {
           variantModal.classList.add('hidden');
+          document.body.style.overflow = '';
           if (variantForm) variantForm.reset();
         });
       }
@@ -614,9 +668,12 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
 
       // Funcionalidad de editar y eliminar variantes
       document.addEventListener('click', async (e) => {
+        if (isProcessing) return;
+        
         const target = e.target as HTMLElement;
         const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
         
+        // Editar variante
         if (target.closest('.edit-variant')) {
           const button = target.closest('.edit-variant') as HTMLElement;
           const variantId = button.dataset.variantId;
@@ -635,9 +692,11 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
             (document.getElementById('edit-sku') as HTMLInputElement).value = sku || '';
             
             editVariantModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
           }
         }
 
+        // Eliminar variante individual
         if (target.closest('.delete-variant')) {
           const button = target.closest('.delete-variant') as HTMLElement;
           const variantId = button.dataset.variantId;
@@ -650,10 +709,17 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
             confirmButtonColor: '#dc2626',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar'
+            cancelButtonText: 'Cancelar',
+            customClass: {
+              popup: 'text-sm md:text-base',
+              title: 'text-lg md:text-xl',
+              confirmButton: 'text-sm md:text-base',
+              cancelButton: 'text-sm md:text-base'
+            }
           });
 
           if (result.isConfirmed) {
+            isProcessing = true;
             try {
               const { data, error } = await actions.deleteVariant(variantId!);
               if (error) throw new Error(error.message);
@@ -669,7 +735,10 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                   showCancelButton: true,
                   confirmButtonColor: '#eab308',
                   confirmButtonText: 'Sí',
-                  cancelButtonText: 'Más tarde'
+                  cancelButtonText: 'Más tarde',
+                  customClass: {
+                    popup: 'text-sm md:text-base'
+                  }
                 });
 
                 if (regenResult.isConfirmed) {
@@ -683,38 +752,46 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                 if (remainingItems.length === 0) variantGroup.remove();
               }
 
-              Swal.fire({
+              Toast.fire({
                 icon: 'success',
-                title: '¡Eliminado!',
-                timer: 2000,
-                showConfirmButton: false
+                title: '¡Variante eliminada!'
               });
               
             } catch (err: any) {
               Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: err.message
+                text: err.message,
+                customClass: {
+                  popup: 'text-sm md:text-base'
+                }
               });
+            } finally {
+              isProcessing = false;
             }
           }
         }
 
+        // Eliminar grupo completo de variantes
         if (target.closest('.delete-variant-group')) {
           const button = target.closest('.delete-variant-group') as HTMLElement;
           const variantName = button.dataset.variantName;
           
           const result = await Swal.fire({
             title: `¿Eliminar "${variantName}"?`,
-            text: 'Se eliminarán todas las variantes',
+            text: 'Se eliminarán todas las variantes de este tipo',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc2626',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar'
+            confirmButtonText: 'Sí, eliminar todo',
+            cancelButtonText: 'Cancelar',
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
           });
 
           if (result.isConfirmed) {
+            isProcessing = true;
             try {
               if (!productId) throw new Error('No se pudo identificar el producto');
               
@@ -734,39 +811,56 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                 variantsContainer?.classList.add('hidden');
               }
               
-              Swal.fire({
+              Toast.fire({
                 icon: 'success',
-                title: '¡Eliminado!',
-                timer: 2000,
-                showConfirmButton: false
+                title: '¡Grupo eliminado!'
               });
               
             } catch (err: any) {
               Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: err.message
+                text: err.message,
+                customClass: {
+                  popup: 'text-sm md:text-base'
+                }
               });
+            } finally {
+              isProcessing = false;
             }
           }
         }
 
+        // Remover opción del modal
         if (target.classList.contains('remove-option')) {
-          target.closest('.variant-option-row')?.remove();
+          const row = target.closest('.variant-option-row');
+          const allRows = document.querySelectorAll('.variant-option-row');
+          if (allRows.length > 1) {
+            row?.remove();
+          } else {
+            Toast.fire({
+              icon: 'warning',
+              title: 'Debe haber al menos una opción'
+            });
+          }
         }
       });
 
+      // Cancelar edición de variante
       const cancelEditBtn = document.getElementById('cancel-edit-variant');
       if (cancelEditBtn && editVariantModal) {
         cancelEditBtn.addEventListener('click', () => {
           editVariantModal.classList.add('hidden');
+          document.body.style.overflow = '';
           if (editVariantForm) editVariantForm.reset();
         });
       }
 
+      // Enviar formulario de edición
       if (editVariantForm) {
         editVariantForm.addEventListener('submit', async (e) => {
           e.preventDefault();
+          if (isProcessing) return;
           
           const variantId = (document.getElementById('edit-variant-id') as HTMLInputElement).value;
           const variantValue = (document.getElementById('edit-variant-value') as HTMLInputElement).value;
@@ -774,6 +868,7 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
           const stock = parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0;
           const sku = (document.getElementById('edit-sku') as HTMLInputElement).value || null;
           
+          isProcessing = true;
           try {
             const { error } = await actions.updateVariant({
               variantId,
@@ -786,57 +881,69 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
             if (error) throw new Error(error.message);
             
             editVariantModal?.classList.add('hidden');
+            document.body.style.overflow = '';
             
-            await Swal.fire({
+            Toast.fire({
               icon: 'success',
-              title: '¡Actualizado!',
-              timer: 1500,
-              showConfirmButton: false
+              title: '¡Variante actualizada!'
             });
             
-            window.location.reload();
+            setTimeout(() => window.location.reload(), 1000);
             
           } catch (err: any) {
             Swal.fire({
               icon: 'error',
               title: 'Error',
-              text: err.message
+              text: err.message,
+              customClass: {
+                popup: 'text-sm md:text-base'
+              }
             });
+          } finally {
+            isProcessing = false;
           }
         });
       }
 
+      // Función para regenerar combinaciones
       async function regenerateCombinations(productId: string) {
         try {
           const { error } = await actions.generateVariantCombinations(productId);
           if (error) throw new Error(error.message);
           
-          await Swal.fire({
+          Toast.fire({
             icon: 'success',
-            title: '¡Regenerado!',
-            timer: 1500,
-            showConfirmButton: false
+            title: '¡Combinaciones regeneradas!'
           });
           
-          window.location.reload();
+          setTimeout(() => window.location.reload(), 1000);
         } catch (err: any) {
           Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: err.message
+            text: err.message,
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
           });
         }
       }
 
+      // Enviar formulario de nueva variante
       if (variantForm) {
         variantForm.addEventListener('submit', async (e) => {
           e.preventDefault();
+          if (isProcessing) return;
+          
           const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
           if (!productId) {
             Swal.fire({
               icon: 'warning',
               title: 'Atención',
-              text: 'Primero debes guardar el producto'
+              text: 'Primero debes guardar el producto',
+              customClass: {
+                popup: 'text-sm md:text-base'
+              }
             });
             return;
           }
@@ -851,68 +958,86 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
             sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
           }));
 
+          isProcessing = true;
           try {
             const { error } = await actions.createBatchVariants({ productId, variants });
             if (error) throw new Error(error.message);
             
-            await Swal.fire({
+            variantModal?.classList.add('hidden');
+            document.body.style.overflow = '';
+            
+            Toast.fire({
               icon: 'success',
-              title: '¡Creado!',
-              timer: 1500,
-              showConfirmButton: false
+              title: '¡Variantes creadas!'
             });
             
-            window.location.reload();
+            setTimeout(() => window.location.reload(), 1000);
           } catch (err: any) {
             Swal.fire({
               icon: 'error',
               title: 'Error',
-              text: err.message
+              text: err.message,
+              customClass: {
+                popup: 'text-sm md:text-base'
+              }
             });
+          } finally {
+            isProcessing = false;
           }
         });
       }
 
+      // Botón generar combinaciones
       const generateBtn = document.getElementById('generate-combinations-btn');
       if (generateBtn) {
         generateBtn.addEventListener('click', async () => {
+          if (isProcessing) return;
+          
           const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
           if (!productId) return;
 
           const result = await Swal.fire({
             title: '¿Generar combinaciones?',
-            text: 'Reemplazará las existentes',
+            text: 'Esto reemplazará las combinaciones existentes',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#eab308',
             confirmButtonText: 'Sí, generar',
-            cancelButtonText: 'Cancelar'
+            cancelButtonText: 'Cancelar',
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
           });
 
           if (result.isConfirmed) {
+            isProcessing = true;
             try {
               const { error } = await actions.generateVariantCombinations(productId);
               if (error) throw new Error(error.message);
               
-              await Swal.fire({
+              Toast.fire({
                 icon: 'success',
-                title: '¡Generado!',
-                timer: 1500,
-                showConfirmButton: false
+                title: '¡Combinaciones generadas!'
               });
               
-              window.location.reload();
+              setTimeout(() => window.location.reload(), 1000);
             } catch (err: any) {
               Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: err.message
+                text: err.message,
+                customClass: {
+                  popup: 'text-sm md:text-base'
+                }
               });
+            } finally {
+              isProcessing = false;
             }
           }
         });
       }
 
+      // Actualizar stock de combinaciones con debounce
       document.querySelectorAll('.combination-stock-input').forEach(input => {
         let timeout: NodeJS.Timeout;
         input.addEventListener('change', async (e) => {
@@ -932,14 +1057,19 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
               setTimeout(() => target.classList.remove('border-green-500'), 1000);
             } catch (err: any) {
               console.error(`Error: ${err.message}`);
+              target.classList.add('border-red-500');
+              setTimeout(() => target.classList.remove('border-red-500'), 1000);
             }
           }, 500);
         });
       });
 
+      // Eliminar imágenes existentes
       imageListContainers.forEach(container => {
         if (!container) return;
         container.addEventListener('click', async (e) => {
+          if (isProcessing) return;
+          
           const target = e.target as HTMLButtonElement;
           if (target.classList.contains('delete-existing')) {
             const id = target.dataset.id;
@@ -947,14 +1077,19 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
             
             const result = await Swal.fire({
               title: '¿Eliminar imagen?',
+              text: 'Esta acción no se puede deshacer',
               icon: 'warning',
               showCancelButton: true,
               confirmButtonColor: '#dc2626',
               confirmButtonText: 'Sí, eliminar',
-              cancelButtonText: 'Cancelar'
+              cancelButtonText: 'Cancelar',
+              customClass: {
+                popup: 'text-sm md:text-base'
+              }
             });
 
             if (result.isConfirmed) {
+              isProcessing = true;
               try {
                 const { error } = await actions.deleteProductImage(id);
                 if (error) throw new Error(error.message);
@@ -963,24 +1098,28 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                   c?.querySelector(`[data-id="${id}"]`)?.remove();
                 });
                 
-                Swal.fire({
+                Toast.fire({
                   icon: 'success',
-                  title: 'Eliminada',
-                  timer: 1500,
-                  showConfirmButton: false
+                  title: 'Imagen eliminada'
                 });
               } catch (err: any) {
                 Swal.fire({
                   icon: 'error',
                   title: 'Error',
-                  text: err.message
+                  text: err.message,
+                  customClass: {
+                    popup: 'text-sm md:text-base'
+                  }
                 });
+              } finally {
+                isProcessing = false;
               }
             }
           }
         });
       });
 
+      // Remover nuevas imágenes antes de subir
       previewContainers.forEach(container => {
         if (!container) return;
         container.addEventListener('click', e => {
@@ -996,6 +1135,7 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
         });
       });
 
+      // Auto-generar slug desde el nombre
       const nameInput = document.getElementById('name') as HTMLInputElement;
       const slugInput = document.getElementById('slug') as HTMLInputElement;
       if (nameInput && slugInput && isCreate) {
@@ -1010,39 +1150,69 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
         });
       }
 
+      // Enviar formulario principal
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isProcessing) return;
+        
         const saveButton = document.getElementById('save-button') as HTMLButtonElement;
         if (!saveButton) return;
         
+        isProcessing = true;
         saveButton.disabled = true;
         saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
         
         try {
+          // Crear FormData manualmente y agregar solo UNA VEZ las imágenes
           const formData = new FormData(form);
+          
+          // IMPORTANTE: Eliminar cualquier campo imageFiles existente
+          formData.delete('imageFiles');
+          
+          // Agregar las imágenes nuevas solo una vez
+          newFiles.forEach((file) => {
+            formData.append('imageFiles', file);
+          });
+          
+          console.log('Archivos a enviar:', newFiles.length);
+          
           const { data, error } = await actions.crateUpdateProduct(formData);
           
           if (error) throw new Error(error.message);
           
           await Swal.fire({
             icon: 'success',
-            title: isCreate ? '¡Creado!' : '¡Guardado!',
+            title: isCreate ? '¡Producto creado!' : '¡Cambios guardados!',
+            text: 'Redirigiendo...',
             timer: 1500,
-            showConfirmButton: false
+            showConfirmButton: false,
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
           });
           
           navigate('/admin/products');
         } catch (err: any) {
           Swal.fire({
             icon: 'error',
-            title: 'Error',
-            text: err.message
+            title: 'Error al guardar',
+            text: err.message,
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
           });
         } finally {
+          isProcessing = false;
           saveButton.disabled = false;
           saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar';
         }
       });
+    });
+
+    // Limpiar al cambiar de página
+    document.addEventListener('astro:before-preparation', () => {
+      isInitialized = false;
+      document.body.style.overflow = '';
     });
   </script>
 
@@ -1062,6 +1232,14 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
     }
     .btn-secondary {
       @apply px-3 md:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium;
+    }
+
+    /* Estilos responsive para SweetAlert2 */
+    @media (max-width: 640px) {
+      .swal2-popup {
+        width: 90% !important;
+        padding: 1rem !important;
+      }
     }
   </style>
 </AdminLayout>

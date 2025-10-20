@@ -45,6 +45,7 @@
   "devDependencies": {
     "@iconify-json/mdi": "^1.2.3",
     "@types/js-cookie": "^3.0.6",
+    "@types/swiper": "^5.4.3",
     "@types/uuid": "^10.0.0",
     "bcryptjs": "^3.0.2"
   }

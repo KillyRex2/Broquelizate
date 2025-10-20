@@ -1,8 +1,5 @@
 ---
-import 'swiper/css';
-import 'swiper/css/pagination';
-import 'swiper/css/navigation';
-
+// ProductSwiperSimple.astro - Versión sin dependencias complejas
 interface Props {
     images: string[];
 }
@@ -12,103 +9,361 @@ const { images } = Astro.props;
 const fullImages = images.map(image => {
     return image.startsWith('http')
         ? image
-        : `${import.meta.env.PUBLIC_URL}/images/products/${image}`;
+        : `/images/products/${image}`;
 });
 ---
 
-<div class="swiper product-swiper">
-    <div class="swiper-wrapper">
-        {
-            fullImages.map((image, index) => (
-                <div class="swiper-slide">
-                    <div class="w-full h-[400px] flex justify-center items-center bg-gray-100 rounded-2xl overflow-hidden">
-                        <img
-                            src={image}
-                            alt={`Product image ${index + 1}`}
-                            class="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
-                            loading={index === 0 ? "eager" : "lazy"}
-                        />
-                    </div>
+<!-- Contenedor principal del slider -->
+<div class="product-slider" data-images={JSON.stringify(fullImages)}>
+    <div class="slider-container">
+        <!-- Imágenes -->
+        <div class="slider-wrapper">
+            {fullImages.map((image, index) => (
+                <div class={`slide ${index === 0 ? 'active' : ''}`} data-index={index}>
+                    <img
+                        src={image}
+                        alt={`Producto ${index + 1}`}
+                        loading={index === 0 ? "eager" : "lazy"}
+                    />
                 </div>
-            ))
-        }
+            ))}
+        </div>
+        
+        <!-- Controles -->
+        <!-- <button class="nav-btn prev" aria-label="Anterior">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        
+        <button class="nav-btn next" aria-label="Siguiente">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </button> -->
+        
+        <!-- Indicadores -->
+        <div class="indicators">
+            {fullImages.map((_, index) => (
+                <button 
+                    class={`indicator ${index === 0 ? 'active' : ''}`} 
+                    data-index={index}
+                    aria-label={`Ir a imagen ${index + 1}`}
+                ></button>
+            ))}
+        </div>
+        
+        <!-- Contador -->
+        <div class="counter">
+            <span class="current">1</span> / <span class="total">{fullImages.length}</span>
+        </div>
     </div>
-
-    <div class="swiper-pagination mt-4"></div>
-    <div class="swiper-button-next"></div>
-    <div class="swiper-button-prev"></div>
 </div>
 
 <style>
-    .product-swiper {
+    .product-slider {
         width: 100%;
-        height: auto;
+        max-width: 100%;
+        margin: 0 auto;
     }
     
-    .swiper-slide {
+    .slider-container {
+        position: relative;
+        width: 100%;
+        height: 450px;
+        background: #1E1E1E; /* Fondo negro para match con tu sitio */
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    
+    .slider-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+    
+    .slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
         display: flex;
         justify-content: center;
         align-items: center;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.5s ease-in-out;
+        background: transparent;
     }
     
-    .swiper-pagination-bullet {
-        background: #6b7280;
-        opacity: 0.7;
-    }
-    
-    .swiper-pagination-bullet-active {
-        background: #eab308;
+    .slide.active {
         opacity: 1;
+        transform: translateX(0);
     }
     
-    .swiper-button-next,
-    .swiper-button-prev {
-        color: #eab308;
-        background: rgba(255, 255, 255, 0.8);
+    .slide.prev {
+        transform: translateX(-100%);
+    }
+    
+    .slide img {
+        max-width: 90%;
+        max-height: 90%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        display: block;
+        border: 2px solid rgba(234, 179, 8, 0.2);
+        border-radius: 12px;
+        padding: 8px;
+        background: rgba(30, 30, 30, 0.5);
+        box-shadow: 0 4px 20px rgba(234, 179, 8, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .slide img:hover {
+        border-color: rgba(234, 179, 8, 0.4);
+        box-shadow: 0 6px 30px rgba(234, 179, 8, 0.15);
+    }
+    
+    /* Botones de navegación */
+    .nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid rgba(234, 179, 8, 0.3);
         border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        margin-top: -20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #eab308;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 5;
     }
     
-    .swiper-button-next:after,
-    .swiper-button-prev:after {
-        font-size: 16px;
-        font-weight: bold;
+    .nav-btn:hover {
+        background: #000;
+        border-color: #eab308;
+        transform: translateY(-50%) scale(1.1);
     }
     
-    @media (max-width: 640px) {
-        .swiper-button-next,
-        .swiper-button-prev {
-            display: none;
+    .nav-btn.prev {
+        left: 15px;
+    }
+    
+    .nav-btn.next {
+        right: 15px;
+    }
+    
+    /* Indicadores */
+    .indicators {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 8px 16px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .indicator {
+        width: 8px;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.3);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .indicator.active {
+        width: 24px;
+        background: #eab308;
+        border-radius: 10px;
+    }
+    
+    .indicator:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.5);
+    }
+    
+    /* Contador */
+    .counter {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #1E1E1E;
+        backdrop-filter: blur(10px);
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        border: 1px solid rgba(234, 179, 8, 0.2);
+    }
+    
+    .counter .current {
+        color: #eab308;
+        font-weight: 600;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .slider-container {
+            height: 350px;
+        }
+        
+        .nav-btn {
+            width: 38px;
+            height: 38px;
+        }
+        
+        .nav-btn.prev {
+            left: 10px;
+        }
+        
+        .nav-btn.next {
+            right: 10px;
+        }
+        
+        .indicators {
+            bottom: 15px;
+            padding: 6px 12px;
+        }
+        
+        .counter {
+            top: 15px;
+            right: 15px;
+            font-size: 12px;
+            padding: 4px 10px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .slider-container {
+            height: 300px;
+            border-radius: 12px;
+        }
+        
+        .nav-btn {
+            width: 35px;
+            height: 35px;
+        }
+        
+        .nav-btn svg {
+            width: 20px;
+            height: 20px;
         }
     }
 </style>
 
 <script>
-import Swiper from 'swiper';
-import { Pagination, Navigation } from 'swiper/modules';
-
-document.addEventListener('astro:page-load', () => {
-    const swiperElement = document.querySelector('.product-swiper') as any;
-    
-    if (swiperElement?.swiper) {
-        swiperElement.swiper.destroy(true, true);
-    }
-
-    new Swiper('.product-swiper', {
-        modules: [Pagination, Navigation],
-        slidesPerView: 1,
-        spaceBetween: 0,
-        loop: false,
-        pagination: {
-            el: '.swiper-pagination',
-            clickable: true,
-        },
-        navigation: {
-            nextEl: '.swiper-button-next',
-            prevEl: '.swiper-button-prev',
-        },
+    // Script simple sin dependencias
+    document.addEventListener('DOMContentLoaded', function() {
+        const sliders = document.querySelectorAll('.product-slider');
+        
+        sliders.forEach(slider => {
+            let currentIndex = 0;
+            const slides = slider.querySelectorAll('.slide');
+            const indicators = slider.querySelectorAll('.indicator');
+            const prevBtn = slider.querySelector('.nav-btn.prev');
+            const nextBtn = slider.querySelector('.nav-btn.next');
+            const currentSpan = slider.querySelector('.counter .current');
+            const totalSlides = slides.length;
+            
+            // Función para mostrar slide
+            function showSlide(index: number) {
+                // Ocultar todos
+                slides.forEach((slide, i) => {
+                    slide.classList.remove('active', 'prev');
+                    if (i < index) {
+                        slide.classList.add('prev');
+                    }
+                });
+                
+                indicators.forEach(ind => ind.classList.remove('active'));
+                
+                // Mostrar actual
+                slides[index].classList.add('active');
+                indicators[index].classList.add('active');
+                
+                // Actualizar contador
+                if (currentSpan) {
+                    currentSpan.textContent = (index + 1).toString();
+                }
+                
+                currentIndex = index;
+            }
+            
+            // Navegación siguiente
+            function nextSlide() {
+                const newIndex = (currentIndex + 1) % totalSlides;
+                showSlide(newIndex);
+            }
+            
+            // Navegación anterior
+            function prevSlide() {
+                const newIndex = (currentIndex - 1 + totalSlides) % totalSlides;
+                showSlide(newIndex);
+            }
+            
+            // Event listeners
+            if (nextBtn) nextBtn.addEventListener('click', nextSlide);
+            if (prevBtn) prevBtn.addEventListener('click', prevSlide);
+            
+            // Indicadores
+            indicators.forEach((indicator, index: number) => {
+                indicator.addEventListener('click', () => showSlide(index));
+            });
+            
+            // Autoplay opcional
+            let autoplayInterval = setInterval(nextSlide, 5000);
+            
+            // Pausar autoplay al hover
+            slider.addEventListener('mouseenter', () => {
+                clearInterval(autoplayInterval);
+            });
+            
+            slider.addEventListener('mouseleave', () => {
+                autoplayInterval = setInterval(nextSlide, 5000);
+            });
+            
+            // Touch/Swipe support para móviles
+            let touchStartX = 0;
+            let touchEndX = 0;
+            
+            slider.addEventListener('touchstart', (e) => {
+                const touchEvent = e as TouchEvent;
+                touchStartX = touchEvent.changedTouches[0].screenX;
+            }, false);
+            
+            slider.addEventListener('touchend', (e) => {
+                const touchEvent = e as TouchEvent;
+                touchEndX = touchEvent.changedTouches[0].screenX;
+                handleSwipe();
+            }, false);
+            
+            function handleSwipe() {
+                if (touchEndX < touchStartX - 50) {
+                    nextSlide(); // Swipe izquierda
+                }
+                if (touchEndX > touchStartX + 50) {
+                    prevSlide(); // Swipe derecha
+                }
+            }
+        });
     });
-});
+    
+    // Reinicializar en navegación de Astro
+    document.addEventListener('astro:page-load', function() {
+        // El mismo código de arriba se ejecuta de nuevo
+        const event = new Event('DOMContentLoaded');
+        document.dispatchEvent(event);
+    });
 </script>
