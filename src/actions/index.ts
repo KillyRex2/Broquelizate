@@ -3,7 +3,7 @@ import { getProductBySlug } from "./products/get-product-by-slug.action";
 import { getInventoryStats, getProductsByPage } from "./products/get-products-by-page.action";
 import { loadProductsFromCart } from "./cart/load-products-from-cart.actions";
 import { crateUpdateProduct } from "./admin/create-update-product.action";
-import { deleteProductImage } from "./admin/create-update-product.action";
+import { deleteProductImage, uploadVariantImage, deleteVariantImage } from "./admin/create-update-product.action";
 import { deleteProduct } from "./admin/create-update-product.action";
 import { getClientById, updateClient, getAllClients, updateClientBalance } from './admin/update-client.action'
 import { getAllProductsWithImages } from "./admin/get-all-products.action";
@@ -33,6 +33,9 @@ export const server = {
     deleteProductImage,
     deleteProduct,
     getAllProductsWithImages,
+    uploadVariantImage,
+    deleteVariantImage,
+    
 
     // Admin Client
     updateClient,

@@ -326,3 +326,136 @@ export const deleteProduct = defineAction({
     }
 });
 
+export const uploadVariantImage = defineAction({
+    accept: 'form',
+    input: z.object({
+        variantId: z.string().min(1, "ID de variante requerido"),
+        productId: z.string().min(1, "ID de producto requerido"),
+    }),
+    handler: async (form, context: ActionAPIContext) => {
+        const session = await getSession(context.request);
+        if (!session?.user) {
+            throw new Error('No autorizado');
+        }
+
+        try {
+            // Verificar que la variante existe
+            const [variant] = await db
+                .select()
+                .from(ProductVariant)
+                .where(eq(ProductVariant.id, form.variantId));
+
+            if (!variant) {
+                throw new Error('Variante no encontrada');
+            }
+
+            // Obtener el archivo de imagen del FormData
+            const formData = await context.request.formData();
+            const imageFile = formData.get('imageFile') as File;
+
+            if (!imageFile || imageFile.size === 0) {
+                throw new Error('No se proporcionó ninguna imagen');
+            }
+
+            // Validar tipo de archivo
+            if (!imageFile.type.startsWith('image/')) {
+                throw new Error('El archivo debe ser una imagen');
+            }
+
+            // Validar tamaño (máx 5MB)
+            if (imageFile.size > 5 * 1024 * 1024) {
+                throw new Error('La imagen no debe superar 5MB');
+            }
+
+            console.log(`Subiendo imagen para variante ${form.variantId}...`);
+
+            // Verificar si ya existe una imagen para esta variante
+            const [existingImage] = await db
+                .select()
+                .from(ProductImage)
+                .where(eq(ProductImage.variantId, form.variantId));
+
+            // Si existe, eliminar la imagen anterior de Cloudinary
+            if (existingImage) {
+                console.log('Eliminando imagen anterior de Cloudinary...');
+                await ImageUpload.delete(existingImage.image);
+                
+                // Eliminar registro de la BD
+                await db
+                    .delete(ProductImage)
+                    .where(eq(ProductImage.id, existingImage.id));
+            }
+
+            // Subir nueva imagen a Cloudinary
+            const imageUrl = await ImageUpload.upload(imageFile);
+            console.log(`Imagen subida: ${imageUrl}`);
+
+            // Guardar en base de datos
+            const imageRecord = {
+                id: UUID(),
+                productId: form.productId,
+                variantId: form.variantId, // ✅ Asociada a la variante
+                image: imageUrl,
+            };
+
+            await db.insert(ProductImage).values(imageRecord as any);
+            console.log('Imagen guardada en BD');
+
+            return {
+                success: true,
+                imageUrl,
+                message: 'Imagen de variante subida correctamente'
+            };
+
+        } catch (error: any) {
+            console.error('Error subiendo imagen de variante:', error);
+            throw new Error(`Error: ${error.message}`);
+        }
+    }
+});
+
+/**
+ * Acción para eliminar la imagen de una variante
+ */
+export const deleteVariantImage = defineAction({
+    accept: 'json',
+    input: z.string().min(1, "ID de variante requerido"),
+    handler: async (variantId, context: ActionAPIContext) => {
+        const session = await getSession(context.request);
+        if (!session?.user) {
+            throw new Error('No autorizado');
+        }
+
+        try {
+            // Buscar imagen asociada a la variante
+            const [variantImage] = await db
+                .select()
+                .from(ProductImage)
+                .where(eq(ProductImage.variantId, variantId));
+
+            if (!variantImage) {
+                throw new Error('No hay imagen asociada a esta variante');
+            }
+
+            console.log(`Eliminando imagen de variante ${variantId}...`);
+
+            // Eliminar de Cloudinary
+            await ImageUpload.delete(variantImage.image);
+
+            // Eliminar de BD
+            await db
+                .delete(ProductImage)
+                .where(eq(ProductImage.id, variantImage.id));
+
+            return {
+                success: true,
+                message: 'Imagen de variante eliminada'
+            };
+
+        } catch (error: any) {
+            console.error('Error eliminando imagen de variante:', error);
+            throw new Error(`Error: ${error.message}`);
+        }
+    }
+});
+

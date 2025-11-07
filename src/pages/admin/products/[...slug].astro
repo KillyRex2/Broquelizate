@@ -236,47 +236,101 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
                       </button>
                     </div>
                     <div class="grid grid-cols-1 gap-2">
-                      {group.options.map((option: any) => (
-                        <div class="flex items-center justify-between bg-white rounded px-2 md:px-3 py-2 border border-slate-200 variant-item" data-variant-id={option.id}>
-                          <div class="flex-1 min-w-0">
-                            <span class="text-xs md:text-sm font-medium truncate block">{option.value}</span>
-                            <div class="flex items-center gap-2 mt-1 text-xs text-slate-600 flex-wrap">
-                              {option.priceAdjustment !== 0 && (
-                                <span class={option.priceAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
-                                  {option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}
-                                </span>
+                      {group.options.map((option: any) => {
+                        // Buscar imagen de esta variante
+                        const variantImage = initialImages.find(img => img.variantId === option.id);
+                        
+                        return (
+                          <div class="flex items-center gap-3 bg-white rounded px-2 md:px-3 py-2 border border-slate-200 variant-item" data-variant-id={option.id}>
+                            
+                            {/* ✅ NUEVA: Miniatura de imagen de variante */}
+                            <div class="flex-shrink-0">
+                              {variantImage ? ( 
+                                <div class="relative group">
+                                  <img 
+                                    src={variantImage.image} 
+                                    alt={option.value}
+                                    class="w-12 h-12 md:w-16 md:h-16 object-cover rounded border-2 border-yellow-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    class="delete-variant-image absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                    data-variant-id={option.id}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ) : (
+                                <div class="w-12 h-12 md:w-16 md:h-16 bg-slate-100 rounded border-2 border-dashed border-slate-300 flex items-center justify-center">
+                                  <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
                               )}
-                              <span>Stock: {option.stock}</span>
-                              {option.sku && <span class="truncate">SKU: {option.sku}</span>}
+                            </div>
+
+                            {/* Info de la variante */}
+                            <div class="flex-1 min-w-0">
+                              <span class="text-xs md:text-sm font-medium truncate block">{option.value}</span>
+                              <div class="flex items-center gap-2 mt-1 text-xs text-slate-600 flex-wrap">
+                                {option.priceAdjustment !== 0 && (
+                                  <span class={option.priceAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
+                                    {option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}
+                                  </span>
+                                )}
+                                <span>Stock: {option.stock}</span>
+                                {option.sku && <span class="truncate">SKU: {option.sku}</span>}
+                              </div>
+                            </div>
+
+                            {/* Botones de acción */}
+                            <div class="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                              {/* ✅ NUEVO: Botón para subir imagen */}
+                              <label class="cursor-pointer">
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  class="hidden variant-image-input"
+                                  data-variant-id={option.id}
+                                  data-product-id={product.id}
+                                />
+                                <div class="upload-variant-image p-1 text-purple-600 hover:text-purple-800" title="Subir imagen">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                              </label>
+
+                              {/* Editar variante */}
+                              <button 
+                                type="button" 
+                                class="edit-variant text-blue-600 hover:text-blue-800 p-1"
+                                data-variant-id={option.id}
+                                data-variant-name={variantName}
+                                data-variant-value={option.value}
+                                data-price-adjustment={option.priceAdjustment}
+                                data-stock={option.stock}
+                                data-sku={option.sku || ''}
+                              >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+
+                              {/* Eliminar variante */}
+                              <button 
+                                type="button" 
+                                class="delete-variant text-red-600 hover:text-red-800 p-1"
+                                data-variant-id={option.id}
+                              >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
                             </div>
                           </div>
-                          <div class="flex items-center gap-1 md:gap-2 flex-shrink-0 ml-2">
-                            <button 
-                              type="button" 
-                              class="edit-variant text-blue-600 hover:text-blue-800 p-1"
-                              data-variant-id={option.id}
-                              data-variant-name={variantName}
-                              data-variant-value={option.value}
-                              data-price-adjustment={option.priceAdjustment}
-                              data-stock={option.stock}
-                              data-sku={option.sku || ''}
-                            >
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button 
-                              type="button" 
-                              class="delete-variant text-red-600 hover:text-red-800 p-1"
-                              data-variant-id={option.id}
-                            >
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -479,416 +533,429 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
     </div>
   </div>
 
-  <script>
-    import { actions } from "astro:actions";
-    import Swal from 'sweetalert2';
-    import { navigate } from 'astro:transitions/client';
+<script>
+  import { actions } from "astro:actions";
+  import Swal from 'sweetalert2';
+  import { navigate } from 'astro:transitions/client';
 
-    // Flag para evitar múltiples inicializaciones
-    let isInitialized = false;
+  // Flag para evitar múltiples inicializaciones
+  let isInitialized = false;
 
-    document.addEventListener('astro:page-load', () => {
-      // Prevenir inicialización múltiple
-      if (isInitialized) return;
-      isInitialized = true;
+  document.addEventListener('astro:page-load', () => {
+    // Prevenir inicialización múltiple
+    if (isInitialized) return;
+    isInitialized = true;
 
-      const form = document.getElementById('product-form') as HTMLFormElement;
-      if (!form) return;
+    const form = document.getElementById('product-form') as HTMLFormElement;
+    if (!form) return;
 
-      const dropZones = [document.getElementById('drop-zone'), document.getElementById('drop-zone-mobile')].filter(Boolean);
-      const fileInputs = [
-        document.getElementById('file-upload') as HTMLInputElement,
-        document.getElementById('file-upload-mobile') as HTMLInputElement
-      ].filter(Boolean);
-      const previewContainers = [
-        document.getElementById('new-images-preview'),
-        document.getElementById('new-images-preview-mobile')
-      ].filter(Boolean);
-      const imageListContainers = [
-        document.getElementById('image-list-container'),
-        document.getElementById('image-list-container-mobile')
-      ].filter(Boolean);
-      const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
-      const variantsContainer = document.getElementById('variants-container');
-      const isCreate = !form.querySelector('input[name="id"]');
+    const dropZones = [document.getElementById('drop-zone'), document.getElementById('drop-zone-mobile')].filter(Boolean);
+    const fileInputs = [
+      document.getElementById('file-upload') as HTMLInputElement,
+      document.getElementById('file-upload-mobile') as HTMLInputElement
+    ].filter(Boolean);
+    const previewContainers = [
+      document.getElementById('new-images-preview'),
+      document.getElementById('new-images-preview-mobile')
+    ].filter(Boolean);
+    const imageListContainers = [
+      document.getElementById('image-list-container'),
+      document.getElementById('image-list-container-mobile')
+    ].filter(Boolean);
+    const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
+    const variantsContainer = document.getElementById('variants-container');
+    const isCreate = !form.querySelector('input[name="id"]');
+    
+    let newFiles: File[] = [];
+    let isProcessing = false; // Flag para prevenir operaciones simultáneas
+
+    // Configurar SweetAlert2 con valores por defecto responsivos
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 3000,
+      timerProgressBar: true,
+      customClass: {
+        popup: 'text-sm md:text-base'
+      }
+    });
+
+    // Manejo de archivos unificado - CORREGIDO para evitar duplicación
+    const handleNewFiles = (incomingFiles: FileList) => {
+      const uniqueFiles = Array.from(incomingFiles).filter(
+        file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size)
+      );
+      if (uniqueFiles.length === 0) return;
+      newFiles = [...newFiles, ...uniqueFiles];
+      renderNewPreviews();
+      updateFileInput();
+    };
+
+    const renderNewPreviews = () => {
+      previewContainers.forEach(container => {
+        if (!container) return;
+        container.innerHTML = '';
+        newFiles.forEach((file, index) => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            if (!e.target?.result) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative group';
+            wrapper.innerHTML = `
+              <img src="${e.target.result as string}" alt="${file.name}" class="h-20 md:h-24 w-full object-cover rounded-lg shadow-md" />
+              <button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+            `;
+            container.appendChild(wrapper);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    };
+
+    const updateFileInput = () => {
+      const dataTransfer = new DataTransfer();
+      newFiles.forEach(file => dataTransfer.items.add(file));
+      fileInputs.forEach(input => {
+        if (input) input.files = dataTransfer.files;
+      });
+    };
+
+    // Event listeners para drag & drop (ambos dropzones)
+    dropZones.forEach((dropZone, idx) => {
+      const fileInput = fileInputs[idx];
+      if (!dropZone || !fileInput) return;
+
+      // Click handler
+      const clickHandler = () => fileInput.click();
+      dropZone.addEventListener('click', clickHandler);
+
+      // Change handler con debounce
+      let changeTimeout: NodeJS.Timeout;
+      const changeHandler = () => {
+        clearTimeout(changeTimeout);
+        changeTimeout = setTimeout(() => {
+          if (fileInput.files && fileInput.files.length > 0) {
+            handleNewFiles(fileInput.files);
+          }
+        }, 100);
+      };
+      fileInput.addEventListener('change', changeHandler);
+
+      // Drag & drop handlers
+      const preventDefaults = (e: Event) => { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+      };
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults);
+      });
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+          dropZone.classList.add('border-yellow-600', 'bg-yellow-50');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+          dropZone.classList.remove('border-yellow-600', 'bg-yellow-50');
+        });
+      });
       
-      let newFiles: File[] = [];
-      let isProcessing = false; // Flag para prevenir operaciones simultáneas
-
-      // Configurar SweetAlert2 con valores por defecto responsivos
-      const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        customClass: {
-          popup: 'text-sm md:text-base'
+      dropZone.addEventListener('drop', (e: DragEvent) => {
+        if (e.dataTransfer?.files) {
+          handleNewFiles(e.dataTransfer.files);
         }
       });
+    });
 
-      // Manejo de archivos unificado - CORREGIDO para evitar duplicación
-      const handleNewFiles = (incomingFiles: FileList) => {
-        const uniqueFiles = Array.from(incomingFiles).filter(
-          file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size)
-        );
-        if (uniqueFiles.length === 0) return;
-        newFiles = [...newFiles, ...uniqueFiles];
-        renderNewPreviews();
-        updateFileInput();
-      };
-
-      const renderNewPreviews = () => {
-        previewContainers.forEach(container => {
-          if (!container) return;
-          container.innerHTML = '';
-          newFiles.forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = e => {
-              if (!e.target?.result) return;
-              const wrapper = document.createElement('div');
-              wrapper.className = 'relative group';
-              wrapper.innerHTML = `
-                <img src="${e.target.result as string}" alt="${file.name}" class="h-20 md:h-24 w-full object-cover rounded-lg shadow-md" />
-                <button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-              `;
-              container.appendChild(wrapper);
-            };
-            reader.readAsDataURL(file);
-          });
-        });
-      };
-
-      const updateFileInput = () => {
-        const dataTransfer = new DataTransfer();
-        newFiles.forEach(file => dataTransfer.items.add(file));
-        fileInputs.forEach(input => {
-          if (input) input.files = dataTransfer.files;
-        });
-      };
-
-      // Event listeners para drag & drop (ambos dropzones)
-      dropZones.forEach((dropZone, idx) => {
-        const fileInput = fileInputs[idx];
-        if (!dropZone || !fileInput) return;
-
-        // Click handler
-        const clickHandler = () => fileInput.click();
-        dropZone.addEventListener('click', clickHandler);
-
-        // Change handler con debounce
-        let changeTimeout: NodeJS.Timeout;
-        const changeHandler = () => {
-          clearTimeout(changeTimeout);
-          changeTimeout = setTimeout(() => {
-            if (fileInput.files && fileInput.files.length > 0) {
-              handleNewFiles(fileInput.files);
-            }
-          }, 100);
-        };
-        fileInput.addEventListener('change', changeHandler);
-
-        // Drag & drop handlers
-        const preventDefaults = (e: Event) => { 
-          e.preventDefault(); 
-          e.stopPropagation(); 
-        };
-
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-          dropZone.addEventListener(eventName, preventDefaults);
-        });
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-          dropZone.addEventListener(eventName, () => {
-            dropZone.classList.add('border-yellow-600', 'bg-yellow-50');
-          });
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-          dropZone.addEventListener(eventName, () => {
-            dropZone.classList.remove('border-yellow-600', 'bg-yellow-50');
-          });
-        });
+    // ========== NUEVA FUNCIONALIDAD: SUBIR IMAGEN DE VARIANTE ==========
+    document.addEventListener('change', async (e) => {
+      const target = e.target as HTMLInputElement;
+      
+      if (target.classList.contains('variant-image-input') && target.files && target.files[0]) {
+        const file = target.files[0];
+        const variantId = target.dataset.variantId;
+        const productId = target.dataset.productId;
         
-        dropZone.addEventListener('drop', (e: DragEvent) => {
-          if (e.dataTransfer?.files) {
-            handleNewFiles(e.dataTransfer.files);
-          }
-        });
-      });
-
-      // Toggle de variantes
-      if (hasVariantsCheckbox && variantsContainer) {
-        hasVariantsCheckbox.addEventListener('change', () => {
-          variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked);
-        });
-      }
-
-      // Modales de variantes
-      const variantModal = document.getElementById('variant-modal');
-      const editVariantModal = document.getElementById('edit-variant-modal');
-      const addVariantBtn = document.getElementById('add-variant-btn');
-      const cancelVariantBtn = document.getElementById('cancel-variant-btn');
-      const variantForm = document.getElementById('variant-form') as HTMLFormElement;
-      const editVariantForm = document.getElementById('edit-variant-form') as HTMLFormElement;
-      const addOptionBtn = document.getElementById('add-option-btn');
-      const variantOptions = document.getElementById('variant-options');
-
-      if (addVariantBtn && variantModal) {
-        addVariantBtn.addEventListener('click', () => {
-          variantModal.classList.remove('hidden');
-          document.body.style.overflow = 'hidden';
-        });
-      }
-
-      if (cancelVariantBtn && variantModal) {
-        cancelVariantBtn.addEventListener('click', () => {
-          variantModal.classList.add('hidden');
-          document.body.style.overflow = '';
-          if (variantForm) variantForm.reset();
-        });
-      }
-
-      if (addOptionBtn && variantOptions) {
-        addOptionBtn.addEventListener('click', () => {
-          const newRow = document.createElement('div');
-          newRow.className = 'variant-option-row space-y-2 border-t border-slate-200 pt-3 mt-3';
-          newRow.innerHTML = `
-            <input type="text" placeholder="Valor" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
-            <div class="grid grid-cols-3 gap-2">
-              <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
-              <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
-              <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
-            </div>
-            <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>
-          `;
-          variantOptions.appendChild(newRow);
-        });
-      }
-
-      // Funcionalidad de editar y eliminar variantes
-      document.addEventListener('click', async (e) => {
-        if (isProcessing) return;
-        
-        const target = e.target as HTMLElement;
-        const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
-        
-        // Editar variante
-        if (target.closest('.edit-variant')) {
-          const button = target.closest('.edit-variant') as HTMLElement;
-          const variantId = button.dataset.variantId;
-          const variantName = button.dataset.variantName;
-          const variantValue = button.dataset.variantValue;
-          const priceAdjustment = button.dataset.priceAdjustment;
-          const stock = button.dataset.stock;
-          const sku = button.dataset.sku;
-
-          if (editVariantModal) {
-            (document.getElementById('edit-variant-id') as HTMLInputElement).value = variantId || '';
-            (document.getElementById('edit-variant-name') as HTMLInputElement).value = variantName || '';
-            (document.getElementById('edit-variant-value') as HTMLInputElement).value = variantValue || '';
-            (document.getElementById('edit-price-adjustment') as HTMLInputElement).value = priceAdjustment || '0';
-            (document.getElementById('edit-stock') as HTMLInputElement).value = stock || '0';
-            (document.getElementById('edit-sku') as HTMLInputElement).value = sku || '';
-            
-            editVariantModal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-          }
+        if (!variantId || !productId) {
+          console.error('Missing variantId or productId');
+          return;
         }
-
-        // Eliminar variante individual
-        if (target.closest('.delete-variant')) {
-          const button = target.closest('.delete-variant') as HTMLElement;
-          const variantId = button.dataset.variantId;
-          
-          const result = await Swal.fire({
-            title: '¿Eliminar variante?',
-            text: 'Esta acción no se puede deshacer',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc2626',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            customClass: {
-              popup: 'text-sm md:text-base',
-              title: 'text-lg md:text-xl',
-              confirmButton: 'text-sm md:text-base',
-              cancelButton: 'text-sm md:text-base'
-            }
+        
+        // Validaciones
+        if (!file.type.startsWith('image/')) {
+          Toast.fire({
+            icon: 'error',
+            title: 'Debe ser una imagen'
           });
-
-          if (result.isConfirmed) {
-            isProcessing = true;
-            try {
-              const { data, error } = await actions.deleteVariant(variantId!);
-              if (error) throw new Error(error.message);
-              
-              const variantItem = button.closest('.variant-item');
-              if (variantItem) variantItem.remove();
-              
-              if (data?.shouldRegenerateCombinations) {
-                const regenResult = await Swal.fire({
-                  title: 'Actualización necesaria',
-                  text: '¿Regenerar combinaciones?',
-                  icon: 'question',
-                  showCancelButton: true,
-                  confirmButtonColor: '#eab308',
-                  confirmButtonText: 'Sí',
-                  cancelButtonText: 'Más tarde',
-                  customClass: {
-                    popup: 'text-sm md:text-base'
-                  }
-                });
-
-                if (regenResult.isConfirmed) {
-                  await regenerateCombinations(productId!);
-                }
-              }
-              
-              const variantGroup = button.closest('.variant-group');
-              if (variantGroup) {
-                const remainingItems = variantGroup.querySelectorAll('.variant-item');
-                if (remainingItems.length === 0) variantGroup.remove();
-              }
-
-              Toast.fire({
-                icon: 'success',
-                title: '¡Variante eliminada!'
-              });
-              
-            } catch (err: any) {
-              Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: err.message,
-                customClass: {
-                  popup: 'text-sm md:text-base'
-                }
-              });
-            } finally {
-              isProcessing = false;
-            }
-          }
+          target.value = '';
+          return;
         }
-
-        // Eliminar grupo completo de variantes
-        if (target.closest('.delete-variant-group')) {
-          const button = target.closest('.delete-variant-group') as HTMLElement;
-          const variantName = button.dataset.variantName;
+        
+        if (file.size > 5 * 1024 * 1024) {
+          Toast.fire({
+            icon: 'error',
+            title: 'Imagen muy grande (máx 5MB)'
+          });
+          target.value = '';
+          return;
+        }
+        
+        // Mostrar loading
+        Swal.fire({
+          title: 'Subiendo imagen...',
+          text: 'Por favor espera',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+        
+        try {
+          // Crear FormData
+          const formData = new FormData();
+          formData.append('variantId', variantId);
+          formData.append('productId', productId);
+          formData.append('imageFile', file);
           
-          const result = await Swal.fire({
-            title: `¿Eliminar "${variantName}"?`,
-            text: 'Se eliminarán todas las variantes de este tipo',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc2626',
-            confirmButtonText: 'Sí, eliminar todo',
-            cancelButtonText: 'Cancelar',
+          console.log('Subiendo imagen para variante:', variantId);
+          
+          // Subir imagen
+          const { data, error } = await actions.uploadVariantImage(formData);
+          
+          if (error) throw new Error(error.message);
+          
+          Swal.close();
+          
+          Toast.fire({
+            icon: 'success',
+            title: '¡Imagen subida!'
+          });
+          
+          console.log('Imagen subida exitosamente:', data?.imageUrl);
+          
+          // Recargar página para mostrar la imagen
+          setTimeout(() => window.location.reload(), 1000);
+          
+        } catch (err: any) {
+          console.error('Error subiendo imagen:', err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al subir imagen',
+            text: err.message,
             customClass: {
               popup: 'text-sm md:text-base'
             }
           });
+        }
+        
+        // Limpiar input
+        target.value = '';
+      }
+    });
 
-          if (result.isConfirmed) {
-            isProcessing = true;
-            try {
-              if (!productId) throw new Error('No se pudo identificar el producto');
-              
-              const { error } = await actions.deleteVariantGroup({ 
-                productId, 
-                variantName: variantName! 
-              });
-              
-              if (error) throw new Error(error.message);
-              
-              const variantGroup = button.closest('.variant-group');
-              if (variantGroup) variantGroup.remove();
-              
-              const remainingGroups = document.querySelectorAll('.variant-group');
-              if (remainingGroups.length === 0 && hasVariantsCheckbox) {
-                hasVariantsCheckbox.checked = false;
-                variantsContainer?.classList.add('hidden');
+    // Toggle de variantes
+    if (hasVariantsCheckbox && variantsContainer) {
+      hasVariantsCheckbox.addEventListener('change', () => {
+        variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked);
+      });
+    }
+
+    // Modales de variantes
+    const variantModal = document.getElementById('variant-modal');
+    const editVariantModal = document.getElementById('edit-variant-modal');
+    const addVariantBtn = document.getElementById('add-variant-btn');
+    const cancelVariantBtn = document.getElementById('cancel-variant-btn');
+    const variantForm = document.getElementById('variant-form') as HTMLFormElement;
+    const editVariantForm = document.getElementById('edit-variant-form') as HTMLFormElement;
+    const addOptionBtn = document.getElementById('add-option-btn');
+    const variantOptions = document.getElementById('variant-options');
+
+    if (addVariantBtn && variantModal) {
+      addVariantBtn.addEventListener('click', () => {
+        variantModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+      });
+    }
+
+    if (cancelVariantBtn && variantModal) {
+      cancelVariantBtn.addEventListener('click', () => {
+        variantModal.classList.add('hidden');
+        document.body.style.overflow = '';
+        if (variantForm) variantForm.reset();
+      });
+    }
+
+    if (addOptionBtn && variantOptions) {
+      addOptionBtn.addEventListener('click', () => {
+        const newRow = document.createElement('div');
+        newRow.className = 'variant-option-row space-y-2 border-t border-slate-200 pt-3 mt-3';
+        newRow.innerHTML = `
+          <input type="text" placeholder="Valor" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
+          <div class="grid grid-cols-3 gap-2">
+            <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
+            <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
+            <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
+          </div>
+          <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>
+        `;
+        variantOptions.appendChild(newRow);
+      });
+    }
+
+    // Funcionalidad de editar y eliminar variantes
+    document.addEventListener('click', async (e) => {
+      if (isProcessing) return;
+      
+      const target = e.target as HTMLElement;
+      const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+      
+      // ========== NUEVA FUNCIONALIDAD: ELIMINAR IMAGEN DE VARIANTE ==========
+      if (target.closest('.delete-variant-image')) {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const button = target.closest('.delete-variant-image') as HTMLElement;
+        const variantId = button.dataset.variantId;
+        
+        if (!variantId) return;
+        
+        const result = await Swal.fire({
+          title: '¿Eliminar imagen de variante?',
+          text: 'Se eliminará solo la imagen, no la variante',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc2626',
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            popup: 'text-sm md:text-base'
+          }
+        });
+        
+        if (result.isConfirmed) {
+          isProcessing = true;
+          
+          try {
+            console.log('Eliminando imagen de variante:', variantId);
+            
+            const { error } = await actions.deleteVariantImage(variantId);
+            
+            if (error) throw new Error(error.message);
+            
+            Toast.fire({
+              icon: 'success',
+              title: 'Imagen eliminada'
+            });
+            
+            console.log('Imagen de variante eliminada exitosamente');
+            
+            setTimeout(() => window.location.reload(), 1000);
+            
+          } catch (err: any) {
+            console.error('Error eliminando imagen de variante:', err);
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: err.message,
+              customClass: {
+                popup: 'text-sm md:text-base'
               }
-              
-              Toast.fire({
-                icon: 'success',
-                title: '¡Grupo eliminado!'
-              });
-              
-            } catch (err: any) {
-              Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: err.message,
+            });
+          } finally {
+            isProcessing = false;
+          }
+        }
+        
+        return;
+      }
+      
+      // Editar variante
+      if (target.closest('.edit-variant')) {
+        const button = target.closest('.edit-variant') as HTMLElement;
+        const variantId = button.dataset.variantId;
+        const variantName = button.dataset.variantName;
+        const variantValue = button.dataset.variantValue;
+        const priceAdjustment = button.dataset.priceAdjustment;
+        const stock = button.dataset.stock;
+        const sku = button.dataset.sku;
+
+        if (editVariantModal) {
+          (document.getElementById('edit-variant-id') as HTMLInputElement).value = variantId || '';
+          (document.getElementById('edit-variant-name') as HTMLInputElement).value = variantName || '';
+          (document.getElementById('edit-variant-value') as HTMLInputElement).value = variantValue || '';
+          (document.getElementById('edit-price-adjustment') as HTMLInputElement).value = priceAdjustment || '0';
+          (document.getElementById('edit-stock') as HTMLInputElement).value = stock || '0';
+          (document.getElementById('edit-sku') as HTMLInputElement).value = sku || '';
+          
+          editVariantModal.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
+        }
+      }
+
+      // Eliminar variante individual
+      if (target.closest('.delete-variant')) {
+        const button = target.closest('.delete-variant') as HTMLElement;
+        const variantId = button.dataset.variantId;
+        
+        const result = await Swal.fire({
+          title: '¿Eliminar variante?',
+          text: 'Esta acción no se puede deshacer',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc2626',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            popup: 'text-sm md:text-base',
+            title: 'text-lg md:text-xl',
+            confirmButton: 'text-sm md:text-base',
+            cancelButton: 'text-sm md:text-base'
+          }
+        });
+
+        if (result.isConfirmed) {
+          isProcessing = true;
+          try {
+            const { data, error } = await actions.deleteVariant(variantId!);
+            if (error) throw new Error(error.message);
+            
+            const variantItem = button.closest('.variant-item');
+            if (variantItem) variantItem.remove();
+            
+            if (data?.shouldRegenerateCombinations) {
+              const regenResult = await Swal.fire({
+                title: 'Actualización necesaria',
+                text: '¿Regenerar combinaciones?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#eab308',
+                confirmButtonText: 'Sí',
+                cancelButtonText: 'Más tarde',
                 customClass: {
                   popup: 'text-sm md:text-base'
                 }
               });
-            } finally {
-              isProcessing = false;
+
+              if (regenResult.isConfirmed) {
+                await regenerateCombinations(productId!);
+              }
             }
-          }
-        }
-
-        // Remover opción del modal
-        if (target.classList.contains('remove-option')) {
-          const row = target.closest('.variant-option-row');
-          const allRows = document.querySelectorAll('.variant-option-row');
-          if (allRows.length > 1) {
-            row?.remove();
-          } else {
-            Toast.fire({
-              icon: 'warning',
-              title: 'Debe haber al menos una opción'
-            });
-          }
-        }
-      });
-
-      // Cancelar edición de variante
-      const cancelEditBtn = document.getElementById('cancel-edit-variant');
-      if (cancelEditBtn && editVariantModal) {
-        cancelEditBtn.addEventListener('click', () => {
-          editVariantModal.classList.add('hidden');
-          document.body.style.overflow = '';
-          if (editVariantForm) editVariantForm.reset();
-        });
-      }
-
-      // Enviar formulario de edición
-      if (editVariantForm) {
-        editVariantForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          if (isProcessing) return;
-          
-          const variantId = (document.getElementById('edit-variant-id') as HTMLInputElement).value;
-          const variantValue = (document.getElementById('edit-variant-value') as HTMLInputElement).value;
-          const priceAdjustment = parseFloat((document.getElementById('edit-price-adjustment') as HTMLInputElement).value) || 0;
-          const stock = parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0;
-          const sku = (document.getElementById('edit-sku') as HTMLInputElement).value || null;
-          
-          isProcessing = true;
-          try {
-            const { error } = await actions.updateVariant({
-              variantId,
-              variantValue,
-              priceAdjustment,
-              stock,
-              sku
-            });
             
-            if (error) throw new Error(error.message);
-            
-            editVariantModal?.classList.add('hidden');
-            document.body.style.overflow = '';
-            
+            const variantGroup = button.closest('.variant-group');
+            if (variantGroup) {
+              const remainingItems = variantGroup.querySelectorAll('.variant-item');
+              if (remainingItems.length === 0) variantGroup.remove();
+            }
+
             Toast.fire({
               icon: 'success',
-              title: '¡Variante actualizada!'
+              title: '¡Variante eliminada!'
             });
-            
-            setTimeout(() => window.location.reload(), 1000);
             
           } catch (err: any) {
             Swal.fire({
@@ -902,18 +969,206 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
           } finally {
             isProcessing = false;
           }
-        });
+        }
       }
 
-      // Función para regenerar combinaciones
-      async function regenerateCombinations(productId: string) {
+      // Eliminar grupo completo de variantes
+      if (target.closest('.delete-variant-group')) {
+        const button = target.closest('.delete-variant-group') as HTMLElement;
+        const variantName = button.dataset.variantName;
+        
+        const result = await Swal.fire({
+          title: `¿Eliminar "${variantName}"?`,
+          text: 'Se eliminarán todas las variantes de este tipo',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#dc2626',
+          confirmButtonText: 'Sí, eliminar todo',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            popup: 'text-sm md:text-base'
+          }
+        });
+
+        if (result.isConfirmed) {
+          isProcessing = true;
+          try {
+            if (!productId) throw new Error('No se pudo identificar el producto');
+            
+            const { error } = await actions.deleteVariantGroup({ 
+              productId, 
+              variantName: variantName! 
+            });
+            
+            if (error) throw new Error(error.message);
+            
+            const variantGroup = button.closest('.variant-group');
+            if (variantGroup) variantGroup.remove();
+            
+            const remainingGroups = document.querySelectorAll('.variant-group');
+            if (remainingGroups.length === 0 && hasVariantsCheckbox) {
+              hasVariantsCheckbox.checked = false;
+              variantsContainer?.classList.add('hidden');
+            }
+            
+            Toast.fire({
+              icon: 'success',
+              title: '¡Grupo eliminado!'
+            });
+            
+          } catch (err: any) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: err.message,
+              customClass: {
+                popup: 'text-sm md:text-base'
+              }
+            });
+          } finally {
+            isProcessing = false;
+          }
+        }
+      }
+
+      // Remover opción del modal
+      if (target.classList.contains('remove-option')) {
+        const row = target.closest('.variant-option-row');
+        const allRows = document.querySelectorAll('.variant-option-row');
+        if (allRows.length > 1) {
+          row?.remove();
+        } else {
+          Toast.fire({
+            icon: 'warning',
+            title: 'Debe haber al menos una opción'
+          });
+        }
+      }
+    });
+
+    // Cancelar edición de variante
+    const cancelEditBtn = document.getElementById('cancel-edit-variant');
+    if (cancelEditBtn && editVariantModal) {
+      cancelEditBtn.addEventListener('click', () => {
+        editVariantModal.classList.add('hidden');
+        document.body.style.overflow = '';
+        if (editVariantForm) editVariantForm.reset();
+      });
+    }
+
+    // Enviar formulario de edición
+    if (editVariantForm) {
+      editVariantForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (isProcessing) return;
+        
+        const variantId = (document.getElementById('edit-variant-id') as HTMLInputElement).value;
+        const variantValue = (document.getElementById('edit-variant-value') as HTMLInputElement).value;
+        const priceAdjustment = parseFloat((document.getElementById('edit-price-adjustment') as HTMLInputElement).value) || 0;
+        const stock = parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0;
+        const sku = (document.getElementById('edit-sku') as HTMLInputElement).value || null;
+        
+        isProcessing = true;
         try {
-          const { error } = await actions.generateVariantCombinations(productId);
+          const { error } = await actions.updateVariant({
+            variantId,
+            variantValue,
+            priceAdjustment,
+            stock,
+            sku
+          });
+          
           if (error) throw new Error(error.message);
+          
+          editVariantModal?.classList.add('hidden');
+          document.body.style.overflow = '';
           
           Toast.fire({
             icon: 'success',
-            title: '¡Combinaciones regeneradas!'
+            title: '¡Variante actualizada!'
+          });
+          
+          setTimeout(() => window.location.reload(), 1000);
+          
+        } catch (err: any) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.message,
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
+          });
+        } finally {
+          isProcessing = false;
+        }
+      });
+    }
+
+    // Función para regenerar combinaciones
+    async function regenerateCombinations(productId: string) {
+      try {
+        const { error } = await actions.generateVariantCombinations(productId);
+        if (error) throw new Error(error.message);
+        
+        Toast.fire({
+          icon: 'success',
+          title: '¡Combinaciones regeneradas!'
+        });
+        
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (err: any) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: err.message,
+          customClass: {
+            popup: 'text-sm md:text-base'
+          }
+        });
+      }
+    }
+
+    // Enviar formulario de nueva variante
+    if (variantForm) {
+      variantForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (isProcessing) return;
+        
+        const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+        if (!productId) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: 'Primero debes guardar el producto',
+            customClass: {
+              popup: 'text-sm md:text-base'
+            }
+          });
+          return;
+        }
+
+        const variantName = (document.getElementById('variant-name') as HTMLInputElement).value;
+        const rows = document.querySelectorAll('.variant-option-row');
+        const variants = Array.from(rows).map(row => ({
+          variantName,
+          variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value,
+          priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0,
+          stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0,
+          sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
+        }));
+
+        isProcessing = true;
+        try {
+          const { error } = await actions.createBatchVariants({ productId, variants });
+          if (error) throw new Error(error.message);
+          
+          variantModal?.classList.add('hidden');
+          document.body.style.overflow = '';
+          
+          Toast.fire({
+            icon: 'success',
+            title: '¡Variantes creadas!'
           });
           
           setTimeout(() => window.location.reload(), 1000);
@@ -926,49 +1181,43 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
               popup: 'text-sm md:text-base'
             }
           });
+        } finally {
+          isProcessing = false;
         }
-      }
+      });
+    }
 
-      // Enviar formulario de nueva variante
-      if (variantForm) {
-        variantForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          if (isProcessing) return;
-          
-          const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
-          if (!productId) {
-            Swal.fire({
-              icon: 'warning',
-              title: 'Atención',
-              text: 'Primero debes guardar el producto',
-              customClass: {
-                popup: 'text-sm md:text-base'
-              }
-            });
-            return;
+    // Botón generar combinaciones
+    const generateBtn = document.getElementById('generate-combinations-btn');
+    if (generateBtn) {
+      generateBtn.addEventListener('click', async () => {
+        if (isProcessing) return;
+        
+        const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+        if (!productId) return;
+
+        const result = await Swal.fire({
+          title: '¿Generar combinaciones?',
+          text: 'Esto reemplazará las combinaciones existentes',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#eab308',
+          confirmButtonText: 'Sí, generar',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            popup: 'text-sm md:text-base'
           }
+        });
 
-          const variantName = (document.getElementById('variant-name') as HTMLInputElement).value;
-          const rows = document.querySelectorAll('.variant-option-row');
-          const variants = Array.from(rows).map(row => ({
-            variantName,
-            variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value,
-            priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0,
-            stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0,
-            sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
-          }));
-
+        if (result.isConfirmed) {
           isProcessing = true;
           try {
-            const { error } = await actions.createBatchVariants({ productId, variants });
+            const { error } = await actions.generateVariantCombinations(productId);
             if (error) throw new Error(error.message);
-            
-            variantModal?.classList.add('hidden');
-            document.body.style.overflow = '';
             
             Toast.fire({
               icon: 'success',
-              title: '¡Variantes creadas!'
+              title: '¡Combinaciones generadas!'
             });
             
             setTimeout(() => window.location.reload(), 1000);
@@ -984,25 +1233,55 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
           } finally {
             isProcessing = false;
           }
-        });
-      }
+        }
+      });
+    }
 
-      // Botón generar combinaciones
-      const generateBtn = document.getElementById('generate-combinations-btn');
-      if (generateBtn) {
-        generateBtn.addEventListener('click', async () => {
-          if (isProcessing) return;
+    // Actualizar stock de combinaciones con debounce
+    document.querySelectorAll('.combination-stock-input').forEach(input => {
+      let timeout: NodeJS.Timeout;
+      input.addEventListener('change', async (e) => {
+        clearTimeout(timeout);
+        const target = e.target as HTMLInputElement;
+        const combinationId = target.dataset.combinationId;
+        if (!combinationId) return;
+
+        timeout = setTimeout(async () => {
+          try {
+            const { error } = await actions.updateCombinationStock({
+              combinationId,
+              newStock: parseInt(target.value)
+            });
+            if (error) throw new Error(error.message);
+            target.classList.add('border-green-500');
+            setTimeout(() => target.classList.remove('border-green-500'), 1000);
+          } catch (err: any) {
+            console.error(`Error: ${err.message}`);
+            target.classList.add('border-red-500');
+            setTimeout(() => target.classList.remove('border-red-500'), 1000);
+          }
+        }, 500);
+      });
+    });
+
+    // Eliminar imágenes existentes
+    imageListContainers.forEach(container => {
+      if (!container) return;
+      container.addEventListener('click', async (e) => {
+        if (isProcessing) return;
+        
+        const target = e.target as HTMLButtonElement;
+        if (target.classList.contains('delete-existing')) {
+          const id = target.dataset.id;
+          if (!id) return;
           
-          const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
-          if (!productId) return;
-
           const result = await Swal.fire({
-            title: '¿Generar combinaciones?',
-            text: 'Esto reemplazará las combinaciones existentes',
-            icon: 'question',
+            title: '¿Eliminar imagen?',
+            text: 'Esta acción no se puede deshacer',
+            icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#eab308',
-            confirmButtonText: 'Sí, generar',
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar',
             customClass: {
               popup: 'text-sm md:text-base'
@@ -1012,15 +1291,17 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
           if (result.isConfirmed) {
             isProcessing = true;
             try {
-              const { error } = await actions.generateVariantCombinations(productId);
+              const { error } = await actions.deleteProductImage(id);
               if (error) throw new Error(error.message);
+              
+              imageListContainers.forEach(c => {
+                c?.querySelector(`[data-id="${id}"]`)?.remove();
+              });
               
               Toast.fire({
                 icon: 'success',
-                title: '¡Combinaciones generadas!'
+                title: 'Imagen eliminada'
               });
-              
-              setTimeout(() => window.location.reload(), 1000);
             } catch (err: any) {
               Swal.fire({
                 icon: 'error',
@@ -1034,187 +1315,106 @@ const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}
               isProcessing = false;
             }
           }
-        });
-      }
-
-      // Actualizar stock de combinaciones con debounce
-      document.querySelectorAll('.combination-stock-input').forEach(input => {
-        let timeout: NodeJS.Timeout;
-        input.addEventListener('change', async (e) => {
-          clearTimeout(timeout);
-          const target = e.target as HTMLInputElement;
-          const combinationId = target.dataset.combinationId;
-          if (!combinationId) return;
-
-          timeout = setTimeout(async () => {
-            try {
-              const { error } = await actions.updateCombinationStock({
-                combinationId,
-                newStock: parseInt(target.value)
-              });
-              if (error) throw new Error(error.message);
-              target.classList.add('border-green-500');
-              setTimeout(() => target.classList.remove('border-green-500'), 1000);
-            } catch (err: any) {
-              console.error(`Error: ${err.message}`);
-              target.classList.add('border-red-500');
-              setTimeout(() => target.classList.remove('border-red-500'), 1000);
-            }
-          }, 500);
-        });
-      });
-
-      // Eliminar imágenes existentes
-      imageListContainers.forEach(container => {
-        if (!container) return;
-        container.addEventListener('click', async (e) => {
-          if (isProcessing) return;
-          
-          const target = e.target as HTMLButtonElement;
-          if (target.classList.contains('delete-existing')) {
-            const id = target.dataset.id;
-            if (!id) return;
-            
-            const result = await Swal.fire({
-              title: '¿Eliminar imagen?',
-              text: 'Esta acción no se puede deshacer',
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonColor: '#dc2626',
-              confirmButtonText: 'Sí, eliminar',
-              cancelButtonText: 'Cancelar',
-              customClass: {
-                popup: 'text-sm md:text-base'
-              }
-            });
-
-            if (result.isConfirmed) {
-              isProcessing = true;
-              try {
-                const { error } = await actions.deleteProductImage(id);
-                if (error) throw new Error(error.message);
-                
-                imageListContainers.forEach(c => {
-                  c?.querySelector(`[data-id="${id}"]`)?.remove();
-                });
-                
-                Toast.fire({
-                  icon: 'success',
-                  title: 'Imagen eliminada'
-                });
-              } catch (err: any) {
-                Swal.fire({
-                  icon: 'error',
-                  title: 'Error',
-                  text: err.message,
-                  customClass: {
-                    popup: 'text-sm md:text-base'
-                  }
-                });
-              } finally {
-                isProcessing = false;
-              }
-            }
-          }
-        });
-      });
-
-      // Remover nuevas imágenes antes de subir
-      previewContainers.forEach(container => {
-        if (!container) return;
-        container.addEventListener('click', e => {
-          const target = e.target as HTMLElement;
-          if (target.classList.contains('remove-new-btn')) {
-            const index = parseInt(target.dataset.index || '-1');
-            if (index > -1) {
-              newFiles.splice(index, 1);
-              renderNewPreviews();
-              updateFileInput();
-            }
-          }
-        });
-      });
-
-      // Auto-generar slug desde el nombre
-      const nameInput = document.getElementById('name') as HTMLInputElement;
-      const slugInput = document.getElementById('slug') as HTMLInputElement;
-      if (nameInput && slugInput && isCreate) {
-        nameInput.addEventListener('input', () => {
-          const slug = nameInput.value
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-          slugInput.value = slug;
-        });
-      }
-
-      // Enviar formulario principal
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (isProcessing) return;
-        
-        const saveButton = document.getElementById('save-button') as HTMLButtonElement;
-        if (!saveButton) return;
-        
-        isProcessing = true;
-        saveButton.disabled = true;
-        saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
-        
-        try {
-          // Crear FormData manualmente y agregar solo UNA VEZ las imágenes
-          const formData = new FormData(form);
-          
-          // IMPORTANTE: Eliminar cualquier campo imageFiles existente
-          formData.delete('imageFiles');
-          
-          // Agregar las imágenes nuevas solo una vez
-          newFiles.forEach((file) => {
-            formData.append('imageFiles', file);
-          });
-          
-          console.log('Archivos a enviar:', newFiles.length);
-          
-          const { data, error } = await actions.crateUpdateProduct(formData);
-          
-          if (error) throw new Error(error.message);
-          
-          await Swal.fire({
-            icon: 'success',
-            title: isCreate ? '¡Producto creado!' : '¡Cambios guardados!',
-            text: 'Redirigiendo...',
-            timer: 1500,
-            showConfirmButton: false,
-            customClass: {
-              popup: 'text-sm md:text-base'
-            }
-          });
-          
-          navigate('/admin/products');
-        } catch (err: any) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error al guardar',
-            text: err.message,
-            customClass: {
-              popup: 'text-sm md:text-base'
-            }
-          });
-        } finally {
-          isProcessing = false;
-          saveButton.disabled = false;
-          saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar';
         }
       });
     });
 
-    // Limpiar al cambiar de página
-    document.addEventListener('astro:before-preparation', () => {
-      isInitialized = false;
-      document.body.style.overflow = '';
+    // Remover nuevas imágenes antes de subir
+    previewContainers.forEach(container => {
+      if (!container) return;
+      container.addEventListener('click', e => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains('remove-new-btn')) {
+          const index = parseInt(target.dataset.index || '-1');
+          if (index > -1) {
+            newFiles.splice(index, 1);
+            renderNewPreviews();
+            updateFileInput();
+          }
+        }
+      });
     });
-  </script>
+
+    // Auto-generar slug desde el nombre
+    const nameInput = document.getElementById('name') as HTMLInputElement;
+    const slugInput = document.getElementById('slug') as HTMLInputElement;
+    if (nameInput && slugInput && isCreate) {
+      nameInput.addEventListener('input', () => {
+        const slug = nameInput.value
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        slugInput.value = slug;
+      });
+    }
+
+    // Enviar formulario principal
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isProcessing) return;
+      
+      const saveButton = document.getElementById('save-button') as HTMLButtonElement;
+      if (!saveButton) return;
+      
+      isProcessing = true;
+      saveButton.disabled = true;
+      saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
+      
+      try {
+        // Crear FormData manualmente y agregar solo UNA VEZ las imágenes
+        const formData = new FormData(form);
+        
+        // IMPORTANTE: Eliminar cualquier campo imageFiles existente
+        formData.delete('imageFiles');
+        
+        // Agregar las imágenes nuevas solo una vez
+        newFiles.forEach((file) => {
+          formData.append('imageFiles', file);
+        });
+        
+        console.log('Archivos a enviar:', newFiles.length);
+        
+        const { data, error } = await actions.crateUpdateProduct(formData);
+        
+        if (error) throw new Error(error.message);
+        
+        await Swal.fire({
+          icon: 'success',
+          title: isCreate ? '¡Producto creado!' : '¡Cambios guardados!',
+          text: 'Redirigiendo...',
+          timer: 1500,
+          showConfirmButton: false,
+          customClass: {
+            popup: 'text-sm md:text-base'
+          }
+        });
+        
+        navigate('/admin/products');
+      } catch (err: any) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al guardar',
+          text: err.message,
+          customClass: {
+            popup: 'text-sm md:text-base'
+          }
+        });
+      } finally {
+        isProcessing = false;
+        saveButton.disabled = false;
+        saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar';
+      }
+    });
+  });
+
+  // Limpiar al cambiar de página
+  document.addEventListener('astro:before-preparation', () => {
+    isInitialized = false;
+    document.body.style.overflow = '';
+  });
+</script>
 
   <style>
     .card { 

@@ -4,7 +4,6 @@ import ProductsLayout from '@/layouts/ProductsLayout.astro';
 import { Formatter } from '@/utils';
 import { CartCookiesClient } from '../../utils/cart-cookies';
 
-// Obtener productos del carrito
 const cartItems = CartCookiesClient.getCart();
 const { data: products, error } = await Astro.callAction(
   actions.loadProductsFromCart,
@@ -15,9 +14,7 @@ if (error || !products) {
   return Astro.redirect('/');
 }
 
-// Calcular totales considerando los precios ajustados por variantes
 const subtotal = products.reduce((sum, p) => {
-  // Si tiene variante, usar el precio ajustado, sino el precio base
   const price = p.variantPrice ?? p.price;
   return sum + price * p.quantity;
 }, 0);
@@ -26,7 +23,6 @@ const total = subtotal + 0;
 ---
 
 <ProductsLayout>
-  
   <h1 class="text-4xl font-bold mb-8 text-white">Tu Carrito</h1>
   <button
     id="clear-cart-btn"
@@ -49,26 +45,47 @@ const total = subtotal + 0;
     </div>
   ) : (
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- Lista de Productos -->
       <div class="lg:col-span-2 space-y-6">
-        {products.map(product => {
-          // Usar precio ajustado si tiene variante
+        {products.map((product) => {
           const displayPrice = product.variantPrice ?? product.price;
           const hasVariant = product.variantCombination || product.variantId;
+          const productImage = product.variantImage || product.image;
+          const isVariantImage = !!product.variantImage;
           
           return (
             <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg transition hover:shadow-xl">
-              <!-- Contenedor de imagen mejorado -->
-              <div class="w-full md:w-40 flex-shrink-0 flex items-center justify-center bg-gray-100">
+              <div class="w-full md:w-48 flex-shrink-0 relative flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
                 <img
-                  src={product.image}
+                  src={productImage}
                   alt={product.name}
-                  class="object-contain w-full h-48 p-4 md:w-full md:h-auto"
+                  class="object-contain w-full h-48 p-4 md:w-full md:h-auto transition-transform hover:scale-105"
                 />
+                
+                {isVariantImage && (
+                  <div class="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium shadow-md flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Variante</span>
+                  </div>
+                )}
+                
+                <button 
+                  class="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100 group"
+                  data-view-image={productImage}
+                  aria-label="Ver imagen completa"
+                >
+                  <div class="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
+                    <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                    </svg>
+                  </div>
+                </button>
               </div>
 
               <div class="flex-1 p-6 flex flex-col justify-between">
                 <div>
+                  
                   <a
                     href={`/products/${product.slug}`}
                     class="text-xl font-semibold text-gray-900 hover:text-yellow-500 transition"
@@ -76,27 +93,34 @@ const total = subtotal + 0;
                     {product.name}
                   </a>
                   
-                  {/* Mostrar información de la variante si existe */}
                   {hasVariant && product.variantCombination && (
-                    <div class="mt-2 space-y-1">
-                      <p class="text-sm text-gray-600">
-                        <span class="font-medium">Variante:</span> 
-                        <span class="ml-1 text-gray-800">{product.variantCombination}</span>
-                      </p>
-                      {product.variantSku && (
-                        <p class="text-xs text-gray-500">
-                          SKU: {product.variantSku}
-                        </p>
-                      )}
+                    <div class="mt-2 space-y-1 bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded-r">
+                      <div class="flex items-start gap-2">
+                        <svg class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        <div class="flex-1">
+                          <p class="text-sm font-medium text-gray-700">Variante seleccionada:</p>
+                          <p class="text-sm text-gray-800 font-semibold">{product.variantCombination}</p>
+                          {product.variantSku && (
+                            <p class="text-xs text-gray-600 mt-1 font-mono">SKU: {product.variantSku}</p>
+                          )}
+                          {isVariantImage && (
+                            <p class="text-xs text-yellow-700 mt-1 flex items-center gap-1">
+                              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                              </svg>
+                              Imagen específica de variante
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                   
-                  <p class="mt-1 text-sm text-yellow-500 uppercase">
-                    {product.category}
-                  </p>
+                  <p class="mt-2 text-sm text-yellow-500 uppercase font-medium">{product.category}</p>
                   
                   <div class="mt-3">
-                    {/* Mostrar precio base y ajuste si hay variante */}
                     {hasVariant && product.variantPrice !== product.price ? (
                       <div class="space-y-1">
                         <p class="text-sm text-gray-500">
@@ -112,9 +136,7 @@ const total = subtotal + 0;
                     ) : (
                       <p class="text-gray-900">
                         {Formatter.currency(displayPrice)} × {product.quantity} = 
-                        <span class="font-semibold ml-1">
-                          {Formatter.currency(displayPrice * product.quantity)}
-                        </span>
+                        <span class="font-semibold ml-1">{Formatter.currency(displayPrice * product.quantity)}</span>
                       </p>
                     )}
                   </div>
@@ -130,15 +152,10 @@ const total = subtotal + 0;
                       data-product-id={product.productId}
                       data-variant-id={product.variantId || ''}
                       data-combination-id={product.combinationId || ''}
-                      class="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 qty-selector"
+                      class="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 qty-selector transition-colors"
                     >
-                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                        <option
-                          value={n}
-                          selected={n === product.quantity}
-                        >
-                          {n}
-                        </option>
+                      {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                        <option value={n} selected={n === product.quantity}>{n}</option>
                       ))}
                     </select>
                   </div>
@@ -150,18 +167,20 @@ const total = subtotal + 0;
                     class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-100 remove-item"
                     aria-label="Remover producto"
                   >
-                    ✕
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
               </div>
             </div>
           );
         })}
-
         <div class="flex justify-between items-center mt-8">
+          
           <a
             href="/products"
-            class="inline-flex items-center text-yellow-400 hover:underline transition"
+            class="inline-flex items-center text-yellow-500 hover:text-yellow-600 transition font-medium"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -170,8 +189,7 @@ const total = subtotal + 0;
           </a>
         </div>
       </div>
-
-      <!-- Resumen de Compra -->
+      
       <div class="bg-white rounded-2xl shadow-xl p-8 flex flex-col sticky top-4">
         <h2 class="text-2xl font-bold mb-6 text-gray-800">Resumen de compra</h2>
 
@@ -181,7 +199,6 @@ const total = subtotal + 0;
             <span class="font-medium">{Formatter.currency(subtotal)}</span>
           </div>
           
-          {/* Mostrar ahorro si hay descuentos por variantes */}
           {(() => {
             const baseTotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
             const savings = baseTotal - subtotal;
@@ -203,7 +220,6 @@ const total = subtotal + 0;
             return null;
           })()}
           
-          
           <div class="flex justify-between">
             <span>Envío</span>
             <span class="text-green-600 font-medium">Por calcular</span>
@@ -212,9 +228,7 @@ const total = subtotal + 0;
 
         <div class="mt-6 border-t border-gray-200 pt-4 flex justify-between items-center">
           <span class="text-xl font-semibold text-gray-800">Total</span>
-          <span class="text-2xl font-extrabold text-gray-900">
-            {Formatter.currency(total)}
-          </span>
+          <span class="text-2xl font-extrabold text-gray-900">{Formatter.currency(total)}</span>
         </div>
 
         <button
@@ -230,6 +244,27 @@ const total = subtotal + 0;
       </div>
     </div>
   )}
+
+  <div id="image-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <button 
+      id="close-modal" 
+      class="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+      aria-label="Cerrar"
+    >
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    
+    <div class="relative max-w-4xl max-h-full">
+      <img 
+        id="modal-image" 
+        src="" 
+        alt="" 
+        class="w-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+      />
+    </div>
+  </div>
 </ProductsLayout>
 
 <script>
@@ -238,9 +273,51 @@ const total = subtotal + 0;
   import { itemsInCart } from '@/store';
   import Swal from 'sweetalert2';
 
-  // Función principal que maneja toda la lógica del carrito
   function initializeCart() {
-    // Eliminar producto (sin Swal, solo confirmación nativa)
+    const imageModal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image') as HTMLImageElement;
+    const closeModal = document.getElementById('close-modal');
+    const viewImageButtons = document.querySelectorAll('[data-view-image]');
+
+    viewImageButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const button = e.currentTarget as HTMLElement;
+        const imageSrc = button.dataset.viewImage;
+        
+        if (imageSrc && modalImage && imageModal) {
+          modalImage.src = imageSrc;
+          imageModal.classList.remove('hidden');
+          imageModal.classList.add('flex');
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    });
+
+    closeModal?.addEventListener('click', () => {
+      if (imageModal) {
+        imageModal.classList.add('hidden');
+        imageModal.classList.remove('flex');
+        document.body.style.overflow = '';
+      }
+    });
+
+    imageModal?.addEventListener('click', (e) => {
+      if (e.target === imageModal) {
+        imageModal.classList.add('hidden');
+        imageModal.classList.remove('flex');
+        document.body.style.overflow = '';
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && imageModal && !imageModal.classList.contains('hidden')) {
+        imageModal.classList.add('hidden');
+        imageModal.classList.remove('flex');
+        document.body.style.overflow = '';
+      }
+    });
+
     const removeButtons = document.querySelectorAll('.remove-item');
     removeButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -251,19 +328,14 @@ const total = subtotal + 0;
         const variantId = target.dataset.variantId || undefined;
         const combinationId = target.dataset.combinationId || undefined;
         
-        // Eliminar directamente sin confirmación (o usar confirm nativo si prefieres)
         const cart = CartCookiesClient.removeItem(productId, variantId, combinationId);
-        
-        // Actualizar el contador total
         const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
         itemsInCart.set(totalItems);
         
-        // Navegar para recargar el carrito
         navigate('/cart');
       });
     });
     
-    // Actualizar cantidad
     const qtySelectors = document.querySelectorAll('.qty-selector');
     qtySelectors.forEach(select => {
       select.addEventListener('change', (e) => {
@@ -276,20 +348,15 @@ const total = subtotal + 0;
         const quantity = parseInt(target.value);
         
         if (productId && quantity > 0) {
-          // Actualizar la cantidad del item específico
           const cart = CartCookiesClient.updateItemQuantity(productId, quantity, variantId, combinationId);
-          
-          // Actualizar el contador global del carrito
           const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
           itemsInCart.set(totalItems);
           
-          // Recargar la página para ver los cambios
           navigate('/cart');
         }
       });
     });
     
-    // Vaciar carrito (con Swal)
     const clearCartBtn = document.getElementById('clear-cart-btn');
     if (clearCartBtn) {
       clearCartBtn.addEventListener('click', async () => {
@@ -328,7 +395,6 @@ const total = subtotal + 0;
       });
     }
     
-    // Proceder al checkout
     const checkoutBtn = document.querySelector('#checkout-btn');
     if (checkoutBtn) {
       checkoutBtn.addEventListener('click', () => {
@@ -337,13 +403,10 @@ const total = subtotal + 0;
     }
   }
 
-  // Ejecutar cuando la página se carga
   document.addEventListener('astro:page-load', () => {
-    // Asegurarse de que Swal esté disponible antes de inicializar
     if (typeof Swal !== 'undefined') {
       initializeCart();
     } else {
-      // Si Swal no está cargado, intentar de nuevo en un momento
       setTimeout(() => {
         initializeCart();
       }, 100);
@@ -352,38 +415,74 @@ const total = subtotal + 0;
 </script>
 
 <style>
-  /* Mejoras para las imágenes */
   .object-contain {
     object-fit: contain;
   }
   
-  .bg-gray-100 {
-    background-color: #f3f4f6;
-  }
-  
-  /* Animación suave para hover en productos */
   .hover\:shadow-xl {
     transition: box-shadow 0.3s ease;
   }
+
+  .transition-transform {
+    transition: transform 0.3s ease;
+  }
+
+  .hover\:scale-105:hover {
+    transform: scale(1.05);
+  }
   
-  /* Estilos para mejorar la experiencia móvil */
+  .bg-yellow-50 {
+    background-color: #fefce8;
+  }
+
+  .border-l-4 {
+    border-left-width: 4px;
+  }
+
+  .border-yellow-500 {
+    border-color: #eab308;
+  }
+  
   @media (max-width: 768px) {
     .flex-col.md\:flex-row {
       flex-direction: column;
     }
     
-    .w-full.md\:w-40 {
+    .w-full.md\:w-48 {
       width: 100%;
       height: 200px;
     }
   }
   
-  /* Estilos personalizados para SweetAlert2 */
   :global(.swal2-container) {
     z-index: 99999 !important;
   }
   
   :global(.swal2-popup) {
     font-family: inherit;
+  }
+
+  #image-modal {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  #modal-image {
+    animation: zoomIn 0.3s ease-out;
+  }
+
+  @keyframes zoomIn {
+    from {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 </style>

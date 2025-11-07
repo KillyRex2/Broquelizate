@@ -41,4 +41,5 @@ export interface CartProductItem {
     
     // Flags
     hasVariant: boolean;
+    variantImage?: string;
 }

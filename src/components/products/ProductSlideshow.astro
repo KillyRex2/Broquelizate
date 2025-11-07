@@ -1,10 +1,11 @@
 ---
-// ProductSwiperSimple.astro - Versión sin dependencias complejas
+// src/components/products/ProductSlideshow.astro
 interface Props {
     images: string[];
+    sliderId?: string; // ✅ NUEVO: ID único para múltiples instancias
 }
 
-const { images } = Astro.props;
+const { images, sliderId = 'main-slider' } = Astro.props;
 
 const fullImages = images.map(image => {
     return image.startsWith('http')
@@ -14,7 +15,7 @@ const fullImages = images.map(image => {
 ---
 
 <!-- Contenedor principal del slider -->
-<div class="product-slider" data-images={JSON.stringify(fullImages)}>
+<div class="product-slider" data-slider-id={sliderId} data-images={JSON.stringify(fullImages)}>
     <div class="slider-container">
         <!-- Imágenes -->
         <div class="slider-wrapper">
@@ -24,23 +25,11 @@ const fullImages = images.map(image => {
                         src={image}
                         alt={`Producto ${index + 1}`}
                         loading={index === 0 ? "eager" : "lazy"}
+                        class="slide-image"
                     />
                 </div>
             ))}
         </div>
-        
-        <!-- Controles -->
-        <!-- <button class="nav-btn prev" aria-label="Anterior">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-            </svg>
-        </button>
-        
-        <button class="nav-btn next" aria-label="Siguiente">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-        </button> -->
         
         <!-- Indicadores -->
         <div class="indicators">
@@ -71,7 +60,7 @@ const fullImages = images.map(image => {
         position: relative;
         width: 100%;
         height: 450px;
-        background: #1E1E1E; /* Fondo negro para match con tu sitio */
+        background: #1E1E1E;
         border-radius: 16px;
         overflow: hidden;
     }
@@ -124,39 +113,6 @@ const fullImages = images.map(image => {
     .slide img:hover {
         border-color: rgba(234, 179, 8, 0.4);
         box-shadow: 0 6px 30px rgba(234, 179, 8, 0.15);
-    }
-    
-    /* Botones de navegación */
-    .nav-btn {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 44px;
-        height: 44px;
-        background: rgba(0, 0, 0, 0.9);
-        border: 1px solid rgba(234, 179, 8, 0.3);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #eab308;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        z-index: 5;
-    }
-    
-    .nav-btn:hover {
-        background: #000;
-        border-color: #eab308;
-        transform: translateY(-50%) scale(1.1);
-    }
-    
-    .nav-btn.prev {
-        left: 15px;
-    }
-    
-    .nav-btn.next {
-        right: 15px;
     }
     
     /* Indicadores */
@@ -219,19 +175,6 @@ const fullImages = images.map(image => {
             height: 350px;
         }
         
-        .nav-btn {
-            width: 38px;
-            height: 38px;
-        }
-        
-        .nav-btn.prev {
-            left: 10px;
-        }
-        
-        .nav-btn.next {
-            right: 10px;
-        }
-        
         .indicators {
             bottom: 15px;
             padding: 6px 12px;
@@ -250,91 +193,108 @@ const fullImages = images.map(image => {
             height: 300px;
             border-radius: 12px;
         }
-        
-        .nav-btn {
-            width: 35px;
-            height: 35px;
-        }
-        
-        .nav-btn svg {
-            width: 20px;
-            height: 20px;
-        }
     }
 </style>
 
 <script>
-    // Script simple sin dependencias
+    // ✅ NUEVA FUNCIÓN: Cambiar imágenes dinámicamente
+    function updateSliderImages(sliderId: string, newImages: string[]) {
+        const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
+        if (!slider) return;
+
+        const wrapper = slider.querySelector('.slider-wrapper');
+        const indicators = slider.querySelector('.indicators');
+        const totalSpan = slider.querySelector('.counter .total');
+        
+        if (!wrapper || !indicators) return;
+
+        // Limpiar slides existentes
+        wrapper.innerHTML = '';
+        indicators.innerHTML = '';
+
+        // Crear nuevos slides
+        newImages.forEach((image, index) => {
+            const slide = document.createElement('div');
+            slide.className = `slide ${index === 0 ? 'active' : ''}`;
+            slide.dataset.index = index.toString();
+            slide.innerHTML = `
+                <img
+                    src="${image}"
+                    alt="Producto ${index + 1}"
+                    loading="${index === 0 ? 'eager' : 'lazy'}"
+                    class="slide-image"
+                />
+            `;
+            wrapper.appendChild(slide);
+
+            // Crear indicador
+            const indicator = document.createElement('button');
+            indicator.className = `indicator ${index === 0 ? 'active' : ''}`;
+            indicator.dataset.index = index.toString();
+            indicator.setAttribute('aria-label', `Ir a imagen ${index + 1}`);
+            indicator.addEventListener('click', () => showSlide(sliderId, index));
+            indicators.appendChild(indicator);
+        });
+
+        // Actualizar total
+        if (totalSpan) {
+            totalSpan.textContent = newImages.length.toString();
+        }
+
+        // Actualizar data attribute
+        slider.setAttribute('data-images', JSON.stringify(newImages));
+        
+        // Mostrar primer slide
+        showSlide(sliderId, 0);
+    }
+
+    // ✅ Función para mostrar un slide específico
+    function showSlide(sliderId: string, index: number) {
+        const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
+        if (!slider) return;
+
+        const slides = slider.querySelectorAll('.slide');
+        const indicators = slider.querySelectorAll('.indicator');
+        const currentSpan = slider.querySelector('.counter .current');
+
+        slides.forEach((slide, i) => {
+            slide.classList.remove('active', 'prev');
+            if (i < index) {
+                slide.classList.add('prev');
+            }
+        });
+
+        indicators.forEach(ind => ind.classList.remove('active'));
+
+        if (slides[index]) {
+            slides[index].classList.add('active');
+        }
+        if (indicators[index]) {
+            indicators[index].classList.add('active');
+        }
+
+        if (currentSpan) {
+            currentSpan.textContent = (index + 1).toString();
+        }
+    }
+
+    // ✅ Exponer función globalmente
+    (window as any).updateSliderImages = updateSliderImages;
+
+    // Inicialización
     document.addEventListener('DOMContentLoaded', function() {
         const sliders = document.querySelectorAll('.product-slider');
         
         sliders.forEach(slider => {
-            let currentIndex = 0;
-            const slides = slider.querySelectorAll('.slide');
+            const sliderId = slider.getAttribute('data-slider-id') || 'main-slider';
             const indicators = slider.querySelectorAll('.indicator');
-            const prevBtn = slider.querySelector('.nav-btn.prev');
-            const nextBtn = slider.querySelector('.nav-btn.next');
-            const currentSpan = slider.querySelector('.counter .current');
-            const totalSlides = slides.length;
             
-            // Función para mostrar slide
-            function showSlide(index: number) {
-                // Ocultar todos
-                slides.forEach((slide, i) => {
-                    slide.classList.remove('active', 'prev');
-                    if (i < index) {
-                        slide.classList.add('prev');
-                    }
-                });
-                
-                indicators.forEach(ind => ind.classList.remove('active'));
-                
-                // Mostrar actual
-                slides[index].classList.add('active');
-                indicators[index].classList.add('active');
-                
-                // Actualizar contador
-                if (currentSpan) {
-                    currentSpan.textContent = (index + 1).toString();
-                }
-                
-                currentIndex = index;
-            }
-            
-            // Navegación siguiente
-            function nextSlide() {
-                const newIndex = (currentIndex + 1) % totalSlides;
-                showSlide(newIndex);
-            }
-            
-            // Navegación anterior
-            function prevSlide() {
-                const newIndex = (currentIndex - 1 + totalSlides) % totalSlides;
-                showSlide(newIndex);
-            }
-            
-            // Event listeners
-            if (nextBtn) nextBtn.addEventListener('click', nextSlide);
-            if (prevBtn) prevBtn.addEventListener('click', prevSlide);
-            
-            // Indicadores
+            // Event listeners para indicadores
             indicators.forEach((indicator, index: number) => {
-                indicator.addEventListener('click', () => showSlide(index));
+                indicator.addEventListener('click', () => showSlide(sliderId, index));
             });
             
-            // Autoplay opcional
-            let autoplayInterval = setInterval(nextSlide, 5000);
-            
-            // Pausar autoplay al hover
-            slider.addEventListener('mouseenter', () => {
-                clearInterval(autoplayInterval);
-            });
-            
-            slider.addEventListener('mouseleave', () => {
-                autoplayInterval = setInterval(nextSlide, 5000);
-            });
-            
-            // Touch/Swipe support para móviles
+            // Touch/Swipe support
             let touchStartX = 0;
             let touchEndX = 0;
             
@@ -346,23 +306,27 @@ const fullImages = images.map(image => {
             slider.addEventListener('touchend', (e) => {
                 const touchEvent = e as TouchEvent;
                 touchEndX = touchEvent.changedTouches[0].screenX;
-                handleSwipe();
-            }, false);
-            
-            function handleSwipe() {
+                
                 if (touchEndX < touchStartX - 50) {
-                    nextSlide(); // Swipe izquierda
+                    // Swipe izquierda - siguiente
+                    const slides = slider.querySelectorAll('.slide');
+                    const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+                    const nextIndex = (currentIndex + 1) % slides.length;
+                    showSlide(sliderId, nextIndex);
                 }
                 if (touchEndX > touchStartX + 50) {
-                    prevSlide(); // Swipe derecha
+                    // Swipe derecha - anterior
+                    const slides = slider.querySelectorAll('.slide');
+                    const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+                    const prevIndex = (currentIndex - 1 + slides.length) % slides.length;
+                    showSlide(sliderId, prevIndex);
                 }
-            }
+            }, false);
         });
     });
     
     // Reinicializar en navegación de Astro
     document.addEventListener('astro:page-load', function() {
-        // El mismo código de arriba se ejecuta de nuevo
         const event = new Event('DOMContentLoaded');
         document.dispatchEvent(event);
     });
