@@ -1,140 +1,734 @@
 ---
+// src/components/HeroSectionSimple.astro
+// Versión sin consultas a base de datos - usa props o datos estáticos
 
+interface Props {
+  products?: Array<{
+    name: string;
+    price: number;
+    image: string;
+    slug: string;
+  }>;
+}
+
+const { products = [] } = Astro.props;
+
+// Si no se pasan productos, usar placeholders
+const displayProducts = products.length > 0 ? products : [
+  { name: "Arete Ramita", price: 299, image: "/images/products/ramita-verde.jpg", slug: "arete-ramita" },
+  { name: "Arete Trébol", price: 320, image: "/images/products/trebol.jpg", slug: "arete-trebol" },
+  { name: "Collar Colibrí", price: 330, image: "/images/products/colibri.jpg", slug: "colibri" },
+  { name: "Arete Abeja", price: 360, image: "/images/products/abejita.jpg", slug: "arete-abejita" },
+];
 ---
-<section class="hero-background w-full">
-  <div class="hero-content">
-    <h1 class="hero-title p-5">
-      <span>Arte</span> en cada pieza
-    </h1>
-    <p class="hero-subtitle">
-      Descubre nuestra colección exclusiva de joyería y servicios de perforación
-    </p>
-    <div class="hero-buttons">
-      <a
-        href="/products"
-        class="btn-primary"
-      >
-        Ver Colección
-      </a>
-      <a
-        href="#services"
-        class="btn-outline"
-      >
-        Servicios de Perforación
-      </a>
+
+<section class="hero">
+  <!-- Fondo -->
+  <div class="hero-bg"></div>
+
+  <!-- Contenido principal -->
+  <div class="hero-container">
+    <!-- Columna izquierda - Texto -->
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>Nueva Colección 2025</span>
+      </div>
+      
+      <h1 class="hero-title">
+        <span class="gradient-text">Arte</span> en cada
+        <span class="block">pieza única</span>
+      </h1>
+      
+      <p class="hero-subtitle">
+        Joyería artesanal y servicios de perforación profesional. 
+        Materiales hipoalergénicos de la más alta calidad.
+      </p>
+
+      <!-- Indicadores de confianza -->
+      <div class="trust-row">
+        <div class="trust-item">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>100% Hipoalergénico</span>
+        </div>
+        <div class="trust-item">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+          </svg>
+          <span>Envío gratis +$999</span>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="hero-actions">
+        <a href="/products" class="btn-primary">
+          Explorar Colección
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        </a>
+        <a href="#services" class="btn-secondary">
+          Servicios
+        </a>
+      </div>
+
+      <!-- Stats mini -->
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <strong>500+</strong>
+          <span>Clientes</span>
+        </div>
+        <div class="mini-stat">
+          <strong>4.9★</strong>
+          <span>Rating</span>
+        </div>
+        <div class="mini-stat">
+          <strong>3 años</strong>
+          <span>Experiencia</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna derecha - Productos -->
+    <div class="hero-showcase">
+      <div class="showcase-label">
+        <span class="label-text">Productos Destacados</span>
+        <a href="/products" class="see-all">
+          Ver todo
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="products-showcase">
+        {displayProducts.slice(0, 4).map((product, i) => (
+          <a 
+            href={`/products/${product.slug}`} 
+            class="showcase-card"
+            style={`animation-delay: ${i * 0.15}s`}
+          >
+            <div class="card-image">
+              <img 
+                src={product.image} 
+                alt={product.name}
+                loading={i < 2 ? "eager" : "lazy"}
+                onerror="this.src='/assets/placeholder.jpg'"
+              />
+              <div class="card-hover">
+                <span class="quick-view">Ver producto</span>
+              </div>
+            </div>
+            <div class="card-details">
+              <h3>{product.name}</h3>
+              <span class="price">${product.price.toLocaleString('es-MX')}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <!-- Garantías -->
+      <div class="guarantees">
+        <div class="guarantee">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Garantía de satisfacción
+        </div>
+        <div class="guarantee">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Materiales certificados
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- Scroll hint -->
+  <button class="scroll-down" onclick="window.scrollTo({top: window.innerHeight, behavior: 'smooth'})">
+    <span>Descubre más</span>
+    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+    </svg>
+  </button>
 </section>
 
 <style>
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 100px 0 80px;
+    overflow: hidden;
+    z-index: 1;
+  }
 
-body, html {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Poppins', sans-serif;
-}
+  /* Fondo */
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+  }
 
-.hero-background {
-  position: relative;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden; /* Asegura que los pseudo elementos no se desborden */
-}
+  .hero-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      linear-gradient(135deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.85) 100%),
+      url('/assets/brokefondo.avif') center / cover no-repeat;
+  }
 
-.hero-background::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('/assets/brokefondo.avif') center center / cover no-repeat;
-  transform: scale(1.2); /* Zoom */
-  filter: brightness(0.4); /* Oscurecer imagen */
-  z-index: -2;
-}
+  .hero-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(234, 179, 8, 0.08) 0%, transparent 50%);
+  }
 
-.hero-background::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.1); /* Overlay */
-  z-index: -1;
-}
+  /* Container */
+  .hero-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 80px;
+    align-items: center;
+  }
 
-.hero-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* Centrado horizontal */
-  justify-content: center; /* Centrado vertical */
-  text-align: center; /* Para textos multi-línea */
-  height: 100%; /* Ocupa toda la altura del contenedor padre */
-}
+  /* Contenido texto */
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
 
-.hero-title {
-  font-size: 3rem;
-  font-weight: bold;
-  background: linear-gradient(90deg, #FFD700, #B8860B);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
-}
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    border-radius: 50px;
+    width: fit-content;
+    animation: slideInLeft 0.6s ease-out;
+  }
 
-.hero-title span {
-  color: white;
-}
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
 
-.hero-subtitle {
-  font-size: 1.25rem;
-  margin-top: 1rem;
-  margin-bottom: 2rem;
-  color: #ddd;
-}
+  .hero-badge span:last-child {
+    color: #eab308;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
 
-.hero-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
+  .hero-title {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #fff;
+    animation: slideInLeft 0.6s ease-out 0.1s both;
+  }
 
-/* Botones primarios y outline */
-.btn-primary,
-.btn-outline {
-  background: linear-gradient(90deg, #FFD700, #B8860B);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
+  .gradient-text {
+    background: linear-gradient(135deg, #eab308 0%, #fbbf24 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 
-  border: 2px solid #FFD700;
-  padding: 0.75rem 1.5rem;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  border-radius: 5px;
-  background-color: transparent;
-  transition: all 0.3s ease;
-}
+  .block {
+    display: block;
+  }
 
-.btn-primary:hover,
-.btn-outline:hover {
-  background: linear-gradient(90deg, #B8860B, #FFD700);
-  border-color: #B8860B;
-  transform: scale(1.05);
+  .hero-subtitle {
+    font-size: 1.15rem;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.8;
+    max-width: 480px;
+    animation: slideInLeft 0.6s ease-out 0.2s both;
+  }
 
-  -webkit-background-clip: unset;
-  -webkit-text-fill-color: black;
-  background-clip: unset;
-  color: black;
-  font-weight: 700;
-}
+  /* Trust row */
+  .trust-row {
+    display: flex;
+    gap: 24px;
+    animation: slideInLeft 0.6s ease-out 0.3s both;
+  }
 
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .trust-item svg {
+    color: #22c55e;
+    flex-shrink: 0;
+  }
+
+  /* Botones */
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    animation: slideInLeft 0.6s ease-out 0.4s both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 36px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(234, 179, 8, 0.5);
+  }
+
+  .btn-primary svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-primary:hover svg {
+    transform: translateX(5px);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 36px;
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #eab308;
+  }
+
+  /* Mini stats */
+  .mini-stats {
+    display: flex;
+    gap: 32px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    animation: slideInLeft 0.6s ease-out 0.5s both;
+  }
+
+  .mini-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mini-stat strong {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .mini-stat span {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Showcase productos */
+  .hero-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    animation: slideInRight 0.8s ease-out 0.2s both;
+  }
+
+  .showcase-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .label-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .see-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #eab308;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: gap 0.3s ease;
+  }
+
+  .see-all:hover {
+    gap: 10px;
+  }
+
+  /* Grid de productos */
+  .products-showcase {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .showcase-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    text-decoration: none;
+    transition: all 0.4s ease;
+    animation: fadeInUp 0.6s ease-out both;
+  }
+
+  .showcase-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    border-color: rgba(234, 179, 8, 0.4);
+    box-shadow: 
+      0 25px 50px rgba(0, 0, 0, 0.4),
+      0 0 40px rgba(234, 179, 8, 0.1);
+  }
+
+  .card-image {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: #1a1a1a;
+  }
+
+  .card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease;
+  }
+
+  .showcase-card:hover .card-image img {
+    transform: scale(1.15);
+  }
+
+  .card-hover {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .showcase-card:hover .card-hover {
+    opacity: 1;
+  }
+
+  .quick-view {
+    padding: 10px 24px;
+    background: #eab308;
+    color: #000;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 50px;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+  }
+
+  .showcase-card:hover .quick-view {
+    transform: translateY(0);
+  }
+
+  .card-details {
+    padding: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .card-details h3 {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+  }
+
+  .price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #eab308;
+  }
+
+  /* Garantías */
+  .guarantees {
+    display: flex;
+    gap: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .guarantee {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .guarantee svg {
+    color: #22c55e;
+    flex-shrink: 0;
+  }
+
+  /* Scroll button */
+  .scroll-down {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: color 0.3s ease;
+    animation: fadeIn 0.6s ease-out 1s both;
+    z-index: 1;
+  }
+
+  .scroll-down:hover {
+    color: #eab308;
+  }
+
+  .scroll-down span {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .scroll-down svg {
+    animation: bounce 2s ease-in-out infinite;
+  }
+
+  /* Animaciones */
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(8px); }
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .hero-container {
+      gap: 50px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .hero-container {
+      grid-template-columns: 1fr;
+      text-align: center;
+      gap: 50px;
+    }
+
+    .hero-content {
+      align-items: center;
+    }
+
+    .hero-subtitle {
+      max-width: 600px;
+    }
+
+    .trust-row {
+      justify-content: center;
+    }
+
+    .hero-actions {
+      justify-content: center;
+    }
+
+    .mini-stats {
+      justify-content: center;
+    }
+
+    .products-showcase {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .card-details {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .card-details h3 {
+      max-width: 100%;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero {
+      padding: 80px 0 100px;
+    }
+
+    .hero-container {
+      padding: 0 20px;
+    }
+
+    .hero-title {
+      font-size: 2.2rem;
+    }
+
+    .trust-row {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hero-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .mini-stats {
+      gap: 20px;
+    }
+
+    .products-showcase {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .guarantees {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .scroll-down {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-badge {
+      padding: 8px 16px;
+    }
+
+    .hero-badge span:last-child {
+      font-size: 11px;
+    }
+
+    .hero-title {
+      font-size: 1.8rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      padding: 16px 28px;
+    }
+
+    .mini-stat strong {
+      font-size: 1.1rem;
+    }
+
+    .products-showcase {
+      gap: 12px;
+    }
+
+    .card-details {
+      padding: 14px;
+    }
+
+    .card-details h3 {
+      font-size: 0.85rem;
+    }
+
+    .price {
+      font-size: 1rem;
+    }
+  }
 </style>
