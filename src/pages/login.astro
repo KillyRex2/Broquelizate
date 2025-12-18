@@ -4,121 +4,630 @@ import AuthLayout from "@/layouts/AuthLayout.astro";
 
 const email = Astro.cookies.get("email")?.value ?? "";
 const rememberMe = !!email;
+
+// Si ya está logueado, redirigir
+const { isLoggedIn } = Astro.locals;
+if (isLoggedIn) {
+  return Astro.redirect('/');
+}
 ---
 
-<AuthLayout>
-  <div class="flex justify-center self-center z-10">
-    <div class="p-12 bg-white mx-auto rounded-2xl w-full max-w-md shadow-lg">
-      <div class="text-center mb-6">
-        <h2 class="text-3xl font-bold text-gray-800">Iniciar sesión</h2>
-        <p class="mt-1 text-gray-600">Ingresa tus credenciales para continuar</p>
-      </div>
-      
-      <!-- Botón de Google -->
-      <div class="space-y-4">
-        <button id="google-signin-btn" class="w-full inline-flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-          <svg class="w-5 h-5 mr-3" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path>
-            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path>
-            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.226-11.283-7.662l-6.522 5.025A20.02 20.02 0 0 0 24 44z"></path>
-            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.018 35.24 44 30.028 44 24c0-1.341-.138-2.65-.389-3.917z"></path>
+<AuthLayout title="Iniciar Sesión - Broquelizate">
+  <div class="login-card">
+    <!-- Header -->
+    <div class="login-header">
+      <h1>Iniciar sesión</h1>
+      <p>Ingresa tus credenciales para continuar</p>
+    </div>
+    
+    <!-- Botón de Google -->
+    <button type="button" id="google-signin-btn" class="google-btn">
+      <svg class="google-icon" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path>
+        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path>
+        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.226-11.283-7.662l-6.522 5.025A20.02 20.02 0 0 0 24 44z"></path>
+        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.018 35.24 44 30.028 44 24c0-1.341-.138-2.65-.389-3.917z"></path>
+      </svg>
+      <span>Continuar con Google</span>
+    </button>
+
+    <!-- Separador -->
+    <div class="divider">
+      <span>o continúa con tu email</span>
+    </div>
+
+    <!-- Formulario -->
+    <form id="login-form" class="login-form" novalidate>
+      <!-- Email -->
+      <div class="form-group">
+        <label for="email">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
           </svg>
-          <span>Iniciar sesión con Google</span>
-        </button>
+          Correo electrónico
+        </label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          value={email}
+          placeholder="tu@email.com"
+          autocomplete="email"
+          required
+        />
+        <span class="field-error" id="email-error"></span>
       </div>
 
-      <!-- Separador -->
-      <div class="my-6 flex items-center">
-        <div class="flex-grow border-t border-gray-300"></div>
-        <span class="flex-shrink mx-4 text-sm text-gray-500">o continúa con</span>
-        <div class="flex-grow border-t border-gray-300"></div>
+      <!-- Contraseña -->
+      <div class="form-group">
+        <label for="password">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          Contraseña
+        </label>
+        <div class="password-wrapper">
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
+          <button type="button" class="toggle-password" id="toggle-password" aria-label="Mostrar contraseña">
+            <svg class="eye-open" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <svg class="eye-closed" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+            </svg>
+          </button>
+        </div>
+        <span class="field-error" id="password-error"></span>
       </div>
 
-      <!-- Formulario de Email/Contraseña -->
-      <form id="login-form" class="space-y-4">
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-          <input id="email" name="email" type="email" value={email} required class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" placeholder="tu@email.com" />
-        </div>
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-          <input id="password" name="password" type="password" required class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" placeholder="Tu contraseña" />
-        </div>
-        <div class="flex items-center justify-between">
-          <label class="flex items-center text-sm">
-            <input id="remember_me" name="remember_me" type="checkbox" checked={rememberMe} class="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 rounded" />
-            <span class="ml-2 text-gray-700">Recordarme</span>
-          </label>
-          <a href="#" class="text-sm text-yellow-500 hover:underline">¿Olvidaste tu contraseña?</a>
-        </div>
-        <button id="btn-login" type="submit" class="w-full py-3 font-semibold text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition">
-          <span id="btn-text">Iniciar sesión</span>
-        </button>
-      </form>
+      <!-- Opciones -->
+      <div class="form-options">
+        <label class="remember-me">
+          <input type="checkbox" id="remember_me" name="remember_me" checked={rememberMe} />
+          <span class="checkmark"></span>
+          <span>Recordarme</span>
+        </label>
+        <a href="/forgot-password" class="forgot-link">¿Olvidaste tu contraseña?</a>
+      </div>
 
-      <p class="mt-6 text-center text-sm text-gray-600">
-        ¿No tienes una cuenta? <a href="/register" class="text-yellow-500 font-semibold hover:underline">Regístrate</a>
-      </p>
+      <!-- Botón Submit -->
+      <button type="submit" id="btn-login" class="submit-btn">
+        <span id="btn-text">Iniciar sesión</span>
+        <svg id="btn-spinner" class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4 31.4" transform="rotate(-90 12 12)"/>
+        </svg>
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <p>¿No tienes una cuenta? <a href="/register">Crear cuenta</a></p>
     </div>
   </div>
 </AuthLayout>
+
+<style>
+  /* Card */
+  .login-card {
+    background: rgba(20, 20, 20, 0.95);
+    border-radius: 24px;
+    padding: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Header */
+  .login-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .login-header h1 {
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .login-header p {
+    color: #888;
+    font-size: 14px;
+  }
+
+  /* Google Button */
+  .google-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .google-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .google-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .google-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    margin: 24px 0;
+  }
+
+  .divider::before,
+  .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .divider span {
+    padding: 0 16px;
+    color: #666;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Form */
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .form-group label svg {
+    color: #eab308;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    transition: all 0.3s ease;
+  }
+
+  .form-group input::placeholder {
+    color: #555;
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: #eab308;
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15);
+  }
+
+  .form-group input.error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  }
+
+  /* Password Toggle */
+  .password-wrapper {
+    position: relative;
+  }
+
+  .password-wrapper input {
+    padding-right: 48px;
+  }
+
+  .toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toggle-password:hover {
+    color: #eab308;
+  }
+
+  .toggle-password .eye-closed {
+    display: none;
+  }
+
+  .toggle-password.active .eye-open {
+    display: none;
+  }
+
+  .toggle-password.active .eye-closed {
+    display: block;
+  }
+
+  /* Field Error */
+  .field-error {
+    font-size: 12px;
+    color: #ef4444;
+    min-height: 16px;
+    display: block;
+  }
+
+  /* Options */
+  .form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .remember-me {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #999;
+    user-select: none;
+  }
+
+  .remember-me input {
+    display: none;
+  }
+
+  .checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+  }
+
+  .remember-me input:checked + .checkmark {
+    background: #eab308;
+    border-color: #eab308;
+  }
+
+  .remember-me input:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid #000;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .forgot-link {
+    font-size: 14px;
+    color: #eab308;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .forgot-link:hover {
+    color: #f59e0b;
+    text-decoration: underline;
+  }
+
+  /* Submit Button */
+  .submit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    border: none;
+    border-radius: 12px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(234, 179, 8, 0.3);
+  }
+
+  .submit-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .spinner {
+    display: none;
+    animation: spin 1s linear infinite;
+  }
+
+  .submit-btn.loading .spinner {
+    display: block;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Footer */
+  .login-footer {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .login-footer p {
+    color: #888;
+    font-size: 14px;
+  }
+
+  .login-footer a {
+    color: #eab308;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+
+  .login-footer a:hover {
+    color: #f59e0b;
+    text-decoration: underline;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .login-card {
+      padding: 28px 20px;
+      border-radius: 20px;
+    }
+
+    .login-header h1 {
+      font-size: 22px;
+    }
+
+    .form-options {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+  }
+</style>
 
 <script>
   import { navigate } from "astro:transitions/client";
   import Swal from "sweetalert2";
   import { signIn } from "auth-astro/client";
 
-  function setupLoginPage() {
+  document.addEventListener('astro:page-load', () => {
     const form = document.getElementById('login-form') as HTMLFormElement | null;
+    const emailEl = document.getElementById('email') as HTMLInputElement | null;
+    const passwordEl = document.getElementById('password') as HTMLInputElement | null;
     const btnSubmit = document.getElementById('btn-login') as HTMLButtonElement | null;
     const btnText = document.getElementById('btn-text') as HTMLSpanElement | null;
-    const googleSignInBtn = document.getElementById('google-signin-btn') as HTMLButtonElement | null;
-    
-    if (!form || !btnSubmit || !btnText || !googleSignInBtn) return;
+    const googleBtn = document.getElementById('google-signin-btn') as HTMLButtonElement | null;
+    const togglePassword = document.getElementById('toggle-password') as HTMLButtonElement | null;
+    const emailError = document.getElementById('email-error') as HTMLSpanElement | null;
+    const passwordError = document.getElementById('password-error') as HTMLSpanElement | null;
 
-    googleSignInBtn.addEventListener('click', async () => {
+    // Early return si faltan elementos esenciales
+    if (!form || !emailEl || !passwordEl || !btnSubmit) return;
+
+    // Re-asignar para que TypeScript sepa que no son null en closures
+    const emailInput = emailEl;
+    const passwordInput = passwordEl;
+
+    // Toggle visibilidad de contraseña
+    togglePassword?.addEventListener('click', () => {
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      togglePassword.classList.toggle('active', isPassword);
+    });
+
+    // Validación de email
+    function isValidEmail(email: string): boolean {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    // Limpiar errores de un campo
+    function clearFieldError(input: HTMLInputElement, errorSpan: HTMLSpanElement | null) {
+      input.classList.remove('error');
+      if (errorSpan) errorSpan.textContent = '';
+    }
+
+    // Mostrar error en un campo
+    function showFieldError(input: HTMLInputElement, errorSpan: HTMLSpanElement | null, message: string) {
+      input.classList.add('error');
+      if (errorSpan) errorSpan.textContent = message;
+    }
+
+    // Validar formulario
+    function validateForm(): boolean {
+      let isValid = true;
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      // Validar email
+      if (!email) {
+        showFieldError(emailInput, emailError, 'El correo es requerido');
+        isValid = false;
+      } else if (!isValidEmail(email)) {
+        showFieldError(emailInput, emailError, 'Ingresa un correo válido');
+        isValid = false;
+      } else {
+        clearFieldError(emailInput, emailError);
+      }
+
+      // Validar contraseña
+      if (!password) {
+        showFieldError(passwordInput, passwordError, 'La contraseña es requerida');
+        isValid = false;
+      } else if (password.length < 6) {
+        showFieldError(passwordInput, passwordError, 'Mínimo 6 caracteres');
+        isValid = false;
+      } else {
+        clearFieldError(passwordInput, passwordError);
+      }
+
+      return isValid;
+    }
+
+    // Limpiar errores al escribir
+    emailInput.addEventListener('input', () => clearFieldError(emailInput, emailError));
+    passwordInput.addEventListener('input', () => clearFieldError(passwordInput, passwordError));
+
+    // Enter en email -> focus a password
+    emailInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        passwordInput.focus();
+      }
+    });
+
+    // Google Sign In
+    googleBtn?.addEventListener('click', async () => {
+      if (googleBtn) googleBtn.disabled = true;
       try {
         await signIn('google');
       } catch (error) {
         console.error("Error al iniciar sesión con Google:", error);
-        Swal.fire({ icon: 'error', title: 'Error con Google', text: 'No se pudo autenticar con Google.', confirmButtonColor: '#d97706' });
+        Swal.fire({
+          icon: 'error',
+          title: 'Error con Google',
+          text: 'No se pudo conectar con Google. Intenta de nuevo.',
+          confirmButtonColor: '#eab308',
+          background: '#1a1a1a',
+          color: '#fff'
+        });
+        if (googleBtn) googleBtn.disabled = false;
       }
     });
 
+    // Submit del formulario
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      if (!validateForm()) {
+        // Focus en el primer campo con error
+        if (emailInput.classList.contains('error')) {
+          emailInput.focus();
+        } else if (passwordInput.classList.contains('error')) {
+          passwordInput.focus();
+        }
+        return;
+      }
+
+      // Loading state
       btnSubmit.disabled = true;
-      btnText.textContent = 'Cargando...';
+      btnSubmit.classList.add('loading');
+      if (btnText) btnText.textContent = 'Iniciando sesión...';
 
       try {
-        // ✅ CORRECCIÓN: Se pasan las credenciales y las opciones en un solo objeto.
-        // Se usa 'as any' para evitar un error de tipado de la librería, que espera
-        // este formato en tiempo de ejecución pero no lo tiene bien definido en sus tipos.
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        const rememberMeInput = document.getElementById('remember_me') as HTMLInputElement | null;
+        const rememberMe = rememberMeInput?.checked ?? false;
+
+        // Guardar/eliminar email en cookie según "recordarme"
+        if (rememberMe) {
+          document.cookie = `email=${encodeURIComponent(email)}; max-age=${60 * 60 * 24 * 30}; path=/; SameSite=Lax`;
+        } else {
+          document.cookie = 'email=; max-age=0; path=/';
+        }
+
         const response = await signIn('credentials', {
-          email: form.email.value,
-          password: form.password.value,
+          email,
+          password,
           redirect: false,
         } as any);
 
         if (!response?.ok) {
-          throw new Error("Credenciales inválidas");
+          throw new Error('Credenciales inválidas');
         }
-        
+
+        // Éxito - redirigir
         navigate('/');
 
       } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Error al iniciar sesión', text: 'El correo o la contraseña son incorrectos.', confirmButtonColor: '#d97706' });
+        console.error('Error de login:', error);
+        
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al iniciar sesión',
+          text: 'El correo o la contraseña son incorrectos.',
+          confirmButtonColor: '#eab308',
+          background: '#1a1a1a',
+          color: '#fff'
+        });
+
+        passwordInput.value = '';
+        passwordInput.focus();
       } finally {
         btnSubmit.disabled = false;
-        btnText.textContent = 'Iniciar sesión';
+        btnSubmit.classList.remove('loading');
+        if (btnText) btnText.textContent = 'Iniciar sesión';
       }
     });
-  }
-
-  document.addEventListener('astro:page-load', setupLoginPage);
+  });
 </script>
-
-<style>
-  body { background-color: transparent; }
-  #btn-login:disabled { opacity: 0.7; cursor: not-allowed; }
-</style>

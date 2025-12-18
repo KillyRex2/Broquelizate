@@ -1,0 +1,652 @@
+---
+// src/pages/accounts/user-data.astro
+import MainLayout from '@/layouts/MainLayout.astro';
+import { getSession } from 'auth-astro/server';
+import { actions } from 'astro:actions';
+
+const session = await getSession(Astro.request);
+if (!session?.user) {
+  return Astro.redirect('/auth/signin');
+}
+
+// Obtener información del usuario desde la BD
+let userData = {
+  name: session.user.name || 'Usuario',
+  email: session.user.email || '',
+  phone: '',
+  shippingAddress: {
+    streetAddress: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'México'
+  }
+};
+
+try {
+  const result = await Astro.callAction(actions.getUserProfile, {});
+  if (result.data && result.data.user) {
+    userData = result.data.user;
+  }
+} catch (error) {
+  console.error('Error loading user profile:', error);
+}
+---
+
+<MainLayout title="Mis Datos de Envío">
+  <div class="min-h-screen bg-[#1E1E1E] mt-12 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      {/* Header */}
+      <div class="mb-12">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-3xl md:text-3xl font-bold text-white mb-2">
+              Configuración de Cuenta
+            </h1>
+            <p class="text-gray-400 text-lg">
+              Gestiona tu información personal y direcciones de envío
+            </p>
+          </div>
+          <a 
+            href="/accounts/orders"
+            class="hidden md:flex items-center gap-2 px-4 py-2 bg-[#2A2A2A] hover:bg-[#333333] text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-700"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Volver
+          </a>
+        </div>
+        <div class="h-1 w-24 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full"></div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sidebar de navegación */}
+        <div class="lg:col-span-1">
+          <div class="bg-[#252525] backdrop-blur-sm rounded-2xl border border-gray-700 p-6 sticky top-6">
+            <nav class="space-y-2">
+              <button class="nav-item active w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span class="font-medium">Información Personal</span>
+              </button>
+              <button class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span class="font-medium">Dirección de Envío</span>
+              </button>
+            </nav>
+
+            {/* Info adicional */}
+            <div class="mt-6 pt-6 border-t border-gray-700">
+              <div class="flex items-start gap-3 text-sm text-gray-400">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                <p>Mantén tu información actualizada para recibir tus pedidos sin problemas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenido principal */}
+        <div class="lg:col-span-2 space-y-6">
+          {/* Información Personal */}
+          <div id="personal-section" class="section-content bg-[#252525] backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden">
+            <div class="bg-gradient-to-r from-amber-600/20 to-yellow-500/20 border-b border-gray-700 px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-amber-500/20 rounded-lg">
+                  <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 class="text-xl font-bold text-white">Información Personal</h2>
+                  <p class="text-sm text-gray-400">Actualiza tus datos básicos</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="p-6">
+              <form id="personal-info-form" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      Nombre Completo <span class="text-red-400">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="name"
+                      value={userData.name}
+                      class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all duration-200"
+                      placeholder="Tu nombre completo"
+                    />
+                  </div>
+                  
+                  <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      Correo Electrónico
+                    </label>
+                    <input 
+                      type="email" 
+                      id="email"
+                      value={userData.email}
+                      disabled
+                      class="w-full px-4 py-3 bg-[#151515] border-2 border-gray-800 rounded-lg text-gray-500 cursor-not-allowed"
+                      placeholder="tu@email.com"
+                    />
+                  </div>
+                  
+                  <div class="form-group md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      Teléfono
+                    </label>
+                    <input 
+                      type="tel" 
+                      id="phone"
+                      value={userData.phone}
+                      class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all duration-200"
+                      placeholder="(000) 000-0000"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-gray-700">
+                  <button 
+                    type="submit"
+                    class="btn-primary px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-gray-900 font-bold rounded-lg hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-amber-500/25"
+                  >
+                    <span class="flex items-center gap-2">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Guardar Cambios
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {/* Dirección de Envío */}
+          <div id="shipping-section" class="section-content hidden bg-[#252525] backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600/20 to-indigo-500/20 border-b border-gray-700 px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-500/20 rounded-lg">
+                  <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 class="text-xl font-bold text-white">Dirección de Envío</h2>
+                  <p class="text-sm text-gray-400">Información para la entrega de tus pedidos</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="p-6">
+              <form id="shipping-address-form" class="space-y-6">
+                <div class="form-group">
+                  <label class="block text-sm font-semibold text-gray-300 mb-2">
+                    Calle y Número <span class="text-red-400">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    id="street"
+                    value={userData.shippingAddress.streetAddress}
+                    class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                    placeholder="Ej: Av. Juárez #123"
+                  />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      Ciudad <span class="text-red-400">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="city"
+                      value={userData.shippingAddress.city}
+                      class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="Ej: Gómez Palacio"
+                    />
+                  </div>
+                  
+                  <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      Estado <span class="text-red-400">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="state"
+                      value={userData.shippingAddress.state}
+                      class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="Ej: Durango"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      Código Postal <span class="text-red-400">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      id="zip"
+                      value={userData.shippingAddress.zip}
+                      maxlength="5"
+                      class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="Ej: 35000"
+                    />
+                  </div>
+                  
+                  <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">
+                      País
+                    </label>
+                    <input 
+                      type="text" 
+                      id="country"
+                      value={userData.shippingAddress.country}
+                      class="form-input w-full px-4 py-3 bg-[#1A1A1A] border-2 border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="México"
+                    />
+                  </div>
+                </div>
+
+                <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div class="flex gap-3">
+                    <svg class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                    <p class="text-sm text-gray-300">
+                      <strong class="text-blue-400">Importante:</strong> Verifica que tu dirección esté completa y correcta para evitar problemas con la entrega de tus pedidos.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-gray-700">
+                  <button 
+                    type="submit"
+                    class="btn-primary px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold rounded-lg hover:from-blue-600 hover:to-indigo-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
+                  >
+                    <span class="flex items-center gap-2">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Guardar Dirección
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Botón móvil para volver */}
+      <div class="mt-8 md:hidden">
+        <a 
+          href="/accounts/orders"
+          class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-[#2A2A2A] hover:bg-[#333333] text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-700"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Volver a Mis Pedidos
+        </a>
+      </div>
+    </div>
+  </div>
+</MainLayout>
+
+<script>
+  import Swal from 'sweetalert2';
+  import { actions } from 'astro:actions';
+
+  let isInitialized = false;
+
+  function initializeUserData() {
+    if (isInitialized) return;
+    isInitialized = true;
+
+    // ============================================
+    // NAVEGACIÓN ENTRE SECCIONES
+    // ============================================
+    const navItems = document.querySelectorAll('.nav-item');
+    const sections = {
+      'Información Personal': document.getElementById('personal-section'),
+      'Dirección de Envío': document.getElementById('shipping-section')
+    };
+
+    navItems.forEach((item, index) => {
+      item.addEventListener('click', () => {
+        // Actualizar navegación activa
+        navItems.forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+
+        // Mostrar sección correspondiente
+        Object.values(sections).forEach(section => section?.classList.add('hidden'));
+        Object.values(sections)[index]?.classList.remove('hidden');
+
+        // ❌ REMOVIDO: Scroll suave a la sección
+        // Object.values(sections)[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    // ============================================
+    // FORMULARIO DE INFORMACIÓN PERSONAL
+    // ============================================
+    const personalForm = document.getElementById('personal-info-form');
+    if (!personalForm) return;
+
+    personalForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = (document.getElementById('name') as HTMLInputElement)?.value;
+      const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
+
+      if (!name?.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Campo requerido',
+          html: 'Por favor ingresa tu nombre completo',
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Entendido',
+          background: '#252525',
+          color: '#fff'
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: 'Guardando información...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        allowEnterKey: false,
+        showConfirmButton: false,
+        background: '#252525',
+        color: '#fff',
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      try {
+        const { data, error } = await actions.updateUserProfile({ 
+          name, 
+          phone: phone || undefined 
+        });
+
+        if (error) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al guardar',
+            html: error,
+            confirmButtonColor: '#f59e0b',
+            confirmButtonText: 'Cerrar',
+            background: '#252525',
+            color: '#fff'
+          });
+          return;
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Información actualizada!',
+          html: 'Tus datos personales han sido guardados correctamente',
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Perfecto',
+          timer: 3000,
+          timerProgressBar: true,
+          background: '#252525',
+          color: '#fff'
+        });
+      } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error inesperado',
+          html: 'Ocurrió un error al guardar tu información. Por favor intenta nuevamente.',
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Cerrar',
+          background: '#252525',
+          color: '#fff'
+        });
+      }
+    });
+
+    // ============================================
+    // FORMULARIO DE DIRECCIÓN DE ENVÍO
+    // ============================================
+    const shippingForm = document.getElementById('shipping-address-form');
+    if (!shippingForm) return;
+
+    shippingForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const street = (document.getElementById('street') as HTMLInputElement)?.value;
+      const city = (document.getElementById('city') as HTMLInputElement)?.value;
+      const state = (document.getElementById('state') as HTMLInputElement)?.value;
+      const zip = (document.getElementById('zip') as HTMLInputElement)?.value;
+      const country = (document.getElementById('country') as HTMLInputElement)?.value;
+
+      if (!street?.trim() || !city?.trim() || !state?.trim() || !zip?.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Campos incompletos',
+          html: 'Por favor completa todos los campos de la dirección',
+          confirmButtonColor: '#3b82f6',
+          confirmButtonText: 'Entendido',
+          background: '#252525',
+          color: '#fff'
+        });
+        return;
+      }
+
+      if (!/^\d{5}$/.test(zip)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Código postal inválido',
+          html: 'El código postal debe contener exactamente 5 dígitos',
+          confirmButtonColor: '#3b82f6',
+          confirmButtonText: 'Corregir',
+          background: '#252525',
+          color: '#fff'
+        });
+        return;
+      }
+
+      Swal.fire({
+        title: 'Guardando dirección...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        allowEnterKey: false,
+        showConfirmButton: false,
+        background: '#252525',
+        color: '#fff',
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      try {
+        const shippingAddress = {
+          streetAddress: street,
+          city,
+          state,
+          zip,
+          country
+        };
+
+        const { data, error } = await actions.updateShippingAddress({ shippingAddress });
+
+        if (error) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al guardar',
+            html: error,
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: 'Cerrar',
+            background: '#252525',
+            color: '#fff'
+          });
+          return;
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Dirección guardada!',
+          html: 'Tu dirección de envío ha sido actualizada correctamente',
+          confirmButtonColor: '#3b82f6',
+          confirmButtonText: 'Perfecto',
+          timer: 3000,
+          timerProgressBar: true,
+          background: '#252525',
+          color: '#fff'
+        });
+      } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error inesperado',
+          html: 'Ocurrió un error al guardar tu dirección. Por favor intenta nuevamente.',
+          confirmButtonColor: '#3b82f6',
+          confirmButtonText: 'Cerrar',
+          background: '#252525',
+          color: '#fff'
+        });
+      }
+    });
+
+    // ============================================
+    // VALIDACIONES EN TIEMPO REAL
+    // ============================================
+    const zipInput = document.getElementById('zip') as HTMLInputElement;
+    zipInput?.addEventListener('input', (e) => {
+      const input = e.target as HTMLInputElement;
+      input.value = input.value.replace(/\D/g, '').slice(0, 5);
+    });
+
+    const phoneInput = document.getElementById('phone') as HTMLInputElement;
+    phoneInput?.addEventListener('input', (e) => {
+      const input = e.target as HTMLInputElement;
+      input.value = input.value.replace(/[^\d\-\(\)\s]/g, '');
+    });
+
+    // ============================================
+    // ANIMACIONES DE INPUTS
+    // ============================================
+    const formInputs = document.querySelectorAll('.form-input');
+    formInputs.forEach(input => {
+      input.addEventListener('focus', (e) => {
+        const target = e.target as HTMLElement;
+        target.closest('.form-group')?.classList.add('focused');
+      });
+
+      input.addEventListener('blur', (e) => {
+        const target = e.target as HTMLElement;
+        target.closest('.form-group')?.classList.remove('focused');
+      });
+    });
+  }
+
+  // ============================================
+  // MANEJO DE TRANSICIONES DE ASTRO
+  // ============================================
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeUserData);
+  } else {
+    initializeUserData();
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    isInitialized = false;
+    initializeUserData();
+  });
+
+  document.addEventListener('astro:before-preparation', () => {
+    isInitialized = false;
+    if (Swal.isVisible()) {
+      Swal.close();
+    }
+  });
+</script>
+
+<style>
+  /* Navegación */
+  .nav-item {
+    @apply text-gray-400 hover:text-white hover:bg-[#2A2A2A];
+  }
+
+  .nav-item.active {
+    @apply text-white bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-l-4 border-amber-500;
+  }
+
+  /* Inputs */
+  .form-input:focus {
+    @apply outline-none;
+  }
+
+  .form-group.focused label {
+    @apply text-amber-400;
+  }
+
+  /* Botones */
+  .btn-primary:active {
+    @apply transform scale-95;
+  }
+
+  /* Animaciones */
+  .section-content {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Backdrop blur para navegadores que lo soporten */
+  @supports (backdrop-filter: blur(12px)) {
+    .backdrop-blur-sm {
+      backdrop-filter: blur(12px);
+    }
+  }
+
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1E1E1E;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-700 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .nav-item {
+      @apply text-sm;
+    }
+  }
+</style>

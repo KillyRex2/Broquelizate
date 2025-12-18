@@ -23,7 +23,7 @@
     "@types/pdfmake": "^0.2.11",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "astro": "^5.9.2",
+    "astro": "^5.16.6",
     "astro-icon": "^1.1.5",
     "auth-astro": "^4.2.0",
     "chart.js": "^4.5.0",

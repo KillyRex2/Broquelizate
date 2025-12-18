@@ -13,7 +13,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
   <div id="cart-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
 
   <main class="flex-1 flex flex-col p-3 md:p-4 lg:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
-    <header class="mb-4 md:mb-6 flex flex-col gap-3 md:gap-4">
+    <header class="mb-3 flex flex-col gap-3 flex-shrink-0">
       <div class="flex items-center justify-between">
         <h1 class="text-xl md:text-2xl font-bold text-gray-900">Broqueventa</h1>
         <!-- Botón carrito móvil -->
@@ -42,10 +42,13 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       </div>
     </header>
     
-    <div id="product-grid"
-         class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4 lg:gap-5 overflow-y-auto p-1 md:p-2 min-h-0"
-         style="max-height: calc(100vh - 10rem);">
-      <!-- Los productos se renderizan via JavaScript -->
+    <!-- Contenedor de productos con scroll -->
+    <div class="flex-1 min-h-0 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden">
+      <div id="product-grid"
+           class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-3 overflow-y-auto h-full product-scroll"
+           style="align-content: start;">
+        <!-- Los productos se renderizan via JavaScript -->
+      </div>
     </div>
   </main>
   
@@ -66,7 +69,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       </div>
       
       <!-- Contenido -->
-      <div class="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-8rem)] md:max-h-[60vh] bg-gray-50">
+      <div class="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-8rem)] md:max-h-[60vh] bg-gray-50 product-scroll">
         <div id="variant-list" class="grid gap-3 md:gap-4"></div>
       </div>
     </div>
@@ -104,7 +107,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       </div>
     </div>
     
-    <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-gray-50">
+    <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-gray-50 product-scroll">
       <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400 py-12">
         <Icon name="mdi:cart-outline" class="h-12 w-12 md:h-16 md:w-16" />
         <p class="text-sm md:text-base mt-2">Los productos aparecerán aquí</p>
@@ -240,14 +243,22 @@ function initializePOS() {
     if (!productGrid) return;
     productGrid.innerHTML = productsToRender
       .map((product: ProductForPOS) => {
-        const imageUrl = product.images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
+        const imageUrl = product.images?.[0] || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
         
-        const outOfStockDot = product.stock <= 0
-          ? `<span class="absolute top-1.5 left-1.5 md:top-2 md:left-2 block h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-orange-500 shadow-md animate-pulse" aria-label="Sin stock"></span>`
+        // Badge de AGOTADO
+        const outOfStockBadge = product.stock <= 0
+          ? `<span class="absolute top-1 left-1 inline-flex items-center gap-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow z-10">
+               <span class="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+               AGOTADO
+             </span>`
           : '';
 
+        // Badge de variantes
         const variantBadge = product.hasVariants && product.variantOptions && product.variantOptions.length > 0
-          ? `<span class="absolute top-1.5 right-1.5 md:top-2 md:right-2 bg-purple-600 text-white text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full shadow-md">
+          ? `<span class="absolute top-1 right-1 inline-flex items-center gap-0.5 bg-indigo-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow z-10">
+               <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                 <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+               </svg>
                ${product.variantOptions.length}
              </span>`
           : '';
@@ -262,45 +273,51 @@ function initializePOS() {
           }
         }
 
+        // Indicador de stock con colores
+        let stockText = '';
+        if (product.stock <= 0) {
+          stockText = `<span class="text-red-600 font-semibold">Sin stock</span>`;
+        } else if (product.stock <= 5) {
+          stockText = `<span class="text-amber-600 font-semibold">¡Solo ${product.stock}!</span>`;
+        } else {
+          stockText = `<span class="text-green-600">${product.stock} disp.</span>`;
+        }
+
         return `
         <article
-          class="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg md:rounded-xl bg-white shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border border-gray-200 active:scale-95"
+          class="product-card group cursor-pointer bg-white rounded-xl shadow-md hover:shadow-xl border border-gray-200 hover:border-amber-400 transition-all duration-300 overflow-hidden flex flex-col"
+          style="height: 280px;"
           data-product-id="${product.id}"
           data-has-variants="${product.hasVariants}"
         >
-          ${outOfStockDot}
-          ${variantBadge}
-          <div class="aspect-square overflow-hidden bg-gray-100">
+          <!-- Imagen -->
+          <div class="relative bg-gray-100 flex-shrink-0" style="height: 140px;">
+            ${outOfStockBadge}
+            ${variantBadge}
             <img
               src="${imageUrl}"
               alt="${product.name}"
-              class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
-              onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'"
+              onerror="this.src='https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen'"
             />
           </div>
-          <div class="flex flex-col justify-between p-2 md:p-3 lg:p-4 min-h-[7rem] md:min-h-[9rem]">
-            <div class="flex-1 space-y-0.5 md:space-y-1">
-              <h3 class="text-xs md:text-sm font-medium text-gray-800 line-clamp-2">
-                ${product.name}
-              </h3>
-              ${product.category ? `<p class="text-[10px] md:text-xs text-amber-600 font-medium">${product.category}</p>` : ''}
-            </div>
-            <div class="mt-1 md:mt-2">
-              <p class="text-sm md:text-base lg:text-lg font-bold text-gray-900">
-                ${priceDisplay}
-              </p>
-              ${product.stock > 0 ? 
-                `<p class="text-[10px] md:text-xs text-gray-500">Stock: ${product.stock}</p>` : 
-                `<p class="text-[10px] md:text-xs text-orange-600 font-medium">Sin stock</p>`
-              }
-            </div>
-          </div>
-          <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center pointer-events-none">
-            <div class="w-10 h-10 md:w-12 md:h-12 bg-amber-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 group-hover:scale-110 transform scale-90 transition-all duration-300 shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+          
+          <!-- Información -->
+          <div class="flex flex-col flex-1 p-2 border-t border-gray-100">
+            <!-- Nombre -->
+            <h3 class="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">${product.name}</h3>
+            
+            <!-- Categoría -->
+            <p class="text-[10px] text-amber-600 font-medium mt-0.5">${product.category || 'Sin categoría'}</p>
+            
+            <!-- Espaciador -->
+            <div class="flex-1"></div>
+            
+            <!-- Precio y Stock -->
+            <div class="mt-1 pt-1 border-t border-gray-50">
+              <p class="text-sm font-bold text-gray-900">${priceDisplay}</p>
+              <p class="text-[10px]">${stockText}</p>
             </div>
           </div>
         </article>
@@ -329,7 +346,7 @@ function initializePOS() {
             <div class="relative flex-shrink-0">
               <img src="${variantImage}" 
                    alt="${variant.name}" 
-                   class="w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 object-cover rounded-lg shadow-sm"
+                   class="w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 object-contain rounded-lg shadow-sm bg-gray-50 p-1"
                    onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
               ${hasDiscount ? `
                 <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">
@@ -495,15 +512,17 @@ function initializePOS() {
     if (cart.length > 0) {
       cartPlaceholder.style.display = 'none';
       cartItemsList.innerHTML = cart.map((item: CartItem, index: number) => {
-        const imageUrl = item.images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
+        const imageUrl = item.images?.[0] || 'https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen';
         const displayName = item.variantName ? `${item.name} - ${item.variantName}` : item.name;
         
         return `
-          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2 md:p-3 rounded-lg hover:bg-gray-50 transition-colors border ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100'}">
-            <img src="${imageUrl}" 
-                 alt="${displayName}" 
-                 class="h-12 w-12 md:h-14 md:w-14 rounded-md object-cover shadow-sm flex-shrink-0"
-                 onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'" />
+          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2 md:p-3 rounded-lg hover:bg-gray-50 transition-colors border ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white'}">
+            <div class="h-14 w-14 md:h-16 md:w-16 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-1 flex-shrink-0">
+              <img src="${imageUrl}" 
+                   alt="${displayName}" 
+                   class="max-h-full max-w-full object-contain"
+                   onerror="this.src='https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen'" />
+            </div>
             <div class="flex-grow min-w-0">
               <p class="font-medium text-gray-800 line-clamp-2 text-xs md:text-sm">${displayName}</p>
               ${item.sku ? `<p class="text-[10px] md:text-xs text-gray-500 truncate">SKU: ${item.sku}</p>` : ''}
@@ -786,9 +805,7 @@ function initializePOS() {
     cartBackdrop?.removeEventListener('click', handleBackdropClick);
     window.removeEventListener('resize', handleResize);
     
-    // Limpiar estilos del body
     document.body.style.overflow = '';
-    
     isInitialized = false;
   };
 
@@ -811,41 +828,53 @@ document.addEventListener('astro:page-load', initializePOS);
 </script>
 
 <style is:global>
-#product-grid::-webkit-scrollbar, 
-#cart-items-list::-webkit-scrollbar,
-#variant-list::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* =============================================
+   SCROLLBAR PERSONALIZADO
+   ============================================= */
+
+.product-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: #f59e0b #e5e7eb;
 }
 
-@media (min-width: 768px) {
-  #product-grid::-webkit-scrollbar, 
-  #cart-items-list::-webkit-scrollbar,
-  #variant-list::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
+.product-scroll::-webkit-scrollbar {
+  width: 12px;
 }
 
-#product-grid::-webkit-scrollbar-track, 
-#cart-items-list::-webkit-scrollbar-track,
-#variant-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
+.product-scroll::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 6px;
 }
 
-#product-grid::-webkit-scrollbar-thumb, 
-#cart-items-list::-webkit-scrollbar-thumb,
-#variant-list::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
-  border-radius: 10px;
+.product-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 6px;
+  border: 2px solid #e5e7eb;
 }
 
-#product-grid::-webkit-scrollbar-thumb:hover, 
-#cart-items-list::-webkit-scrollbar-thumb:hover,
-#variant-list::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+.product-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
 }
+
+/* =============================================
+   TARJETAS DE PRODUCTO
+   ============================================= */
+
+.product-card {
+  transition: all 0.2s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+}
+
+.product-card:active {
+  transform: scale(0.98);
+}
+
+/* =============================================
+   BOTONES DE CANTIDAD
+   ============================================= */
 
 .qty-btn { 
   height: 1.5rem; 
@@ -892,7 +921,7 @@ document.addEventListener('astro:page-load', initializePOS);
 .qty-input:focus { 
   border-color: #f59e0b; 
   outline: none; 
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1); 
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); 
 }
 
 input[type="number"]::-webkit-inner-spin-button, 
@@ -900,6 +929,10 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none; 
   margin: 0; 
 }
+
+/* =============================================
+   BOTONES Y ELEMENTOS INTERACTIVOS
+   ============================================= */
 
 .remove-btn {
   user-select: none;
@@ -913,6 +946,10 @@ input[type="number"]::-webkit-outer-spin-button {
 .remove-btn:active svg {
   transform: scale(0.95);
 }
+
+/* =============================================
+   ANIMACIONES
+   ============================================= */
 
 @keyframes slideUp {
   from {
@@ -928,6 +965,23 @@ input[type="number"]::-webkit-outer-spin-button {
 .animate-slideUp {
   animation: slideUp 0.3s ease-out;
 }
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* =============================================
+   VARIANTES MODAL
+   ============================================= */
 
 .variant-card {
   transition: all 0.3s ease;
@@ -951,18 +1005,9 @@ input[type="number"]::-webkit-outer-spin-button {
   transform: scale(0.98);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
+/* =============================================
+   UTILIDADES
+   ============================================= */
 
 .border-orange-300 {
   border-color: rgb(253 186 116);
@@ -986,33 +1031,35 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-line-clamp: 2;
 }
 
-/* Smooth transitions para el carrito móvil */
+/* =============================================
+   CARRITO MÓVIL
+   ============================================= */
+
 #cart-drawer {
   will-change: transform;
 }
 
-/* Sombra superior para el footer del carrito */
 .shadow-up {
   box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-/* Botones de acción del carrito móvil */
 #back-to-products-mobile,
 #admin-clear-cart-btn {
-  min-height: 44px; /* Tamaño táctil mínimo recomendado */
+  min-height: 44px;
 }
 
-/* Prevenir scroll del body cuando los modales están abiertos */
 body.modal-open {
   overflow: hidden;
 }
 
-/* Mejorar el rendimiento de las animaciones */
 .transition-transform {
   will-change: transform;
 }
 
-/* Touch feedback mejorado para móviles */
+/* =============================================
+   TOUCH FEEDBACK MÓVIL
+   ============================================= */
+
 @media (hover: none) and (pointer: coarse) {
   .hover\:shadow-xl:active {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);

@@ -1,0 +1,571 @@
+---
+// src/components/OrderTracking.astro
+interface Props {
+  trackingNumber?: string;
+  orderId?: string;
+  showDetails?: boolean;
+}
+
+const { trackingNumber, orderId, showDetails = true } = Astro.props;
+---
+
+<div class="tracking-container" data-tracking={trackingNumber} data-order={orderId}>
+  <!-- Estado de carga inicial -->
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Cargando información de envío...</p>
+  </div>
+
+  <!-- Contenido del tracking (se llena con JS) -->
+  <div class="tracking-content hidden">
+    <!-- Header con número de tracking -->
+    <div class="tracking-header">
+      <div class="tracking-info">
+        <span class="label">Número de rastreo:</span>
+        <span class="tracking-number"></span>
+        <button class="copy-btn" aria-label="Copiar número">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V2zm2 0v8h8V2H6z"/>
+            <path d="M2 6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H2z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="status-badge">
+        <span class="status-icon"></span>
+        <span class="status-text"></span>
+      </div>
+    </div>
+
+    <!-- Barra de progreso -->
+    <div class="progress-bar">
+      <div class="progress-track">
+        <div class="progress-fill"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="step" data-step="pending">
+          <div class="step-icon">📦</div>
+          <span>Preparando</span>
+        </div>
+        <div class="step" data-step="in_transit">
+          <div class="step-icon">🚚</div>
+          <span>En camino</span>
+        </div>
+        <div class="step" data-step="out_for_delivery">
+          <div class="step-icon">📍</div>
+          <span>En reparto</span>
+        </div>
+        <div class="step" data-step="delivered">
+          <div class="step-icon">✅</div>
+          <span>Entregado</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="tracking-details">
+      <div class="detail-card">
+        <h4>Información de entrega</h4>
+        <div class="detail-row">
+          <span class="detail-label">Transportista:</span>
+          <span class="carrier-name"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Entrega estimada:</span>
+          <span class="delivery-date"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Última ubicación:</span>
+          <span class="current-location"></span>
+        </div>
+      </div>
+
+      <!-- Timeline de eventos -->
+      {showDetails && (
+        <div class="timeline-card">
+          <h4>Historial de seguimiento</h4>
+          <div class="timeline-events">
+            <!-- Se llena dinámicamente -->
+          </div>
+        </div>
+      )}
+    </div>
+
+    <!-- Botón de actualización -->
+    <button class="refresh-btn">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+      </svg>
+      Actualizar estado
+    </button>
+  </div>
+
+  <!-- Estado de error -->
+  <div class="error-state hidden">
+    <div class="error-icon">❌</div>
+    <p class="error-message">No se pudo cargar la información de tracking</p>
+    <button class="retry-btn">Reintentar</button>
+  </div>
+</div>
+
+<style>
+  .tracking-container {
+    background: #1a1a1a;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid rgba(234, 179, 8, 0.1);
+    margin-bottom: 20px;
+  }
+
+  /* Estados de carga */
+  .loading-state {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(234, 179, 8, 0.2);
+    border-top-color: #eab308;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  /* Header del tracking */
+  .tracking-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .tracking-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .label {
+    color: #999;
+    font-size: 14px;
+  }
+
+  .tracking-number {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #fff;
+    font-size: 16px;
+  }
+
+  .copy-btn {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #eab308;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .copy-btn:hover {
+    background: rgba(234, 179, 8, 0.2);
+    transform: scale(1.05);
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(234, 179, 8, 0.1);
+    border-radius: 20px;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+  }
+
+  .status-text {
+    color: #eab308;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  /* Barra de progreso */
+  .progress-bar {
+    margin-bottom: 32px;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #eab308, #f59e0b);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 1s ease;
+  }
+
+  .progress-steps {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .step {
+    text-align: center;
+    opacity: 0.3;
+    transition: all 0.3s ease;
+  }
+
+  .step.active {
+    opacity: 1;
+  }
+
+  .step.completed {
+    opacity: 1;
+  }
+
+  .step-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .step span {
+    display: block;
+    font-size: 12px;
+    color: #999;
+  }
+
+  .step.active span,
+  .step.completed span {
+    color: #eab308;
+  }
+
+  /* Detalles de tracking */
+  .tracking-details {
+    display: grid;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (min-width: 768px) {
+    .tracking-details {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .detail-card,
+  .timeline-card {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .detail-card h4,
+  .timeline-card h4 {
+    color: #eab308;
+    margin: 0 0 16px 0;
+    font-size: 16px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-label {
+    color: #999;
+    font-size: 14px;
+  }
+
+  .detail-row span:last-child {
+    color: #fff;
+    font-weight: 500;
+    text-align: right;
+  }
+
+  /* Timeline */
+  .timeline-events {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .timeline-event {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .timeline-event:last-child {
+    border-bottom: none;
+  }
+
+  .timeline-dot {
+    width: 10px;
+    height: 10px;
+    background: #eab308;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+
+  .timeline-content {
+    flex: 1;
+  }
+
+  .timeline-date {
+    color: #999;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .timeline-description {
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .timeline-location {
+    color: #666;
+    font-size: 12px;
+  }
+
+  /* Botón de actualización */
+  .refresh-btn {
+    width: 100%;
+    padding: 12px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #eab308;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(234, 179, 8, 0.2);
+    transform: translateY(-2px);
+  }
+
+  /* Estado de error */
+  .error-state {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .error-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+
+  .error-message {
+    color: #ff6b6b;
+    margin-bottom: 16px;
+  }
+
+  .retry-btn {
+    padding: 10px 24px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #eab308;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .retry-btn:hover {
+    background: rgba(234, 179, 8, 0.2);
+  }
+
+  /* Animación de success */
+  @keyframes checkmark {
+    0% { transform: scale(0) rotate(45deg); }
+    50% { transform: scale(1.2) rotate(45deg); }
+    100% { transform: scale(1) rotate(45deg); }
+  }
+</style>
+
+<script>
+  import { actions } from 'astro:actions';
+  import type { TrackingInfo } from '@/actions/envia/envia.action';
+
+  interface TrackingEvent {
+    date: string;
+    time: string;
+    description: string;
+    location: string;
+    status: string;
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    const containers = document.querySelectorAll('.tracking-container');
+    
+    containers.forEach((container) => {
+      const trackingNumber = container.getAttribute('data-tracking');
+      const orderId = container.getAttribute('data-order');
+      
+      if (trackingNumber) {
+        loadTrackingInfo(container, trackingNumber);
+        
+        // Botón de actualización
+        const refreshBtn = container.querySelector('.refresh-btn');
+        refreshBtn?.addEventListener('click', () => {
+          loadTrackingInfo(container, trackingNumber);
+        });
+        
+        // Botón de copiar
+        const copyBtn = container.querySelector('.copy-btn');
+        copyBtn?.addEventListener('click', () => {
+          navigator.clipboard.writeText(trackingNumber);
+          copyBtn.innerHTML = '✓';
+          setTimeout(() => {
+            copyBtn.innerHTML = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V2zm2 0v8h8V2H6z"/>
+              <path d="M2 6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H2z"/>
+            </svg>`;
+          }, 2000);
+        });
+        
+        // Botón de reintentar
+        const retryBtn = container.querySelector('.retry-btn');
+        retryBtn?.addEventListener('click', () => {
+          loadTrackingInfo(container, trackingNumber);
+        });
+      }
+    });
+  });
+  
+  async function loadTrackingInfo(container: Element, trackingNumber: string): Promise<void> {
+    // Mostrar estado de carga
+    container.querySelector('.loading-state')?.classList.remove('hidden');
+    container.querySelector('.tracking-content')?.classList.add('hidden');
+    container.querySelector('.error-state')?.classList.add('hidden');
+    
+    try {
+      const result = await actions.trackShipment({
+        trackingNumber: trackingNumber
+      });
+      
+      // Acceder a result.data en lugar de result directamente
+      if (result.data && result.data.success && result.data.tracking) {
+        displayTrackingInfo(container, result.data.tracking);
+      } else {
+        showError(container);
+      }
+    } catch (error) {
+      console.error('Error loading tracking:', error);
+      showError(container);
+    }
+  }
+  
+  function displayTrackingInfo(container: Element, tracking: TrackingInfo): void {
+    // Ocultar loading
+    container.querySelector('.loading-state')?.classList.add('hidden');
+    container.querySelector('.tracking-content')?.classList.remove('hidden');
+    
+    // Actualizar número de tracking
+    const trackingNum = container.querySelector('.tracking-number');
+    if (trackingNum) trackingNum.textContent = tracking.trackingNumber;
+    
+    // Actualizar estado
+    const statusText = container.querySelector('.status-text');
+    if (statusText) statusText.textContent = tracking.status;
+    
+    // Actualizar barra de progreso
+    updateProgressBar(container, tracking.statusCode);
+    
+    // Actualizar detalles
+    const carrier = container.querySelector('.carrier-name');
+    if (carrier) carrier.textContent = tracking.carrier.toUpperCase();
+    
+    const deliveryDate = container.querySelector('.delivery-date');
+    if (deliveryDate) {
+      deliveryDate.textContent = tracking.estimatedDelivery 
+        ? new Date(tracking.estimatedDelivery).toLocaleDateString('es-MX')
+        : 'Por confirmar';
+    }
+    
+    const location = container.querySelector('.current-location');
+    if (location) location.textContent = tracking.currentLocation;
+    
+    // Actualizar timeline - ✅ Aquí está el fix del error de 'event'
+    const timeline = container.querySelector('.timeline-events');
+    if (timeline && tracking.events) {
+      timeline.innerHTML = tracking.events.map((event: TrackingEvent) => `
+        <div class="timeline-event">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <div class="timeline-date">${event.date} ${event.time}</div>
+            <div class="timeline-description">${event.description}</div>
+            <div class="timeline-location">${event.location}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+  
+  function updateProgressBar(container: Element, status: string): void {
+    const progressFill = container.querySelector('.progress-fill') as HTMLElement;
+    const steps = container.querySelectorAll('.step');
+    
+    const statusProgress: Record<string, number> = {
+      'pending': 25,
+      'in_transit': 50,
+      'out_for_delivery': 75,
+      'delivered': 100
+    };
+    
+    const progress = statusProgress[status] || 0;
+    if (progressFill) {
+      progressFill.style.width = `${progress}%`;
+    }
+    
+    // Actualizar pasos
+    const statusOrder = ['pending', 'in_transit', 'out_for_delivery', 'delivered'];
+    const currentIndex = statusOrder.indexOf(status);
+    
+    steps.forEach((step, index) => {
+      if (index <= currentIndex) {
+        step.classList.add('active');
+        if (index < currentIndex) {
+          step.classList.add('completed');
+        }
+      } else {
+        step.classList.remove('active', 'completed');
+      }
+    });
+  }
+  
+  function showError(container: Element): void {
+    container.querySelector('.loading-state')?.classList.add('hidden');
+    container.querySelector('.tracking-content')?.classList.add('hidden');
+    container.querySelector('.error-state')?.classList.remove('hidden');
+  }
+</script>

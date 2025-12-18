@@ -6,7 +6,10 @@ const User = defineTable({
     name: column.text(),
     email: column.text({ unique: true }),
     password: column.text(),
+    phone: column.text({ optional: true }),
+    shippingAddress: column.text({ optional: true }),
     createdAt: column.date({ default: new Date() }),
+    updatedAt: column.date({ optional: true }),
     rol: column.text({ references: () => Role.columns.id }),
   }
 })
@@ -99,7 +102,14 @@ const orders = defineTable({
     clientId: column.number({ 
       references: () => Client.columns.id,
       optional: true
-    })
+    }),
+    trackingNumber: column.text({ optional: true }),
+    carrier: column.text({ optional: true }),
+    labelId: column.text({ optional: true }),
+    labelUrl: column.text({ optional: true }),
+    shippingService: column.text({ optional: true }),
+    shippingCost: column.number({ optional: true }),
+    shippedAt: column.date({ optional: true })
   }
 });
 

@@ -252,6 +252,21 @@ const processedVariants = processVariants(variantsData);
         <p class="text-xl text-gray-200 leading-relaxed mb-8">
           {product.description}
         </p>
+
+        <!-- Info de envío -->
+        <div class="mb-6 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-white">Envío a todo México</p>
+              <p class="text-xs text-gray-400">Calcula el costo de envío en el carrito</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="space-y-4">
@@ -288,10 +303,9 @@ const processedVariants = processVariants(variantsData);
     </section>
   </div>
 
-  <!-- ✅ GALERÍA DE IMÁGENES PROFESIONAL Y RESPONSIVE -->
+  <!-- Galería de imágenes -->
   {images.length > 1 && (
     <section class="mt-12 lg:mt-16">
-      <!-- ✅ Header con línea decorativa -->
       <div class="flex items-center gap-4 mb-6">
         <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
         <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
@@ -303,7 +317,6 @@ const processedVariants = processVariants(variantsData);
         <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
       </div>
 
-      <!-- ✅ Grid responsive con hover effects profesionales -->
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         {images.map((imageObj, index) => {
           const imageSrc = imageObj.image.startsWith("http")
@@ -321,7 +334,6 @@ const processedVariants = processVariants(variantsData);
                 data-gallery-index={index}
               />
               
-              <!-- ✅ Overlay con efecto -->
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                 <div class="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
                   <div class="flex items-center justify-between text-white">
@@ -333,19 +345,16 @@ const processedVariants = processVariants(variantsData);
                 </div>
               </div>
 
-              <!-- ✅ Badge de número de imagen -->
               <div class="absolute top-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {index + 1}/{images.length}
               </div>
 
-              <!-- ✅ Borde con efecto glow al hover -->
               <div class="absolute inset-0 border-2 border-transparent group-hover:border-yellow-500/50 rounded-xl transition-colors duration-300 pointer-events-none"></div>
             </div>
           );
         })}
       </div>
 
-      <!-- ✅ Contador de imágenes -->
       <div class="mt-6 text-center">
         <p class="text-sm sm:text-base text-gray-400 flex items-center justify-center gap-2">
           <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
@@ -357,7 +366,7 @@ const processedVariants = processVariants(variantsData);
     </section>
   )}
 
-  <!-- ✅ MODAL LIGHTBOX PARA IMÁGENES -->
+  <!-- Modal Lightbox -->
   <div id="lightbox" class="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 hidden items-center justify-center p-4 sm:p-6">
     <button 
       id="lightbox-close" 
@@ -440,14 +449,6 @@ const processedVariants = processVariants(variantsData);
     const variantImageMap = variantImageMapInput ? JSON.parse(variantImageMapInput.value) : {};
     const generalImages = generalImagesInput ? JSON.parse(generalImagesInput.value) : [];
     
-    console.log('📦 Datos cargados:', {
-      variantImages: Object.keys(variantImageMap).length,
-      generalImages: generalImages.length,
-      variantImageMap,
-    });
-    
-    console.log('🔍 updateSliderImages:', typeof (window as any).updateSliderImages);
-    
     const priceElement = document.getElementById("product-price");
     const stockBadge = document.getElementById("stock-badge");
     const variantInfo = document.getElementById("variant-info");
@@ -462,10 +463,19 @@ const processedVariants = processVariants(variantsData);
 
     const hasVariants = hasVariantsInput?.value === 'true';
     const baseStock = parseInt(baseStockInput?.value || '0');
+    const basePrice = parseFloat(basePriceInput?.value || '0');
+    
     let currentCombination: any = null;
     let selectedVariants: Record<string, string> = {};
 
-    console.log('⚙️ Config:', { hasVariants, baseStock });
+    console.log('⚙️ Config:', { hasVariants, baseStock, basePrice });
+
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('es-MX', { 
+        style: 'currency', 
+        currency: 'MXN' 
+      }).format(value);
+    };
 
     function showMessage(message: string, type: 'info' | 'error' = 'info') {
       if (!variantMessage) return;
@@ -486,33 +496,24 @@ const processedVariants = processVariants(variantsData);
     };
     
     function updateProductImage(variantId: string | null) {
-      console.log('═══════════════════════════════════');
-      console.log('🔄 updateProductImage:', variantId);
-      
       if (!variantId) {
-        console.log('⬅️ Restaurando generales');
         if (typeof (window as any).updateSliderImages === 'function') {
           (window as any).updateSliderImages('product-main-slider', generalImages);
         }
-        console.log('═══════════════════════════════════');
         return;
       }
 
       const variantImage = variantImageMap[variantId];
-      console.log('🖼️ Imagen encontrada:', variantImage);
       
       if (variantImage) {
-        console.log('✅ Cambiando a variante');
         if (typeof (window as any).updateSliderImages === 'function') {
           (window as any).updateSliderImages('product-main-slider', [variantImage]);
         }
       } else {
-        console.log('⚠️ Sin imagen, manteniendo generales');
         if (typeof (window as any).updateSliderImages === 'function') {
           (window as any).updateSliderImages('product-main-slider', generalImages);
         }
       }
-      console.log('═══════════════════════════════════');
     }
 
     async function updateCombination() {
@@ -551,10 +552,7 @@ const processedVariants = processVariants(variantsData);
         }
         
         if (priceElement) {
-          priceElement.textContent = new Intl.NumberFormat('es-MX', { 
-            style: 'currency', 
-            currency: 'MXN' 
-          }).format(data.price);
+          priceElement.textContent = formatCurrency(data.price);
         }
 
         if (stockBadge) {
@@ -663,7 +661,6 @@ const processedVariants = processVariants(variantsData);
           if (currentCombination.sku) cartItem.variantSku = currentCombination.sku;
           cartItem.variantPrice = currentCombination.price;
           
-          const basePrice = parseInt(basePriceInput?.value || '0');
           if (currentCombination.price && currentCombination.price !== basePrice) {
             cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
           }
@@ -683,7 +680,7 @@ const processedVariants = processVariants(variantsData);
       }
     });
 
-    // ✅ LIGHTBOX FUNCTIONALITY
+    // Lightbox
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightbox-image') as HTMLImageElement;
     const lightboxCounter = document.getElementById('lightbox-counter');
@@ -750,6 +747,7 @@ const processedVariants = processVariants(variantsData);
       }
     });
 
+    // Inicialización
     if (hasVariants) {
       document.querySelectorAll('.variant-group').forEach(group => {
         const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement;
@@ -813,7 +811,6 @@ const processedVariants = processVariants(variantsData);
     z-index: 1;
   }
 
-  /* ✅ ESTILOS GALERÍA */
   .gallery-item {
     position: relative;
     cursor: pointer;
@@ -823,18 +820,13 @@ const processedVariants = processVariants(variantsData);
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* ✅ Lightbox styles */
   #lightbox {
     animation: fadeIn 0.2s ease-out;
   }
 
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   #lightbox-image {
@@ -852,7 +844,6 @@ const processedVariants = processVariants(variantsData);
     }
   }
 
-  /* ✅ Responsive adjustments */
   @media (max-width: 640px) {
     .gallery-item {
       border-radius: 0.75rem;

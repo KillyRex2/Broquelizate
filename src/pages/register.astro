@@ -1,224 +1,698 @@
 ---
 // src/pages/register.astro
 import AuthLayout from "@/layouts/AuthLayout.astro";
-import { navigate } from "astro:transitions/client";
 
-const email = Astro.cookies.get("email")?.value ?? "";
-const rememberMe = !!email;
+// Si ya está logueado, redirigir
+const { isLoggedIn } = Astro.locals;
+if (isLoggedIn) {
+  return Astro.redirect('/');
+}
 ---
 
-<AuthLayout>
-  <div class="flex justify-center self-center z-10">
-    <div class="p-12 bg-white mx-auto rounded-2xl w-100">
-      <div class="text-center mb-6">
-        <h2 class="text-3xl font-bold text-gray-800">Crear cuenta</h2>
-        <p class="mt-1 text-gray-600">Completa el formulario para registrarte</p>
-      </div>
-      
-      <form id="register-form" class="space-y-4">
-        <div>
-          <label for="name" class="block text-sm font-medium text-gray-700">Nombre completo</label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-            placeholder="John Doe"
-          />
-        </div>
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            required
-            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-            placeholder="tu@email.com"
-          />
-        </div>
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            class="mt-1 w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-            placeholder="Tu contraseña"
-          />
-        </div>
+<AuthLayout title="Crear Cuenta - Broquelizate">
+  <div class="register-card">
+    <!-- Header -->
+    <div class="register-header">
+      <h1>Crear cuenta</h1>
+      <p>Únete a la familia Broquelízate</p>
+    </div>
+    
+    <!-- Botón de Google -->
+    <button type="button" id="google-signup-btn" class="google-btn">
+      <svg class="google-icon" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path>
+        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path>
+        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.226-11.283-7.662l-6.522 5.025A20.02 20.02 0 0 0 24 44z"></path>
+        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.018 35.24 44 30.028 44 24c0-1.341-.138-2.65-.389-3.917z"></path>
+      </svg>
+      <span>Registrarse con Google</span>
+    </button>
 
-        <div class="flex items-center justify-between">
-          <label class="flex items-center text-sm">
-            <input
-              id="remember_me"
-              name="remember_me"
-              type="checkbox"
-              checked={rememberMe}
-              class="h-4 w-4 text-yellow-500 focus:ring-yellow-400 border-gray-300 rounded"
-            />
-            <span class="ml-2 text-gray-700">Recordarme</span>
-          </label>
-        </div>
+    <!-- Separador -->
+    <div class="divider">
+      <span>o regístrate con tu email</span>
+    </div>
 
-        <button
-          id="btn-submit"
-          type="submit"
-          class="w-full py-3 font-semibold text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition"
-        >
-          <span id="btn-text">Registrarse</span>
-        </button>
-
-      <div class="flex items-center my-6">
-        <hr class="flex-grow border-gray-300" />
-        <span class="mx-3 text-gray-500">o continúa con</span>
-        <hr class="flex-grow border-gray-300" />
-      </div>
-
-            <div class="space-y-4">
-        <button id="google-signin-btn" class="w-full inline-flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
-          <svg class="w-5 h-5 mr-3" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path>
-            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path>
-            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.226-11.283-7.662l-6.522 5.025A20.02 20.02 0 0 0 24 44z"></path>
-            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.018 35.24 44 30.028 44 24c0-1.341-.138-2.65-.389-3.917z"></path>
+    <!-- Formulario -->
+    <form id="register-form" class="register-form" novalidate>
+      <!-- Nombre -->
+      <div class="form-group">
+        <label for="name">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
-          <span>Registrarse con Google</span>
-        </button>
+          Nombre completo
+        </label>
+        <input 
+          type="text" 
+          id="name" 
+          name="name" 
+          placeholder="Tu nombre"
+          autocomplete="name"
+          required
+        />
+        <span class="field-error" id="name-error"></span>
       </div>
-      </form>
 
-      <p class="mt-6 text-center text-sm text-gray-600">
-        ¿Ya tienes una cuenta? <a href="/login" class="text-yellow-500 font-semibold hover:underline">Inicia sesión</a>
-      </p>
-
-      <div class="pt-5 text-center text-gray-400 text-xs">
-        <span>Copyright Broquelizate © 2024-{new Date().getFullYear()}</span>
+      <!-- Email -->
+      <div class="form-group">
+        <label for="email">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          Correo electrónico
+        </label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="tu@email.com"
+          autocomplete="email"
+          required
+        />
+        <span class="field-error" id="email-error"></span>
       </div>
+
+      <!-- Contraseña -->
+      <div class="form-group">
+        <label for="password">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          Contraseña
+        </label>
+        <div class="password-wrapper">
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Mínimo 8 caracteres"
+            autocomplete="new-password"
+            required
+          />
+          <button type="button" class="toggle-password" id="toggle-password" aria-label="Mostrar contraseña">
+            <svg class="eye-open" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <svg class="eye-closed" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+            </svg>
+          </button>
+        </div>
+        <span class="field-error" id="password-error"></span>
+      </div>
+
+      <!-- Confirmar Contraseña -->
+      <div class="form-group">
+        <label for="confirm-password">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          Confirmar contraseña
+        </label>
+        <div class="password-wrapper">
+          <input 
+            type="password" 
+            id="confirm-password" 
+            name="confirmPassword" 
+            placeholder="Repite tu contraseña"
+            autocomplete="new-password"
+            required
+          />
+          <button type="button" class="toggle-password" id="toggle-confirm" aria-label="Mostrar contraseña">
+            <svg class="eye-open" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <svg class="eye-closed" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+            </svg>
+          </button>
+        </div>
+        <span class="field-error" id="confirm-error"></span>
+      </div>
+
+      <!-- Términos -->
+      <label class="terms-checkbox">
+        <input type="checkbox" id="terms" name="terms" required />
+        <span class="checkmark"></span>
+        <span>Acepto los <a href="/terminos" target="_blank">términos y condiciones</a></span>
+      </label>
+
+      <!-- Botón Submit -->
+      <button type="submit" id="btn-register" class="submit-btn">
+        <span id="btn-text">Crear cuenta</span>
+        <svg id="btn-spinner" class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4 31.4" transform="rotate(-90 12 12)"/>
+        </svg>
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="register-footer">
+      <p>¿Ya tienes una cuenta? <a href="/login">Iniciar sesión</a></p>
     </div>
   </div>
 </AuthLayout>
 
-<script>
-import { navigate } from "astro:transitions/client";
-import Swal from "sweetalert2";
-import { actions } from "astro:actions";
-const { signIn } = await import("auth-astro/client");
-
-document.addEventListener('astro:page-load', () => {
-  const form = document.getElementById('register-form') as HTMLFormElement;
-  const btnSubmit = document.getElementById('btn-submit') as HTMLButtonElement;
-  const btnText = document.getElementById('btn-text') as HTMLSpanElement;
-  const googleSignInBtn = document.getElementById('google-signin-btn'); // Botón de Google
-  
-  if (!form || !btnSubmit || !btnText || !googleSignInBtn) return;
-  // --- Listener para el botón de Google ---
-  googleSignInBtn.addEventListener('click', () => {
-    // La función signIn maneja la redirección y el flujo de OAuth automáticamente.
-    signIn('google');
-  });
-
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    btnSubmit.disabled = true;
-    btnText.textContent = 'Procesando...';
-    
-    const formData = new FormData(form);
-    
-    try {
-      const { error } = await actions.registerUser(formData);
-      
-      if (error) {
-        throw error;
-      }
-      
-      const rememberMe = (form.elements.namedItem('remember_me') as HTMLInputElement).checked;
-      if (rememberMe) {
-        document.cookie = `email=${formData.get('email')}; path=/; max-age=31536000; SameSite=Lax`;
-      } else {
-        document.cookie = `email=; path=/; max-age=0; SameSite=Lax`;
-      }
-      
-      
-      await signIn('credentials', {
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
-        redirect: false,
-      } as any);
-      
-      navigate('/');
-      
-    } catch (error: unknown) {
-      let title = 'Error en el registro';
-      let htmlContent = 'Ocurrió un problema al crear tu cuenta.';
-      let icon: 'error' | 'warning' = 'error';
-
-      // Primero, nos aseguramos de que el error sea una instancia de Error.
-      if (error instanceof Error) {
-        const errorMessage = error.message;
-
-        // Verificamos si es el error de validación específico de Astro Actions.
-        if (errorMessage.startsWith('Failed to validate:')) {
-          try {
-            // Extraemos solo la parte del JSON del string del mensaje.
-            const jsonString = errorMessage.replace('Failed to validate: ', '');
-            const validationErrors = JSON.parse(jsonString);
-
-            // Si el JSON es un array (como en tu caso), creamos la lista HTML.
-            if (Array.isArray(validationErrors)) {
-              title = 'Revisa tus datos';
-              icon = 'warning';
-              htmlContent = `<ul class="text-left list-disc list-inside">${
-                validationErrors.map(err => `<li>${err.message}</li>`).join('')
-              }</ul>`;
-            }
-          } catch (e) {
-            // Fallback por si el parseo del JSON falla.
-            htmlContent = 'Hubo un problema al validar los datos ingresados.';
-          }
-        } else {
-          // Si no es un error de validación, es uno de nuestros errores personalizados.
-          if (errorMessage.includes('correo ya está registrado')) {
-            title = 'Correo electrónico en uso';
-            htmlContent = 'La dirección de correo que ingresaste ya pertenece a una cuenta. Por favor, <a href="/login" class="font-bold text-yellow-600 hover:underline">inicia sesión</a> o utiliza un correo diferente.';
-          } else {
-            htmlContent = errorMessage;
-          }
-        }
-      }
-
-      Swal.fire({
-        icon: icon,
-        title: title,
-        html: htmlContent,
-        confirmButtonColor: '#d97706',
-        confirmButtonText: 'Entendido'
-      });
-      
-    } finally {
-      btnSubmit.disabled = false;
-      btnText.textContent = 'Registrarse';
-    }
-  });
-});
-</script>
-
 <style>
-body { 
-  background-color: #f9fafb; 
-}
+  /* Card */
+  .register-card {
+    background: rgba(20, 20, 20, 0.95);
+    border-radius: 24px;
+    padding: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
 
-input {
-  transition: all 0.2s ease;
-}
+  /* Header */
+  .register-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
 
-#btn-submit:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  background-color: #fbbf24;
-}
+  .register-header h1 {
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .register-header p {
+    color: #888;
+    font-size: 14px;
+  }
+
+  /* Google Button */
+  .google-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .google-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .google-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .google-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+  }
+
+  .divider::before,
+  .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .divider span {
+    padding: 0 16px;
+    color: #666;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Form */
+  .register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .form-group label svg {
+    color: #eab308;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    transition: all 0.3s ease;
+  }
+
+  .form-group input::placeholder {
+    color: #555;
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: #eab308;
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15);
+  }
+
+  .form-group input.error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  }
+
+  /* Password Toggle */
+  .password-wrapper {
+    position: relative;
+  }
+
+  .password-wrapper input {
+    padding-right: 48px;
+  }
+
+  .toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toggle-password:hover {
+    color: #eab308;
+  }
+
+  .toggle-password .eye-closed {
+    display: none;
+  }
+
+  .toggle-password.active .eye-open {
+    display: none;
+  }
+
+  .toggle-password.active .eye-closed {
+    display: block;
+  }
+
+  /* Field Error */
+  .field-error {
+    font-size: 12px;
+    color: #ef4444;
+    min-height: 14px;
+    display: block;
+  }
+
+  /* Terms Checkbox */
+  .terms-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #999;
+    user-select: none;
+    margin-top: 4px;
+  }
+
+  .terms-checkbox input {
+    display: none;
+  }
+
+  .terms-checkbox .checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .terms-checkbox input:checked + .checkmark {
+    background: #eab308;
+    border-color: #eab308;
+  }
+
+  .terms-checkbox input:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid #000;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  .terms-checkbox a {
+    color: #eab308;
+    text-decoration: none;
+  }
+
+  .terms-checkbox a:hover {
+    text-decoration: underline;
+  }
+
+  /* Submit Button */
+  .submit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    border: none;
+    border-radius: 12px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(234, 179, 8, 0.3);
+  }
+
+  .submit-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .spinner {
+    display: none;
+    animation: spin 1s linear infinite;
+  }
+
+  .submit-btn.loading .spinner {
+    display: block;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Footer */
+  .register-footer {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .register-footer p {
+    color: #888;
+    font-size: 14px;
+  }
+
+  .register-footer a {
+    color: #eab308;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+
+  .register-footer a:hover {
+    color: #f59e0b;
+    text-decoration: underline;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .register-card {
+      padding: 24px 20px;
+      border-radius: 20px;
+    }
+
+    .register-header h1 {
+      font-size: 22px;
+    }
+  }
 </style>
+
+<script>
+  import { navigate } from "astro:transitions/client";
+  import Swal from "sweetalert2";
+  import { signIn } from "auth-astro/client";
+
+  document.addEventListener('astro:page-load', () => {
+    const form = document.getElementById('register-form') as HTMLFormElement | null;
+    const nameEl = document.getElementById('name') as HTMLInputElement | null;
+    const emailEl = document.getElementById('email') as HTMLInputElement | null;
+    const passwordEl = document.getElementById('password') as HTMLInputElement | null;
+    const confirmEl = document.getElementById('confirm-password') as HTMLInputElement | null;
+    const termsInput = document.getElementById('terms') as HTMLInputElement | null;
+    const btnSubmit = document.getElementById('btn-register') as HTMLButtonElement | null;
+    const btnText = document.getElementById('btn-text') as HTMLSpanElement | null;
+    const googleBtn = document.getElementById('google-signup-btn') as HTMLButtonElement | null;
+    const togglePassword = document.getElementById('toggle-password') as HTMLButtonElement | null;
+    const toggleConfirm = document.getElementById('toggle-confirm') as HTMLButtonElement | null;
+    
+    const nameError = document.getElementById('name-error') as HTMLSpanElement | null;
+    const emailError = document.getElementById('email-error') as HTMLSpanElement | null;
+    const passwordError = document.getElementById('password-error') as HTMLSpanElement | null;
+    const confirmError = document.getElementById('confirm-error') as HTMLSpanElement | null;
+
+    // Early return si faltan elementos esenciales
+    if (!form || !nameEl || !emailEl || !passwordEl || !confirmEl || !btnSubmit) return;
+
+    // Asignar a variables const después del guard para que TS sepa que no son null
+    const nameInput = nameEl;
+    const emailInput = emailEl;
+    const passwordInput = passwordEl;
+    const confirmInput = confirmEl;
+
+    // Toggle visibilidad de contraseña
+    togglePassword?.addEventListener('click', () => {
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      togglePassword.classList.toggle('active', isPassword);
+    });
+
+    toggleConfirm?.addEventListener('click', () => {
+      const isPassword = confirmInput.type === 'password';
+      confirmInput.type = isPassword ? 'text' : 'password';
+      toggleConfirm.classList.toggle('active', isPassword);
+    });
+
+    // Validación de email
+    function isValidEmail(email: string): boolean {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    // Limpiar errores de un campo
+    function clearFieldError(input: HTMLInputElement, errorSpan: HTMLSpanElement | null) {
+      input.classList.remove('error');
+      if (errorSpan) errorSpan.textContent = '';
+    }
+
+    // Mostrar error en un campo
+    function showFieldError(input: HTMLInputElement, errorSpan: HTMLSpanElement | null, message: string) {
+      input.classList.add('error');
+      if (errorSpan) errorSpan.textContent = message;
+    }
+
+    // Validar formulario
+    function validateForm(): boolean {
+      let isValid = true;
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      const confirm = confirmInput.value;
+
+      // Validar nombre
+      if (!name) {
+        showFieldError(nameInput, nameError, 'El nombre es requerido');
+        isValid = false;
+      } else if (name.length < 2) {
+        showFieldError(nameInput, nameError, 'Mínimo 2 caracteres');
+        isValid = false;
+      } else {
+        clearFieldError(nameInput, nameError);
+      }
+
+      // Validar email
+      if (!email) {
+        showFieldError(emailInput, emailError, 'El correo es requerido');
+        isValid = false;
+      } else if (!isValidEmail(email)) {
+        showFieldError(emailInput, emailError, 'Ingresa un correo válido');
+        isValid = false;
+      } else {
+        clearFieldError(emailInput, emailError);
+      }
+
+      // Validar contraseña
+      if (!password) {
+        showFieldError(passwordInput, passwordError, 'La contraseña es requerida');
+        isValid = false;
+      } else if (password.length < 8) {
+        showFieldError(passwordInput, passwordError, 'Mínimo 8 caracteres');
+        isValid = false;
+      } else {
+        clearFieldError(passwordInput, passwordError);
+      }
+
+      // Validar confirmación
+      if (!confirm) {
+        showFieldError(confirmInput, confirmError, 'Confirma tu contraseña');
+        isValid = false;
+      } else if (confirm !== password) {
+        showFieldError(confirmInput, confirmError, 'Las contraseñas no coinciden');
+        isValid = false;
+      } else {
+        clearFieldError(confirmInput, confirmError);
+      }
+
+      // Validar términos
+      if (!termsInput?.checked) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Términos requeridos',
+          text: 'Debes aceptar los términos y condiciones',
+          confirmButtonColor: '#eab308',
+          background: '#1a1a1a',
+          color: '#fff'
+        });
+        isValid = false;
+      }
+
+      return isValid;
+    }
+
+    // Limpiar errores al escribir
+    nameInput.addEventListener('input', () => clearFieldError(nameInput, nameError));
+    emailInput.addEventListener('input', () => clearFieldError(emailInput, emailError));
+    passwordInput.addEventListener('input', () => clearFieldError(passwordInput, passwordError));
+    confirmInput.addEventListener('input', () => clearFieldError(confirmInput, confirmError));
+
+    // Google Sign Up
+    googleBtn?.addEventListener('click', async () => {
+      if (googleBtn) googleBtn.disabled = true;
+      try {
+        await signIn('google');
+      } catch (error) {
+        console.error("Error al registrarse con Google:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error con Google',
+          text: 'No se pudo conectar con Google. Intenta de nuevo.',
+          confirmButtonColor: '#eab308',
+          background: '#1a1a1a',
+          color: '#fff'
+        });
+        if (googleBtn) googleBtn.disabled = false;
+      }
+    });
+
+    // Submit del formulario
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!validateForm()) return;
+
+      // Loading state
+      btnSubmit.disabled = true;
+      btnSubmit.classList.add('loading');
+      if (btnText) btnText.textContent = 'Creando cuenta...';
+
+      try {
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: nameInput.value.trim(),
+            email: emailInput.value.trim(),
+            password: passwordInput.value
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Error al crear la cuenta');
+        }
+
+        // Éxito
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Cuenta creada!',
+          text: 'Tu cuenta ha sido creada exitosamente. Ahora puedes iniciar sesión.',
+          confirmButtonColor: '#eab308',
+          background: '#1a1a1a',
+          color: '#fff'
+        });
+
+        navigate('/login');
+
+      } catch (error: any) {
+        console.error('Error de registro:', error);
+        
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al crear cuenta',
+          text: error.message || 'Ocurrió un error. Intenta de nuevo.',
+          confirmButtonColor: '#eab308',
+          background: '#1a1a1a',
+          color: '#fff'
+        });
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.classList.remove('loading');
+        if (btnText) btnText.textContent = 'Crear cuenta';
+      }
+    });
+  });
+</script>

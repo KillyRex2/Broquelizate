@@ -19,308 +19,691 @@ const subtotal = products.reduce((sum, p) => {
   return sum + price * p.quantity;
 }, 0);
 
-const total = subtotal + 0;
+// Calcular peso total estimado (para joyería, promedio 50g por pieza)
+const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
+const estimatedWeight = Math.max(0.5, totalItems * 0.05); // Mínimo 0.5kg
+
+// Código postal de origen (tu tienda)
+const ORIGIN_POSTAL_CODE = "35000"; // Gómez Palacio, Durango
 ---
 
 <ProductsLayout>
-  <h1 class="text-4xl font-bold mb-8 text-white">Tu Carrito</h1>
-  <button
-    id="clear-cart-btn"
-    class="text-red-500 hover:text-red-700 transition font-medium padding-2 rounded-full hover:bg-red-100 mb-4"
-  >
-    Vaciar carrito
-  </button>
-  
-  {products.length === 0 ? (
-    <div class="text-center py-16 bg-white rounded-2xl shadow-lg">
-      <div class="text-6xl mb-4">🛒</div>
-      <h2 class="text-2xl font-bold text-gray-800 mb-4">Tu carrito está vacío</h2>
-      <p class="text-gray-600 mb-6">Añade algunos productos para continuar</p>
-      <a 
-        href="/products" 
-        class="inline-block bg-yellow-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-yellow-600 transition"
-      >
-        Ver Productos
-      </a>
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-bold text-white">Tu Carrito</h1>
+        <p class="text-gray-400 mt-1">{totalItems} {totalItems === 1 ? 'producto' : 'productos'} en tu carrito</p>
+      </div>
+      
+      {products.length > 0 && (
+        <button
+          id="clear-cart-btn"
+          class="inline-flex items-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 px-4 py-2 rounded-lg transition-all font-medium"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Vaciar carrito
+        </button>
+      )}
     </div>
-  ) : (
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div class="lg:col-span-2 space-y-6">
-        {products.map((product) => {
-          const displayPrice = product.variantPrice ?? product.price;
-          const hasVariant = product.variantCombination || product.variantId;
-          const productImage = product.variantImage || product.image;
-          const isVariantImage = !!product.variantImage;
-          
-          return (
-            <div class="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-lg transition hover:shadow-xl">
-              <div class="w-full md:w-48 flex-shrink-0 relative flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                <img
-                  src={productImage}
-                  alt={product.name}
-                  class="object-contain w-full h-48 p-4 md:w-full md:h-auto transition-transform hover:scale-105"
-                />
-                
-                {isVariantImage && (
-                  <div class="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium shadow-md flex items-center gap-1">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Variante</span>
-                  </div>
-                )}
-                
-                <button 
-                  class="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100 group"
-                  data-view-image={productImage}
-                  aria-label="Ver imagen completa"
-                >
-                  <div class="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
-                    <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
-
-              <div class="flex-1 p-6 flex flex-col justify-between">
-                <div>
+    
+    {products.length === 0 ? (
+      <div class="text-center py-16 bg-gray-800/50 rounded-2xl border border-gray-700">
+        <div class="text-6xl mb-4">🛒</div>
+        <h2 class="text-2xl font-bold text-white mb-4">Tu carrito está vacío</h2>
+        <p class="text-gray-400 mb-6">Añade algunos productos para continuar</p>
+        <a 
+          href="/products" 
+          class="inline-flex items-center gap-2 bg-yellow-500 text-gray-900 font-semibold px-6 py-3 rounded-lg hover:bg-yellow-400 transition"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          Ver Productos
+        </a>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <!-- Productos del carrito -->
+        <div class="xl:col-span-2 space-y-4">
+          {products.map((product) => {
+            const displayPrice = product.variantPrice ?? product.price;
+            const hasVariant = product.variantCombination || product.variantId;
+            const productImage = product.variantImage || product.image;
+            const isVariantImage = !!product.variantImage;
+            
+            return (
+              <div class="flex flex-col sm:flex-row bg-gray-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-700 hover:border-gray-600 transition-all">
+                <!-- Imagen -->
+                <div class="w-full sm:w-40 h-40 flex-shrink-0 relative bg-gray-900/50">
+                  <img
+                    src={productImage}
+                    alt={product.name}
+                    class="w-full h-full object-contain p-3"
+                  />
                   
-                  <a
-                    href={`/products/${product.slug}`}
-                    class="text-xl font-semibold text-gray-900 hover:text-yellow-500 transition"
-                  >
-                    {product.name}
-                  </a>
-                  
-                  {hasVariant && product.variantCombination && (
-                    <div class="mt-2 space-y-1 bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded-r">
-                      <div class="flex items-start gap-2">
-                        <svg class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                        <div class="flex-1">
-                          <p class="text-sm font-medium text-gray-700">Variante seleccionada:</p>
-                          <p class="text-sm text-gray-800 font-semibold">{product.variantCombination}</p>
-                          {product.variantSku && (
-                            <p class="text-xs text-gray-600 mt-1 font-mono">SKU: {product.variantSku}</p>
-                          )}
-                          {isVariantImage && (
-                            <p class="text-xs text-yellow-700 mt-1 flex items-center gap-1">
-                              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                              </svg>
-                              Imagen específica de variante
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                  {isVariantImage && (
+                    <div class="absolute top-2 right-2 bg-yellow-500 text-gray-900 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                      </svg>
                     </div>
                   )}
-                  
-                  <p class="mt-2 text-sm text-yellow-500 uppercase font-medium">{product.category}</p>
-                  
-                  <div class="mt-3">
-                    {hasVariant && product.variantPrice !== product.price ? (
-                      <div class="space-y-1">
-                        <p class="text-sm text-gray-500">
-                          Precio base: <span class="line-through">{Formatter.currency(product.price)}</span>
-                        </p>
-                        <p class="text-gray-900 font-medium">
-                          Precio con variante: {Formatter.currency(displayPrice)} × {product.quantity} = 
-                          <span class="font-semibold ml-1 text-lg text-green-600">
-                            {Formatter.currency(displayPrice * product.quantity)}
-                          </span>
-                        </p>
-                      </div>
-                    ) : (
-                      <p class="text-gray-900">
-                        {Formatter.currency(displayPrice)} × {product.quantity} = 
-                        <span class="font-semibold ml-1">{Formatter.currency(displayPrice * product.quantity)}</span>
-                      </p>
-                    )}
-                  </div>
                 </div>
 
-                <div class="mt-4 flex items-center justify-between">
-                  <div class="flex items-center space-x-2">
-                    <label for={`qty-${product.productId}${product.combinationId ? `-${product.combinationId}` : ''}`} class="sr-only">
-                      Cantidad
-                    </label>
-                    <select
-                      id={`qty-${product.productId}${product.combinationId ? `-${product.combinationId}` : ''}`}
-                      data-product-id={product.productId}
-                      data-variant-id={product.variantId || ''}
-                      data-combination-id={product.combinationId || ''}
-                      class="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 qty-selector transition-colors"
+                <!-- Info del producto -->
+                <div class="flex-1 p-4 flex flex-col justify-between">
+                  <div>
+                    <a
+                      href={`/products/${product.slug}`}
+                      class="text-lg font-semibold text-white hover:text-yellow-500 transition line-clamp-1"
                     >
-                      {[1,2,3,4,5,6,7,8,9,10].map((n) => (
-                        <option value={n} selected={n === product.quantity}>{n}</option>
-                      ))}
-                    </select>
+                      {product.name}
+                    </a>
+                    
+                    <p class="text-sm text-yellow-500 mt-1">{product.category}</p>
+                    
+                    {hasVariant && product.variantCombination && (
+                      <div class="mt-2 inline-flex items-center gap-2 bg-gray-700/50 px-3 py-1.5 rounded-lg">
+                        <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        <span class="text-sm text-gray-300">{product.variantCombination}</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  <button
-                    data-id={product.productId}
-                    data-variant-id={product.variantId || ''}
-                    data-combination-id={product.combinationId || ''}
-                    class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-100 remove-item"
-                    aria-label="Remover producto"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+
+                  <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+                    <!-- Cantidad -->
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-gray-400">Cantidad:</span>
+                      <select
+                        id={`qty-${product.productId}${product.combinationId ? `-${product.combinationId}` : ''}`}
+                        data-product-id={product.productId}
+                        data-variant-id={product.variantId || ''}
+                        data-combination-id={product.combinationId || ''}
+                        class="bg-gray-700 text-white px-3 py-1.5 rounded-lg border border-gray-600 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 qty-selector text-sm"
+                      >
+                        {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                          <option value={n} selected={n === product.quantity}>{n}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <!-- Precio -->
+                    <div class="flex items-center gap-4">
+                      <div class="text-right">
+                        <p class="text-lg font-bold text-white">{Formatter.currency(displayPrice * product.quantity)}</p>
+                        {product.quantity > 1 && (
+                          <p class="text-xs text-gray-400">{Formatter.currency(displayPrice)} c/u</p>
+                        )}
+                      </div>
+                      
+                      <!-- Eliminar -->
+                      <button
+                        data-id={product.productId}
+                        data-variant-id={product.variantId || ''}
+                        data-combination-id={product.combinationId || ''}
+                        class="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition remove-item"
+                        aria-label="Eliminar producto"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-        <div class="flex justify-between items-center mt-8">
+            );
+          })}
           
+          <!-- Seguir comprando -->
           <a
             href="/products"
-            class="inline-flex items-center text-yellow-500 hover:text-yellow-600 transition font-medium"
+            class="inline-flex items-center gap-2 text-yellow-500 hover:text-yellow-400 transition font-medium mt-4"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             Seguir comprando
           </a>
         </div>
-      </div>
-      
-      <div class="bg-white rounded-2xl shadow-xl p-8 flex flex-col sticky top-4">
-        <h2 class="text-2xl font-bold mb-6 text-gray-800">Resumen de compra</h2>
+        
+        <!-- Panel de resumen y envío -->
+        <div class="space-y-6">
+          <!-- Calculador de envío -->
+          <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
+            <div class="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border-b border-gray-700 px-5 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-white">Calcular envío</h3>
+                  <p class="text-sm text-gray-400">Ingresa tu código postal</p>
+                </div>
+              </div>
+            </div>
 
-        <div class="space-y-4 text-gray-600 flex-1">
-          <div class="flex justify-between">
-            <span>Subtotal ({products.reduce((sum, p) => sum + p.quantity, 0)} items)</span>
-            <span class="font-medium">{Formatter.currency(subtotal)}</span>
+            <div class="p-5 space-y-4">
+              <!-- Input de CP -->
+              <div class="flex gap-3">
+                <div class="flex-1 relative">
+                  <input
+                    type="text"
+                    id="shipping-postal-code"
+                    placeholder="Ej: 06600"
+                    maxlength="5"
+                    pattern="[0-9]{5}"
+                    class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                  />
+                  <div id="postal-code-validation" class="absolute right-3 top-1/2 -translate-y-1/2 hidden">
+                    <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+                <button
+                  id="calculate-shipping-btn"
+                  class="px-5 py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-semibold rounded-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span id="shipping-btn-text">Cotizar</span>
+                  <svg id="shipping-btn-spinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Error -->
+              <div id="shipping-error" class="hidden p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p class="text-sm text-red-400 flex items-center gap-2">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                  <span id="shipping-error-text">Error al cotizar</span>
+                </p>
+              </div>
+
+              <!-- Resultados -->
+              <div id="shipping-results" class="hidden space-y-3">
+                <div class="flex items-center justify-between">
+                  <p class="text-sm font-medium text-gray-300">Opciones disponibles:</p>
+                  <button id="clear-shipping" class="text-xs text-gray-400 hover:text-yellow-500 transition">
+                    Cambiar CP
+                  </button>
+                </div>
+                
+                <div id="shipping-options" class="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                  <!-- Opciones dinámicas -->
+                </div>
+              </div>
+
+              <!-- Info -->
+              <div class="flex items-start gap-2 text-xs text-gray-500">
+                <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span>Todos los envíos incluyen seguro y número de rastreo</span>
+              </div>
+            </div>
           </div>
-          
-          {(() => {
-            const baseTotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
-            const savings = baseTotal - subtotal;
-            if (savings > 0) {
-              return (
-                <div class="flex justify-between text-green-600">
-                  <span>Ahorro por variantes</span>
-                  <span class="font-medium">-{Formatter.currency(savings)}</span>
+
+          <!-- Resumen de compra -->
+          <div class="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-700">
+              <h2 class="text-lg font-semibold text-white">Resumen de compra</h2>
+            </div>
+
+            <div class="p-5 space-y-4">
+              <!-- Subtotal -->
+              <div class="flex justify-between text-gray-300">
+                <span>Subtotal ({totalItems} {totalItems === 1 ? 'producto' : 'productos'})</span>
+                <span class="font-medium text-white">{Formatter.currency(subtotal)}</span>
+              </div>
+              
+              <!-- Ahorro/Ajuste por variantes -->
+              {(() => {
+                const baseTotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+                const savings = baseTotal - subtotal;
+                if (savings > 0) {
+                  return (
+                    <div class="flex justify-between text-green-400">
+                      <span class="flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        Ahorro por variantes
+                      </span>
+                      <span class="font-medium">-{Formatter.currency(savings)}</span>
+                    </div>
+                  );
+                } else if (savings < 0) {
+                  return (
+                    <div class="flex justify-between text-amber-400">
+                      <span>Ajuste por variantes</span>
+                      <span class="font-medium">+{Formatter.currency(Math.abs(savings))}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              
+              <!-- Envío -->
+              <div class="flex justify-between text-gray-300">
+                <span>Envío</span>
+                <span id="shipping-cost-display" class="font-medium text-gray-400">Por calcular</span>
+              </div>
+
+              <!-- Envío seleccionado -->
+              <div id="selected-shipping-info" class="hidden p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-yellow-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                      <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
+                    </svg>
+                    <div>
+                      <p class="text-sm font-medium text-white" id="selected-carrier-name">-</p>
+                      <p class="text-xs text-gray-400" id="selected-delivery-days">-</p>
+                    </div>
+                  </div>
+                  <p class="text-lg font-bold text-yellow-500" id="selected-shipping-price">-</p>
                 </div>
-              );
-            } else if (savings < 0) {
-              return (
-                <div class="flex justify-between text-amber-600">
-                  <span>Ajuste por variantes</span>
-                  <span class="font-medium">+{Formatter.currency(Math.abs(savings))}</span>
+              </div>
+
+              <!-- Separador -->
+              <div class="border-t border-gray-700"></div>
+
+              <!-- Total -->
+              <div class="flex justify-between items-center">
+                <span class="text-lg font-semibold text-white">Total</span>
+                <span id="total-price" class="text-2xl font-bold text-yellow-500">{Formatter.currency(subtotal)}</span>
+              </div>
+
+              <!-- Botón de checkout -->
+              <button
+                id="checkout-btn"
+                type="button"
+                class="w-full mt-4 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/30"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+                Proceder al pago
+              </button>
+
+              <!-- Métodos de pago -->
+              <div class="pt-4 border-t border-gray-700">
+                <p class="text-xs text-gray-500 text-center mb-3">Métodos de pago aceptados</p>
+                <div class="flex items-center justify-center gap-3">
+                  <div class="bg-gray-700/50 px-3 py-1.5 rounded text-xs text-gray-300 font-medium">PayPal</div>
+                  <div class="bg-gray-700/50 px-3 py-1.5 rounded text-xs text-gray-300 font-medium">Tarjeta</div>
+                  <div class="bg-gray-700/50 px-3 py-1.5 rounded text-xs text-gray-300 font-medium">Transferencia</div>
                 </div>
-              );
-            }
-            return null;
-          })()}
-          
-          <div class="flex justify-between">
-            <span>Envío</span>
-            <span class="text-green-600 font-medium">Por calcular</span>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div class="mt-6 border-t border-gray-200 pt-4 flex justify-between items-center">
-          <span class="text-xl font-semibold text-gray-800">Total</span>
-          <span class="text-2xl font-extrabold text-gray-900">{Formatter.currency(total)}</span>
-        </div>
-
-        <button
-          id="checkout-btn"
-          type="button"
-          class="mt-8 w-full bg-yellow-500 text-white font-semibold py-3 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center"
-        >
-          Proceder al pago
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
-          </svg>
-        </button>
       </div>
-    </div>
-  )}
-
-  <div id="image-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-    <button 
-      id="close-modal" 
-      class="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
-      aria-label="Cerrar"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-    
-    <div class="relative max-w-4xl max-h-full">
-      <img 
-        id="modal-image" 
-        src="" 
-        alt="" 
-        class="w-auto max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-      />
-    </div>
+    )}
   </div>
+
+  <!-- Hidden inputs -->
+  <input type="hidden" id="origin-postal-code" value={ORIGIN_POSTAL_CODE} />
+  <input type="hidden" id="subtotal-value" value={subtotal} />
+  <input type="hidden" id="estimated-weight" value={estimatedWeight} />
+  <input type="hidden" id="total-items" value={totalItems} />
 </ProductsLayout>
 
 <script>
   import { CartCookiesClient } from '../../utils/cart-cookies';
   import { navigate } from 'astro:transitions/client';
   import { itemsInCart } from '@/store';
+  import { actions } from 'astro:actions';
   import Swal from 'sweetalert2';
 
+  interface ShippingRate {
+    carrier: string;
+    carrierLogo?: string;
+    service: string;
+    serviceId?: string;
+    deliveryDays: number;
+    totalPrice: number;
+    currency: string;
+  }
+
+  interface SelectedShipping {
+    carrier: string;
+    service: string;
+    price: number;
+    deliveryDays: number;
+    postalCode: string;
+  }
+
   function initializeCart() {
-    const imageModal = document.getElementById('image-modal');
-    const modalImage = document.getElementById('modal-image') as HTMLImageElement;
-    const closeModal = document.getElementById('close-modal');
-    const viewImageButtons = document.querySelectorAll('[data-view-image]');
+    console.log('🛒 Inicializando carrito...');
 
-    viewImageButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const button = e.currentTarget as HTMLElement;
-        const imageSrc = button.dataset.viewImage;
+    // ============================================
+    // ELEMENTOS DEL DOM
+    // ============================================
+    
+    const shippingPostalCodeInput = document.getElementById('shipping-postal-code') as HTMLInputElement;
+    const calculateShippingBtn = document.getElementById('calculate-shipping-btn') as HTMLButtonElement;
+    const shippingBtnText = document.getElementById('shipping-btn-text') as HTMLElement;
+    const shippingBtnSpinner = document.getElementById('shipping-btn-spinner') as HTMLElement;
+    const postalCodeValidation = document.getElementById('postal-code-validation') as HTMLElement;
+    const shippingError = document.getElementById('shipping-error') as HTMLElement;
+    const shippingErrorText = document.getElementById('shipping-error-text') as HTMLElement;
+    const shippingResults = document.getElementById('shipping-results') as HTMLElement;
+    const shippingOptions = document.getElementById('shipping-options') as HTMLElement;
+    const clearShippingBtn = document.getElementById('clear-shipping') as HTMLElement;
+    const shippingCostDisplay = document.getElementById('shipping-cost-display') as HTMLElement;
+    const selectedShippingInfo = document.getElementById('selected-shipping-info') as HTMLElement;
+    const selectedCarrierName = document.getElementById('selected-carrier-name') as HTMLElement;
+    const selectedDeliveryDays = document.getElementById('selected-delivery-days') as HTMLElement;
+    const selectedShippingPrice = document.getElementById('selected-shipping-price') as HTMLElement;
+    const totalPriceElement = document.getElementById('total-price') as HTMLElement;
+    const checkoutBtn = document.getElementById('checkout-btn') as HTMLButtonElement;
+
+    const originPostalCodeInput = document.getElementById('origin-postal-code') as HTMLInputElement;
+    const subtotalInput = document.getElementById('subtotal-value') as HTMLInputElement;
+    const estimatedWeightInput = document.getElementById('estimated-weight') as HTMLInputElement;
+    const totalItemsInput = document.getElementById('total-items') as HTMLInputElement;
+
+    const originPostalCode = originPostalCodeInput?.value || '35000';
+    const subtotal = parseFloat(subtotalInput?.value || '0');
+    const estimatedWeight = parseFloat(estimatedWeightInput?.value || '0.5');
+    const totalItems = parseInt(totalItemsInput?.value || '0');
+
+    let selectedShipping: SelectedShipping | null = null;
+    let shippingRates: ShippingRate[] = [];
+
+    // ============================================
+    // FUNCIONES AUXILIARES
+    // ============================================
+
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('es-MX', { 
+        style: 'currency', 
+        currency: 'MXN' 
+      }).format(value);
+    };
+
+    function validatePostalCode(cp: string): boolean {
+      return /^\d{5}$/.test(cp);
+    }
+
+    function setShippingLoading(loading: boolean) {
+      if (calculateShippingBtn) calculateShippingBtn.disabled = loading;
+      if (shippingBtnText) shippingBtnText.textContent = loading ? 'Cotizando...' : 'Cotizar';
+      if (shippingBtnSpinner) shippingBtnSpinner.classList.toggle('hidden', !loading);
+    }
+
+    function showShippingError(message: string) {
+      if (shippingError && shippingErrorText) {
+        shippingErrorText.textContent = message;
+        shippingError.classList.remove('hidden');
+      }
+      if (shippingResults) shippingResults.classList.add('hidden');
+    }
+
+    function hideShippingError() {
+      if (shippingError) shippingError.classList.add('hidden');
+    }
+
+    function updateTotal() {
+      const shippingPrice = selectedShipping?.price || 0;
+      const total = subtotal + shippingPrice;
+      
+      if (totalPriceElement) {
+        totalPriceElement.textContent = formatCurrency(total);
+      }
+      
+      if (shippingCostDisplay) {
+        shippingCostDisplay.textContent = selectedShipping 
+          ? formatCurrency(shippingPrice) 
+          : 'Por calcular';
+        shippingCostDisplay.className = selectedShipping 
+          ? 'font-medium text-yellow-500' 
+          : 'font-medium text-gray-400';
+      }
+    }
+
+    function getCarrierLogo(carrier: string): string {
+      const logos: Record<string, string> = {
+        'fedex': '🚚',
+        'dhl': '📦',
+        'estafeta': '📫',
+        'redpack': '🔴',
+        'ups': '🟤',
+        'paquetexpress': '📬',
+        '99minutos': '⚡',
+        'sendex': '✉️'
+      };
+      return logos[carrier.toLowerCase()] || '📦';
+    }
+
+    function renderShippingOptions(rates: ShippingRate[]) {
+      if (!shippingOptions) return;
+      
+      const sortedRates = [...rates].sort((a, b) => a.totalPrice - b.totalPrice);
+      
+      shippingOptions.innerHTML = sortedRates.map((rate, index) => {
+        const isRecommended = index === 0;
+        const allDeliveryDays = sortedRates.map(r => r.deliveryDays);
+        const minDays = Math.min(...allDeliveryDays);
+        const isFastest = rate.deliveryDays === minDays && !isRecommended;
         
-        if (imageSrc && modalImage && imageModal) {
-          modalImage.src = imageSrc;
-          imageModal.classList.remove('hidden');
-          imageModal.classList.add('flex');
-          document.body.style.overflow = 'hidden';
-        }
+        return `
+          <label class="shipping-option group cursor-pointer block p-3 border-2 rounded-lg transition-all duration-200 ${
+            isRecommended 
+              ? 'border-yellow-500 bg-yellow-500/10' 
+              : 'border-gray-600 bg-gray-700/30 hover:border-gray-500 hover:bg-gray-700/50'
+          }">
+            <input 
+              type="radio" 
+              name="shipping-rate" 
+              value="${index}"
+              class="hidden"
+              ${isRecommended ? 'checked' : ''}
+            />
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">${getCarrierLogo(rate.carrier)}</span>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="font-semibold text-white text-sm">${rate.carrier}</p>
+                    ${isRecommended ? '<span class="text-[10px] bg-yellow-500 text-gray-900 px-1.5 py-0.5 rounded font-bold">MEJOR PRECIO</span>' : ''}
+                    ${isFastest ? '<span class="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold">MÁS RÁPIDO</span>' : ''}
+                  </div>
+                  <p class="text-xs text-gray-400">${rate.service}</p>
+                  <p class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                    </svg>
+                    ${rate.deliveryDays} día${rate.deliveryDays !== 1 ? 's' : ''} hábil${rate.deliveryDays !== 1 ? 'es' : ''}
+                  </p>
+                </div>
+              </div>
+              <p class="text-lg font-bold ${isRecommended ? 'text-yellow-500' : 'text-white'}">${formatCurrency(rate.totalPrice)}</p>
+            </div>
+          </label>
+        `;
+      }).join('');
+
+      // Event listeners
+      shippingOptions.querySelectorAll('input[name="shipping-rate"]').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const target = e.target as HTMLInputElement;
+          const index = parseInt(target.value);
+          selectShippingRate(sortedRates[index]);
+          
+          shippingOptions.querySelectorAll('.shipping-option').forEach(opt => {
+            opt.classList.remove('border-yellow-500', 'bg-yellow-500/10');
+            opt.classList.add('border-gray-600', 'bg-gray-700/30');
+          });
+          target.closest('.shipping-option')?.classList.remove('border-gray-600', 'bg-gray-700/30');
+          target.closest('.shipping-option')?.classList.add('border-yellow-500', 'bg-yellow-500/10');
+        });
       });
+
+      if (sortedRates.length > 0) {
+        selectShippingRate(sortedRates[0]);
+      }
+    }
+
+    function selectShippingRate(rate: ShippingRate) {
+      const postalCode = shippingPostalCodeInput?.value || '';
+      
+      selectedShipping = {
+        carrier: rate.carrier,
+        service: rate.service,
+        price: rate.totalPrice,
+        deliveryDays: rate.deliveryDays,
+        postalCode
+      };
+
+      // Actualizar UI
+      if (selectedShippingInfo) {
+        selectedShippingInfo.classList.remove('hidden');
+        if (selectedCarrierName) selectedCarrierName.textContent = `${rate.carrier} - ${rate.service}`;
+        if (selectedDeliveryDays) selectedDeliveryDays.textContent = `Entrega en ${rate.deliveryDays} día${rate.deliveryDays !== 1 ? 's' : ''} hábil${rate.deliveryDays !== 1 ? 'es' : ''}`;
+        if (selectedShippingPrice) selectedShippingPrice.textContent = formatCurrency(rate.totalPrice);
+      }
+
+      // Guardar en localStorage - CRÍTICO para el checkout
+      try {
+        const dataToSave = JSON.stringify(selectedShipping);
+        localStorage.setItem('selectedShipping', dataToSave);
+        console.log('💾 Envío guardado en localStorage:', dataToSave);
+        
+        // Verificación inmediata
+        const saved = localStorage.getItem('selectedShipping');
+        if (saved === dataToSave) {
+          console.log('✅ Verificado: datos guardados correctamente');
+        } else {
+          console.error('❌ Error: datos no coinciden después de guardar');
+        }
+      } catch (error) {
+        console.error('❌ Error guardando en localStorage:', error);
+      }
+      
+      updateTotal();
+      console.log('📦 Envío seleccionado:', selectedShipping);
+    }
+
+    async function calculateShippingRates() {
+      const postalCode = shippingPostalCodeInput?.value?.trim() || '';
+      
+      console.log('🚀 Calculando envío...', { postalCode, originPostalCode, estimatedWeight });
+      
+      if (!validatePostalCode(postalCode)) {
+        showShippingError('Ingresa un código postal válido de 5 dígitos');
+        return;
+      }
+
+      hideShippingError();
+      setShippingLoading(true);
+
+      try {
+        // Calcular dimensiones basadas en cantidad de items
+        const baseDimension = 15;
+        const additionalPerItem = 2;
+        const length = baseDimension + (totalItems * additionalPerItem);
+        
+        const requestData = {
+          originPostalCode: originPostalCode,
+          destinationPostalCode: postalCode,
+          weight: Math.max(1, estimatedWeight), // Mínimo 1kg para evitar errores
+          length: Math.min(length, 50),
+          width: 15,
+          height: 10
+        };
+        
+        console.log('📤 Request:', requestData);
+        
+        const result = await actions.getShippingRates(requestData);
+        
+        console.log('📥 Respuesta:', result);
+
+        if (result.error) {
+          console.error('❌ Error de Action:', result.error);
+          showShippingError('No pudimos obtener las tarifas. Intenta de nuevo.');
+          return;
+        }
+
+        const data = result.data;
+
+        if (!data?.success || !data?.rates || data.rates.length === 0) {
+          console.warn('⚠️ Sin tarifas:', data?.error || 'Sin datos');
+          showShippingError(data?.error || 'No hay opciones de envío disponibles para ese código postal.');
+          return;
+        }
+
+        console.log('✅ Tarifas recibidas:', data.rates.length);
+        shippingRates = data.rates;
+        
+        if (postalCodeValidation) postalCodeValidation.classList.remove('hidden');
+        if (shippingResults) shippingResults.classList.remove('hidden');
+        
+        renderShippingOptions(shippingRates);
+
+      } catch (err) {
+        console.error('❌ Error:', err);
+        showShippingError('Error de conexión. Verifica tu internet e intenta de nuevo.');
+      } finally {
+        setShippingLoading(false);
+      }
+    }
+
+    function clearShipping() {
+      selectedShipping = null;
+      shippingRates = [];
+      
+      if (shippingPostalCodeInput) shippingPostalCodeInput.value = '';
+      if (postalCodeValidation) postalCodeValidation.classList.add('hidden');
+      if (shippingResults) shippingResults.classList.add('hidden');
+      if (selectedShippingInfo) selectedShippingInfo.classList.add('hidden');
+      
+      localStorage.removeItem('selectedShipping');
+      updateTotal();
+    }
+
+    // ============================================
+    // EVENT LISTENERS - ENVÍO
+    // ============================================
+
+    shippingPostalCodeInput?.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      target.value = target.value.replace(/\D/g, '').slice(0, 5);
+      if (postalCodeValidation) postalCodeValidation.classList.add('hidden');
+      hideShippingError();
     });
 
-    closeModal?.addEventListener('click', () => {
-      if (imageModal) {
-        imageModal.classList.add('hidden');
-        imageModal.classList.remove('flex');
-        document.body.style.overflow = '';
+    shippingPostalCodeInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        calculateShippingRates();
       }
     });
 
-    imageModal?.addEventListener('click', (e) => {
-      if (e.target === imageModal) {
-        imageModal.classList.add('hidden');
-        imageModal.classList.remove('flex');
-        document.body.style.overflow = '';
-      }
-    });
+    calculateShippingBtn?.addEventListener('click', calculateShippingRates);
+    clearShippingBtn?.addEventListener('click', clearShipping);
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && imageModal && !imageModal.classList.contains('hidden')) {
-        imageModal.classList.add('hidden');
-        imageModal.classList.remove('flex');
-        document.body.style.overflow = '';
-      }
-    });
+    // ============================================
+    // EVENT LISTENERS - CARRITO
+    // ============================================
 
+    // Eliminar productos
     const removeButtons = document.querySelectorAll('.remove-item');
     removeButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const target = e.currentTarget as HTMLButtonElement;
         if (!target) return;
         
@@ -328,14 +711,27 @@ const total = subtotal + 0;
         const variantId = target.dataset.variantId || undefined;
         const combinationId = target.dataset.combinationId || undefined;
         
-        const cart = CartCookiesClient.removeItem(productId, variantId, combinationId);
-        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-        itemsInCart.set(totalItems);
-        
-        navigate('/cart');
+        const result = await Swal.fire({
+          title: '¿Eliminar producto?',
+          text: 'Se eliminará este producto del carrito',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#eab308',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+          const cart = CartCookiesClient.removeItem(productId, variantId, combinationId);
+          const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+          itemsInCart.set(totalItems);
+          navigate('/cart');
+        }
       });
     });
     
+    // Cambiar cantidad
     const qtySelectors = document.querySelectorAll('.qty-selector');
     qtySelectors.forEach(select => {
       select.addEventListener('change', (e) => {
@@ -351,138 +747,133 @@ const total = subtotal + 0;
           const cart = CartCookiesClient.updateItemQuantity(productId, quantity, variantId, combinationId);
           const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
           itemsInCart.set(totalItems);
-          
           navigate('/cart');
         }
       });
     });
     
+    // Vaciar carrito
     const clearCartBtn = document.getElementById('clear-cart-btn');
-    if (clearCartBtn) {
-      clearCartBtn.addEventListener('click', async () => {
-        try {
-          const result = await Swal.fire({
-            title: '¿Vaciar el carrito?',
-            text: "Se eliminarán todos los productos del carrito",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Sí, vaciar',
-            cancelButtonText: 'Cancelar',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-          });
+    clearCartBtn?.addEventListener('click', async () => {
+      const result = await Swal.fire({
+        title: '¿Vaciar el carrito?',
+        text: 'Se eliminarán todos los productos',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, vaciar',
+        cancelButtonText: 'Cancelar'
+      });
 
-          if (result.isConfirmed) {
-            CartCookiesClient.clearCart();
-            itemsInCart.set(0);
-            
-            await Swal.fire({
-              title: '¡Carrito vaciado!',
-              text: 'Todos los productos han sido eliminados.',
-              icon: 'success',
-              timer: 1500,
-              showConfirmButton: false,
-              allowOutsideClick: false
-            });
-            
-            navigate('/cart');
-          }
-        } catch (error) {
-          console.error('Error al vaciar carrito:', error);
-        }
-      });
-    }
+      if (result.isConfirmed) {
+        CartCookiesClient.clearCart();
+        itemsInCart.set(0);
+        localStorage.removeItem('selectedShipping');
+        
+        await Swal.fire({
+          title: '¡Carrito vaciado!',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        
+        navigate('/cart');
+      }
+    });
     
-    const checkoutBtn = document.querySelector('#checkout-btn');
-    if (checkoutBtn) {
-      checkoutBtn.addEventListener('click', () => {
-        navigate('/checkout');
-      });
+    // Checkout
+    checkoutBtn?.addEventListener('click', () => {
+      if (!selectedShipping) {
+        Swal.fire({
+          title: 'Selecciona un método de envío',
+          text: 'Por favor calcula el costo de envío antes de continuar',
+          icon: 'info',
+          confirmButtonColor: '#eab308',
+          confirmButtonText: 'Entendido'
+        });
+        shippingPostalCodeInput?.focus();
+        return;
+      }
+      
+      navigate('/checkout');
+    });
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+
+    // Cargar envío guardado
+    const savedShipping = localStorage.getItem('selectedShipping');
+    if (savedShipping && shippingPostalCodeInput) {
+      try {
+        const shipping = JSON.parse(savedShipping);
+        if (shipping.postalCode) {
+          shippingPostalCodeInput.value = shipping.postalCode;
+          setTimeout(() => calculateShippingRates(), 300);
+        }
+      } catch (e) {
+        console.log('No hay envío guardado');
+      }
     }
+
+    console.log('✅ Carrito inicializado');
   }
 
   document.addEventListener('astro:page-load', () => {
-    if (typeof Swal !== 'undefined') {
-      initializeCart();
-    } else {
-      setTimeout(() => {
-        initializeCart();
-      }, 100);
-    }
+    setTimeout(() => initializeCart(), 100);
   });
 </script>
 
 <style>
-  .object-contain {
-    object-fit: contain;
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
   }
   
-  .hover\:shadow-xl {
-    transition: box-shadow 0.3s ease;
-  }
-
-  .transition-transform {
-    transition: transform 0.3s ease;
-  }
-
-  .hover\:scale-105:hover {
-    transform: scale(1.05);
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(75, 85, 99, 0.3);
+    border-radius: 3px;
   }
   
-  .bg-yellow-50 {
-    background-color: #fefce8;
-  }
-
-  .border-l-4 {
-    border-left-width: 4px;
-  }
-
-  .border-yellow-500 {
-    border-color: #eab308;
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(234, 179, 8, 0.5);
+    border-radius: 3px;
   }
   
-  @media (max-width: 768px) {
-    .flex-col.md\:flex-row {
-      flex-direction: column;
-    }
-    
-    .w-full.md\:w-48 {
-      width: 100%;
-      height: 200px;
-    }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(234, 179, 8, 0.7);
+  }
+
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
   }
   
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   :global(.swal2-container) {
     z-index: 99999 !important;
   }
   
   :global(.swal2-popup) {
-    font-family: inherit;
+    background: #1f2937 !important;
+    color: #f3f4f6 !important;
   }
-
-  #image-modal {
-    animation: fadeIn 0.2s ease-out;
+  
+  :global(.swal2-title) {
+    color: #f3f4f6 !important;
   }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  #modal-image {
-    animation: zoomIn 0.3s ease-out;
-  }
-
-  @keyframes zoomIn {
-    from {
-      transform: scale(0.9);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1);
-      opacity: 1;
-    }
+  
+  :global(.swal2-html-container) {
+    color: #9ca3af !important;
   }
 </style>

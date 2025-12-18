@@ -1,8 +1,15 @@
 ---
+// src/components/CheckoutForm.astro
 import { Formatter } from '../utils';
 import { CartCookiesClient } from '@/utils/cart-cookies';
 import { actions } from 'astro:actions';
+import { getSession } from 'auth-astro/server';
 
+// ✅ Obtener sesión del usuario
+const session = await getSession(Astro.request);
+const userEmail = session?.user?.email || '';
+const userName = session?.user?.name || '';
+const isAuthenticated = !!session?.user;
 
 // Obtener productos del carrito desde cookies
 const cartItems = CartCookiesClient.getCart();
@@ -11,208 +18,464 @@ const { data: products, error } = await Astro.callAction(
   cartItems
 );
 
-// AÑADIDO: Obtener la lista de clientes
-
 if (error || !products) {
   return Astro.redirect('/');
 }
 
-// Calcular totales
-const subtotal = products.reduce((sum, p) => sum + p.price * p.quantity, 0);
-const tax = subtotal * 0.15;
-const total = subtotal + 0;
+// Calcular totales (sin envío - se agregará en cliente)
+const subtotal = products.reduce((sum, p) => {
+  const price = p.variantPrice ?? p.price;
+  return sum + price * p.quantity;
+}, 0);
+
+const tax = 0; // Sin impuestos adicionales
+const total = subtotal; // El envío se suma en el cliente
 
 // Generar datos de productos para el cliente
 const productsData = products.map(p => ({ 
   id: p.productId, 
   name: p.name, 
-  price: p.price, 
+  price: p.variantPrice ?? p.price, 
   quantity: p.quantity,
-  image: p.image || ''
+  image: p.image || '',
+  variantCombination: p.variantCombination || null,
+  variantSku: p.variantSku || null
 }));
 
-
-
+// Calcular peso estimado para mostrar info
+const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
 ---
-<div class="bg-gradient-to-br from-gray-100 via-white to-gray-100 p-6 md:p-12 rounded-3xl shadow-2xl">
+
+<div class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6 md:p-12 rounded-3xl shadow-2xl border border-gray-700">
   <div class="md:max-w-5xl max-w-xl mx-auto">
-     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-12">
+    
+    {/* Mensaje si el usuario está logueado */}
+    {isAuthenticated && (
+      <div class="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+        <p class="text-green-400 text-sm">
+          <span class="font-semibold">✓ Comprando como:</span> {userName} ({userEmail})
+        </p>
+        <p class="text-green-500/70 text-xs mt-1">
+          Tu pedido se asociará a tu cuenta y podrás verlo en "Mis Pedidos"
+        </p>
+      </div>
+    )}
+
+    {!isAuthenticated && (
+      <div class="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+        <p class="text-yellow-400 text-sm">
+          <span class="font-semibold">💡 Tip:</span> 
+          <a href="/auth/login" class="underline hover:text-yellow-300">Inicia sesión</a> para poder dar seguimiento a tu pedido en "Mis Pedidos"
+        </p>
+      </div>
+    )}
+
+    {/* ✅ ALERTA SI NO HAY ENVÍO SELECCIONADO */}
+    <div id="shipping-warning" class="hidden mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+      <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <div>
+          <p class="text-red-400 font-semibold">No has seleccionado método de envío</p>
+          <p class="text-red-400/70 text-sm mt-1">
+            Por favor, <a href="/cart" class="underline hover:text-red-300">regresa al carrito</a> y calcula el costo de envío antes de continuar.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
       <!-- Formulario de Pago -->
       <div class="lg:col-span-2 order-2 md:order-1">
-        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Realizar pago</h2>
-        <p class="text-sm md:text-base text-gray-600 mb-6">Completa tu transacción rápida y segura con nuestro proceso de pago premium.</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mb-3">Realizar pago</h2>
+        <p class="text-sm md:text-base text-gray-400 mb-6">Completa tu transacción de forma rápida y segura.</p>
 
         <!-- Formulario de Dirección de Envío -->
-      <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
-          <h3 class="text-xl md:text-2xl font-semibold text-gray-900 mb-5">Dirección de envío</h3>
+        <div class="bg-gray-800/50 backdrop-blur-sm p-6 md:p-8 rounded-2xl border border-gray-700">
+          <h3 class="text-xl md:text-2xl font-semibold text-white mb-5 flex items-center gap-2">
+            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Dirección de envío
+          </h3>
+          
+          {/* ✅ Info del envío seleccionado */}
+          <div id="shipping-info-display" class="hidden mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-white" id="display-carrier">-</p>
+                  <p class="text-xs text-gray-400" id="display-delivery">-</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-lg font-bold text-yellow-500" id="display-shipping-price">-</p>
+                <a href="/cart" class="text-xs text-gray-400 hover:text-yellow-500 transition">Cambiar</a>
+              </div>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Calle y número</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Calle y número *</label>
               <input 
                 type="text" 
                 id="street-address"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-800"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                placeholder="Ej: Av. Reforma 123"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Colonia</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Colonia *</label>
               <input 
                 type="text" 
                 id="neighborhood"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                placeholder="Ej: Centro"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Ciudad *</label>
               <input 
                 type="text" 
                 id="city"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                placeholder="Ej: Ciudad de México"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Estado *</label>
               <input 
                 type="text" 
                 id="state"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                placeholder="Ej: CDMX"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Código Postal *</label>
               <input 
                 type="text" 
                 id="postal-code"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                placeholder="Ej: 06600"
+                maxlength="5"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">País</label>
+              <label class="block text-sm font-medium text-gray-300 mb-1">País</label>
               <input 
                 type="text" 
                 id="country"
                 value="México"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500  bg-white text-gray-800"
+                class="w-full px-4 py-3 bg-gray-700/30 border border-gray-600 rounded-lg text-gray-400 cursor-not-allowed"
                 readonly
               />
             </div>
 
             <div class="col-span-full">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
-            <input 
-              type="email" 
-              id="email"
-              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:border-purple-500 focus:ring-purple-500 bg-white text-gray-800"
-              required
-            />
-          </div>
+              <label class="block text-sm font-medium text-gray-300 mb-1">Correo Electrónico *</label>
+              <input 
+                type="email" 
+                id="email"
+                value={userEmail}
+                class:list={[
+                  "w-full px-4 py-3 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500",
+                  isAuthenticated ? "bg-gray-700/30 cursor-not-allowed" : "bg-gray-700/50"
+                ]}
+                placeholder="tu@email.com"
+                readonly={isAuthenticated}
+                required
+              />
+              {isAuthenticated && (
+                <p class="text-xs text-gray-500 mt-1">
+                  Este es el email de tu cuenta. No puede ser modificado.
+                </p>
+              )}
+            </div>
+
+            <div class="col-span-full">
+              <label class="block text-sm font-medium text-gray-300 mb-1">Teléfono de contacto *</label>
+              <input 
+                type="tel" 
+                id="phone"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                placeholder="Ej: 55 1234 5678"
+                required
+              />
+            </div>
+
+            <div class="col-span-full">
+              <label class="block text-sm font-medium text-gray-300 mb-1">Notas de entrega (opcional)</label>
+              <textarea 
+                id="delivery-notes"
+                rows="2"
+                class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500 resize-none"
+                placeholder="Ej: Dejar con el portero, timbre 2B, referencias..."
+              ></textarea>
+            </div>
           </div>
         </div>
- <!-- fin formulario -->
         
         <!-- Método de Pago -->
-        <div class="mt-10 bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
-          <h3 class="text-xl md:text-2xl font-semibold text-gray-900 mb-5">Elige tu método de pago</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <label class="flex items-center p-4 border-2 border-transparent rounded-xl cursor-pointer transition hover:border-yellow-500 hover:bg-yellow-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-100">
-              <input id="card" type="radio" name="payment-method" class="w-5 h-5 text-yellow-600 border-gray-300 bg-white peer" />
-              <div class="ml-4 flex gap-3">
-                <img src="https://readymadeui.com/images/visa.webp" alt="Visa" class="w-12" />
-                <img src="https://readymadeui.com/images/american-express.webp" alt="AmEx" class="w-12" />
-                <img src="https://readymadeui.com/images/master.webp" alt="Mastercard" class="w-12" />
+        <div class="mt-8 bg-gray-800/50 backdrop-blur-sm p-6 md:p-8 rounded-2xl border border-gray-700">
+          <h3 class="text-xl md:text-2xl font-semibold text-white mb-5 flex items-center gap-2">
+            <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            Método de pago
+          </h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="payment-option flex items-center p-4 border-2 border-gray-600 rounded-xl cursor-pointer transition-all hover:border-yellow-500/50 hover:bg-yellow-500/5">
+              <input id="card" type="radio" name="payment-method" class="w-5 h-5 text-yellow-500 border-gray-500 bg-gray-700 focus:ring-yellow-500" />
+              <div class="ml-4 flex items-center gap-2">
+                <img src="https://readymadeui.com/images/visa.webp" alt="Visa" class="h-6" />
+                <img src="https://readymadeui.com/images/master.webp" alt="Mastercard" class="h-6" />
               </div>
+              <span class="ml-auto text-sm text-gray-400">Tarjeta</span>
             </label>
-            <label class="flex items-center p-4 border-2 border-transparent rounded-xl cursor-pointer transition hover:border-yellow-500 hover:bg-yellow-50 peer-checked:border-yellow-500 peer-checked:bg-yellow-100">
-              <input id="paypal" type="radio" name="payment-method" class="w-5 h-5 text-yellow-600 border-gray-300 bg-white peer" />
-              <img src="https://readymadeui.com/images/paypal.webp" alt="PayPal" class="ml-4 w-24" />
+            <label class="payment-option flex items-center p-4 border-2 border-gray-600 rounded-xl cursor-pointer transition-all hover:border-yellow-500/50 hover:bg-yellow-500/5">
+              <input id="paypal" type="radio" name="payment-method" class="w-5 h-5 text-yellow-500 border-gray-500 bg-gray-700 focus:ring-yellow-500" />
+              <img src="https://readymadeui.com/images/paypal.webp" alt="PayPal" class="ml-4 h-6" />
+              <span class="ml-auto text-sm text-gray-400">PayPal</span>
             </label>
           </div>
 
           <!-- Formulario Tarjeta (Stripe) -->
-          <div id="card-form" class="mt-8 hidden">
-            <form id="payment-form" class="grid gap-6">
-              <input
-                type="text"
-                placeholder="Nombre del titular"
-                class="px-5 py-4 bg-gray-50 border border-gray-300 rounded-lg focus:border-yellow-500 focus:ring-yellow-200 text-gray-800"
-                required
-              />
-              <div id="card-element" class="StripeElement p-4 bg-gray-50 border border-gray-300 rounded-lg"></div>
-              <div id="card-errors" class="text-red-600 text-sm mt-2" role="alert"></div>
+          <div id="card-form" class="mt-6 hidden">
+            <form id="payment-form" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Nombre del titular</label>
+                <input
+                  type="text"
+                  id="card-holder-name"
+                  placeholder="Como aparece en la tarjeta"
+                  class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:border-yellow-500 focus:ring-yellow-500 text-white placeholder-gray-500"
+                  required
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Datos de la tarjeta</label>
+                <div id="card-element" class="p-4 bg-gray-700/50 border border-gray-600 rounded-lg"></div>
+              </div>
+              <div id="card-errors" class="text-red-400 text-sm" role="alert"></div>
               <button
                 type="button"
                 id="submit-card-payment"
-                class="mt-6 w-full py-4 font-semibold bg-yellow-600 text-white uppercase rounded-lg hover:bg-yellow-700 transition"
+                class="w-full py-4 font-bold bg-yellow-500 hover:bg-yellow-400 text-gray-900 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Pagar Ahora
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span id="card-btn-text">Pagar ahora</span>
               </button>
             </form>
           </div>
 
           <!-- Contenedor PayPal -->
-          <div id="paypal-container" class="mt-8 hidden">
-            <div id="paypal-button-container"></div>
+          <div id="paypal-container" class="mt-6 hidden">
+            <div id="paypal-button-container" class="min-h-[150px]"></div>
+          </div>
+        </div>
+
+        <!-- Seguridad -->
+        <div class="mt-6 flex items-center justify-center gap-4 text-gray-500 text-sm">
+          <div class="flex items-center gap-1">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+            </svg>
+            Pago seguro SSL
+          </div>
+          <div class="flex items-center gap-1">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            Datos protegidos
           </div>
         </div>
       </div>
 
       <!-- Resumen de Compra -->
-      <aside class="order-1 md:order-2 bg-white p-8 rounded-2xl shadow-xl border border-gray-200 sticky top-8">
-        <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Resumen de tu compra</h2>
-        <ul class="space-y-4 text-gray-700">
-          {products.map(p => (
-            <li class="flex justify-between">
-              <span class="font-medium">{p.name} x{p.quantity}</span>
-              <span class="font-semibold">{Formatter.currency(p.price * p.quantity)}</span>
-            </li>
-          ))}
-          <li class="flex justify-between">
-            <span class="text-gray-600">Envio</span>
-            <span class="font-semibold">Por calcular</span>
-          </li>
-          <li class="border-t pt-4 flex justify-between text-lg font-semibold text-gray-900">
-            <span>Total</span>
-            <span>{Formatter.currency(total)}</span>
-          </li>
-        </ul>
+      <aside class="order-1 md:order-2 bg-gray-800/50 backdrop-blur-sm p-6 md:p-8 rounded-2xl border border-gray-700 h-fit sticky top-4">
+        <h2 class="text-xl md:text-2xl font-bold text-white mb-6 flex items-center gap-2">
+          <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Resumen
+        </h2>
+        
+        <!-- Productos -->
+        <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+          {products.map(p => {
+            const displayPrice = p.variantPrice ?? p.price;
+            return (
+              <div class="flex justify-between items-start gap-2 py-2 border-b border-gray-700/50">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-white truncate">{p.name}</p>
+                  {p.variantCombination && (
+                    <p class="text-xs text-gray-400 truncate">{p.variantCombination}</p>
+                  )}
+                  <p class="text-xs text-gray-500">x{p.quantity}</p>
+                </div>
+                <p class="text-sm font-semibold text-white whitespace-nowrap">
+                  {Formatter.currency(displayPrice * p.quantity)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <!-- Totales -->
+        <div class="mt-6 space-y-3">
+          <div class="flex justify-between text-gray-300">
+            <span>Subtotal ({totalItems} {totalItems === 1 ? 'producto' : 'productos'})</span>
+            <span class="font-medium text-white">{Formatter.currency(subtotal)}</span>
+          </div>
+          
+          <!-- Envío -->
+          <div class="flex justify-between text-gray-300">
+            <span>Envío</span>
+            <span id="summary-shipping" class="font-medium text-gray-400">Por calcular</span>
+          </div>
+
+          {/* Info del envío seleccionado en resumen */}
+          <div id="shipping-summary-details" class="hidden p-3 bg-gray-700/30 rounded-lg">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="text-2xl" id="summary-carrier-icon">📦</span>
+              <div class="flex-1">
+                <p class="text-white font-medium" id="summary-carrier-name">-</p>
+                <p class="text-xs text-gray-400" id="summary-delivery-days">-</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-gray-600 pt-3">
+            <div class="flex justify-between items-center">
+              <span class="text-lg font-semibold text-white">Total</span>
+              <span id="summary-total" class="text-2xl font-bold text-yellow-500">{Formatter.currency(total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botón de regreso -->
+        <a 
+          href="/cart" 
+          class="mt-6 w-full py-3 border border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 rounded-xl transition-all flex items-center justify-center gap-2"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Volver al carrito
+        </a>
       </aside>
     </div>
   </div>
 </div>
 
-
 <style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(75, 85, 99, 0.3);
+    border-radius: 2px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(234, 179, 8, 0.5);
+    border-radius: 2px;
+  }
+
+  .payment-option:has(input:checked) {
+    border-color: rgb(234 179 8);
+    background-color: rgba(234, 179, 8, 0.1);
+  }
+
+  #card-element {
+    min-height: 44px;
+  }
+  
   .StripeElement {
     box-sizing: border-box;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background-color: #fafafa;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    transition: box-shadow 0.2s ease;
   }
-  .StripeElement--focus { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-  .StripeElement--invalid { border-color: #e53e3e; }
+  
+  .StripeElement--focus {
+    border-color: rgb(234 179 8);
+  }
+  
+  .StripeElement--invalid {
+    border-color: rgb(239 68 68);
+  }
+
+  :global(.swal2-container) {
+    z-index: 99999 !important;
+  }
+  
+  :global(.swal2-popup) {
+    background: #1f2937 !important;
+    color: #f3f4f6 !important;
+    border: 1px solid #374151 !important;
+  }
+  
+  :global(.swal2-title) {
+    color: #f3f4f6 !important;
+  }
+  
+  :global(.swal2-html-container) {
+    color: #9ca3af !important;
+  }
 </style>
 
-
 <script>
-  // Importar SweetAlert2 y otras dependencias
   import { CartCookiesClient } from '@/utils/cart-cookies';
   import { loadScript } from '@paypal/paypal-js';
   import { loadStripe } from '@stripe/stripe-js';
-  import type { Stripe, StripeCardElement, StripeElements } from '@stripe/stripe-js';
+  import type { Stripe, StripeCardElement } from '@stripe/stripe-js';
   import Swal from 'sweetalert2';
   import { navigate } from 'astro:transitions/client';
   import { generateAndPrintTicket } from '@/services/ticketGenerator';
   import { actions } from 'astro:actions';
 
-  // Definir Formatter para el cliente
+  // ============================================
+  // INTERFACES
+  // ============================================
+
+  interface SelectedShipping {
+    carrier: string;
+    service: string;
+    price: number;
+    deliveryDays: number;
+    postalCode: string;
+  }
+
+  interface CartProduct {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image?: string;
+    variantCombination?: string;
+    variantSku?: string;
+  }
+
+  // ============================================
+  // UTILIDADES
+  // ============================================
+
   const Formatter = {
     currency: (value: number) => {
       return new Intl.NumberFormat('es-MX', {
@@ -224,769 +487,941 @@ const productsData = products.map(p => ({
     }
   };
 
-type Product = {
-      name: string;
-      quantity: number;
-      price: number;
+  function getCarrierIcon(carrier: string): string {
+    const icons: Record<string, string> = {
+      'fedex': '🚚',
+      'dhl': '📦',
+      'estafeta': '📫',
+      'redpack': '🔴',
+      'ups': '🟤',
+      'paquetexpress': '📬',
+      '99minutos': '⚡',
+      'sendex': '✉️'
     };
+    return icons[carrier.toLowerCase()] || '📦';
+  }
 
+  // ============================================
+  // VARIABLES GLOBALES
+  // ============================================
 
+  let stripe: Stripe | null = null;
+  let cardElement: StripeCardElement | null = null;
+  let selectedShipping: SelectedShipping | null = null;
+  let subtotalValue: number = 0;
 
-let stripe: Stripe | null = null;
-let cardElement: StripeCardElement | null = null;
-let isPaypalSdkLoaded = false;
+  // ============================================
+  // FUNCIONES DE ENVÍO
+  // ============================================
 
+  function loadShippingInfo() {
+    console.log('🔍 Buscando información de envío en localStorage...');
+    
+    // Intentar obtener del localStorage
+    let savedShipping: string | null = null;
+    
+    try {
+      savedShipping = localStorage.getItem('selectedShipping');
+      console.log('📦 localStorage selectedShipping:', savedShipping);
+    } catch (e) {
+      console.error('❌ Error accediendo localStorage:', e);
+    }
+    
+    const shippingWarning = document.getElementById('shipping-warning');
+    const shippingInfoDisplay = document.getElementById('shipping-info-display');
+    const shippingSummaryDetails = document.getElementById('shipping-summary-details');
+    
+    if (!savedShipping) {
+      console.warn('⚠️ No hay envío guardado en localStorage');
+      // Mostrar advertencia
+      if (shippingWarning) shippingWarning.classList.remove('hidden');
+      if (shippingInfoDisplay) shippingInfoDisplay.classList.add('hidden');
+      if (shippingSummaryDetails) shippingSummaryDetails.classList.add('hidden');
+      selectedShipping = null;
+      updateTotals();
+      return;
+    }
 
-// Función para inicializar Stripe y los elementos de pago
-async function initializeStripe() {
+    try {
+      const parsed: SelectedShipping = JSON.parse(savedShipping);
+      console.log('✅ Envío parseado:', parsed);
+      
+      // Validar que tenga los campos necesarios
+      if (!parsed || typeof parsed.price !== 'number' || !parsed.carrier) {
+        console.warn('⚠️ Datos de envío inválidos:', parsed);
+        if (shippingWarning) shippingWarning.classList.remove('hidden');
+        selectedShipping = null;
+        updateTotals();
+        return;
+      }
+
+      // Asignar a variable global
+      selectedShipping = {
+        carrier: parsed.carrier,
+        service: parsed.service,
+        price: parsed.price,
+        deliveryDays: parsed.deliveryDays,
+        postalCode: parsed.postalCode
+      };
+      
+      console.log('✅ Envío asignado a variable global:', selectedShipping);
+
+      // Ocultar advertencia
+      if (shippingWarning) {
+        shippingWarning.classList.add('hidden');
+        console.log('✅ Advertencia ocultada');
+      }
+
+      // Mostrar info en formulario
+      if (shippingInfoDisplay && selectedShipping) {
+        shippingInfoDisplay.classList.remove('hidden');
+        
+        const displayCarrier = document.getElementById('display-carrier');
+        const displayDelivery = document.getElementById('display-delivery');
+        const displayShippingPrice = document.getElementById('display-shipping-price');
+        
+        const shipping = selectedShipping; // Variable local para TypeScript
+        if (displayCarrier) displayCarrier.textContent = `${shipping.carrier} - ${shipping.service}`;
+        if (displayDelivery) displayDelivery.textContent = `Entrega en ${shipping.deliveryDays} día${shipping.deliveryDays !== 1 ? 's' : ''} hábil${shipping.deliveryDays !== 1 ? 'es' : ''}`;
+        if (displayShippingPrice) displayShippingPrice.textContent = Formatter.currency(shipping.price);
+        
+        console.log('✅ Info de envío mostrada en formulario');
+      }
+
+      // Mostrar info en resumen
+      if (shippingSummaryDetails && selectedShipping) {
+        shippingSummaryDetails.classList.remove('hidden');
+        
+        const summaryCarrierIcon = document.getElementById('summary-carrier-icon');
+        const summaryCarrierName = document.getElementById('summary-carrier-name');
+        const summaryDeliveryDays = document.getElementById('summary-delivery-days');
+        
+        const shipping = selectedShipping; // Variable local para TypeScript
+        if (summaryCarrierIcon) summaryCarrierIcon.textContent = getCarrierIcon(shipping.carrier);
+        if (summaryCarrierName) summaryCarrierName.textContent = shipping.carrier;
+        if (summaryDeliveryDays) summaryDeliveryDays.textContent = `${shipping.deliveryDays} día${shipping.deliveryDays !== 1 ? 's' : ''} hábil${shipping.deliveryDays !== 1 ? 'es' : ''}`;
+        
+        console.log('✅ Info de envío mostrada en resumen');
+      }
+
+      // Pre-llenar código postal si está disponible
+      if (selectedShipping) {
+        const shipping = selectedShipping; // Variable local para TypeScript
+        const postalCodeInput = document.getElementById('postal-code') as HTMLInputElement;
+        if (postalCodeInput && shipping.postalCode && !postalCodeInput.value) {
+          postalCodeInput.value = shipping.postalCode;
+          console.log('✅ CP pre-llenado:', shipping.postalCode);
+        }
+      }
+
+      updateTotals();
+      console.log('📦 Envío cargado exitosamente:', selectedShipping);
+
+    } catch (e) {
+      console.error('❌ Error parsing shipping info:', e);
+      if (shippingWarning) shippingWarning.classList.remove('hidden');
+      selectedShipping = null;
+      updateTotals();
+    }
+  }
+
+  function updateTotals() {
+    const subtotalElement = document.getElementById('subtotal-data');
+    subtotalValue = parseFloat(subtotalElement?.textContent || '0');
+    
+    const shippingPrice = selectedShipping?.price || 0;
+    const total = subtotalValue + shippingPrice;
+
+    // Actualizar envío en resumen
+    const summaryShipping = document.getElementById('summary-shipping');
+    if (summaryShipping) {
+      if (selectedShipping) {
+        summaryShipping.textContent = Formatter.currency(shippingPrice);
+        summaryShipping.className = 'font-medium text-yellow-500';
+      } else {
+        summaryShipping.textContent = 'Por calcular';
+        summaryShipping.className = 'font-medium text-gray-400';
+      }
+    }
+
+    // Actualizar total
+    const summaryTotal = document.getElementById('summary-total');
+    if (summaryTotal) {
+      summaryTotal.textContent = Formatter.currency(total);
+    }
+
+    // Actualizar dato oculto
+    const totalDataElement = document.getElementById('total-data');
+    if (totalDataElement) {
+      totalDataElement.textContent = total.toString();
+    }
+  }
+
+  // ============================================
+  // STRIPE
+  // ============================================
+
+  async function initializeStripe() {
     const cardElementContainer = document.getElementById('card-element');
     if (!cardElementContainer) return;
 
-    // Si el elemento ya está montado en este contenedor, no hacer nada.
-    if (cardElement && cardElementContainer.childElementCount > 0) return;
+    // Evitar reinicialización
+    if (cardElement && cardElementContainer.querySelector('.StripeElement')) {
+      console.log('ℹ️ Stripe ya inicializado');
+      return;
+    }
 
     try {
-      cardElementContainer.innerHTML = '<div class="stripe-loader">Cargando pasarela de pago...</div>';
+      cardElementContainer.innerHTML = '<div class="text-gray-400 text-sm animate-pulse">Cargando pasarela de pago...</div>';
       
-      // Cargar Stripe solo una vez.
       if (!stripe) {
-        if (!import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
+        const publicKey = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
+        if (!publicKey) {
           throw new Error('La clave pública de Stripe no está configurada.');
         }
-        const stripeInstance = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
+        const stripeInstance = await loadStripe(publicKey);
         if (!stripeInstance) throw new Error('No se pudo cargar Stripe');
         stripe = stripeInstance;
       }
       
-      const elements = stripe.elements();
+      const elements = stripe.elements({
+        locale: 'es'
+      });
+      
       cardElement = elements.create('card', {
         style: {
           base: {
-            color: '#32325d',
-            fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+            color: '#ffffff',
+            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
             fontSize: '16px',
-            '::placeholder': { color: '#aab7c4' }
+            fontSmoothing: 'antialiased',
+            '::placeholder': { color: '#6b7280' },
+            iconColor: '#eab308'
           },
-          invalid: { color: '#fa755a', iconColor: '#fa755a' }
+          invalid: { 
+            color: '#ef4444', 
+            iconColor: '#ef4444' 
+          }
         },
-        hidePostalCode: true 
+        hidePostalCode: true // Ya tenemos el CP en el formulario
       });
 
-      // Limpiar el contenedor y montar el nuevo elemento.
       cardElementContainer.innerHTML = '';
       cardElement.mount(cardElementContainer);
 
       cardElement.on('change', (event) => {
         const displayError = document.getElementById('card-errors');
-        if (displayError) displayError.textContent = event.error ? event.error.message : '';
+        if (displayError) {
+          displayError.textContent = event.error ? event.error.message : '';
+        }
+        
+        // Habilitar/deshabilitar botón según validez
+        const submitBtn = document.getElementById('submit-card-payment') as HTMLButtonElement;
+        if (submitBtn) {
+          submitBtn.disabled = !event.complete;
+        }
+      });
+
+      cardElement.on('ready', () => {
+        console.log('✅ Stripe Card Element listo');
       });
 
     } catch (error) {
-      console.error('Error inicializando Stripe:', error);
-      cardElementContainer.innerHTML = `<div class="stripe-error">Error al cargar la pasarela de pago </div>`;
+      console.error('❌ Error inicializando Stripe:', error);
+      cardElementContainer.innerHTML = `
+        <div class="text-red-400 text-sm p-3 bg-red-500/10 rounded-lg">
+          <p class="font-medium">Error al cargar la pasarela de pago</p>
+          <p class="text-xs mt-1 text-red-400/70">Por favor, recarga la página o intenta más tarde.</p>
+        </div>
+      `;
     }
   }
 
+  async function processCardPayment(): Promise<void> {
+    if (!stripe || !cardElement) {
+      await Swal.fire({
+        title: 'Error',
+        text: 'La pasarela de pago no está lista. Por favor, recarga la página.',
+        icon: 'error',
+        confirmButtonColor: '#eab308'
+      });
+      return;
+    }
 
-  // Función para obtener los datos de forma segura
-function getCheckoutData(): {
-  productsData: CartProduct[];
-  taxValue: number;
-  totalValue: number;
-} | null {
-  const productsDataElement = document.getElementById('products-data');
-  const productsImagesElement = document.getElementById('products-images');
-  const taxDataElement = document.getElementById('tax-data');
-  const totalDataElement = document.getElementById('total-data');
-  
-  if (!productsDataElement || !taxDataElement || !totalDataElement || !productsImagesElement) {
-    console.error('Elementos de datos no encontrados');
-    return null;
+    // Validar formulario
+    const validation = validateForm();
+    if (!validation.valid) {
+      await Swal.fire({
+        title: 'Campos incompletos',
+        html: `Por favor completa:<br><br>• ${validation.missingFields.join('<br>• ')}`,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#eab308'
+      });
+      return;
+    }
+
+    // Obtener datos del formulario
+    const email = (document.getElementById('email') as HTMLInputElement)?.value.trim();
+    const cardHolderName = (document.getElementById('card-holder-name') as HTMLInputElement)?.value.trim();
+    const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value.trim();
+    const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim();
+    const city = (document.getElementById('city') as HTMLInputElement)?.value.trim();
+    const state = (document.getElementById('state') as HTMLInputElement)?.value.trim();
+    const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim();
+    const phone = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
+    const deliveryNotes = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value.trim() || '';
+
+    if (!cardHolderName) {
+      await Swal.fire({
+        title: 'Nombre requerido',
+        text: 'Por favor ingresa el nombre del titular de la tarjeta.',
+        icon: 'warning',
+        confirmButtonColor: '#eab308'
+      });
+      document.getElementById('card-holder-name')?.focus();
+      return;
+    }
+
+    const data = getCheckoutData();
+    if (!data) {
+      await Swal.fire({
+        title: 'Error',
+        text: 'No se encontraron los datos del carrito.',
+        icon: 'error',
+        confirmButtonColor: '#eab308'
+      });
+      return;
+    }
+
+    // Preparar datos de envío
+    const shippingAddress = {
+      line1: streetAddress,
+      line2: neighborhood,
+      city: city,
+      state: state,
+      postal_code: postalCode,
+      country: 'MX',
+      phone: phone
+    };
+
+    // Obtener info de envío
+    const currentShipping = selectedShipping;
+    const shippingCost = currentShipping?.price || 0;
+    const subtotal = data.totalValue - shippingCost;
+
+    // UI: Mostrar procesando
+    const submitBtn = document.getElementById('submit-card-payment') as HTMLButtonElement;
+    const btnText = document.getElementById('card-btn-text');
+    const originalText = btnText?.textContent || 'Pagar ahora';
+    
+    if (submitBtn) submitBtn.disabled = true;
+    if (btnText) btnText.textContent = 'Procesando...';
+
+    let swalInstance: any = null;
+
+    try {
+      swalInstance = Swal.fire({
+        title: 'Procesando pago...',
+        html: `
+          <div class="text-center">
+            <div class="mb-4">
+              <svg class="animate-spin h-12 w-12 text-yellow-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <p class="text-gray-400">Por favor no cierres esta ventana...</p>
+          </div>
+        `,
+        allowOutsideClick: false,
+        showConfirmButton: false
+      });
+
+      // 1. Crear PaymentIntent en el servidor
+      console.log('📤 Creando PaymentIntent...');
+      
+      const paymentIntentResponse = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: data.productsData,
+          subtotal: subtotal,
+          shippingCost: shippingCost,
+          total: data.totalValue,
+          customerEmail: email,
+          customerName: cardHolderName,
+          shippingAddress: shippingAddress,
+          shippingInfo: currentShipping ? {
+            carrier: currentShipping.carrier,
+            service: currentShipping.service,
+            price: currentShipping.price,
+            deliveryDays: currentShipping.deliveryDays
+          } : null
+        })
+      });
+
+      if (!paymentIntentResponse.ok) {
+        const errorData = await paymentIntentResponse.json();
+        throw new Error(errorData.error || 'Error al crear el pago');
+      }
+
+      const { clientSecret, paymentIntentId } = await paymentIntentResponse.json();
+      console.log('✅ PaymentIntent creado:', paymentIntentId);
+
+      // 2. Confirmar el pago con Stripe
+      console.log('💳 Confirmando pago con tarjeta...');
+      
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: cardHolderName,
+            email: email,
+            phone: phone || undefined,
+            address: {
+              line1: streetAddress,
+              line2: neighborhood || undefined,
+              city: city,
+              state: state,
+              postal_code: postalCode,
+              country: 'MX'
+            }
+          }
+        }
+      });
+
+      if (stripeError) {
+        console.error('❌ Error de Stripe:', stripeError);
+        throw new Error(stripeError.message || 'Error al procesar la tarjeta');
+      }
+
+      if (paymentIntent?.status !== 'succeeded') {
+        console.error('❌ Pago no completado:', paymentIntent?.status);
+        throw new Error('El pago no se completó correctamente');
+      }
+
+      console.log('✅ Pago exitoso:', paymentIntent.id);
+
+      // 3. Actualizar stock
+      console.log('📦 Actualizando stock...');
+      await updateProductStock();
+
+      // 4. Crear orden en el sistema
+      console.log('📝 Creando orden...');
+      const order = await createOrder('card', paymentIntent.id);
+
+      // 5. Limpiar carrito y localStorage
+      CartCookiesClient.clearCart();
+      localStorage.removeItem('selectedShipping');
+
+      // 6. Mostrar éxito y redirigir
+      Swal.close();
+      
+      await Swal.fire({
+        title: '¡Pago exitoso!',
+        html: `
+          <div class="text-center">
+            <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-gray-300 mb-2">Tu orden <strong>#${order.orderNumber}</strong> ha sido procesada.</p>
+            <p class="text-sm text-gray-400">Recibirás un correo de confirmación en ${email}</p>
+          </div>
+        `,
+        icon: undefined,
+        confirmButtonText: 'Ver mi pedido',
+        confirmButtonColor: '#eab308',
+        allowOutsideClick: false
+      });
+
+      // Redirigir a página de éxito
+      navigate(`/order-success?order_id=${order.id}`);
+
+    } catch (error) {
+      console.error('❌ Error en el proceso de pago:', error);
+      
+      if (swalInstance) Swal.close();
+      
+      let errorMessage = 'Ocurrió un error al procesar tu pago.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      await Swal.fire({
+        title: 'Error en el pago',
+        text: errorMessage,
+        icon: 'error',
+        confirmButtonText: 'Intentar de nuevo',
+        confirmButtonColor: '#eab308'
+      });
+
+    } finally {
+      // Restaurar botón
+      if (submitBtn) submitBtn.disabled = false;
+      if (btnText) btnText.textContent = originalText;
+    }
   }
-  
-  const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
-  const productsImages = JSON.parse(productsImagesElement.textContent || '[]');
-  const taxValue = parseFloat(taxDataElement.textContent || '0');
-  const totalValue = parseFloat(totalDataElement.textContent || '0');
 
-  // Asegurar estructura correcta de los productos con tipo CartProduct
-  const productsData: CartProduct[] = rawProductsData.map((p: any, index: number) => ({
-    id: p.id || p.productId || "",
-    name: p.name || "",
-    price: p.price || 0,
-    quantity: p.quantity || 1,
-    image: productsImages[index] || ''
-  }));
-  
-  return {
-    productsData,
-    taxValue,
-    totalValue
-  };
-}
+  // ============================================
+  // CHECKOUT DATA
+  // ============================================
 
-  // Función para actualizar la visibilidad de los métodos de pago
-function updatePaymentVisibility() {
+  function getCheckoutData(): {
+    productsData: CartProduct[];
+    taxValue: number;
+    totalValue: number;
+    shippingValue: number;
+  } | null {
+    const productsDataElement = document.getElementById('products-data');
+    const productsImagesElement = document.getElementById('products-images');
+    const taxDataElement = document.getElementById('tax-data');
+    const totalDataElement = document.getElementById('total-data');
+    
+    if (!productsDataElement || !taxDataElement || !totalDataElement) {
+      console.error('Elementos de datos no encontrados');
+      return null;
+    }
+    
+    const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
+    const productsImages = productsImagesElement ? JSON.parse(productsImagesElement.textContent || '[]') : [];
+    const taxValue = parseFloat(taxDataElement.textContent || '0');
+    const totalValue = parseFloat(totalDataElement.textContent || '0');
+    const shippingValue = selectedShipping?.price || 0;
+
+    const productsData: CartProduct[] = rawProductsData.map((p: any, index: number) => ({
+      id: p.id || p.productId || "",
+      name: p.name || "",
+      price: p.price || 0,
+      quantity: p.quantity || 1,
+      image: productsImages[index] || p.image || '',
+      variantCombination: p.variantCombination || null,
+      variantSku: p.variantSku || null
+    }));
+    
+    return {
+      productsData,
+      taxValue,
+      totalValue,
+      shippingValue
+    };
+  }
+
+  // ============================================
+  // VALIDACIÓN
+  // ============================================
+
+  function validateForm(): { valid: boolean; missingFields: string[] } {
+    const missingFields: string[] = [];
+    
+    const email = (document.getElementById('email') as HTMLInputElement)?.value.trim();
+    const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value.trim();
+    const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim();
+    const city = (document.getElementById('city') as HTMLInputElement)?.value.trim();
+    const state = (document.getElementById('state') as HTMLInputElement)?.value.trim();
+    const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim();
+    const phone = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
+    
+    if (!email) missingFields.push('Correo Electrónico');
+    if (!streetAddress) missingFields.push('Calle y número');
+    if (!neighborhood) missingFields.push('Colonia');
+    if (!city) missingFields.push('Ciudad');
+    if (!state) missingFields.push('Estado');
+    if (!postalCode) missingFields.push('Código Postal');
+    if (!phone) missingFields.push('Teléfono');
+    
+    // Validar que haya envío seleccionado
+    if (!selectedShipping) {
+      missingFields.push('Método de envío (calcula el envío en el carrito)');
+    }
+    
+    return {
+      valid: missingFields.length === 0,
+      missingFields
+    };
+  }
+
+  function setupFormValidation() {
+    const requiredFields = ['email', 'street-address', 'neighborhood', 'city', 'state', 'postal-code', 'phone'];
+    
+    requiredFields.forEach(id => {
+      const field = document.getElementById(id);
+      if (field) {
+        field.addEventListener('blur', () => {
+          const value = (field as HTMLInputElement).value.trim();
+          if (!value) {
+            field.classList.add('border-red-500');
+            field.classList.remove('border-gray-600');
+          } else {
+            field.classList.remove('border-red-500');
+            field.classList.add('border-gray-600');
+          }
+        });
+      }
+    });
+  }
+
+  // ============================================
+  // PAYMENT METHODS
+  // ============================================
+
+  function updatePaymentVisibility() {
     const selectedMethod = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement;
     if (!selectedMethod) return;
 
     const cardForm = document.getElementById('card-form');
-    const cashMessage = document.getElementById('cash-message');
-    const paypalContainer = document.getElementById('paypal-container'); // Div que contiene los botones
+    const paypalContainer = document.getElementById('paypal-container');
 
-    // Ocultar todos los contenedores primero
     if (cardForm) cardForm.classList.add('hidden');
-    if (cashMessage) cashMessage.classList.add('hidden');
     if (paypalContainer) paypalContainer.classList.add('hidden');
 
-    // Mostrar el contenedor correcto
     if (selectedMethod.id === 'card') {
       if (cardForm) cardForm.classList.remove('hidden');
-      initializeStripe(); // Inicializar Stripe si se selecciona tarjeta
+      initializeStripe();
     } else if (selectedMethod.id === 'paypal') {
-      if (paypalContainer) 
-      paypalContainer.classList.remove('hidden');
-      initializePayPal(); // Inicializar PayPal si se selecciona
+      if (paypalContainer) paypalContainer.classList.remove('hidden');
+      initializePayPal();
     }
   }
 
+  // ============================================
+  // CHECKOUT HANDLERS (usando PaymentIntent)
+  // ============================================
+  // La función processCardPayment() arriba maneja todo el flujo de pago con tarjeta
 
+  async function createOrder(paymentMethod: string, paymentIntentId?: string) {
+    const email = (document.getElementById('email') as HTMLInputElement)?.value;
+    const cardHolderName = (document.getElementById('card-holder-name') as HTMLInputElement)?.value;
+    const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value;
+    const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value;
+    const city = (document.getElementById('city') as HTMLInputElement)?.value;
+    const state = (document.getElementById('state') as HTMLInputElement)?.value;
+    const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value;
+    const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
+    const deliveryNotes = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value || '';
+    const country = 'México';
 
-// Función handleCheckout actualizada
-async function handleCheckout(e: Event): Promise<void> {
-  e.preventDefault();
-  
-  // Recopilar información del formulario
-  const email = (document.getElementById('email') as HTMLInputElement)?.value;
-  const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value;
-  const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value;
-  const city = (document.getElementById('city') as HTMLInputElement)?.value;
-  const state = (document.getElementById('state') as HTMLInputElement)?.value;
-  const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value;
-  const country = (document.getElementById('country') as HTMLInputElement)?.value || 'MX';
-  
-  // Validar campos obligatorios
-  if (!email || !streetAddress || !city || !state || !postalCode) {
-    await Swal.fire({
-      title: 'Campos incompletos',
-      text: 'Por favor, completa todos los campos requeridos: Email, Calle, Ciudad, Estado y Código Postal.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar',
-      customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'px-4 py-2 rounded-lg'
-      }
-    });
-    return;
-  }
-
-  // Construir objeto de dirección
-  const shippingAddress = {
-    line1: streetAddress,
-    line2: neighborhood,
-    city: city,
-    state: state,
-    postal_code: postalCode,
-    country: country,
-  };
-
-  // Obtener datos del carrito
-  const productsDataElement = document.getElementById('products-data');
-  const productsImagesElement = document.getElementById('products-images');
-  const taxDataElement = document.getElementById('tax-data');
-  const totalDataElement = document.getElementById('total-data');
-  
-  if (!productsDataElement || !taxDataElement || !totalDataElement || !productsImagesElement) {
-    console.error('Elementos de datos no encontrados');
-    await Swal.fire({
-      title: 'Error',
-      text: 'No se encontraron los datos del carrito',
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
-    return;
-  }
-  
-  const productsData = JSON.parse(productsDataElement.textContent || '[]');
-  const productsImages = JSON.parse(productsImagesElement.textContent || '[]');
-  const taxValue = parseFloat(taxDataElement.textContent || '0');
-  const totalValue = parseFloat(totalDataElement.textContent || '0');
-
-  // Vincular imagenes con los productos
-  const productsWithImages = productsData.map((product: any, index: number) => ({
-    ...product,
-    image: productsImages[index] || null
-  }));
-  
-  // Mostrar loader - guardamos la referencia
-  let swalInstance: any = null;
-  
-  try {
-    swalInstance = Swal.fire({
-      title: 'Procesando pedido...',
-      html: 'Estamos preparando tu compra',
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-      customClass: {
-        popup: 'rounded-xl'
-      }
-    });
-
-    // Paso 1: Actualizar stock
-    await updateProductStock();
+    const customerSelect = document.getElementById('customer-select') as HTMLSelectElement | null;
+    const clientId = customerSelect?.value ? parseInt(customerSelect.value) : null;
     
-    // Paso 2: Crear orden
-    const order = await createOrder('card');
-    
-    // Paso 3: Crear sesión de pago con Stripe
-    const response = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        products: productsWithImages,
-        shippingAddress: shippingAddress,
-        customerEmail: email,
-        successUrl: `${window.location.origin}/order-success?order_id=${order.id}`,
-        cancelUrl: window.location.href,
-      })
-    });
-
-    if (!response.ok) {
-      const errorResponse = await response.json();
-      throw new Error(errorResponse.error || `Error HTTP: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (!result.sessionId) throw new Error('No se recibió ID de sesión de Stripe');
-
-    // Limpiar carrito ANTES de redirigir
-    CartCookiesClient.clearCart();
-
-    // Redirigir a Stripe Checkout
-    const stripe = await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
-    if (!stripe) throw new Error('No se pudo cargar Stripe');
-
-    const { error } = await stripe.redirectToCheckout({
-      sessionId: result.sessionId,
-    });
-
-    if (error) throw error;
-
-  } catch (error) {
-    console.error('Error en el checkout:', error);
-    
-    // Cerrar loader si está activo
-    if (swalInstance) {
-      swalInstance.then((result: any) => {
-        if (result.isVisible) {
-          Swal.close();
-        }
-      });
-    }
-    
-    let errorMessage = 'Ocurrió un error al procesar tu pago';
-    if (error instanceof Error) {
-      errorMessage = error.message || errorMessage;
-    }
-    
-    await Swal.fire({
-      title: 'Error',
-      text: errorMessage,
-      icon: 'error',
-      confirmButtonText: 'Intentar de nuevo',
-      customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'px-4 py-2 rounded-lg'
-      }
-    });
-  } finally {
-    // Cerrar loader si sigue abierto
-    if (swalInstance) {
-      swalInstance.then((result: any) => {
-        if (result.isVisible) {
-          Swal.close();
-        }
-      });
-    }
-  }
-}
-
-// Función handleCashPayment actualizada
-async function handleCashPayment() {
-  try {
-    // Mostrar loader
-    const swalInstance = Swal.fire({
-      title: 'Procesando pedido...',
-      html: 'Creando tu orden de compra',
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-      customClass: {
-        popup: 'rounded-xl'
-      }
-    });
-
-    // Paso 1: Actualizar stock
-    await updateProductStock();
-    
-    // Paso 2: Crear orden
-    const order = await createOrder('cash');
-
-    // Información de la tienda
-    const storeInfo = {
-      name: "Broquelizate",
-      address: "esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.",
-      phone: "+528714617696",
-      rfc: "XAXX010101000"
+    const shippingAddress = {
+      streetAddress,
+      neighborhood,
+      city,
+      state,
+      postalCode,
+      country,
+      phone,
+      deliveryNotes
     };
-    const discount = 0;
-    const amount = 0;
-    // Generar el ticket
+
     const data = getCheckoutData();
     if (!data) throw new Error('Datos de compra no disponibles');
     
-   
-    
-    // Cerrar loader de procesamiento
-    Swal.close();
+    const invalidProducts = data.productsData.filter((p: CartProduct) => !p.id);
+    if (invalidProducts.length > 0) {
+      console.error("Productos sin ID:", invalidProducts);
+      throw new Error(`${invalidProducts.length} productos no tienen ID válido`);
+    }
 
-    // Mostrar mensaje de éxito con opciones
-    Swal.fire({
-      title: 'Orden completada',
-      html: `
-        <div class="text-center">
-          <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p class="mb-4">Orden #${order.orderNumber} registrada</p>
-          <p class="text-sm text-gray-600 mb-6">Pago en efectivo confirmado. Puedes recoger tu pedido en nuestro local.</p>
-          <button id="print-receipt" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
-            Imprimir recibo
-          </button>
-          <button id="view-order" class="mt-3 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md transition-colors">
-            Ver detalles
-          </button>
-        </div>
-      `,
-      showConfirmButton: false,
-      customClass: {
-        popup: 'rounded-xl'
-      }
-    });
-    const selectedMethod = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement;
-    
-    // Agregar eventos a los botones
-    setTimeout(() => {
-      const printButton = document.getElementById('print-receipt');
-      const viewButton = document.getElementById('view-order');
-      
-      if (printButton) {
-        printButton.addEventListener('click', () => {
-           generateAndPrintTicket(data.productsData,data.totalValue, order.orderNumber, selectedMethod.id, storeInfo);
-        });
-      }
-      
-      if (viewButton) {
-        viewButton.addEventListener('click', () => {
-          Swal.close();
-          navigate(`/order-success?order_id=${order.id}`);
-        });
-      }
-    }, 100);
+    // Preparar información de envío para la orden (copia segura)
+    let shippingInfoForOrder: { carrier: string; service: string; price: number; deliveryDays: number } | null = null;
+    const currentShipping = selectedShipping; // Capturar en variable local para TypeScript
+    if (currentShipping !== null) {
+      shippingInfoForOrder = {
+        carrier: currentShipping.carrier,
+        service: currentShipping.service,
+        price: currentShipping.price,
+        deliveryDays: currentShipping.deliveryDays
+      };
+    }
 
-    // Limpiar carrito después de éxito
-    CartCookiesClient.clearCart();
+    const orderData = {
+      customerEmail: email,
+      customerName: cardHolderName || email,
+      shippingAddress: shippingAddress,
+      shippingInfo: shippingInfoForOrder,
+      products: data.productsData.map((p: CartProduct) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        quantity: p.quantity,
+        variantCombination: p.variantCombination,
+        variantSku: p.variantSku
+      })),
+      subtotal: data.totalValue - data.shippingValue,
+      shippingCost: data.shippingValue,
+      tax: data.taxValue,
+      total: data.totalValue,
+      paymentMethod: paymentMethod,
+      paymentIntentId: paymentIntentId || null, // ID de Stripe para referencia
+      clientId: clientId
+    };
 
-  } catch (error) {
-    console.error('Error en el pago en efectivo:', error);
-    
-    // Cerrar loader si está activo
-    if (Swal.isVisible()) Swal.close();
-    
-    let errorMessage = 'Ocurrió un error al procesar tu pedido';
-    if (error instanceof Error) {
-      errorMessage = error.message || errorMessage;
+    console.log('📦 Creando orden:', orderData);
+
+    try {
+      const response = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        throw new Error(errorResponse.error || `Error HTTP: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      let errorMessage = 'Error al crear la orden';
+      if (error instanceof Error) errorMessage += `: ${error.message}`;
+      throw new Error(errorMessage);
+    }
+  }
+
+  async function updateProductStock() {
+    const productsDataElement = document.getElementById('products-data');
+    if (!productsDataElement) {
+      throw new Error('Elemento de datos de productos no encontrado');
     }
     
-    await Swal.fire({
-      title: 'Error',
-      text: errorMessage,
-      icon: 'error',
-      confirmButtonText: 'Entendido',
-      customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'px-4 py-2 rounded-lg'
-      }
-    });
-  }
-}
-
-  
-// Definir una interfaz para el producto
-interface CartProduct {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image?: string;
-}
-
-// Nueva función para crear la orden con tipos definidos
-async function createOrder(paymentMethod: string) {
-  // Recopilar información del formulario
-  const email = (document.getElementById('email') as HTMLInputElement)?.value;
-  const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value;
-  const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value;
-  const city = (document.getElementById('city') as HTMLInputElement)?.value;
-  const state = (document.getElementById('state') as HTMLInputElement)?.value;
-  const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value;
-  const country = (document.getElementById('country') as HTMLInputElement)?.value || 'México';
-
-  
-  // Obtener cliente seleccionado
-  const customerSelect = document.getElementById('customer-select') as HTMLSelectElement | null;
-  const clientId = customerSelect?.value ? parseInt(customerSelect.value) : null;
-  
-  const shippingAddress = {
-    streetAddress,
-    neighborhood,
-    city,
-    state,
-    postalCode,
-    country
-  };
-
-  const data = getCheckoutData();
-  if (!data) throw new Error('Datos de compra no disponibles');
-  
-  // Validar IDs de productos con tipo definido
-  const invalidProducts = data.productsData.filter((p: CartProduct) => !p.id);
-  if (invalidProducts.length > 0) {
-    console.error("Productos sin ID:", invalidProducts);
-    throw new Error(`${invalidProducts.length} productos no tienen ID válido`);
-  }
-
-  // Preparar datos para la API con tipo definido
-  const orderData = {
-    customerEmail: email,
-    shippingAddress: shippingAddress,
-    products: data.productsData.map((p: CartProduct) => ({
+    const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
+    
+    const stockUpdateData = rawProductsData.map((p: any) => ({
       id: p.id,
-      name: p.name,
-      price: p.price,
       quantity: p.quantity
-    })),
-    subtotal: data.totalValue - data.taxValue,
-    tax: data.taxValue,
-    total: data.totalValue,
-    paymentMethod: paymentMethod,
-    clientId: clientId
-  };
-
-  try {
-    // Llamar al endpoint para crear la orden
-    const response = await fetch('/api/create-order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(orderData)
-    });
-
-    if (!response.ok) {
-      const errorResponse = await response.json();
-      throw new Error(errorResponse.error || `Error HTTP: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error('Error creating order:', error);
+    }));
     
-    // Mejorar mensaje de error
-    let errorMessage = 'Error al crear la orden';
-    if (error instanceof Error) {
-      errorMessage += `: ${error.message}`;
-    }
-    
-    throw new Error(errorMessage);
-  }
-}
-  // [NUEVA FUNCIÓN AUXILIAR] - Para obtener el total y validar el formulario antes de pagar con PayPal
-function validateAndGetDataForPaypal() {
-  // Obtener todos los campos requeridos
-  const email = (document.getElementById('email') as HTMLInputElement)?.value.trim();
-  const streetAddress = (document.getElementById('street-address') as HTMLInputElement)?.value.trim();
-  const neighborhood = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim();
-  const city = (document.getElementById('city') as HTMLInputElement)?.value.trim();
-  const state = (document.getElementById('state') as HTMLInputElement)?.value.trim();
-  const postalCode = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim();
-  
-  // Crear lista de campos faltantes
-  const missingFields = [];
-  if (!email) missingFields.push('Correo Electrónico');
-  if (!streetAddress) missingFields.push('Calle y número');
-  if (!neighborhood) missingFields.push('Colonia');
-  if (!city) missingFields.push('Ciudad');
-  if (!state) missingFields.push('Estado');
-  if (!postalCode) missingFields.push('Código Postal');
-  
-  // Verificar si hay campos faltantes
-  if (missingFields.length > 0) {
-    Swal.fire({
-      title: 'Campos incompletos',
-      html: `Por favor completa los siguientes campos:<br><br>${missingFields.join('<br>')}`,
-      icon: 'warning',
-      confirmButtonText: 'Entendido',
-      customClass: {
-        popup: 'rounded-xl',
-        confirmButton: 'px-4 py-2 rounded-lg'
-      }
-    }).then(() => {
-      // Enfocar el primer campo faltante
-      if (!streetAddress) {
-        document.getElementById('street-address')?.focus();
-      } else if (!neighborhood) {
-        document.getElementById('neighborhood')?.focus();
-      } else if (!city) {
-        document.getElementById('city')?.focus();
-      } else if (!state) {
-        document.getElementById('state')?.focus();
-      } else if (!postalCode) {
-        document.getElementById('postal-code')?.focus();
-      } else if (!email) {
-        document.getElementById('email')?.focus();
-      }
-    });
-    
-    return null;
-  }
-
-  const data = getCheckoutData();
-  if (!data || !data.totalValue) {
-    Swal.fire({
-      title: 'Error en el carrito',
-      text: 'No se pudo obtener el total del carrito.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
-    return null;
-  }
-
-  return {
-    total: data.totalValue
-  };
-}
-
-
-// Declaración global final
-
-
-async function initializePayPal() {
-  const container = document.getElementById('paypal-button-container');
-  if (!container) return;
-  
-  container.innerHTML = '<div class="text-center py-4">Cargando PayPal...</div>';
-  
-  try {
-    const paypal = await loadScript({
-      clientId: import.meta.env.PUBLIC_PAYPAL_CLIENT_ID || "AcBeVZggGRidpLZa0RrTje-kNfh0Q6vhNY1H4qTVjFxaEHrF-ltd1D3erIxPNbjVrtUXjHM-5qsa8-3y",
-      currency: "MXN",
-      intent: "capture",
-      commit: true,
-      vault: false,
-      components: "buttons",
-      disableFunding: "venmo,giropay,sofort,sepa",
-      enableFunding: "",
-      dataNamespace: "paypal_sdk",
-      dataPartnerAttributionId: "broquelizate_SP",
-      locale: "es_MX"
-    });
-    
-    if (paypal && paypal.Buttons) {
-      renderPayPalButtons(paypal);
-    } else {
-      container.innerHTML = '<div class="text-red-500">Componente PayPal no disponible</div>';
-    }
-  } catch (error) {
-    console.error('Error inicializando PayPal:', error);
-    container.innerHTML = '<div class="text-red-500">Error al cargar PayPal</div>';
-  }
-}
-function setupFormValidation() {
-  const requiredFields = [
-    'email', 'street-address', 'neighborhood', 
-    'city', 'state', 'postal-code'
-  ];
-  
-  requiredFields.forEach(id => {
-    const field = document.getElementById(id);
-    if (field) {
-      field.addEventListener('blur', () => {
-        if (!(field as HTMLInputElement).value.trim()) {
-          field.classList.add('border-red-500');
-        } else {
-          field.classList.remove('border-red-500');
-        }
+    try {
+      const response = await fetch('/api/update-stock-online', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: stockUpdateData })
       });
-    }
-  });
-}
 
-function renderPayPalButtons(paypal: any) {
-  paypal.Buttons({
-    createOrder: async () => {
-      const checkoutData = validateAndGetDataForPaypal();
-      if (!checkoutData) return Promise.reject('Validación fallida');
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        throw new Error(errorResponse.error || 'Error al actualizar el stock');
+      }
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      throw error;
+    }
+  }
+
+  // ============================================
+  // PAYPAL
+  // ============================================
+
+  function validateAndGetDataForPaypal() {
+    const validation = validateForm();
+    if (!validation.valid) {
+      Swal.fire({
+        title: 'Campos incompletos',
+        html: `Por favor completa:<br><br>• ${validation.missingFields.join('<br>• ')}`,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#eab308'
+      });
+      return null;
+    }
+
+    const data = getCheckoutData();
+    if (!data || !data.totalValue) {
+      Swal.fire({
+        title: 'Error en el carrito',
+        text: 'No se pudo obtener el total del carrito.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#eab308'
+      });
+      return null;
+    }
+
+    return { total: data.totalValue };
+  }
+
+  async function initializePayPal() {
+    const container = document.getElementById('paypal-button-container');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="text-center py-4 text-gray-400">Cargando PayPal...</div>';
+    
+    try {
+      const paypal = await loadScript({
+        clientId: import.meta.env.PUBLIC_PAYPAL_CLIENT_ID || "AcBeVZggGRidpLZa0RrTje-kNfh0Q6vhNY1H4qTVjFxaEHrF-ltd1D3erIxPNbjVrtUXjHM-5qsa8-3y",
+        currency: "MXN",
+        intent: "capture",
+        commit: true,
+        vault: false,
+        components: "buttons",
+        disableFunding: "venmo,giropay,sofort,sepa",
+        locale: "es_MX"
+      });
       
-      try {
-        const result = await actions.createPaypalOrder({ total: checkoutData.total });
-        if (result.error) throw new Error(result.error.message);
-        return result.data.orderId;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        Swal.fire('Error', message, 'error');
-        return Promise.reject(err);
+      if (paypal && paypal.Buttons) {
+        renderPayPalButtons(paypal);
+      } else {
+        container.innerHTML = '<div class="text-red-400 text-center py-4">Componente PayPal no disponible</div>';
       }
-    },
+    } catch (error) {
+      console.error('Error inicializando PayPal:', error);
+      container.innerHTML = '<div class="text-red-400 text-center py-4">Error al cargar PayPal</div>';
+    }
+  }
 
-    onApprove: async (data: any) => {
-      Swal.fire({ 
-        title: 'Procesando pago...', 
-        text: 'Por favor, no cierres esta ventana.',
-        allowOutsideClick: false, 
-        didOpen: () => Swal.showLoading() 
-      });
-
-      try {
-        const result = await actions.capturePaypalOrder({ orderId: data.orderID });
-        if (result.error) throw new Error(result.error.message);
+  function renderPayPalButtons(paypal: any) {
+    paypal.Buttons({
+      style: {
+        layout: 'vertical',
+        color: 'gold',
+        shape: 'rect',
+        label: 'paypal'
+      },
+      createOrder: async () => {
+        const checkoutData = validateAndGetDataForPaypal();
+        if (!checkoutData) return Promise.reject('Validación fallida');
         
-        await updateProductStock();
-        const internalOrder = await createOrder('paypal');
-        CartCookiesClient.clearCart();
-        Swal.close();
-        navigate(`/order-success?order_id=${internalOrder.id}`);
-      } catch (err) {
-        Swal.close();
-        const message = err instanceof Error ? err.message : 'Error desconocido';
-        Swal.fire('Error', `Pago fallido: ${message}`, 'error');
+        try {
+          const result = await actions.createPaypalOrder({ total: checkoutData.total });
+          if (result.error) throw new Error(result.error.message);
+          return result.data.orderId;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Error desconocido';
+          Swal.fire('Error', message, 'error');
+          return Promise.reject(err);
+        }
+      },
+
+      onApprove: async (data: any) => {
+        Swal.fire({ 
+          title: 'Procesando pago...', 
+          text: 'Por favor, no cierres esta ventana.',
+          allowOutsideClick: false, 
+          didOpen: () => Swal.showLoading() 
+        });
+
+        try {
+          const result = await actions.capturePaypalOrder({ orderId: data.orderID });
+          if (result.error) throw new Error(result.error.message);
+          
+          await updateProductStock();
+          const internalOrder = await createOrder('paypal');
+          
+          CartCookiesClient.clearCart();
+          localStorage.removeItem('selectedShipping');
+          
+          Swal.close();
+          navigate(`/order-success?order_id=${internalOrder.id}`);
+        } catch (err) {
+          Swal.close();
+          const message = err instanceof Error ? err.message : 'Error desconocido';
+          Swal.fire('Error', `Pago fallido: ${message}`, 'error');
+        }
+      },
+
+      onError: (err: any) => {
+        console.error('Error de PayPal:', err);
+        Swal.fire('Error', 'Ocurrió un error con PayPal. Por favor, intenta de nuevo.', 'error');
+      },
+
+      onCancel: () => {
+        console.log('Pago cancelado por el usuario');
       }
-    },
-
-    onError: (err: any) => {
-      console.error('Error de PayPal:', err);
-      Swal.fire('Error', 'Ocurrió un error con PayPal. Por favor, intenta de nuevo.', 'error');
-    },
-
-    onCancel: (data: any) => {
-      console.log('Pago cancelado por el usuario. OrderID:', data.orderID);
-    }
-
-  }).render('#paypal-button-container');
-}
-
-
- // Función para actualizar el stock (corregida)
-async function updateProductStock() {
-  const productsDataElement = document.getElementById('products-data');
-  if (!productsDataElement) {
-    throw new Error('Elemento de datos de productos no encontrado');
+    }).render('#paypal-button-container');
   }
-  
-  // Parsear los datos de productos
-  const rawProductsData = JSON.parse(productsDataElement.textContent || '[]');
-  
-  // Crear datos para actualizar stock usando id directamente
-  const stockUpdateData = rawProductsData.map((p: any) => ({
-    id: p.id, // Usar id directamente
-    quantity: p.quantity
-  }));
-  
-  try {
-    const response = await fetch('/api/update-stock-online', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ products: stockUpdateData })
-    });
 
-    if (!response.ok) {
-      const errorResponse = await response.json();
-      throw new Error(errorResponse.error || 'Error al actualizar el stock');
+  // ============================================
+  // INICIALIZACIÓN
+  // ============================================
+
+  function initCheckout() {
+    console.log('🛒 Inicializando checkout...');
+    
+    // Verificar que estemos en la página correcta
+    const productsData = document.getElementById('products-data');
+    if (!productsData) {
+      console.log('ℹ️ No estamos en la página de checkout');
+      return;
     }
-  } catch (error) {
-    console.error('Error updating stock:', error);
-    throw error;
-  }
-}
-
-
-
-  // Inicialización cuando la página está lista
-  // Inicialización cuando la página está lista
-  document.addEventListener('astro:page-load', async () => {
+    
+    // Cargar información de envío
+    loadShippingInfo();
+    
+    // Configurar validación
     setupFormValidation();
 
+    // Event listeners para métodos de pago
     const paymentRadios = document.querySelectorAll('input[name="payment-method"]');
     paymentRadios.forEach(radio => {
       radio.addEventListener('change', updatePaymentVisibility);
     });
     
-    // Configurar formulario de tarjeta
-    const paymentForm = document.getElementById('submit-card-payment');
-     initializeStripe();
-    if (paymentForm) {
-      paymentForm.addEventListener('click', handleCheckout);
+    // Botón de pago con tarjeta - usa processCardPayment
+    const cardPaymentBtn = document.getElementById('submit-card-payment');
+    if (cardPaymentBtn) {
+      cardPaymentBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        processCardPayment();
+      });
     }
     
-    // Configurar botón de pago en efectivo
-    const payCashBtn = document.getElementById('pay-cash');
-    if (payCashBtn) {
-      payCashBtn.addEventListener('click', handleCashPayment);
-    }
-    
-    // Establecer estado inicial
+    // Inicializar vista de pago
     updatePaymentVisibility();
     
-    // CORRECCIÓN: Mejorar UX de los métodos de pago (versión corregida)
-    const paymentOptions = document.querySelectorAll('.flex.items-center');
-    paymentOptions.forEach(option => {
-      option.addEventListener('click', function(this: HTMLElement) {
-        // Remover selección de todas las opciones
-        paymentOptions.forEach(opt => {
-          const parent = opt.closest('.flex.items-center');
-          if (parent) {
-            parent.classList.remove('selected');
-          }
-        });
-        
-        // Agregar selección a la opción actual
-        const currentParent = this.closest('.flex.items-center');
-        if (currentParent) {
-          currentParent.classList.add('selected');
-        }
-      });
-    });
-  });  
+    console.log('✅ Checkout inicializado');
+  }
+
+  // Múltiples formas de inicializar para asegurar que se ejecute
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCheckout);
+  } else {
+    // DOM ya está listo
+    initCheckout();
+  }
+
+  // También escuchar astro:page-load para navegación con View Transitions
+  document.addEventListener('astro:page-load', () => {
+    console.log('📄 astro:page-load disparado');
+    initCheckout();
+  });
+
+  // Fallback con setTimeout por si acaso
+  setTimeout(() => {
+    const shippingWarning = document.getElementById('shipping-warning');
+    if (shippingWarning && !shippingWarning.classList.contains('hidden')) {
+      console.log('🔄 Re-intentando cargar envío...');
+      loadShippingInfo();
+    }
+  }, 500);  
 </script>
 
 <!-- Elementos ocultos con datos -->
-<!-- Por esto (agrega id si falta) -->
-<div id="products-data" style="display: none;">
+<div id="products-data" class="hidden">
   {JSON.stringify(productsData.map(p => ({
-    id: p.id || p.id || "", // Asegura tener id
+    id: p.id || "",
     name: p.name,
     price: p.price,
     quantity: p.quantity,
-    image: p.image || ''
+    image: p.image || '',
+    variantCombination: p.variantCombination,
+    variantSku: p.variantSku
   })))}
 </div>
-<div id="products-images" style="display: none;">
+<div id="products-images" class="hidden">
   {JSON.stringify(products.map(p => p.image || ''))}
 </div>
-<div id="tax-data" style="display: none;">{tax}</div>
-<div id="total-data" style="display: none;">{total}</div>
+<div id="tax-data" class="hidden">{tax}</div>
+<div id="total-data" class="hidden">{total}</div>
+<div id="subtotal-data" class="hidden">{subtotal}</div>
+
+<!-- Datos del usuario -->
+<div id="user-data" class="hidden">
+  {JSON.stringify({
+    email: userEmail,
+    name: userName,
+    isAuthenticated: isAuthenticated
+  })}
+</div>

@@ -4,11 +4,27 @@ import MainLayout from "@/layouts/MainLayout.astro";
 import { Formatter } from "@/utils";
 import Stripe from 'stripe';
 import { CartCookiesClient } from '@/utils/cart-cookies';
+import OrderTracking from '@/components/OrderTracking.astro';
+import { actions } from 'astro:actions';
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 
-// ✅ Interfaz actualizada con variantes
+// Configuración de tu tienda para Envia.com
+const STORE_CONFIG = {
+  origin: {
+    name: 'Broquelízate La Laguna',
+    street: 'Bravo',
+    number: '222',
+    district: 'Centro',
+    city: 'Gómez Palacio',
+    state: 'Durango',
+    postalCode: '35150',
+    phone: '8714617696',
+    email: 'broquelizatelaguna@gmail.com'
+  }
+};
+
 interface NormalizedProduct {
   id: string;
   name: string;
@@ -18,6 +34,7 @@ interface NormalizedProduct {
   variantDescription?: string | null;
   variantSku?: string | null;
   variantImage?: string | null;
+  weight?: number;
 }
 
 interface OrderDetails {
@@ -28,20 +45,28 @@ interface OrderDetails {
     method: string;
     cost: number;
     address: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
   };
   customer: {
     name: string;
     email: string;
+    phone?: string;
   };
   subtotal: number;
-  tax: number;
   total: number;
   paymentStatus: string;
   paymentMethod: string;
+  trackingNumber?: string;
+  carrier?: string;
+  labelUrl?: string;
 }
 
 let orderDetails: OrderDetails | null = null;
 let errorMessage: string | null = null;
+let shippingLabel: any = null;
+let trackingInfo: any = null;
 
 CartCookiesClient.clearCart();
 
@@ -50,9 +75,25 @@ const orderIdParam = Astro.url.searchParams.get('order_id');
 
 try {
   if (orderIdParam) {
+    // Cargar orden desde la base de datos
     const response = await fetch(`${Astro.url.origin}/api/get-order?order_id=${orderIdParam}`);
     if (response.ok) {
       const orderData = await response.json();
+      
+      // Parsear dirección de envío si existe
+      const shippingData = orderData.shippingAddress ? JSON.parse(orderData.shippingAddress) : {};
+      
+      // Parsear información de envío si existe
+      let shippingInfo = null;
+      if (orderData.shippingInfo) {
+        try {
+          shippingInfo = typeof orderData.shippingInfo === 'string' 
+            ? JSON.parse(orderData.shippingInfo) 
+            : orderData.shippingInfo;
+        } catch (e) {
+          console.warn('No se pudo parsear shippingInfo:', e);
+        }
+      }
       
       orderDetails = {
         orderId: orderData.orderNumber,
@@ -62,30 +103,38 @@ try {
           name: item.productName,
           price: item.price,
           quantity: item.quantity,
-          image: item.productImage,
+          // Usar el campo 'image' que devuelve get-order (prioriza variantImage sobre productImage)
+          image: item.image || item.variantImage || item.productImage || null,
           variantDescription: item.variantDescription || null,
           variantSku: item.variantSku || null,
           variantImage: item.variantImage || null,
+          weight: 100 // Peso default en gramos
         })),
         shipping: {
-          method: "Recogida en tienda",
-          cost: 0,
-          address: JSON.parse(orderData.shippingAddress).streetAddress || "Dirección no disponible"
+          method: shippingInfo ? `${shippingInfo.carrier} - ${shippingInfo.service}` : "Envío Estándar",
+          cost: orderData.shippingCost || shippingInfo?.price || 0,
+          address: shippingData.streetAddress || "Dirección no disponible",
+          city: shippingData.city,
+          state: shippingData.state,
+          postalCode: shippingData.postalCode
         },
         customer: {
-          name: "Cliente",
-          email: orderData.customerEmail
+          name: orderData.customerName || shippingData.name || "Cliente",
+          email: orderData.customerEmail,
+          phone: shippingData.phone
         },
         subtotal: orderData.subtotal,
-        tax: orderData.tax,
         total: orderData.total,
         paymentStatus: "Pagado",
-        paymentMethod: orderData.paymentMethod || 'Desconocido'
+        paymentMethod: orderData.paymentMethod || 'Tarjeta',
+        trackingNumber: orderData.trackingNumber,
+        carrier: shippingInfo?.carrier || orderData.carrier
       };
     } else {
       throw new Error("No se pudo cargar la orden desde la base de datos");
     }
   } else if (sessionId) {
+    // Cargar desde Stripe Checkout Session (legacy)
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['line_items.data.price.product']
     });
@@ -101,15 +150,13 @@ try {
         variantDescription: null,
         variantSku: null,
         variantImage: null,
+        weight: 100
       };
     }) || [];
     
     const total = session.amount_total ? session.amount_total / 100 : 0;
     const shippingAddress = session.customer_details?.address;
-    const shippingAddressStr = shippingAddress ? 
-      `${shippingAddress.line1}, ${shippingAddress.city}, ${shippingAddress.country}` : 
-      "Dirección no disponible";
-
+    
     orderDetails = {
       orderId: session.id.substring(0, 8).toUpperCase(),
       date: new Date(session.created * 1000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -117,14 +164,17 @@ try {
       shipping: {
         method: "Envío Estándar",
         cost: session.shipping_cost?.amount_total ? session.shipping_cost.amount_total / 100 : 0,
-        address: shippingAddressStr
+        address: shippingAddress?.line1 || "Dirección no disponible",
+        city: shippingAddress?.city || undefined,
+        state: shippingAddress?.state || undefined,
+        postalCode: shippingAddress?.postal_code || undefined
       },
       customer: {
         name: session.customer_details?.name || "Cliente",
-        email: session.customer_details?.email || "Correo no disponible"
+        email: session.customer_details?.email || "Correo no disponible",
+        phone: session.customer_details?.phone || undefined
       },
       subtotal: total,
-      tax: 0,
       total: total,
       paymentStatus: session.payment_status === "paid" ? "Pagado" : "Pendiente",
       paymentMethod: 'Tarjeta'
@@ -132,9 +182,47 @@ try {
   } else {
     errorMessage = "No se encontró ID de sesión ni ID de pedido";
   }
+
+  // NOTA: La generación automática de etiquetas de envío se ha deshabilitado
+  // para evitar errores al visitar órdenes existentes.
+  // Las etiquetas se deben generar manualmente desde el panel de administración
+  // o en el momento del checkout (no al visitar order-success)
+  
+  // Si la orden ya tiene tracking, intentamos obtener el estado actual
+  if (orderDetails && orderDetails.trackingNumber && orderDetails.carrier) {
+    try {
+      const { data: trackingResult, error: trackingError } = await Astro.callAction(
+        actions.trackShipment,
+        {
+          trackingNumber: orderDetails.trackingNumber,
+          carrier: orderDetails.carrier
+        }
+      );
+      
+      if (!trackingError && trackingResult?.success) {
+        trackingInfo = trackingResult.tracking;
+      }
+    } catch (trackingError) {
+      console.warn('No se pudo obtener el estado del envío:', trackingError);
+      // No es crítico, continuamos sin tracking info
+    }
+  }
+
 } catch (error: any) {
   errorMessage = error.message || "Error al cargar los detalles del pedido";
   console.error('Error detallado:', error);
+}
+
+// Helper para obtener la mejor imagen disponible
+function getProductImage(product: NormalizedProduct): string {
+  // Prioridad: variantImage > image > placeholder
+  if (product.variantImage && product.variantImage.trim() !== '') {
+    return product.variantImage;
+  }
+  if (product.image && product.image.trim() !== '') {
+    return product.image;
+  }
+  return 'https://placehold.co/100x100/1f2937/9ca3af?text=Sin+imagen';
 }
 ---
 
@@ -153,7 +241,9 @@ try {
           <div class="bg-green-50 rounded-lg p-6 mb-8 border border-green-200">
             <div class="flex flex-col md:flex-row items-start md:items-center">
               <div class="flex items-center">
-                <svg class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
                 <div class="ml-4">
                   <h1 class="text-2xl font-bold text-green-800">¡Pago Completado con Éxito!</h1>
                   <p class="mt-1 text-green-700">Gracias por tu compra. Tu pedido está siendo preparado.</p>
@@ -168,7 +258,52 @@ try {
             </div>
           </div>
 
-          {/* ✅ CUADRO DE WHATSAPP PARA COMPROBANTE */}
+          {/* INFORMACIÓN DE TRACKING SI ESTÁ DISPONIBLE */}
+          {orderDetails.trackingNumber && (
+            <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg p-6 mb-8 shadow-lg">
+              <div class="flex items-start space-x-4">
+                <div class="flex-shrink-0">
+                  <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-xl font-bold text-white mb-2">🚚 ¡Tu envío está en camino!</h3>
+                  <p class="text-white text-sm mb-2">
+                    Número de rastreo: <code class="bg-white/20 px-2 py-1 rounded font-mono">{orderDetails.trackingNumber}</code>
+                  </p>
+                  <p class="text-white/90 text-sm mb-3">
+                    Transportista: <strong>{orderDetails.carrier?.toUpperCase()}</strong>
+                  </p>
+                  <div class="flex flex-col sm:flex-row gap-3">
+                    <a 
+                      href={`/account/mis-pedidos?tracking=${orderDetails.trackingNumber}`}
+                      class="inline-flex items-center justify-center px-4 py-2 bg-white text-yellow-600 font-bold rounded-lg hover:bg-yellow-50 transition-colors shadow-md"
+                    >
+                      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                      </svg>
+                      Ver estado del envío
+                    </a>
+                    {orderDetails.labelUrl && (
+                      <a 
+                        href={orderDetails.labelUrl}
+                        download
+                        class="inline-flex items-center justify-center px-4 py-2 bg-white/10 text-white font-medium rounded-lg hover:bg-white/20 transition-colors border border-white/30"
+                      >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+                        </svg>
+                        Descargar guía
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CUADRO DE WHATSAPP PARA COMPROBANTE */}
           <div class="bg-gradient-to-r from-green-400 to-green-600 rounded-lg p-6 mb-8 shadow-lg">
             <div class="flex items-start space-x-4">
               <div class="flex-shrink-0">
@@ -177,12 +312,12 @@ try {
                 </svg>
               </div>
               <div class="flex-1">
-                <h3 class="text-xl font-bold text-white mb-2">📲 Último Paso: Envía tu Comprobante</h3>
+                <h3 class="text-xl font-bold text-white mb-2">📲 Envía tu Comprobante</h3>
                 <p class="text-white text-sm mb-4">
                   Para confirmar tu pedido, por favor envía tu comprobante de pago al siguiente número de WhatsApp:
                 </p>
                 <a 
-                  href="https://wa.me/528714617696?text=Hola,%20adjunto%20comprobante%20de%20pago%20para%20el%20pedido%20%23{orderDetails.orderId}"
+                  href={`https://wa.me/528714617696?text=Hola,%20adjunto%20comprobante%20de%20pago%20para%20el%20pedido%20%23${orderDetails.orderId}${orderDetails.trackingNumber ? '%20con%20número%20de%20rastreo%20' + orderDetails.trackingNumber : ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   class="inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 bg-white text-green-600 font-bold rounded-lg hover:bg-green-50 transition-colors shadow-md"
@@ -194,10 +329,24 @@ try {
                 </a>
                 <p class="text-white text-xs mt-3 opacity-90">
                   💡 Incluye tu número de pedido: <strong>{orderDetails.orderId}</strong>
+                  {orderDetails.trackingNumber && (
+                    <span class="block mt-1">📦 Número de rastreo: <strong>{orderDetails.trackingNumber}</strong></span>
+                  )}
                 </p>
               </div>
             </div>
           </div>
+
+          {/* COMPONENTE DE TRACKING SI HAY NÚMERO DE RASTREO */}
+          {orderDetails.trackingNumber && (
+            <div class="mb-8">
+              <OrderTracking 
+                trackingNumber={orderDetails.trackingNumber}
+                orderId={orderDetails.orderId}
+                showDetails={true}
+              />
+            </div>
+          )}
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 rounded-lg">
             {/* Columna Izquierda: Resumen y Envío */}
@@ -208,18 +357,18 @@ try {
                 </div>
                 <div class="divide-y divide-gray-100">
                   {orderDetails.products.map((product) => {
-                    // ✅ Determinar imagen a mostrar (variante o general)
-                    const displayImage = product.variantImage || product.image || 'https://placehold.co/100x100/e2e8f0/4a5568?text=N/A';
+                    const displayImage = getProductImage(product);
                     const hasVariant = !!product.variantDescription;
 
                     return (
                       <div class="py-5 px-6 flex items-start">
-                        {/* ✅ Imagen con badge de variante */}
                         <div class="relative flex-shrink-0">
                           <img 
                             src={displayImage} 
                             alt={product.name} 
-                            class="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-md shadow-sm"
+                            class="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-md shadow-sm bg-gray-100"
+                            loading="lazy"
+                            onerror="this.onerror=null; this.src='https://placehold.co/100x100/1f2937/9ca3af?text=Sin+imagen';"
                           />
                           {hasVariant && product.variantImage && (
                             <div class="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full font-medium shadow-md flex items-center gap-1">
@@ -233,7 +382,6 @@ try {
                         <div class="ml-4 flex-1">
                           <h3 class="text-lg font-medium text-gray-900">{product.name}</h3>
                           
-                          {/* ✅ Mostrar información de variante si existe */}
                           {hasVariant && (
                             <div class="mt-2 bg-yellow-50 border-l-4 border-yellow-500 p-2 rounded-r">
                               <div class="flex items-start gap-2">
@@ -262,10 +410,26 @@ try {
                     );
                   })}
                 </div>
-                <div class="px-6 py-5 bg-gray-50 rounded-lg">
-                  <div class="flex justify-between py-2"><span class="text-gray-600">Subtotal</span><span class="font-medium text-black">{Formatter.currency(orderDetails.subtotal)}</span></div>
-                  <div class="flex justify-between py-2"><span class="text-gray-600">Impuestos</span><span class="font-medium text-black">{Formatter.currency(orderDetails.tax)}</span></div>
-                  <div class="flex justify-between py-4 border-t border-gray-200 mt-2"><span class="text-lg font-semibold text-black">Total</span><span class="text-lg font-bold text-yellow-600">{Formatter.currency(orderDetails.total)}</span></div>
+                <div class="px-6 py-5 bg-gray-50 rounded-b-lg">
+                  <div class="flex justify-between py-2">
+                    <span class="text-gray-600">Subtotal</span>
+                    <span class="font-medium text-black">{Formatter.currency(orderDetails.subtotal)}</span>
+                  </div>
+                  <div class="flex justify-between py-2">
+                    <span class="text-gray-600">
+                      Envío {orderDetails.shipping.method !== "Envío Estándar" && `(${orderDetails.shipping.method})`}
+                    </span>
+                    <span class="font-medium text-black">
+                      {orderDetails.shipping.cost > 0 
+                        ? Formatter.currency(orderDetails.shipping.cost) 
+                        : <span class="text-green-600">Gratis</span>
+                      }
+                    </span>
+                  </div>
+                  <div class="flex justify-between py-4 border-t border-gray-200 mt-2">
+                    <span class="text-lg font-semibold text-black">Total</span>
+                    <span class="text-lg font-bold text-yellow-600">{Formatter.currency(orderDetails.total)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -273,10 +437,31 @@ try {
                 <div class="px-6 py-5 border-b border-gray-200">
                   <h2 class="text-xl font-semibold text-gray-900">Información de envío</h2>
                 </div>
-                <div class="px-6 py-5">
-                  <p class="font-medium text-gray-800">{orderDetails.customer.name}</p>
-                  <p class="text-gray-600 mt-1">{orderDetails.shipping.address}</p>
-                  <p class="text-gray-600">{orderDetails.customer.email}</p>
+                <div class="px-6 py-5 space-y-4">
+                  <div>
+                    <h3 class="font-medium text-gray-900 mb-2">Destinatario</h3>
+                    <p class="text-gray-600">{orderDetails.customer.name}</p>
+                    <p class="text-gray-600">{orderDetails.customer.email}</p>
+                    {orderDetails.customer.phone && (
+                      <p class="text-gray-600">Tel: {orderDetails.customer.phone}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h3 class="font-medium text-gray-900 mb-2">Dirección de entrega</h3>
+                    <p class="text-gray-600">{orderDetails.shipping.address}</p>
+                    {orderDetails.shipping.city && (
+                      <p class="text-gray-600">{orderDetails.shipping.city}, {orderDetails.shipping.state} {orderDetails.shipping.postalCode}</p>
+                    )}
+                  </div>
+                  
+                  {orderDetails.trackingNumber && (
+                    <div class="pt-4 border-t border-gray-200">
+                      <h3 class="font-medium text-gray-900 mb-2">Información de rastreo</h3>
+                      <p class="text-gray-600">Transportista: <span class="font-semibold">{orderDetails.carrier?.toUpperCase()}</span></p>
+                      <p class="text-gray-600">Número de guía: <code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono">{orderDetails.trackingNumber}</code></p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -285,21 +470,61 @@ try {
             <div class="space-y-8">
               <div class="bg-white shadow rounded-lg">
                 <div class="px-6 py-5 border-b border-gray-200">
-                  <h2 class="text-xl font-semibold text-gray-900">Seguimiento</h2>
+                  <h2 class="text-xl font-semibold text-gray-900">Estado del pedido</h2>
                 </div>
                 <div class="p-6 space-y-4">
                   <div class="flex items-center">
                     <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
                     </div>
                     <p class="ml-3 font-medium text-gray-800">Pago confirmado</p>
                   </div>
-                  <div class="flex items-center">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center">
-                      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                  
+                  {orderDetails.trackingNumber ? (
+                    <>
+                      <div class="flex items-center">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                          </svg>
+                        </div>
+                        <p class="ml-3 font-medium text-gray-800">Etiqueta generada</p>
+                      </div>
+                      <div class="flex items-center">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center">
+                          <svg class="w-4 h-4 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                          </svg>
+                        </div>
+                        <p class="ml-3 font-medium text-gray-800">En proceso de envío</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                      <p class="ml-3 font-medium text-gray-800">Preparando pedido</p>
                     </div>
-                    <p class="ml-3 font-medium text-gray-800">Preparando pedido</p>
-                  </div>
+                  )}
+                  
+                  {orderDetails.trackingNumber && (
+                    <div class="pt-4 border-t border-gray-200">
+                      <a 
+                        href="/account/mis-pedidos"
+                        class="w-full flex items-center justify-center px-4 py-3 bg-yellow-500 text-white font-medium rounded-lg hover:bg-yellow-600 transition-colors"
+                      >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                        </svg>
+                        Ver todos mis pedidos
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -309,11 +534,23 @@ try {
                 </div>
                 <div class="p-6 space-y-3">
                   <a href="mailto:broquelizatelaguna@gmail.com" class="flex items-center text-yellow-600 font-medium hover:underline">
-                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
                     <span>Contactar por correo</span>
                   </a>
+                  
+                  <a href="https://wa.me/528714617696" target="_blank" rel="noopener noreferrer" class="flex items-center text-green-600 font-medium hover:underline">
+                    <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                    </svg>
+                    <span>WhatsApp</span>
+                  </a>
+                  
                   <button id="download-invoice" class="w-full mt-4 py-3 px-4 bg-gray-800 text-white font-medium rounded-md hover:bg-black transition-colors flex items-center justify-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
                     Descargar Ticket
                   </button>
                 </div>
@@ -355,8 +592,7 @@ try {
           address: "Bravo 222, Colonia Centro, Gómez Palacio, Dgo.",
           phone: "528714617696",
         };
-
-        // ✅ Mapear productos incluyendo información de variantes
+        
         const productsForTicket = orderDetails.products.map((p: any) => ({
           ...p,
           displayName: p.variantDescription 

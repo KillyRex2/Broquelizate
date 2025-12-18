@@ -1,0 +1,665 @@
+---
+// src/pages/account/mis-pedidos.astro
+import MainLayout from '@/layouts/MainLayout.astro';
+import { actions } from 'astro:actions';
+
+// El middleware ya verificó la autenticación, así que podemos confiar en que user existe
+const { user } = Astro.locals;
+
+// ✅ DEBUGGING: Log del usuario
+console.log('👤 Usuario en mis-pedidos:', {
+  email: user?.email,
+  name: user?.name,
+  id: user?.id
+});
+
+// Obtener los pedidos del usuario desde la base de datos
+let orders: any[] = [];
+let error = null;
+let debugInfo = {
+  userEmail: user?.email || 'N/A',
+  searchCriteria: '',
+  ordersFound: 0,
+  rawResponse: null as any
+};
+
+try {
+  debugInfo.searchCriteria = `customerEmail: ${user!.email}`;
+  
+  console.log('🔍 Buscando pedidos con:', { customerEmail: user!.email });
+  
+  const result = await Astro.callAction(actions.getUserShipments, {
+    customerEmail: user!.email
+  });
+  
+  debugInfo.rawResponse = result;
+  
+  console.log('📦 Resultado de getUserShipments:', {
+    success: result.data?.success,
+    shipmentsCount: result.data?.shipments?.length || 0,
+    error: result.error
+  });
+  
+  if (result.data && result.data.success) {
+    orders = result.data.shipments || [];
+    debugInfo.ordersFound = orders.length;
+  }
+  
+  if (result.error) {
+    console.error('❌ Error en getUserShipments:', result.error);
+    error = result.error.message || 'Error al obtener pedidos';
+  }
+} catch (e) {
+  console.error('❌ Error al obtener pedidos:', e);
+  error = 'No se pudieron cargar los pedidos';
+}
+
+// ✅ Log final
+console.log('📋 Resumen:', {
+  userEmail: debugInfo.userEmail,
+  ordersFound: debugInfo.ordersFound,
+  hasError: !!error
+});
+
+// Función para traducir el estado
+function getStatusLabel(status: string) {
+  const statusMap: Record<string, string> = {
+    'pending': 'Pendiente',
+    'processing': 'En proceso',
+    'shipped': 'Enviado',
+    'delivered': 'Entregado',
+    'cancelled': 'Cancelado',
+    'completed': 'Completado'
+  };
+  return statusMap[status] || status;
+}
+
+// Función para obtener la clase del badge
+function getStatusClass(status: string) {
+  const statusClasses: Record<string, string> = {
+    'pending': 'pending',
+    'processing': 'processing',
+    'shipped': 'shipped',
+    'delivered': 'delivered',
+    'cancelled': 'cancelled',
+    'completed': 'delivered'
+  };
+  return statusClasses[status] || 'processing';
+}
+
+// Contar pedidos por estado
+const statusCounts = {
+  all: orders.length,
+  processing: orders.filter(o => o.status === 'processing' || o.status === 'pending').length,
+  shipped: orders.filter(o => o.status === 'shipped').length,
+  delivered: orders.filter(o => o.status === 'delivered' || o.status === 'completed').length,
+};
+---
+
+<MainLayout title="Mis Pedidos - Broquelizate">
+  <div class="orders-container">
+    <div class="page-header">
+      <h1>Mis Pedidos</h1>
+      <p class="subtitle">Hola {user!.name}, aquí están tus pedidos</p>
+    </div>
+
+    {error && (
+      <div class="error-message">
+        <p>{error}</p>
+      </div>
+    )}
+
+    {/* ✅ DEBUGGING: Mostrar info de debug en desarrollo */}
+ 
+
+    <!-- Filtros -->
+    <div class="filters-bar">
+      <button class="filter-btn active" data-filter="all">
+        Todos
+        <span class="count">{statusCounts.all}</span>
+      </button>
+      <button class="filter-btn" data-filter="processing">
+        En proceso
+        <span class="count">{statusCounts.processing}</span>
+      </button>
+      <button class="filter-btn" data-filter="shipped">
+        Enviados
+        <span class="count">{statusCounts.shipped}</span>
+      </button>
+      <button class="filter-btn" data-filter="delivered">
+        Entregados
+        <span class="count">{statusCounts.delivered}</span>
+      </button>
+    </div>
+
+    <!-- Lista de pedidos -->
+    <div class="orders-list">
+      {orders.map(order => (
+        <a href={`/order-success?order_id=${order.orderId}`} class="order-card-link">
+          <div class="order-card" data-status={order.status}>
+            <!-- Header del pedido -->
+            <div class="order-header">
+              <div class="order-info">
+                <h3>Pedido #{order.orderNumber}</h3>
+                <p class="order-date">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
+                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                  </svg>
+                  {new Date(order.orderDate).toLocaleDateString('es-MX', { 
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+              <div class="order-status">
+                <span class={`status-badge ${getStatusClass(order.status)}`}>
+                  <span class="status-dot"></span>
+                  {getStatusLabel(order.status)}
+                </span>
+              </div>
+            </div>
+
+            <!-- Productos del pedido -->
+            <div class="order-items">
+              {order.products.slice(0, 3).map((productName: string) => (
+                <div class="order-item">
+                  <div class="item-icon">📦</div>
+                  <div class="item-details">
+                    <h4>{productName}</h4>
+                  </div>
+                </div>
+              ))}
+              {order.products.length > 3 && (
+                <div class="more-items">
+                  +{order.products.length - 3} producto(s) más
+                </div>
+              )}
+            </div>
+
+            <!-- Footer con Total y Tracking -->
+            <div class="order-footer">
+              <div class="footer-left">
+                {order.trackingNumber && (
+                  <div class="tracking-info">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7z"/>
+                    </svg>
+                    <span class="tracking-number">{order.trackingNumber}</span>
+                  </div>
+                )}
+              </div>
+              <div class="order-total">
+                <span>Total:</span>
+                <span class="total-amount">${order.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <!-- Indicador de click -->
+            <div class="view-details">
+              <span>Ver detalles del pedido</span>
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    <!-- Estado vacío -->
+    {orders.length === 0 && !error && (
+      <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <h3>No tienes pedidos aún</h3>
+        <p>Cuando realices tu primera compra, aparecerá aquí</p>
+        <p class="text-sm text-gray-500 mt-2">
+          Asegúrate de usar el mismo email ({user!.email}) al hacer tu compra
+        </p>
+        <a href="/shop" class="cta-btn">
+          Explorar productos
+        </a>
+      </div>
+    )}
+  </div>
+</MainLayout>
+
+<style>
+  .orders-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    min-height: 80vh;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .page-header h1 {
+    color: #eab308;
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    color: #999;
+    font-size: 16px;
+  }
+
+  .error-message {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  /* Debug panel */
+  .debug-panel {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .debug-summary {
+    padding: 12px 16px;
+    cursor: pointer;
+    color: #3b82f6;
+    font-weight: 600;
+  }
+
+  .debug-content {
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    color: #93c5fd;
+  }
+
+  .debug-content p {
+    margin: 4px 0;
+  }
+
+  .debug-content ul {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  /* Filtros */
+  .filters-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .filter-btn {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: #999;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .filter-btn:hover {
+    background: rgba(234, 179, 8, 0.1);
+    border-color: rgba(234, 179, 8, 0.3);
+    color: #fff;
+  }
+
+  .filter-btn.active {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: #eab308;
+    color: #eab308;
+  }
+
+  .filter-btn .count {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* Tarjetas de pedidos */
+  .orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .order-card-link {
+    text-decoration: none;
+    display: block;
+  }
+
+  .order-card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .order-card:hover {
+    border-color: rgba(234, 179, 8, 0.5);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(234, 179, 8, 0.15);
+  }
+
+  .order-card:hover .view-details {
+    color: #eab308;
+  }
+
+  .order-card:hover .view-details svg {
+    transform: translateX(4px);
+  }
+
+  .order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .order-info h3 {
+    color: #fff;
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .order-date {
+    color: #999;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Estados de pedido */
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  .status-badge.processing,
+  .status-badge.pending {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .status-badge.processing .status-dot,
+  .status-badge.pending .status-dot {
+    background: #3b82f6;
+  }
+
+  .status-badge.shipped {
+    background: rgba(234, 179, 8, 0.1);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+  }
+
+  .status-badge.shipped .status-dot {
+    background: #eab308;
+  }
+
+  .status-badge.delivered {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .status-badge.delivered .status-dot {
+    background: #22c55e;
+  }
+
+  .status-badge.cancelled {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .status-badge.cancelled .status-dot {
+    background: #ef4444;
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Items del pedido */
+  .order-items {
+    margin-bottom: 20px;
+  }
+
+  .order-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+  }
+
+  .item-icon {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: rgba(234, 179, 8, 0.1);
+    border-radius: 8px;
+  }
+
+  .item-details {
+    flex: 1;
+  }
+
+  .item-details h4 {
+    color: #fff;
+    font-size: 15px;
+    margin-bottom: 0;
+  }
+
+  .more-items {
+    color: #999;
+    font-size: 14px;
+    padding: 8px 0;
+    padding-left: 66px;
+    font-style: italic;
+  }
+
+  /* Footer del pedido */
+  .order-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 16px;
+  }
+
+  .footer-left {
+    flex: 1;
+  }
+
+  .tracking-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #eab308;
+    font-size: 14px;
+  }
+
+  .tracking-number {
+    font-family: monospace;
+    background: rgba(234, 179, 8, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .order-total {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+  }
+
+  .order-total span:first-child {
+    color: #999;
+  }
+
+  .total-amount {
+    color: #eab308;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  /* Ver detalles */
+  .view-details {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .view-details svg {
+    transition: transform 0.3s ease;
+  }
+
+  /* Estado vacío */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .empty-icon {
+    font-size: 80px;
+    margin-bottom: 24px;
+  }
+
+  .empty-state h3 {
+    color: #fff;
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+
+  .empty-state p {
+    color: #999;
+    margin-bottom: 32px;
+  }
+
+  .cta-btn {
+    display: inline-block;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    font-weight: 700;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(234, 179, 8, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    .order-header {
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .order-footer {
+      flex-direction: column;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .order-total {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .filters-bar {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-btn {
+      flex-shrink: 0;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    // Filtros
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const orderLinks = document.querySelectorAll('.order-card-link');
+    
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault(); // Evitar que el click propague al link
+        e.stopPropagation();
+        
+        const filter = btn.getAttribute('data-filter');
+        
+        // Actualizar botón activo
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Filtrar pedidos
+        orderLinks.forEach(link => {
+          const card = link.querySelector('.order-card');
+          const status = card?.getAttribute('data-status');
+          
+          if (filter === 'all' || status === filter || 
+              (filter === 'processing' && (status === 'processing' || status === 'pending')) ||
+              (filter === 'delivered' && (status === 'delivered' || status === 'completed'))) {
+            (link as HTMLElement).style.display = 'block';
+          } else {
+            (link as HTMLElement).style.display = 'none';
+          }
+        });
+      });
+    });
+  });
+</script>

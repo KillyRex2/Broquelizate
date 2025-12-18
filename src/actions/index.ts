@@ -10,6 +10,7 @@ import { getAllProductsWithImages } from "./admin/get-all-products.action";
 import { capturePaypalOrder, createPaypalOrder } from "./admin/paypal";
 import { subscribeToNewsletter } from "./newsletter/newsletter.action";
 import { createBatchVariants, generateVariantCombinations, updateCombinationStock, getGroupedProductVariants, deleteVariant, deleteVariantGroup, updateVariant, getVariantCombination,  } from "./admin/product-variants.action";
+import {createShippingLabel, trackShipment, getUserShipments, getShippingRates, updateOrderStatus, updateOrderShippingAddress, updateShippingAddress, getUserProfile, updateUserProfile, getUserProfileByEmail} from './envia/envia.action';
 
 export const server = {
     // server actions
@@ -59,4 +60,16 @@ export const server = {
     deleteVariant,
     deleteVariantGroup,
     updateVariant,
+
+    // Shipment
+    createShippingLabel,
+    trackShipment,
+    getShippingRates,
+    getUserShipments,
+    updateOrderStatus,
+    updateOrderShippingAddress,
+    updateShippingAddress,
+    getUserProfile,
+    updateUserProfile,
+    getUserProfileByEmail
 }
