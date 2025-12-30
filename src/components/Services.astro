@@ -1,91 +1,481 @@
 ---
+// src/components/ServicesSection.astro
 import ServicesCard from '@/components/services/ServicesCard.astro';
-import type { Props as ServiceCardProps } from '@/components/services/ServicesCard.astro';
-import ServicesSlideShow from './services/ServicesSlideShow.astro';
+import ServicesGallery from '@/components/services/ServicesGallery.jsx';
 
-// Tipamos el array de servicios usando el tipo exportado de ServicesCard
-const services: ServiceCardProps[] = Astro.props.services || [
+interface Service {
+  title: string;
+  description: string;
+  price: number;
+  reserveLink: string;
+  icon?: string;
+}
+
+interface Props {
+  services?: Service[];
+}
+
+const defaultServices: Service[] = [
   {
     title: 'Perforación de Orejas',
     description: 'Perforación profesional con equipo esterilizado. Incluye pendientes hipoalergénicos de titanio y cuidados post-perforación.',
     price: 130,
-    reserveLink: import.meta.env.URL_PERFORACION_OREJA || '/reservar/orejas'
+    reserveLink: import.meta.env.URL_PERFORACION_OREJA || '/reservar/orejas',
+    icon: 'ear'
   },
   {
     title: 'Perforación Ombligo',
-    description: 'Perforación especializada en cartílago con técnicas profesionales. Proceso seguro y cuidados especializados.',
+    description: 'Perforación especializada con técnicas profesionales. Proceso seguro y cuidados especializados incluidos.',
     price: 130,
-    reserveLink: import.meta.env.URL_PERFORACION_OMBLIGO || '/reservar/ombigo'
+    reserveLink: import.meta.env.URL_PERFORACION_OMBLIGO || '/reservar/ombligo',
+    icon: 'belly'
   },
   {
     title: 'Perforación Nariz',
     description: 'Perforación nasal con joyería premium incluida. Asesoramiento personalizado y seguimiento completo.',
     price: 130,
-    reserveLink: import.meta.env.URL_PERFORACION_NARIZ || '/reservar/nariz'
+    reserveLink: import.meta.env.URL_PERFORACION_NARIZ || '/reservar/nariz',
+    icon: 'nose'
   },
   {
     title: 'Cambio de Joyería',
     description: 'Servicio profesional de cambio de joyería corporal. Amplia selección de diseños premium disponibles.',
     price: 130,
-    reserveLink: import.meta.env.URL_CAMBIO_JOYERIA || '/reservar/cambio'
+    reserveLink: import.meta.env.URL_CAMBIO_JOYERIA || '/reservar/cambio',
+    icon: 'jewelry'
   },
   {
     title: 'Consulta Especializada',
     description: 'Asesoramiento completo sobre tipos de perforación, cuidados y selección de joyería personalizada.',
     price: 130,
-    reserveLink: import.meta.env.URL_CONSULTA_ESPECIALIZADA || '/reservar/consulta'
+    reserveLink: import.meta.env.URL_CONSULTA_ESPECIALIZADA || '/reservar/consulta',
+    icon: 'consult'
   },
   {
     title: 'Limpieza y Mantenimiento',
     description: 'Servicio de limpieza profunda y mantenimiento de perforaciones. Revisión completa y cuidados preventivos.',
-    price:  0,
-    reserveLink: import.meta.env.URL_LIMPIEZA || '/reservar/limpieza'
+    price: 0,
+    reserveLink: import.meta.env.URL_LIMPIEZA || '/reservar/limpieza',
+    icon: 'clean'
   }
 ];
+
+const services = Astro.props.services || defaultServices;
 ---
-<section class="py-16 bg-black text-white " id="services">
-  <div class="max-w-6xl mx-auto px-4">
-    <!-- Encabezado -->
-    <div class="text-center mb-12">
-      <h2 class="text-4xl font-bold">Servicios de Perforación</h2>
-      <p class="text-sm text-gray-400 mt-2">
-        Nuestro equipo de profesionales certificados realiza perforaciones con las técnicas más seguras<br />
-        y los materiales de la más alta calidad.
+
+<section class="services-section" id="services">
+  <!-- Decoración de fondo -->
+  <div class="bg-decoration">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="grid-pattern"></div>
+  </div>
+
+  <div class="services-container">
+    <!-- Header -->
+    <div class="section-header">
+      <div class="header-badge">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        <span>Profesionales Certificados</span>
+      </div>
+      
+      <h2 class="section-title">
+        Servicios de <span class="gradient-text">Perforación</span>
+      </h2>
+      
+      <p class="section-subtitle">
+        Nuestro equipo de profesionales certificados realiza perforaciones con las técnicas 
+        más seguras y los materiales de la más alta calidad.
       </p>
     </div>
 
-    <!-- Grid Principal -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- Column Izquierda: Lista de Cards -->
-      <div class="space-y-6">
-        {services.map((svc) => (
-          <ServicesCard {...svc} />
+    <!-- Main Grid -->
+    <div class="main-grid">
+      <!-- Columna izquierda: Lista de servicios -->
+      <div class="services-list">
+        {services.map((service, index) => (
+          <ServicesCard 
+            {...service} 
+            index={index}
+          />
         ))}
       </div>
 
-      <!-- Column Derecha: Imagen y Por qué elegimos -->
-      <div class="space-y-6 flex flex-col justify-start">
+      <!-- Columna derecha: Galería y Trust -->
+      <div class="services-sidebar">
+        <!-- Galería PRIMERO -->
+        <div class="gallery-container">
+          <ServicesGallery client:visible />
+        </div>
 
-        <ServicesSlideShow />
-
-        <aside class="bg-slate-800 p-6 rounded-lg space-y-4">
-          <h3 class="text-xl font-semibold">Por qué elegimos</h3>
-          <ul class="space-y-2 list-none">
-            <li class="flex items-start">
-              <span class="mr-2 text-green-400">✔</span>
-              <span>Profesionales certificados</span>
+        <!-- Trust Box DESPUÉS -->
+        <div class="trust-box">
+          <div class="trust-header">
+            <div class="trust-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <h3>¿Por qué elegirnos?</h3>
+          </div>
+          
+          <ul class="trust-list">
+            <li>
+              <span class="check-icon">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </span>
+              <div class="trust-text">
+                <strong>Profesionales certificados</strong>
+                <span>Más de 5 años de experiencia</span>
+              </div>
             </li>
-            <li class="flex items-start">
-              <span class="mr-2 text-green-400">✔</span>
-              <span>Materiales premium</span>
+            <li>
+              <span class="check-icon">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </span>
+              <div class="trust-text">
+                <strong>Materiales premium</strong>
+                <span>Titanio e implant grade</span>
+              </div>
             </li>
-            <li class="flex items-start">
-              <span class="mr-2 text-green-400">✔</span>
-              <span>Entorno totalmente esterilizado</span>
+            <li>
+              <span class="check-icon">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </span>
+              <div class="trust-text">
+                <strong>Entorno esterilizado</strong>
+                <span>Autoclave y protocolo estricto</span>
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </span>
+              <div class="trust-text">
+                <strong>Seguimiento incluido</strong>
+                <span>Te acompañamos en la cicatrización</span>
+              </div>
             </li>
           </ul>
-        </aside>
+
+          <!-- CTA -->
+          <a href="https://wa.me/5218717522302" target="_blank" rel="noopener noreferrer" class="trust-cta">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>Agenda tu cita</span>
+          </a>
+        </div>
       </div>
     </div>
   </div>
 </section>
+
+<style>
+  .services-section {
+    position: relative;
+    padding: 100px 0;
+    background: linear-gradient(180deg, #000 0%, #0a0a0a 50%, #000 100%);
+    overflow: hidden;
+  }
+
+  /* Decoración de fondo */
+  .bg-decoration {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.4;
+  }
+
+  .glow-1 {
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.12) 0%, transparent 70%);
+    top: -200px;
+    right: -200px;
+  }
+
+  .glow-2 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.08) 0%, transparent 70%);
+    bottom: 100px;
+    left: -100px;
+  }
+
+  .grid-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Container */
+  .services-container {
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  .section-header {
+    text-align: center;
+    margin-bottom: 50px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 50px;
+    color: #eab308;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #eab308 0%, #fbbf24 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .section-subtitle {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.6);
+    max-width: 550px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* Main Grid - 60/40 split */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  /* Services List */
+  .services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Sidebar */
+  .services-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 100px;
+  }
+
+  /* Gallery Container */
+  .gallery-container {
+    width: 100%;
+  }
+
+  /* Trust Box - Compacto */
+  .trust-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .trust-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .trust-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.1));
+    border-radius: 12px;
+    color: #eab308;
+  }
+
+  .trust-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .trust-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .trust-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .check-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(34, 197, 94, 0.15);
+    border-radius: 6px;
+    color: #22c55e;
+    flex-shrink: 0;
+  }
+
+  .trust-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .trust-text strong {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .trust-text span {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .trust-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 20px;
+    margin-top: 16px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+  }
+
+  .trust-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4);
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+
+    .services-sidebar {
+      position: static;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .gallery-container {
+      order: 1;
+    }
+
+    .trust-box {
+      order: 2;
+    }
+
+    .trust-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .services-section {
+      padding: 70px 0;
+    }
+
+    .section-header {
+      margin-bottom: 40px;
+    }
+
+    .services-sidebar {
+      grid-template-columns: 1fr;
+    }
+
+    .trust-list {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .services-container {
+      padding: 0 16px;
+    }
+
+    .header-badge {
+      font-size: 11px;
+      padding: 8px 16px;
+    }
+
+    .section-title {
+      font-size: 1.6rem;
+    }
+
+    .section-subtitle {
+      font-size: 0.95rem;
+    }
+
+    .trust-list {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

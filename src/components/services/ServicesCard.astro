@@ -1,25 +1,292 @@
 ---
+// src/components/services/ServicesCard.astro
+
 export interface Props {
   title: string;
   description: string;
   price: number;
   reserveLink: string;
+  icon?: string;
+  index?: number;
 }
-const { title, description, price, reserveLink } = Astro.props as Props;
+
+const { title, description, price, reserveLink, icon = 'default', index = 0 } = Astro.props;
+
+// Mapeo de iconos SVG
+const icons: Record<string, string> = {
+  ear: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>`,
+  belly: `<circle cx="12" cy="12" r="3" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8V5m0 14v-3"/>`,
+  nose: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v4m0 4v8M8 12h8"/>`,
+  jewelry: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>`,
+  consult: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>`,
+  clean: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>`,
+  default: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>`
+};
+
+const iconPath = icons[icon] || icons.default;
+const isFree = price === 0;
 ---
 
-<article class="bg-slate-800 text-white rounded-lg p-6 space-y-2">
-  <h3 class="text-lg font-semibold">{title}</h3>
-  <p class="text-sm text-gray-300">{description}</p>
-  <div class="flex items-center justify-between mt-4">
-    <!-- <span class="font-bold">Desde {price} $</span> -->
-    <a
+<article 
+  class="service-card"
+  style={`--delay: ${index * 0.08}s`}
+>
+  <!-- Icon -->
+  <div class="card-icon">
+    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={iconPath} />
+  </div>
+
+  <!-- Content -->
+  <div class="card-content">
+    <h3 class="card-title">{title}</h3>
+    <p class="card-description">{description}</p>
+  </div>
+
+  <!-- Footer -->
+  <div class="card-footer">
+    <div class="card-price">
+      {isFree ? (
+        <span class="price-free">Gratis</span>
+      ) : (
+        <>
+          <span class="price-label">Desde</span>
+          <span class="price-value">${price}</span>
+        </>
+      )}
+    </div>
+    
+    <a 
       href={reserveLink}
-      class="text-xs font-semibold uppercase bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded"
-      target="_blank" 
+      target="_blank"
       rel="noopener noreferrer"
+      class="btn-reserve"
     >
-      Reservar
+      <span>Reservar</span>
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+      </svg>
     </a>
   </div>
+
+  <!-- Glow effect -->
+  <div class="card-glow"></div>
 </article>
+
+<style>
+  .service-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInLeft 0.5s ease-out var(--delay, 0s) both;
+  }
+
+  .service-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(234, 179, 8, 0.3);
+    transform: translateX(8px);
+  }
+
+  /* Icon */
+  .card-icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.1));
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 14px;
+    color: #eab308;
+    transition: all 0.3s ease;
+  }
+
+  .service-card:hover .card-icon {
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    transform: scale(1.05) rotate(3deg);
+    border-color: transparent;
+  }
+
+  /* Content */
+  .card-content {
+    min-width: 0;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+    transition: color 0.3s ease;
+  }
+
+  .service-card:hover .card-title {
+    color: #eab308;
+  }
+
+  .card-description {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Footer */
+  .card-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .card-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .price-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .price-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .price-free {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .btn-reserve {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .btn-reserve:hover {
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    border-color: transparent;
+    color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(234, 179, 8, 0.3);
+  }
+
+  .btn-reserve svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-reserve:hover svg {
+    transform: translateX(4px);
+  }
+
+  /* Glow Effect */
+  .card-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    box-shadow: 
+      inset 0 0 0 1px rgba(234, 179, 8, 0.2),
+      0 0 30px rgba(234, 179, 8, 0.1);
+  }
+
+  .service-card:hover .card-glow {
+    opacity: 1;
+  }
+
+  /* Animaciones */
+  @keyframes fadeInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .service-card {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .card-footer {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .card-price {
+      align-items: flex-start;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .card-title {
+      font-size: 1rem;
+    }
+
+    .card-description {
+      font-size: 0.8rem;
+    }
+
+    .btn-reserve {
+      padding: 10px 16px;
+      font-size: 0.8rem;
+    }
+
+    .btn-reserve span {
+      display: none;
+    }
+
+    .btn-reserve::after {
+      content: 'Reservar';
+    }
+  }
+</style>

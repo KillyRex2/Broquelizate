@@ -1,29 +1,533 @@
 ---
-// src/pages/index.astro
-import ClientCard from '@/components/testimonials/ClientCard.astro';
+// src/components/Testimonials.astro
+import TestimonialCard from '@/components/testimonials/TestimonialsCard.astro';
 
-const clients = [
-  { name: 'Pao', since: 2021, testimonial: 'Lleve a mi bebe para que le pusieran sus primeros aretes & me encanto, 🥰 Muy limpio todo, con anestesia & súper pacientes ✨ Le quedaron muy lindos & parejitos', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fpao.jpg?alt=media&token=d805ab1f-df88-4a2e-ac89-38756c7e9512', rating: 5 },
-  { name: 'Nidia Maribel Saenz', since: 2020, testimonial: 'Buen servicio!! muy paciente al realizar la aplicación de aretes a mi bebé 👶🏻🫶🏻 todo muy limpio, nuevo y con material profesional al final las indicaciones muy claras y la joyería muy bonita.', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fnidia.jpg?alt=media&token=f1eb3df8-d4eb-4201-bdbe-9c3ad33299e4', rating: 4 },
-  { name: 'Graciela Hernández',  since: 2019, testimonial: 'Excelente servicio y atención personalizada. Aunque me queda lejos, prefiero mil veces ir con ellas que a cualquier otro lugar. Siempre me atienden con muchísima amabilidad, se nota que les importa cada cliente y están súper al pendiente del proceso de cicatrización de mis piercings. Se siente un ambiente de confianza y profesionalismo que no he encontrado en ningún otro lugar. ¡Totalmente recomendadas!', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2FGraciela.jpg?alt=media&token=e2dbf996-4f97-4960-a197-53250cb45045', rating: 5 },
-  { name: 'Catalina Alvarado Bravo',   since: 2021, testimonial: 'Ame el servicio, te orientan y aconsejan muy bien sobre el tipo y material de pieza apto para la perforación que te realizas, trato profesional y muchos modelos para escoger❤️❤️❤️', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fcatalina.jpg?alt=media&token=64d8afec-c5d8-4bff-8198-b4357b9e6502', rating: 4 },
-  { name: 'Karly del Bosque',    since: 2022, testimonial: 'Excelente atención, buena variedad de servicios de piercing y aretes bonitos. La chica brindó buena información', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fkarly.png?alt=media&token=925a6f39-d7d8-431f-91c9-25d8e730c200', rating: 5 },
-  { name: 'Itzel Pindeo',    since: 2017, testimonial: 'El mejor lugar para perfos😍…', imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fitzel.png?alt=media&token=54883e1c-5a30-4371-a009-3e42eddebb24', rating: 5 }
+interface Client {
+  name: string;
+  since: number;
+  testimonial: string;
+  imageUrl: string;
+  rating: number;
+}
+
+interface Props {
+  clients?: Client[];
+}
+
+const defaultClients: Client[] = [
+  { 
+    name: 'Pao', 
+    since: 2021, 
+    testimonial: 'Lleve a mi bebe para que le pusieran sus primeros aretes & me encanto, 🥰 Muy limpio todo, con anestesia & súper pacientes ✨ Le quedaron muy lindos & parejitos', 
+    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fpao.jpg?alt=media&token=d805ab1f-df88-4a2e-ac89-38756c7e9512', 
+    rating: 5 
+  },
+  { 
+    name: 'Nidia Maribel Saenz', 
+    since: 2020, 
+    testimonial: 'Buen servicio!! muy paciente al realizar la aplicación de aretes a mi bebé 👶🏻🫶🏻 todo muy limpio, nuevo y con material profesional al final las indicaciones muy claras y la joyería muy bonita.', 
+    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fnidia.jpg?alt=media&token=f1eb3df8-d4eb-4201-bdbe-9c3ad33299e4', 
+    rating: 4 
+  },
+  { 
+    name: 'Graciela Hernández',  
+    since: 2019, 
+    testimonial: 'Excelente servicio y atención personalizada. Aunque me queda lejos, prefiero mil veces ir con ellas que a cualquier otro lugar. Siempre me atienden con muchísima amabilidad, se nota que les importa cada cliente y están súper al pendiente del proceso de cicatrización de mis piercings.', 
+    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2FGraciela.jpg?alt=media&token=e2dbf996-4f97-4960-a197-53250cb45045', 
+    rating: 5 
+  },
+  { 
+    name: 'Catalina Alvarado Bravo',   
+    since: 2021, 
+    testimonial: 'Ame el servicio, te orientan y aconsejan muy bien sobre el tipo y material de pieza apto para la perforación que te realizas, trato profesional y muchos modelos para escoger❤️❤️❤️', 
+    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fcatalina.jpg?alt=media&token=64d8afec-c5d8-4bff-8198-b4357b9e6502', 
+    rating: 4 
+  },
+  { 
+    name: 'Karly del Bosque',    
+    since: 2022, 
+    testimonial: 'Excelente atención, buena variedad de servicios de piercing y aretes bonitos. La chica brindó buena información sobre cuidados y seguimiento.', 
+    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fkarly.png?alt=media&token=925a6f39-d7d8-431f-91c9-25d8e730c200', 
+    rating: 5 
+  },
+  { 
+    name: 'Itzel Pindeo',    
+    since: 2017, 
+    testimonial: 'El mejor lugar para perfos 😍 Super profesionales, higiénicos y con el mejor trato. 100% recomendado para cualquier tipo de perforación.', 
+    imageUrl: 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Fitzel.png?alt=media&token=54883e1c-5a30-4371-a009-3e42eddebb24', 
+    rating: 5 
+  }
 ];
+
+const clients = Astro.props.clients || defaultClients;
+
+// Stats calculados
+const totalClients = "500+";
+const avgRating = (clients.reduce((acc, c) => acc + c.rating, 0) / clients.length).toFixed(1);
+const yearsExperience = new Date().getFullYear() - 2017;
 ---
-<section class="py-16 bg-gray-100">
-  <div class="max-w-7xl mx-auto px-4">
-    <h2 class="text-3xl font-bold text-center mb-12 text-black">Lo que dicen nuestros clientes</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-      {clients.map((client) => (
-        <ClientCard
-          name={client.name}
-          since={client.since}
-          testimonial={client.testimonial}
-          imageUrl={client.imageUrl}
-          rating={client.rating}
+
+<section class="testimonials-section" id="testimonials">
+  <!-- Decoración de fondo -->
+  <div class="bg-decoration">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+    <div class="grid-pattern"></div>
+  </div>
+
+  <div class="testimonials-container">
+    <!-- Header -->
+    <div class="section-header">
+      <div class="header-badge">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        <span>Testimonios Verificados</span>
+      </div>
+      
+      <h2 class="section-title">
+        Lo que dicen nuestros <span class="gradient-text">Clientes</span>
+      </h2>
+      
+      <p class="section-subtitle">
+        Más de {totalClients} clientes satisfechos confían en nosotros. 
+        Conoce sus experiencias reales.
+      </p>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-value">{totalClients}</div>
+        <div class="stat-label">Clientes felices</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value">
+          <svg width="20" height="20" fill="#eab308" viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          {avgRating}
+        </div>
+        <div class="stat-label">Calificación promedio</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value">{yearsExperience}+</div>
+        <div class="stat-label">Años de experiencia</div>
+      </div>
+    </div>
+
+    <!-- Testimonials Grid -->
+    <div class="testimonials-grid">
+      {clients.map((client, index) => (
+        <TestimonialCard 
+          {...client}
+          index={index}
         />
       ))}
     </div>
+
+    <!-- CTA Section -->
+    <div class="cta-section">
+      <div class="cta-content">
+        <div class="cta-text">
+          <h3>¿Listo para tu próxima perforación?</h3>
+          <p>Únete a nuestra comunidad de clientes satisfechos</p>
+        </div>
+        <div class="cta-buttons">
+          <a href="https://wa.me/5218717522302" target="_blank" rel="noopener noreferrer" class="btn-primary">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>Agenda ahora</span>
+          </a>
+          <a href="https://www.google.com/maps/place/Broquelizate/@25.563461,-103.5027641,17z/data=!3m1!4b1!4m6!3m5!1s0x868fd9adf1363303:0xf213f94b22610995!8m2!3d25.563461!4d-103.5001838!16s%2Fg%2F11ss6qt9hj?entry=ttu&g_ep=EgoyMDI1MTIwOS4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span>Deja tu reseña</span>
+          </a>
+        </div>
+      </div>
+      <div class="cta-decoration">
+        <div class="floating-stars">
+          {[...Array(5)].map((_, i) => (
+            <svg 
+              class="floating-star" 
+              style={`--float-delay: ${i * 0.2}s; --float-x: ${(i - 2) * 30}px`}
+              width="24" 
+              height="24" 
+              fill="#eab308" 
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          ))}
+        </div>
+      </div>
+    </div>
   </div>
 </section>
+
+<style>
+  .testimonials-section {
+    position: relative;
+    padding: 100px 0;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  /* Decoración de fondo */
+  .bg-decoration {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.5;
+  }
+
+  .glow-1 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.15) 0%, transparent 70%);
+    top: -100px;
+    left: -200px;
+  }
+
+  .glow-2 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.1) 0%, transparent 70%);
+    bottom: 200px;
+    right: -150px;
+  }
+
+  .glow-3 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.08) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+
+
+  /* Container */
+  .testimonials-container {
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  .section-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    border-radius: 50px;
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 20px;
+    animation: fadeInDown 0.6s ease-out;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 16px;
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .section-subtitle {
+    font-size: 1rem;
+    color: #666;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.7;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+  }
+
+  /* Stats Bar */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 24px 40px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    margin-bottom: 50px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-value {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Testimonials Grid */
+  .testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 60px;
+  }
+
+  /* CTA Section */
+  .cta-section {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    padding: 40px 48px;
+    background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
+    border-radius: 24px;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease-out 0.8s both;
+  }
+
+  .cta-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    flex: 1;
+    z-index: 2;
+  }
+
+  .cta-text h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .cta-text p {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .cta-buttons {
+    display: flex;
+    gap: 16px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(34, 197, 94, 0.4);
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.4);
+    color: #eab308;
+  }
+
+  /* CTA Decoration */
+  .cta-decoration {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+  }
+
+  .floating-stars {
+    display: flex;
+    gap: 10px;
+  }
+
+  .floating-star {
+    animation: float 3s ease-in-out infinite;
+    animation-delay: var(--float-delay, 0s);
+    opacity: 0.3;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0) translateX(var(--float-x, 0));
+    }
+    50% {
+      transform: translateY(-10px) translateX(var(--float-x, 0));
+    }
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .testimonials-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .cta-section {
+      flex-direction: column;
+      text-align: center;
+      padding: 32px;
+    }
+
+    .cta-content {
+      flex-direction: column;
+    }
+
+    .cta-decoration {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .testimonials-section {
+      padding: 70px 0;
+    }
+
+    .stats-bar {
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+    }
+
+    .stat-divider {
+      width: 60px;
+      height: 1px;
+    }
+
+    .testimonials-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .cta-buttons {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .testimonials-container {
+      padding: 0 16px;
+    }
+
+    .header-badge {
+      font-size: 11px;
+      padding: 8px 16px;
+    }
+
+    .section-title {
+      font-size: 1.6rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+    }
+
+    .cta-text h3 {
+      font-size: 1.25rem;
+    }
+  }
+</style>

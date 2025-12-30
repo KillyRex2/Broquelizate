@@ -1,15 +1,135 @@
 ---
- interface Props {
-    title: string;
-    description: string;
-    
-  }
+// src/components/broquelizate/BroquelizateCard.astro
 
-const { title, description} = Astro.props;
+interface Props {
+  title: string;
+  description: string;
+  index?: number;
+}
+
+const { title, description, index = 0 } = Astro.props;
 ---
 
-<div class="bg-gray-800 rounded-2xl shadow p-6 flex flex-col items-center text-center">
+<div 
+  class="stat-card"
+  style={`--delay: ${index * 0.1}s`}
+>
+  <div class="stat-value">
+    <span class="number">{title}</span>
+    <div class="glow-ring"></div>
+  </div>
+  <p class="stat-description">{description}</p>
   
-  <h1 class="text-xl font-bold mb-2">{title}</h3>
-  <p class="text-gray-200">{description}</p>
+  <!-- Decorative corner -->
+  <div class="corner-accent"></div>
 </div>
+
+<style>
+  .stat-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInUp 0.6s ease-out var(--delay, 0s) both;
+    overflow: hidden;
+  }
+
+  .stat-card:hover {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(234, 179, 8, 0.05));
+    border-color: rgba(234, 179, 8, 0.3);
+    transform: translateY(-8px);
+  }
+
+  .stat-value {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .number {
+    font-size: 2.75rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #eab308 0%, #fbbf24 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    transition: all 0.3s ease;
+  }
+
+  .stat-card:hover .number {
+    transform: scale(1.1);
+  }
+
+  .glow-ring {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.15) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .stat-card:hover .glow-ring {
+    opacity: 1;
+  }
+
+  .stat-description {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
+    max-width: 200px;
+  }
+
+  .corner-accent {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, transparent 50%, rgba(234, 179, 8, 0.1) 50%);
+    border-radius: 0 20px 0 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .stat-card:hover .corner-accent {
+    opacity: 1;
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .stat-card {
+      padding: 24px 20px;
+    }
+
+    .number {
+      font-size: 2.25rem;
+    }
+
+    .stat-description {
+      font-size: 0.85rem;
+    }
+  }
+</style>

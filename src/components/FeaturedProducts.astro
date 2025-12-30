@@ -1,5 +1,6 @@
 ---
-import FeaturedProductsCard from '@/components/products/FeaturedProductsCard.tsx';
+// src/components/FeaturedProductsSection.astro
+import FeaturedProductCard from '@/components/products/FeaturedProductsCard.astro';
 
 export interface Product {
   id: string;
@@ -8,58 +9,411 @@ export interface Product {
   description: string;
   price: number;
   salePrice?: number;
-  onAddLink: string;
+  slug: string;
 }
 
-const products = [
+interface Props {
+  products?: Product[];
+  title?: string;
+  subtitle?: string;
+}
+
+const { 
+  title = "Productos Destacados",
+  subtitle = "Descubre las piezas más elegantes de nuestra colección, seleccionadas especialmente para ti.",
+  products = []
+} = Astro.props;
+
+// Productos por defecto si no se pasan
+const defaultProducts: Product[] = [
   {
     id: 'id-1',
-    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307574/anillo_hojitas_ebpct0.jpg',
-    title: 'Anillo Hojas Diamantado',
-    description: 'Elegante y delicado anillo inspirado en la naturaleza, con un diseño de pequeñas hojas entrelazadas. Su acabado brillante lo convierte en el accesorio perfecto para resaltar tu estilo con un toque sutil y femenino. Ideal para uso diario o para complementar un look especial.',
+    image: 'https://res.cloudinary.com/deuonq0qb/image/upload/v1766160475/cadena_ocfhbk.jpg',
+    title: 'Collar con diamante',
+    description: 'Elegante collar inspirado en la naturaleza, con un diseño elegante con un diamante.',
     price: 3300,
-    onAddLink: '/carrito/add/anillo-elegance-diamond',
+    slug: 'anillo-hojas-diamantado',
   },
   {
     id: 'id-2',
     image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307573/arracas_forma_kuabvh.jpg',
     title: 'Arracadas Lisa Grande',
-    description: 'Modernas y sofisticadas arracadas con diseño geométrico, perfectas para destacar con un estilo contemporáneo. ',
+    description: 'Modernas y sofisticadas arracadas con diseño geométrico, perfectas para destacar.',
     price: 1800,
-    onAddLink: '/carrito/add/collar-perlas-tahiti',
+    slug: 'arracadas-lisa-grande',
   },
   {
     id: 'id-3',
-    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307574/anillo_fregon_wvurkl.jpg',
+    image: 'https://res.cloudinary.com/deuonq0qb/image/upload/v1766160474/anillo_fregon_jmfrll.jpg',
     title: 'Anillo Hojas',
-    description: 'Anillo con diseño de hojas delicadas, ideal para quienes buscan un toque natural y elegante en su joyería. Perfecto para ocasiones especiales o para el uso diario.',
+    description: 'Anillo con diseño de hojas delicadas, ideal para quienes buscan un toque natural.',
     price: 3200,
     salePrice: 2800,
-    onAddLink: '/carrito/add/aretes-zafiro-royal',
+    slug: 'anillo-hojas',
   },
   {
     id: 'id-4',
-    image: 'https://res.cloudinary.com/dfomhcqbp/image/upload/v1750307574/pulsera_colores_azul_au44cz.jpg',
+    image: 'https://res.cloudinary.com/deuonq0qb/image/upload/v1766160475/pulsera_colores_hqrl5n.jpg',
     title: 'Pulsera Zafiros',
-    description: 'Pulsera de zafiros con un diseño elegante y moderno, ideal para complementar cualquier atuendo. Los zafiros añaden un toque de color y sofisticación, convirtiéndola en una pieza versátil para el uso diario o para ocasiones especiales.',
+    description: 'Pulsera de zafiros con un diseño elegante y moderno, ideal para complementar cualquier atuendo.',
     price: 4500,
-    onAddLink: '/carrito/add/pulsera-tennis-diamantes',
+    slug: 'pulsera-zafiros',
   },
 ];
+
+const displayProducts = products.length > 0 ? products : defaultProducts;
 ---
-<section class="py-20 px-6 bg-white flex items-center justify-center">
-  <div class="max-w-6xl mx-auto px-4">
-    <h2 class="text-3xl font-bold mb-6 text-black">Productos Destacados</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {products.map((prod) => (
-        <FeaturedProductsCard client:only="react" {...prod} />
+
+<section class="featured-section">
+  <!-- Decoración de fondo -->
+  <div class="bg-pattern"></div>
+  
+  <div class="featured-container">
+    <!-- Header -->
+    <div class="section-header">
+      <div class="header-badge">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+        </svg>
+        <span>Lo Más Vendido</span>
+      </div>
+      
+      <h2 class="section-title">
+        {title.split(' ')[0]} <span class="gradient-text">{title.split(' ').slice(1).join(' ')}</span>
+      </h2>
+      
+      <p class="section-subtitle">{subtitle}</p>
+    </div>
+
+    <!-- Grid de productos -->
+    <div class="products-grid">
+      {displayProducts.map((product, index) => (
+        <FeaturedProductCard 
+          product={product} 
+          index={index}
+        />
       ))}
     </div>
-    <div class="text-center mt-8">
-      <a href="/products" class="inline-block px-8 py-3 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition">
-        Ver todos los productos
+
+    <!-- Features -->
+    <div class="features-row">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+          </svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Envío Gratis</span>
+          <span class="feature-desc">En compras +$999</span>
+        </div>
+      </div>
+      
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Garantía</span>
+          <span class="feature-desc">30 días de garantía</span>
+        </div>
+      </div>
+      
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Devoluciones</span>
+          <span class="feature-desc">Cambios sin costo</span>
+        </div>
+      </div>
+      
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+        </div>
+        <div class="feature-text">
+          <span class="feature-title">Pago Seguro</span>
+          <span class="feature-desc">Múltiples métodos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="section-cta">
+      <a href="/products" class="btn-primary">
+        <span>Ver Toda la Colección</span>
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+        </svg>
       </a>
     </div>
   </div>
 </section>
-  
+
+<style>
+  .featured-section {
+    position: relative;
+    padding: 100px 0;
+    background: linear-gradient(180deg, #fafafa 0%, #fff 50%, #fafafa 100%);
+    overflow: hidden;
+  }
+
+  /* Patrón de fondo */
+  .bg-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    pointer-events: none;
+  }
+
+  /* Container */
+  .featured-container {
+    position: relative;
+    z-index: 10;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  .section-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(245, 158, 11, 0.1));
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 50px;
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 20px;
+    animation: fadeInDown 0.6s ease-out;
+  }
+
+  .header-badge svg {
+    color: #eab308;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 16px;
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #eab308 0%, #f59e0b 50%, #d97706 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .section-subtitle {
+    font-size: 1.1rem;
+    color: #666;
+    max-width: 550px;
+    margin: 0 auto;
+    line-height: 1.7;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+  }
+
+  /* Grid de productos */
+  .products-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+    margin-bottom: 60px;
+  }
+
+  /* Features Row */
+  .features-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    padding: 40px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    margin-bottom: 50px;
+    animation: fadeInUp 0.6s ease-out 0.5s both;
+  }
+
+  .feature {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .feature-icon {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(245, 158, 11, 0.15));
+    border-radius: 14px;
+    color: #b45309;
+    flex-shrink: 0;
+  }
+
+  .feature-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .feature-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .feature-desc {
+    font-size: 0.8rem;
+    color: #888;
+  }
+
+  /* CTA */
+  .section-cta {
+    text-align: center;
+    animation: fadeInUp 0.6s ease-out 0.6s both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 40px;
+    background: linear-gradient(135deg, #111 0%, #333 100%);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #000 0%, #222 100%);
+  }
+
+  .btn-primary svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-primary:hover svg {
+    transform: translateX(5px);
+  }
+
+  /* Animaciones */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .products-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .features-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .featured-section {
+      padding: 70px 0;
+    }
+
+    .section-header {
+      margin-bottom: 40px;
+    }
+
+    .products-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .features-row {
+      grid-template-columns: 1fr;
+      gap: 20px;
+      padding: 28px;
+    }
+
+    .feature {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .feature:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .featured-container {
+      padding: 0 16px;
+    }
+
+    .header-badge {
+      font-size: 11px;
+      padding: 8px 16px;
+    }
+
+    .section-title {
+      font-size: 1.6rem;
+    }
+
+    .section-subtitle {
+      font-size: 1rem;
+    }
+
+    .btn-primary {
+      width: 100%;
+      justify-content: center;
+      padding: 16px 32px;
+    }
+  }
+</style>

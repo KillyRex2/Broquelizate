@@ -1,44 +1,562 @@
 ---
 // src/components/Newsletter.astro
 ---
-<section 
-  class="relative py-20 bg-cover bg-center font-sans" 
-  style="background-image: url('https://images.unsplash.com/photo-1610495232624-818713aaa33a?q=80&w=2070&auto=format&fit=crop');"
->
-  <!-- Overlay oscuro para legibilidad -->
-  <div class="absolute inset-0 bg-black bg-opacity-60"></div>
 
-  <div class="relative z-10 max-w-3xl mx-auto px-6 text-center text-white">
-    <h2 class="text-4xl sm:text-5xl font-semibold mb-4 tracking-tight text-amber-400">
-      Únete a nuestro Círculo Exclusivo
-    </h2>
-    <p class="text-lg sm:text-xl mb-8 text-gray-200">
-      Sé de los primeros en descubrir nuestras colecciones de alta joyería, ofertas secretas y consejos exclusivos para el cuidado de tus piezas.
-    </p>
+<section class="newsletter-section" id="newsletter">
+  <!-- Decoraciones de fondo -->
+  <div class="bg-decoration">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="grid-pattern"></div>
+    <div class="floating-elements">
+      <div class="floating-ring ring-1"></div>
+      <div class="floating-ring ring-2"></div>
+      <div class="floating-ring ring-3"></div>
+    </div>
+  </div>
 
-    <form id="newsletter-form" class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
-      <input
-        type="email"
-        name="email"
-        placeholder="Tu correo electrónico"
-        class="w-full sm:flex-1 px-6 py-4 bg-white/10 backdrop-blur-sm border border-gray-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition"
-        required
-      />
-      <button
-        type="submit"
-        id="newsletter-submit-btn"
-        class="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-      >
-        {/* ✅ CORRECCIÓN: Se movió la clase al atributo 'class' */}
-        <span id="newsletter-btn-text" class="font-semibold">Suscribirme</span>
-      </button>
-    </form>
+  <div class="newsletter-container">
+    <div class="content-wrapper">
+      <!-- Badge -->
+      <div class="header-badge">
+        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        <span>Exclusivo para ti</span>
+      </div>
 
-    <p class="text-xs text-gray-400 mt-6">
-      Respetamos tu privacidad. Nunca compartiremos tu información.
-    </p>
+      <!-- Título -->
+      <h2 class="section-title">
+        Únete a nuestro <span class="gradient-text">Círculo Exclusivo</span>
+      </h2>
+
+      <!-- Descripción -->
+      <p class="section-description">
+        Sé de los primeros en descubrir nuestras colecciones de alta joyería, 
+        ofertas secretas y consejos exclusivos para el cuidado de tus piezas.
+      </p>
+
+      <!-- Beneficios -->
+      <div class="benefits-grid">
+        <div class="benefit-item">
+          <div class="benefit-icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/>
+            </svg>
+          </div>
+          <span>Ofertas exclusivas</span>
+        </div>
+        <div class="benefit-item">
+          <div class="benefit-icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <span>Acceso anticipado</span>
+        </div>
+        <div class="benefit-item">
+          <div class="benefit-icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <span>Tips de cuidado</span>
+        </div>
+      </div>
+
+      <!-- Formulario -->
+      <form id="newsletter-form" class="newsletter-form">
+        <div class="form-wrapper">
+          <div class="input-group">
+            <svg class="input-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <input
+              type="email"
+              name="email"
+              placeholder="Tu correo electrónico"
+              required
+              autocomplete="email"
+            />
+          </div>
+          <button type="submit" id="newsletter-submit-btn" class="submit-btn">
+            <span id="newsletter-btn-text">Suscribirme</span>
+            <svg class="btn-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+            <svg class="btn-spinner" width="20" height="20" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Success message -->
+        <div id="success-message" class="success-message">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>¡Gracias por suscribirte!</span>
+        </div>
+      </form>
+
+      <!-- Privacy -->
+      <p class="privacy-text">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+        </svg>
+        Respetamos tu privacidad. Nunca compartiremos tu información.
+      </p>
+
+      <!-- Subscribers count -->
+      <div class="subscribers-count">
+        <div class="avatars">
+          <div class="avatar" style="background: linear-gradient(135deg, #eab308, #f59e0b)"></div>
+          <div class="avatar" style="background: linear-gradient(135deg, #22c55e, #16a34a)"></div>
+          <div class="avatar" style="background: linear-gradient(135deg, #3b82f6, #2563eb)"></div>
+        </div>
+        <span>+500 suscriptores ya reciben nuestras ofertas</span>
+      </div>
+    </div>
   </div>
 </section>
+
+<style>
+  .newsletter-section {
+    position: relative;
+    padding: 100px 0;
+    background: linear-gradient(180deg, #f8f8f8 0%, #fff 50%, #f8f8f8 100%);
+    overflow: hidden;
+    min-height: 550px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Decoraciones de fondo */
+  .bg-decoration {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+  }
+
+  .glow-1 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.15) 0%, transparent 70%);
+    top: -100px;
+    right: 10%;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .glow-2 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.1) 0%, transparent 70%);
+    bottom: -50px;
+    left: 10%;
+    animation: float 10s ease-in-out infinite reverse;
+  }
+
+
+
+  .floating-elements {
+    position: absolute;
+    inset: 0;
+  }
+
+  .floating-ring {
+    position: absolute;
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    border-radius: 50%;
+    animation: pulse-ring 4s ease-in-out infinite;
+  }
+
+ 
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-30px) translateX(20px); }
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { 
+      transform: scale(1);
+      opacity: 0.4;
+    }
+    50% { 
+      transform: scale(1.2);
+      opacity: 0.15;
+    }
+  }
+
+  /* Container */
+  .newsletter-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .content-wrapper {
+    text-align: center;
+  }
+
+  /* Badge */
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    border-radius: 50px;
+    color: #b45309;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 24px;
+    animation: fadeInDown 0.6s ease-out;
+  }
+
+  /* Title */
+  .section-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 20px;
+    line-height: 1.2;
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Description */
+  .section-description {
+    font-size: 1.1rem;
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 32px;
+    max-width: 550px;
+    margin-left: auto;
+    margin-right: auto;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+  }
+
+  /* Benefits */
+  .benefits-grid {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+  }
+
+  .benefit-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 50px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+  }
+
+  .benefit-item:hover {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(234, 179, 8, 0.15);
+  }
+
+  .benefit-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.1));
+    border-radius: 50%;
+    color: #b45309;
+  }
+
+  .benefit-item span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #333;
+  }
+
+  /* Form */
+  .newsletter-form {
+    animation: fadeInUp 0.6s ease-out 0.4s both;
+    margin-bottom: 24px;
+  }
+
+  .form-wrapper {
+    display: flex;
+    gap: 12px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .input-group {
+    flex: 1;
+    position: relative;
+  }
+
+  .input-icon {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    pointer-events: none;
+    transition: color 0.3s ease;
+  }
+
+  .input-group input {
+    width: 100%;
+    padding: 18px 20px 18px 54px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 14px;
+    color: #111;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  }
+
+  .input-group input::placeholder {
+    color: #999;
+  }
+
+  .input-group input:focus {
+    border-color: #eab308;
+    box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.15), 0 4px 15px rgba(0, 0, 0, 0.08);
+  }
+
+  .input-group:has(input:focus) .input-icon {
+    color: #b45309;
+  }
+
+  .submit-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 32px;
+    background: linear-gradient(135deg, #111 0%, #222 100%);
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #222 0%, #333 100%);
+  }
+
+  .submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-arrow {
+    transition: transform 0.3s ease;
+  }
+
+  .submit-btn:hover:not(:disabled) .btn-arrow {
+    transform: translateX(4px);
+  }
+
+  .btn-spinner {
+    display: none;
+    animation: spin 1s linear infinite;
+  }
+
+  .submit-btn.loading .btn-arrow {
+    display: none;
+  }
+
+  .submit-btn.loading .btn-spinner {
+    display: block;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Success message */
+  .success-message {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 12px;
+    color: #16a34a;
+    font-weight: 600;
+    margin-top: 16px;
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  .success-message.show {
+    display: flex;
+  }
+
+  /* Privacy */
+  .privacy-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 32px;
+    animation: fadeInUp 0.6s ease-out 0.5s both;
+  }
+
+  .privacy-text svg {
+    color: #b45309;
+  }
+
+  /* Subscribers count */
+  .subscribers-count {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    animation: fadeInUp 0.6s ease-out 0.6s both;
+  }
+
+  .avatars {
+    display: flex;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    margin-left: -8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .avatar:first-child {
+    margin-left: 0;
+  }
+
+  .subscribers-count span {
+    font-size: 0.85rem;
+    color: #666;
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .newsletter-section {
+      padding: 80px 0;
+    }
+
+    .form-wrapper {
+      flex-direction: column;
+    }
+
+    .submit-btn {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .benefits-grid {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .benefit-item {
+      width: 100%;
+      max-width: 280px;
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .newsletter-container {
+      padding: 0 16px;
+    }
+
+    .section-title {
+      font-size: 1.75rem;
+    }
+
+    .section-description {
+      font-size: 1rem;
+    }
+
+    .header-badge {
+      font-size: 11px;
+      padding: 8px 16px;
+    }
+
+    .input-group input {
+      padding: 16px 16px 16px 48px;
+    }
+
+    .submit-btn {
+      padding: 16px 24px;
+    }
+  }
+</style>
 
 <script>
   import { actions } from 'astro:actions';
@@ -49,6 +567,7 @@
     const form = document.getElementById('newsletter-form') as HTMLFormElement | null;
     const submitBtn = document.getElementById('newsletter-submit-btn') as HTMLButtonElement | null;
     const btnText = document.getElementById('newsletter-btn-text') as HTMLSpanElement | null;
+    const successMessage = document.getElementById('success-message') as HTMLDivElement | null;
 
     if (!form || !submitBtn || !btnText) return;
 
@@ -57,6 +576,7 @@
       
       const originalBtnText = btnText.textContent;
       submitBtn.disabled = true;
+      submitBtn.classList.add('loading');
       btnText.textContent = 'Enviando...';
 
       const formData = new FormData(form);
@@ -69,15 +589,30 @@
         }
 
         if (data.success) {
+          // Mostrar mensaje de éxito inline
+          if (successMessage) {
+            successMessage.classList.add('show');
+          }
+          
+          // También mostrar SweetAlert
           Swal.fire({
             icon: 'success',
-            title: '¡Gracias por suscribirte!',
+            title: '¡Bienvenido al club!',
             text: 'Hemos enviado un correo de bienvenida. ¡Revisa tu bandeja de entrada!',
-            confirmButtonColor: '#f59e0b', // Color ámbar
-            background: '#1f2937', // Fondo oscuro
-            color: '#ffffff' // Texto blanco
+            confirmButtonColor: '#b45309',
+            background: '#fff',
+            color: '#111',
+            iconColor: '#22c55e'
           });
+          
           form.reset();
+          
+          // Ocultar mensaje después de 5 segundos
+          setTimeout(() => {
+            if (successMessage) {
+              successMessage.classList.remove('show');
+            }
+          }, 5000);
         }
 
       } catch (err: unknown) {
@@ -86,16 +621,19 @@
           icon: 'error',
           title: '¡Ups! Algo salió mal',
           text: message,
-          confirmButtonColor: '#f59e0b',
-          background: '#1f2937',
-          color: '#ffffff'
+          confirmButtonColor: '#b45309',
+          background: '#fff',
+          color: '#111',
+          iconColor: '#ef4444'
         });
       } finally {
         submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
         btnText.textContent = originalBtnText;
       }
     });
   }
 
+  // Soporte para View Transitions de Astro
   document.addEventListener('astro:page-load', setupNewsletterForm);
 </script>

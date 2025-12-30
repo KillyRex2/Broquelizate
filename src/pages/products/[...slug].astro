@@ -1,4 +1,5 @@
 ---
+// src/pages/products/[...slug].astro
 import ProductSlideshow from "@/components/products/ProductSlideshow.astro";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
@@ -66,7 +67,6 @@ interface VariantOption {
 
 interface ProcessedVariantOption extends VariantOption {
   isOutOfStock: boolean;
-  buttonClass: string;
   hasImage: boolean;
 }
 
@@ -79,31 +79,14 @@ const processVariants = (variantsData: any): ProcessedVariantGroup[] | null => {
   if (!variantsData?.hasVariants) return null;
 
   return Object.entries(variantsData.groupedVariants).map(([variantName, group]: [string, any]) => {
-    const processedOptions = group.options.map((option: VariantOption, index: number) => {
+    const processedOptions = group.options.map((option: VariantOption) => {
       const isOutOfStock = option.stock <= 0;
       const hasImage = variantImageMap.has(option.id);
-      
-      let buttonClasses = ["variant-option", "relative", "p-3", "border-2", "rounded-lg", "text-left", "transition-all", "duration-200"];
-
-      if (isOutOfStock) {
-        buttonClasses.push("border-gray-600", "bg-gray-800", "text-gray-500", "cursor-not-allowed", "opacity-50");
-      } else {
-        buttonClasses.push("border-gray-600", "bg-gray-700", "text-white", "hover:border-yellow-500", "hover:bg-gray-600");
-      }
-
-      if (index === 0 && !isOutOfStock) {
-        buttonClasses.push("border-yellow-500", "bg-gray-600", "selected");
-      }
-      
-      if (hasImage && !isOutOfStock) {
-        buttonClasses.push("has-image");
-      }
 
       return {
         ...option,
         isOutOfStock,
-        hasImage,
-        buttonClass: buttonClasses.join(" ")
+        hasImage
       };
     });
 
@@ -122,302 +105,502 @@ const processedVariants = processVariants(variantsData);
   description={product.description}
   image={image}
 >
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-    <div class="relative w-full">
-      <ProductSlideshow
-        images={fullGeneralImages}
-        sliderId="product-main-slider"
-      />
+  <div class="product-detail-page">
+    <!-- Background Decorations -->
+    <div class="bg-decoration">
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+      <div class="grid-pattern"></div>
+    </div>
 
-      {product.hasVariants && variantImageMap.size > 0 && (
-        <div class="mt-3 text-center">
-          <span class="inline-flex items-center gap-2 text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Las variantes con 📷 tienen imagen específica
-          </span>
+    <div class="product-container">
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="Navegación">
+        <a href="/" class="breadcrumb-link">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+          </svg>
+          <span>Inicio</span>
+        </a>
+        <svg class="breadcrumb-sep" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <a href="/products" class="breadcrumb-link">Productos</a>
+        <svg class="breadcrumb-sep" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+        <span class="breadcrumb-current">{product.name}</span>
+      </nav>
+
+      <!-- Main Product Grid -->
+      <div class="product-grid">
+        <!-- Images Column -->
+        <div class="images-column">
+          <div class="main-image-wrapper">
+            {product.hasVariants && variantImageMap.size > 0 && (
+              <div class="variant-badge">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <span>Variantes con imagen</span>
+              </div>
+            )}
+            <ProductSlideshow images={fullGeneralImages} sliderId="product-main-slider" />
+          </div>
+
+          {images.length > 1 && (
+            <div class="thumbnails-grid">
+              {images.slice(0, 5).map((imageObj, index) => {
+                const imageSrc = imageObj.image.startsWith("http")
+                  ? imageObj.image
+                  : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
+                return (
+                  <button class="thumb-btn" data-gallery-thumb data-index={index}>
+                    <img src={imageSrc} alt={`${product.name} - ${index + 1}`} loading="lazy" />
+                    {index === 4 && images.length > 5 && (
+                      <div class="thumb-more"><span>+{images.length - 5}</span></div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <!-- Mobile Trust Strip -->
+          <div class="mobile-trust">
+            <div class="trust-mini">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              <span>Compra segura</span>
+            </div>
+            <div class="trust-mini">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
+              </svg>
+              <span>Envío nacional</span>
+            </div>
+            <div class="trust-mini">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+              <span>Calidad garantizada</span>
+            </div>
+          </div>
         </div>
+
+        <!-- Info Column -->
+        <div class="info-column">
+          <!-- Badges -->
+          <div class="product-badges">
+            <span class="badge badge-category">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+              {product.category}
+            </span>
+            <span class="badge badge-type">{product.type}</span>
+            <span id="stock-badge" class={`badge ${product.stock > 0 ? 'badge-stock' : 'badge-out'}`}>
+              {product.stock > 0 ? `${product.stock} en stock` : 'Agotado'}
+            </span>
+          </div>
+
+          <!-- Title -->
+          <h1 class="product-title">{product.name}</h1>
+
+          <!-- Price -->
+          <div class="price-box">
+            <div class="price-main">
+              <span id="product-price" class="price-value">{Formatter.currency(product.price)}</span>
+              <span class="price-currency">MXN</span>
+            </div>
+            <p class="price-note">Precio final, impuestos incluidos</p>
+          </div>
+
+          <!-- Variants -->
+          {product.hasVariants && processedVariants && (
+            <div class="variants-section">
+              <div class="variants-header">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                </svg>
+                <h3>Personaliza tu producto</h3>
+              </div>
+              
+              {processedVariants.map((variantGroup) => (
+                <div class="variant-group" data-variant-name={variantGroup.variantName}>
+                  <label class="variant-label">{variantGroup.variantName}</label>
+                  <div class="variant-options">
+                    {variantGroup.options.map((option, index) => (
+                      <button
+                        type="button"
+                        data-variant-id={option.id}
+                        data-variant-name={variantGroup.variantName}
+                        data-variant-value={option.value}
+                        data-price-adjustment={option.priceAdjustment}
+                        data-stock={option.stock}
+                        data-has-image={option.hasImage}
+                        class={`variant-option ${option.isOutOfStock ? 'out-of-stock' : ''} ${index === 0 && !option.isOutOfStock ? 'selected' : ''}`}
+                        disabled={option.isOutOfStock}
+                      >
+                        <div class="variant-main">
+                          <span class="variant-value">
+                            {option.value}
+                            {option.hasImage && <span class="has-img">📷</span>}
+                          </span>
+                          {option.priceAdjustment !== 0 && (
+                            <span class={`price-adj ${option.priceAdjustment > 0 ? 'pos' : 'neg'}`}>
+                              {option.priceAdjustment > 0 ? '+' : ''}{Formatter.currency(option.priceAdjustment)}
+                            </span>
+                          )}
+                        </div>
+                        <span class="variant-stock">{option.isOutOfStock ? 'Agotado' : `${option.stock} disp.`}</span>
+                        <div class="select-dot"></div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div id="variant-info" class="variant-info hidden">
+                <div class="info-row">
+                  <div><span class="info-label">Selección:</span><span id="selected-combination" class="info-val"></span></div>
+                  <div><span class="info-label">SKU:</span><span id="combination-sku" class="info-sku">-</span></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <!-- Piercings -->
+          {product.piercing_name.length > 0 && (
+            <div class="piercing-section">
+              <h3 class="section-label">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                Perforaciones compatibles
+              </h3>
+              <div class="piercing-tags">
+                {product.piercing_name.map(piercing => (
+                  <span class="piercing-tag">{piercing}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <!-- Description -->
+          <div class="desc-section">
+            <h3 class="section-label">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+              </svg>
+              Descripción
+            </h3>
+            <p class="product-desc">{product.description}</p>
+          </div>
+
+          <!-- Shipping -->
+          <div class="shipping-card">
+            <div class="shipping-icon">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+              </svg>
+            </div>
+            <div class="shipping-text">
+              <p class="shipping-title">Envío a todo México</p>
+              <p class="shipping-sub">Calcula el costo en el carrito</p>
+            </div>
+            <div class="shipping-check">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Cart Section -->
+          <div class="cart-section">
+            <div class="qty-row">
+              <label class="qty-label">Cantidad</label>
+              <div class="qty-controls">
+                <button id="qty-decr" class="qty-btn" aria-label="Disminuir">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/>
+                  </svg>
+                </button>
+                <input id="qty-input" type="number" min="1" value="1" class="qty-input" />
+                <button id="qty-incr" class="qty-btn" aria-label="Aumentar">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button id="add-to-cart" class="add-btn">
+              <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+              </svg>
+              <span>Añadir al carrito</span>
+            </button>
+
+            <div id="variant-message" class="msg hidden"></div>
+          </div>
+
+          <!-- Trust Badges Desktop -->
+          <div class="trust-badges">
+            <div class="trust-item">
+              <div class="trust-icon">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="trust-text"><span class="trust-title">Compra segura</span><span class="trust-desc">Pago protegido</span></div>
+            </div>
+            <div class="trust-item">
+              <div class="trust-icon">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              </div>
+              <div class="trust-text"><span class="trust-title">Calidad premium</span><span class="trust-desc">100% garantizado</span></div>
+            </div>
+            <div class="trust-item">
+              <div class="trust-icon">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
+                </svg>
+              </div>
+              <div class="trust-text"><span class="trust-title">Envío rápido</span><span class="trust-desc">A todo México</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gallery -->
+      {images.length > 1 && (
+        <section class="gallery-section">
+          <div class="gallery-header">
+            <div class="header-line"></div>
+            <h2 class="gallery-title">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              Galería del producto
+            </h2>
+            <div class="header-line"></div>
+          </div>
+
+          <div class="gallery-grid">
+            {images.map((imageObj, index) => {
+              const imageSrc = imageObj.image.startsWith("http")
+                ? imageObj.image
+                : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
+              return (
+                <div class="gallery-item" data-gallery-image data-gallery-index={index}>
+                  <img src={imageSrc} alt={`${product.name} - Imagen ${index + 1}`} loading="lazy" />
+                  <div class="gallery-overlay">
+                    <div class="overlay-icon">
+                      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                      </svg>
+                    </div>
+                    <span class="overlay-text">Ver imagen</span>
+                  </div>
+                  <span class="gallery-counter">{index + 1}/{images.length}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <p class="gallery-info">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+            </svg>
+            <span>Mostrando <strong>{images.length}</strong> {images.length === 1 ? 'imagen' : 'imágenes'}</span>
+          </p>
+        </section>
       )}
     </div>
 
-    <section class="flex flex-col justify-between">
-      <div>
-        <h1 class="text-4xl font-bold text-gray-100 mb-2">{product.name}</h1>
-        
-        <div class="mb-4">
-          <p id="product-price" class="text-2xl font-semibold text-yellow-500">
-            {Formatter.currency(product.price)}
-          </p>
-        </div>
-
-        <div class="flex flex-wrap gap-3 mb-6">
-          <span class="inline-block bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium">
-            {product.category}
-          </span>
-          
-          <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
-            {product.type}
-          </span>
-
-          <span id="stock-badge" class="inline-block bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
-            Stock: {product.stock}
-          </span>
-        </div>
-
-        {product.hasVariants && processedVariants && (
-          <div class="mb-8 space-y-6">
-            <h3 class="text-lg font-medium text-gray-300 mb-4">Personaliza tu producto</h3>
-            
-            {processedVariants.map((variantGroup) => (
-              <div class="variant-group" data-variant-name={variantGroup.variantName}>
-                <label class="block text-sm font-medium text-gray-300 mb-3 capitalize">
-                  {variantGroup.variantName}
-                </label>
-                
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {variantGroup.options.map((option) => (
-                    <button
-                      type="button"
-                      data-variant-id={option.id}
-                      data-variant-name={variantGroup.variantName}
-                      data-variant-value={option.value}
-                      data-price-adjustment={option.priceAdjustment}
-                      data-stock={option.stock}
-                      data-has-image={option.hasImage}
-                      class={option.buttonClass}
-                      disabled={option.isOutOfStock}
-                    >
-                      <div class="flex justify-between items-start">
-                        <div>
-                          <span class="font-medium text-sm flex items-center gap-1">
-                            {option.value}
-                            {option.hasImage && (
-                              <span class="text-yellow-500" title="Esta opción tiene imagen específica">
-                                📷
-                              </span>
-                            )}
-                          </span>
-                          {option.priceAdjustment !== 0 && (
-                            <p class={`text-xs mt-1 ${option.priceAdjustment > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {option.priceAdjustment > 0 ? '+' : ''}{Formatter.currency(option.priceAdjustment)}
-                            </p>
-                          )}
-                        </div>
-                        <span class="text-xs text-gray-400">
-                          {option.isOutOfStock ? 'Agotado' : `${option.stock} disponibles`}
-                        </span>
-                      </div>
-                      
-                      <div class="selection-indicator absolute top-2 right-2 w-3 h-3 rounded-full border-2 border-gray-400 hidden">
-                        <div class="w-full h-full bg-yellow-500 rounded-full transform scale-0 transition-transform duration-150"></div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            <div id="variant-info" class="hidden bg-gray-800 border border-gray-600 rounded-lg p-4">
-              <div class="flex justify-between items-center">
-                <div>
-                  <p class="text-sm text-gray-300">Combinación seleccionada:</p>
-                  <p id="selected-combination" class="font-medium text-white"></p>
-                </div>
-                <div class="text-right">
-                  <p class="text-sm text-gray-300">SKU:</p>
-                  <p id="combination-sku" class="text-xs text-gray-400">-</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {product.piercing_name.length > 0 && (
-          <div class="mb-6">
-            <h3 class="text-lg font-medium text-gray-300 mb-2">Perforaciones compatibles</h3>
-            <div class="flex flex-wrap gap-2">
-              {product.piercing_name.map(piercing => (
-                <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                  </svg>
-                  {piercing}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <p class="text-xl text-gray-200 leading-relaxed mb-8">
-          {product.description}
-        </p>
-
-        <!-- Info de envío -->
-        <div class="mb-6 p-4 bg-gray-800/50 border border-gray-700 rounded-xl">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-              </svg>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-white">Envío a todo México</p>
-              <p class="text-xs text-gray-400">Calcula el costo de envío en el carrito</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="space-y-4">
-        <div class="flex items-center space-x-4">
-          <button
-            id="qty-decr"
-            class="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-lg shadow-sm hover:bg-gray-600 transition text-white"
-          >−</button>
-          <input
-            id="qty-input"
-            type="number"
-            min="1"
-            value="1"
-            class="w-16 text-center p-2 border border-gray-600 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          />
-          <button
-            id="qty-incr"
-            class="w-10 h-10 flex items-center justify-center bg-gray-700 rounded-lg shadow-sm hover:bg-gray-600 transition text-white"
-          >+</button>
-        </div>
-
-        <button
-          id="add-to-cart"
-          class="w-full py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M3 1a1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox">
+      <div class="lb-backdrop"></div>
+      <div class="lb-container">
+        <button id="lightbox-close" class="lb-close" aria-label="Cerrar">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
-          Añadir al carrito
         </button>
-
-        <div id="variant-message" class="hidden p-3 rounded-lg text-sm"></div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Galería de imágenes -->
-  {images.length > 1 && (
-    <section class="mt-12 lg:mt-16">
-      <div class="flex items-center gap-4 mb-6">
-        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
-        <h2 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <button id="lightbox-prev" class="lb-nav prev" aria-label="Anterior">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
-          <span>Galería de imágenes</span>
-        </h2>
-        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
-      </div>
-
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-        {images.map((imageObj, index) => {
-          const imageSrc = imageObj.image.startsWith("http")
-            ? imageObj.image
-            : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
-          
-          return (
-            <div class="gallery-item group relative aspect-square overflow-hidden rounded-xl bg-gray-800 shadow-lg hover:shadow-2xl transition-all duration-300">
-              <img
-                src={imageSrc}
-                alt={`${product.name} - Imagen ${index + 1}`}
-                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 cursor-pointer"
-                loading="lazy"
-                data-gallery-image
-                data-gallery-index={index}
-              />
-              
-              <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                <div class="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-                  <div class="flex items-center justify-between text-white">
-                    <span class="text-xs sm:text-sm font-medium">Ver imagen</span>
-                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div class="absolute top-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {index + 1}/{images.length}
-              </div>
-
-              <div class="absolute inset-0 border-2 border-transparent group-hover:border-yellow-500/50 rounded-xl transition-colors duration-300 pointer-events-none"></div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div class="mt-6 text-center">
-        <p class="text-sm sm:text-base text-gray-400 flex items-center justify-center gap-2">
-          <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+        </button>
+        <button id="lightbox-next" class="lb-nav next" aria-label="Siguiente">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
-          <span>Mostrando <strong class="text-yellow-500">{images.length}</strong> {images.length === 1 ? 'imagen' : 'imágenes'} del producto</span>
-        </p>
-      </div>
-    </section>
-  )}
-
-  <!-- Modal Lightbox -->
-  <div id="lightbox" class="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 hidden items-center justify-center p-4 sm:p-6">
-    <button 
-      id="lightbox-close" 
-      class="absolute top-4 right-4 w-10 h-10 sm:w-12 sm:h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors z-10"
-      aria-label="Cerrar"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-
-    <button 
-      id="lightbox-prev" 
-      class="absolute left-4 w-10 h-10 sm:w-12 sm:h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
-      aria-label="Anterior"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-      </svg>
-    </button>
-
-    <button 
-      id="lightbox-next" 
-      class="absolute right-4 w-10 h-10 sm:w-12 sm:h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
-      aria-label="Siguiente"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-      </svg>
-    </button>
-
-    <div class="relative max-w-6xl max-h-full w-full">
-      <img 
-        id="lightbox-image" 
-        src="" 
-        alt="" 
-        class="w-full h-auto max-h-[85vh] object-contain rounded-lg"
-      />
-      <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm">
-        <span id="lightbox-counter">1 / 1</span>
+        </button>
+        <div class="lb-content">
+          <img id="lightbox-image" src="" alt="" />
+          <div class="lb-counter"><span id="lightbox-counter">1 / 1</span></div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <input type="hidden" id="product-id" value={product.id} />
-  <input type="hidden" id="product-has-variants" value={`${product.hasVariants}`} />
-  <input type="hidden" id="base-price" value={product.price} />
-  <input type="hidden" id="base-stock" value={product.stock} />
-  <input type="hidden" id="variant-image-map" value={JSON.stringify(Object.fromEntries(variantImageMap))} />
-  <input type="hidden" id="general-images" value={JSON.stringify(fullGeneralImages)} />
+    <!-- Hidden Inputs -->
+    <input type="hidden" id="product-id" value={product.id} />
+    <input type="hidden" id="product-has-variants" value={`${product.hasVariants}`} />
+    <input type="hidden" id="base-price" value={product.price} />
+    <input type="hidden" id="base-stock" value={product.stock} />
+    <input type="hidden" id="variant-image-map" value={JSON.stringify(Object.fromEntries(variantImageMap))} />
+    <input type="hidden" id="general-images" value={JSON.stringify(fullGeneralImages)} />
+  </div>
 </ProductsLayout>
+
+<style>
+  .product-detail-page { position: relative; min-height: 100vh; padding: 24px 0 80px; }
+  .bg-decoration { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(150px); }
+  .glow-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(234, 179, 8, 0.06) 0%, transparent 70%); top: -100px; right: -100px; }
+  .glow-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(234, 179, 8, 0.04) 0%, transparent 70%); bottom: 200px; left: -100px; }
+  .grid-pattern { position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px); background-size: 60px 60px; }
+  .product-container { position: relative; z-index: 10; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+  .breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; padding: 14px 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; animation: fadeIn 0.4s ease-out; }
+  .breadcrumb-link { display: flex; align-items: center; gap: 6px; color: rgba(255, 255, 255, 0.5); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+  .breadcrumb-link:hover { color: #eab308; }
+  .breadcrumb-sep { color: rgba(255, 255, 255, 0.2); }
+  .breadcrumb-current { color: #fff; font-weight: 600; font-size: 0.9rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-bottom: 80px; }
+  .images-column { position: sticky; top: 24px; height: fit-content; animation: fadeInLeft 0.6s ease-out; }
+  .main-image-wrapper { position: relative; border-radius: 24px; overflow: hidden; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); }
+  .variant-badge { position: absolute; top: 16px; left: 16px; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 12px; color: #eab308; font-size: 0.8rem; font-weight: 500; }
+  .thumbnails-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 16px; }
+  .thumb-btn { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: all 0.3s ease; }
+  .thumb-btn:hover { border-color: rgba(234, 179, 8, 0.5); transform: translateY(-3px); }
+  .thumb-btn img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-more { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 1.1rem; }
+  .mobile-trust { display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+  .trust-mini { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; text-align: center; }
+  .trust-mini svg { color: #eab308; }
+  .trust-mini span { font-size: 0.7rem; color: rgba(255, 255, 255, 0.6); font-weight: 500; }
+  .info-column { animation: fadeInRight 0.6s ease-out; }
+  .product-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; font-size: 0.8rem; font-weight: 600; }
+  .badge-category { background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.1)); border: 1px solid rgba(234, 179, 8, 0.3); color: #eab308; }
+  .badge-type { background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #a78bfa; }
+  .badge-stock { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; }
+  .badge-out { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
+  .product-title { font-size: 2.25rem; font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 24px; letter-spacing: -0.02em; }
+  .price-box { margin-bottom: 28px; padding: 20px 24px; background: linear-gradient(135deg, rgba(234, 179, 8, 0.08), rgba(234, 179, 8, 0.04)); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 18px; }
+  .price-main { display: flex; align-items: baseline; gap: 10px; }
+  .price-value { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #eab308, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em; }
+  .price-currency { color: rgba(255, 255, 255, 0.4); font-size: 1rem; font-weight: 500; }
+  .price-note { margin-top: 6px; font-size: 0.8rem; color: rgba(255, 255, 255, 0.4); }
+  .variants-section { margin-bottom: 28px; padding: 24px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 20px; }
+  .variants-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .variants-header svg { color: #eab308; }
+  .variants-header h3 { font-size: 1.1rem; font-weight: 700; color: #fff; }
+  .variant-group { margin-bottom: 20px; }
+  .variant-group:last-of-type { margin-bottom: 0; }
+  .variant-label { display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 12px; text-transform: capitalize; }
+  .variant-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .variant-option { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 2px solid rgba(255, 255, 255, 0.08); border-radius: 14px; color: #fff; text-align: left; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+  .variant-option:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); border-color: rgba(234, 179, 8, 0.4); transform: translateY(-2px); }
+  .variant-option.selected { background: rgba(234, 179, 8, 0.1); border-color: #eab308; }
+  .variant-option.out-of-stock { opacity: 0.4; cursor: not-allowed; }
+  .variant-main { display: flex; justify-content: space-between; align-items: center; }
+  .variant-value { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.95rem; }
+  .has-img { font-size: 0.85rem; }
+  .price-adj { font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .price-adj.pos { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+  .price-adj.neg { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+  .variant-stock { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); }
+  .select-dot { position: absolute; top: 12px; right: 12px; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%; transition: all 0.2s ease; }
+  .variant-option.selected .select-dot { border-color: #eab308; background: #eab308; }
+  .variant-option.selected .select-dot::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background: #000; border-radius: 50%; }
+  .variant-info { margin-top: 16px; padding: 16px; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 12px; }
+  .variant-info.hidden { display: none; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; }
+  .info-row > div { display: flex; flex-direction: column; gap: 4px; }
+  .info-label { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); }
+  .info-val { font-weight: 700; color: #fff; }
+  .info-sku { font-family: monospace; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
+  .piercing-section, .desc-section { margin-bottom: 24px; }
+  .section-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; color: rgba(255, 255, 255, 0.6); margin-bottom: 12px; }
+  .section-label svg { color: #eab308; }
+  .piercing-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .piercing-tag { display: inline-flex; padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; color: #60a5fa; font-size: 0.85rem; font-weight: 500; }
+  .product-desc { font-size: 1rem; line-height: 1.8; color: rgba(255, 255, 255, 0.7); }
+  .shipping-card { display: flex; align-items: center; gap: 16px; padding: 18px 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; margin-bottom: 28px; }
+  .shipping-icon { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(234, 179, 8, 0.15); border-radius: 14px; color: #eab308; flex-shrink: 0; }
+  .shipping-text { flex: 1; }
+  .shipping-title { font-weight: 700; color: #fff; font-size: 0.95rem; }
+  .shipping-sub { font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); margin-top: 2px; }
+  .shipping-check { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); border-radius: 50%; color: #22c55e; flex-shrink: 0; }
+  .cart-section { padding: 24px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 20px; margin-bottom: 28px; }
+  .qty-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .qty-label { font-size: 0.9rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); }
+  .qty-controls { display: flex; align-items: center; gap: 12px; }
+  .qty-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #fff; cursor: pointer; transition: all 0.2s ease; }
+  .qty-btn:hover { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #eab308; }
+  .qty-input { width: 70px; height: 44px; text-align: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #fff; font-size: 1.1rem; font-weight: 700; }
+  .qty-input:focus { outline: none; border-color: #eab308; }
+  .add-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 32px; background: linear-gradient(135deg, #eab308 0%, #f59e0b 100%); border: none; border-radius: 16px; color: #000; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 20px rgba(234, 179, 8, 0.3); }
+  .add-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(234, 179, 8, 0.4); }
+  .add-btn:disabled { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.4); cursor: not-allowed; box-shadow: none; }
+  .msg { margin-top: 16px; padding: 14px 18px; border-radius: 12px; font-size: 0.9rem; font-weight: 500; }
+  .msg.hidden { display: none; }
+  .msg.info { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #60a5fa; }
+  .msg.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; }
+  .msg.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: #22c55e; }
+  .trust-badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .trust-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; }
+  .trust-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(234, 179, 8, 0.1); border-radius: 10px; color: #eab308; flex-shrink: 0; }
+  .trust-text { display: flex; flex-direction: column; gap: 2px; }
+  .trust-title { font-size: 0.85rem; font-weight: 600; color: #fff; }
+  .trust-desc { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); }
+  .gallery-section { padding-top: 48px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .gallery-header { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; }
+  .header-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); }
+  .gallery-title { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; font-weight: 800; color: #fff; white-space: nowrap; }
+  .gallery-title svg { color: #eab308; }
+  .gallery-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .gallery-item { position: relative; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+  .gallery-item:hover { border-color: rgba(234, 179, 8, 0.4); transform: translateY(-6px); }
+  .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+  .gallery-item:hover img { transform: scale(1.1); }
+  .gallery-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 60%); opacity: 0; transition: opacity 0.3s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .gallery-item:hover .gallery-overlay { opacity: 1; }
+  .overlay-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.15); border-radius: 50%; color: #fff; }
+  .overlay-text { color: #fff; font-size: 0.85rem; font-weight: 600; }
+  .gallery-counter { position: absolute; top: 12px; right: 12px; padding: 6px 12px; background: rgba(0, 0, 0, 0.7); border-radius: 20px; color: #fff; font-size: 0.75rem; font-weight: 600; opacity: 0; transition: opacity 0.3s ease; }
+  .gallery-item:hover .gallery-counter { opacity: 1; }
+  .gallery-info { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 28px; color: rgba(255, 255, 255, 0.5); font-size: 0.9rem; }
+  .gallery-info svg { color: #eab308; }
+  .gallery-info strong { color: #eab308; }
+  .lightbox { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; }
+  .lightbox.open { display: flex; }
+  .lb-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); }
+  .lb-container { position: relative; width: 100%; max-width: 1200px; padding: 24px; }
+  .lb-close { position: absolute; top: -50px; right: 24px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 50%; color: #fff; cursor: pointer; transition: all 0.2s ease; z-index: 10; }
+  .lb-close:hover { background: rgba(255, 255, 255, 0.2); }
+  .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 50%; color: #fff; cursor: pointer; transition: all 0.2s ease; z-index: 10; }
+  .lb-nav:hover { background: rgba(255, 255, 255, 0.2); }
+  .lb-nav.prev { left: 24px; }
+  .lb-nav.next { right: 24px; }
+  .lb-content { position: relative; }
+  .lb-content img { width: 100%; max-height: 80vh; object-fit: contain; border-radius: 16px; }
+  .lb-counter { position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%); padding: 8px 20px; background: rgba(255, 255, 255, 0.1); border-radius: 20px; color: #fff; font-size: 0.9rem; font-weight: 600; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes fadeInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  .animate-spin { animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @media (max-width: 1024px) { .product-grid { grid-template-columns: 1fr; gap: 40px; } .images-column { position: static; } .mobile-trust { display: grid; } .trust-badges { display: none; } .gallery-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 768px) { .product-detail-page { padding: 16px 0 60px; } .product-title { font-size: 1.75rem; } .price-value { font-size: 2rem; } .variant-options { grid-template-columns: 1fr; } .thumbnails-grid { grid-template-columns: repeat(4, 1fr); } .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+  @media (max-width: 480px) { .product-container { padding: 0 16px; } .breadcrumb { padding: 10px 14px; gap: 6px; font-size: 0.8rem; overflow-x: auto; } .breadcrumb-current { max-width: 120px; } .product-badges { gap: 8px; } .badge { padding: 6px 12px; font-size: 0.7rem; } .price-box { padding: 16px 20px; } .thumbnails-grid { grid-template-columns: repeat(3, 1fr); } .mobile-trust { gap: 8px; } .trust-mini { padding: 10px 6px; } .trust-mini span { font-size: 0.65rem; } }
+</style>
 
 <script>
   import { itemsInCart } from "@/store";
@@ -426,15 +609,8 @@ const processedVariants = processVariants(variantsData);
   import { actions } from "astro:actions";
 
   function setupProductPage() {
-    console.log('🚀 Inicializando página de producto...');
-    
     const productIdInput = document.getElementById("product-id") as HTMLInputElement;
-    if (!productIdInput) {
-      console.log('ℹ️ No estamos en página de producto');
-      return;
-    }
-
-    console.log('✅ Página de producto detectada');
+    if (!productIdInput) return;
 
     const qtyInput = document.getElementById("qty-input") as HTMLInputElement;
     const decrementBtn = document.getElementById("qty-decr") as HTMLButtonElement;
@@ -456,10 +632,7 @@ const processedVariants = processVariants(variantsData);
     const combinationSku = document.getElementById("combination-sku");
     const variantMessage = document.getElementById("variant-message");
 
-    if (!qtyInput || !addBtn) {
-      console.error('❌ Elementos esenciales no encontrados');
-      return;
-    }
+    if (!qtyInput || !addBtn) return;
 
     const hasVariants = hasVariantsInput?.value === 'true';
     const baseStock = parseInt(baseStockInput?.value || '0');
@@ -468,57 +641,30 @@ const processedVariants = processVariants(variantsData);
     let currentCombination: any = null;
     let selectedVariants: Record<string, string> = {};
 
-    console.log('⚙️ Config:', { hasVariants, baseStock, basePrice });
+    const formatCurrency = (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('es-MX', { 
-        style: 'currency', 
-        currency: 'MXN' 
-      }).format(value);
-    };
-
-    function showMessage(message: string, type: 'info' | 'error' = 'info') {
+    function showMessage(message: string, type: 'info' | 'error' | 'success' = 'info') {
       if (!variantMessage) return;
       variantMessage.textContent = message;
-      variantMessage.className = `p-3 rounded-lg text-sm ${
-        type === 'error' 
-          ? 'bg-red-100 text-red-700 border border-red-200' 
-          : 'bg-blue-100 text-blue-700 border border-blue-200'
-      }`;
-      variantMessage.classList.remove('hidden');
+      variantMessage.className = `msg ${type}`;
       setTimeout(() => variantMessage.classList.add('hidden'), 5000);
     }
 
     const updateQuantity = (newQty: number) => {
       const maxStock = hasVariants && currentCombination ? currentCombination.stock : baseStock;
-      const validatedQty = Math.max(1, Math.min(maxStock, newQty));
-      qtyInput.value = validatedQty.toString();
+      qtyInput.value = Math.max(1, Math.min(maxStock, newQty)).toString();
     };
     
     function updateProductImage(variantId: string | null) {
-      if (!variantId) {
-        if (typeof (window as any).updateSliderImages === 'function') {
-          (window as any).updateSliderImages('product-main-slider', generalImages);
-        }
-        return;
-      }
-
+      const fn = (window as any).updateSliderImages;
+      if (typeof fn !== 'function') return;
+      if (!variantId) { fn('product-main-slider', generalImages); return; }
       const variantImage = variantImageMap[variantId];
-      
-      if (variantImage) {
-        if (typeof (window as any).updateSliderImages === 'function') {
-          (window as any).updateSliderImages('product-main-slider', [variantImage]);
-        }
-      } else {
-        if (typeof (window as any).updateSliderImages === 'function') {
-          (window as any).updateSliderImages('product-main-slider', generalImages);
-        }
-      }
+      fn('product-main-slider', variantImage ? [variantImage] : generalImages);
     }
 
     async function updateCombination() {
       if (!hasVariants) return;
-
       const variantGroups = document.querySelectorAll('.variant-group');
       if (Object.keys(selectedVariants).length < variantGroups.length) {
         addBtn.disabled = true;
@@ -527,100 +673,47 @@ const processedVariants = processVariants(variantsData);
       }
 
       try {
-        const { data, error } = await actions.getVariantCombination({
-          productId: productIdInput.value,
-          selectedVariants
-        });
-
-        if (error || !data) {
-          showMessage('Esta combinación no está disponible.', 'error');
-          addBtn.disabled = true;
-          currentCombination = null;
-          return;
-        }
+        const { data, error } = await actions.getVariantCombination({ productId: productIdInput.value, selectedVariants });
+        if (error || !data) { showMessage('Esta combinación no está disponible.', 'error'); addBtn.disabled = true; currentCombination = null; return; }
 
         currentCombination = data;
-        
         if (!currentCombination.combinationName) {
-          currentCombination.combinationName = Object.entries(selectedVariants)
-            .map(([variantName, variantId]) => {
-              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
-              return button ? `${variantName}: ${button.dataset.variantValue}` : '';
-            })
-            .filter(Boolean)
-            .join(' / ');
-        }
-        
-        if (priceElement) {
-          priceElement.textContent = formatCurrency(data.price);
-        }
-
-        if (stockBadge) {
-          const stockClass = data.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
-          stockBadge.className = `inline-block px-3 py-1 rounded-full text-sm font-medium ${stockClass}`;
-          stockBadge.textContent = `Stock: ${data.stock}`;
-        }
-        
-        if (variantInfo && selectedCombination && combinationSku) {
-          const combinationText = Object.values(selectedVariants).map(variantId => {
+          currentCombination.combinationName = Object.entries(selectedVariants).map(([variantName, variantId]) => {
             const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
-            return button ? button.dataset.variantValue : '';
-          }).join(' / ');
-          
-          selectedCombination.textContent = combinationText;
+            return button ? `${variantName}: ${button.dataset.variantValue}` : '';
+          }).filter(Boolean).join(' / ');
+        }
+        
+        if (priceElement) priceElement.textContent = formatCurrency(data.price);
+        if (stockBadge) { const isInStock = data.stock > 0; stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`; stockBadge.textContent = isInStock ? `${data.stock} en stock` : 'Agotado'; }
+        if (variantInfo && selectedCombination && combinationSku) {
+          selectedCombination.textContent = Object.values(selectedVariants).map(variantId => { const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement; return button ? button.dataset.variantValue : ''; }).join(' / ');
           combinationSku.textContent = data.sku || '-';
           variantInfo.classList.remove('hidden');
         }
 
         const isOutOfStock = data.stock <= 0;
         addBtn.disabled = isOutOfStock;
-        
-        if (isOutOfStock) {
-          addBtn.textContent = 'Sin stock disponible';
-        } else {
-          addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 1a1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg> Añadir al carrito`;
-        }
-        
+        addBtn.innerHTML = isOutOfStock ? '<span>Sin stock disponible</span>' : `<svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Añadir al carrito</span>`;
         qtyInput.max = data.stock.toString();
-        if (parseInt(qtyInput.value) > data.stock) {
-          qtyInput.value = Math.max(1, data.stock).toString();
-        }
-        
-      } catch (e) {
-        console.error('❌ Error:', e);
-        showMessage('Error al consultar el producto.', 'error');
-      }
+        if (parseInt(qtyInput.value) > data.stock) qtyInput.value = Math.max(1, data.stock).toString();
+      } catch (e) { showMessage('Error al consultar el producto.', 'error'); }
     }
     
     function selectVariantOption(button: HTMLElement) {
       const variantName = button.dataset.variantName;
       const variantId = button.dataset.variantId;
       const hasImage = button.dataset.hasImage === 'true';
-
       const group = button.closest('.variant-group');
       if (!group || !variantName || !variantId) return;
-
-      group.querySelectorAll('.variant-option').forEach(opt => {
-        opt.classList.remove('selected', 'border-yellow-500');
-      });
-
-      button.classList.add('selected', 'border-yellow-500');
+      group.querySelectorAll('.variant-option').forEach(opt => opt.classList.remove('selected'));
+      button.classList.add('selected');
       selectedVariants[variantName] = variantId;
-
-      if (hasImage) {
-        updateProductImage(variantId);
-      } else {
-        updateProductImage(null);
-      }
-      
+      updateProductImage(hasImage ? variantId : null);
       updateCombination();
     }
     
-    if (hasVariants) {
-      document.querySelectorAll('.variant-option').forEach(button => {
-        button.addEventListener('click', () => selectVariantOption(button as HTMLElement));
-      });
-    }
+    if (hasVariants) document.querySelectorAll('.variant-option').forEach(button => button.addEventListener('click', () => selectVariantOption(button as HTMLElement)));
 
     decrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) - 1));
     incrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) + 1));
@@ -629,54 +722,26 @@ const processedVariants = processVariants(variantsData);
     addBtn?.addEventListener("click", async () => {
       const quantityToAdd = parseInt(qtyInput.value) || 1;
       const productId = productIdInput.value;
-
-      if (hasVariants && !currentCombination) {
-        showMessage('Por favor, selecciona todas las opciones de variante.', 'error');
-        return;
-      }
-
+      if (hasVariants && !currentCombination) { showMessage('Por favor, selecciona todas las opciones de variante.', 'error'); return; }
       addBtn.disabled = true;
-      addBtn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Procesando...`;
-
+      addBtn.innerHTML = `<svg class="animate-spin" width="22" height="22" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Procesando...</span>`;
       try {
-        const cartItem: any = {
-          productId,
-          quantity: quantityToAdd,
-          combinationId: currentCombination?.id,
-          variantName: currentCombination?.combinationName,
-          variantSku: currentCombination?.sku
-        };
-
+        const cartItem: any = { productId, quantity: quantityToAdd, combinationId: currentCombination?.id, variantName: currentCombination?.combinationName, variantSku: currentCombination?.sku };
         if (hasVariants && currentCombination) {
           cartItem.combinationId = currentCombination.id;
-          cartItem.variantName = currentCombination.combinationName || 
-            Object.entries(selectedVariants)
-              .map(([name, id]) => {
-                const btn = document.querySelector(`[data-variant-id="${id}"]`) as HTMLElement;
-                return btn ? `${name}: ${btn.dataset.variantValue}` : '';
-              })
-              .filter(Boolean)
-              .join(' / ');
-          
+          cartItem.variantName = currentCombination.combinationName || Object.entries(selectedVariants).map(([name, id]) => { const btn = document.querySelector(`[data-variant-id="${id}"]`) as HTMLElement; return btn ? `${name}: ${btn.dataset.variantValue}` : ''; }).filter(Boolean).join(' / ');
           if (currentCombination.sku) cartItem.variantSku = currentCombination.sku;
           cartItem.variantPrice = currentCombination.price;
-          
-          if (currentCombination.price && currentCombination.price !== basePrice) {
-            cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
-          }
+          if (currentCombination.price && currentCombination.price !== basePrice) cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
         }
-
         CartCookiesClient.addItem(cartItem);
         itemsInCart.set(CartCookiesClient.getTotalItems());
-        showMessage('Producto añadido al carrito', 'info');
-
-        setTimeout(async () => await navigate("/cart"), 500);
-
+        showMessage('¡Producto añadido al carrito!', 'success');
+        setTimeout(async () => await navigate("/cart"), 800);
       } catch (error) {
-        console.error("❌ Error:", error);
         showMessage('Error al añadir el producto', 'error');
         addBtn.disabled = false;
-        addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 1a1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></svg> Añadir al carrito`;
+        addBtn.innerHTML = `<svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Añadir al carrito</span>`;
       }
     });
 
@@ -684,169 +749,34 @@ const processedVariants = processVariants(variantsData);
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightbox-image') as HTMLImageElement;
     const lightboxCounter = document.getElementById('lightbox-counter');
-    const lightboxClose = document.getElementById('lightbox-close');
-    const lightboxPrev = document.getElementById('lightbox-prev');
-    const lightboxNext = document.getElementById('lightbox-next');
     const galleryImages = document.querySelectorAll('[data-gallery-image]');
-    
     let currentImageIndex = 0;
     const totalImages = galleryImages.length;
 
     function openLightbox(index: number) {
       currentImageIndex = index;
-      const img = galleryImages[index] as HTMLImageElement;
-      if (lightboxImage && img) {
-        lightboxImage.src = img.src;
-        lightboxImage.alt = img.alt;
-      }
-      if (lightboxCounter) {
-        lightboxCounter.textContent = `${index + 1} / ${totalImages}`;
-      }
-      if (lightbox) {
-        lightbox.classList.remove('hidden');
-        lightbox.classList.add('flex');
-        document.body.style.overflow = 'hidden';
-      }
+      const item = galleryImages[index] as HTMLElement;
+      const img = item.querySelector('img') as HTMLImageElement;
+      if (lightboxImage && img) { lightboxImage.src = img.src; lightboxImage.alt = img.alt; }
+      if (lightboxCounter) lightboxCounter.textContent = `${index + 1} / ${totalImages}`;
+      if (lightbox) { lightbox.classList.add('open'); document.body.style.overflow = 'hidden'; }
     }
 
-    function closeLightbox() {
-      if (lightbox) {
-        lightbox.classList.add('hidden');
-        lightbox.classList.remove('flex');
-        document.body.style.overflow = '';
-      }
-    }
+    function closeLightbox() { if (lightbox) { lightbox.classList.remove('open'); document.body.style.overflow = ''; } }
+    function showPrevImage() { currentImageIndex = (currentImageIndex - 1 + totalImages) % totalImages; openLightbox(currentImageIndex); }
+    function showNextImage() { currentImageIndex = (currentImageIndex + 1) % totalImages; openLightbox(currentImageIndex); }
 
-    function showPrevImage() {
-      currentImageIndex = (currentImageIndex - 1 + totalImages) % totalImages;
-      openLightbox(currentImageIndex);
-    }
+    galleryImages.forEach((item, index) => item.addEventListener('click', () => openLightbox(index)));
+    document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);
+    document.getElementById('lightbox-prev')?.addEventListener('click', showPrevImage);
+    document.getElementById('lightbox-next')?.addEventListener('click', showNextImage);
+    document.querySelector('.lb-backdrop')?.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', (e) => { if (lightbox?.classList.contains('open')) { if (e.key === 'Escape') closeLightbox(); if (e.key === 'ArrowLeft') showPrevImage(); if (e.key === 'ArrowRight') showNextImage(); } });
 
-    function showNextImage() {
-      currentImageIndex = (currentImageIndex + 1) % totalImages;
-      openLightbox(currentImageIndex);
-    }
-
-    galleryImages.forEach((img, index) => {
-      img.addEventListener('click', () => openLightbox(index));
-    });
-
-    lightboxClose?.addEventListener('click', closeLightbox);
-    lightboxPrev?.addEventListener('click', showPrevImage);
-    lightboxNext?.addEventListener('click', showNextImage);
-    
-    lightbox?.addEventListener('click', (e) => {
-      if (e.target === lightbox) closeLightbox();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (!lightbox?.classList.contains('hidden')) {
-        if (e.key === 'Escape') closeLightbox();
-        if (e.key === 'ArrowLeft') showPrevImage();
-        if (e.key === 'ArrowRight') showNextImage();
-      }
-    });
-
-    // Inicialización
-    if (hasVariants) {
-      document.querySelectorAll('.variant-group').forEach(group => {
-        const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement;
-        if (firstOption) selectVariantOption(firstOption);
-      });
-    } else {
-      addBtn.disabled = baseStock <= 0;
-      if (baseStock <= 0) addBtn.innerHTML = 'Sin stock disponible';
-    }
-    
-    console.log('✅ Página inicializada');
+    // Init
+    if (hasVariants) document.querySelectorAll('.variant-group').forEach(group => { const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement; if (firstOption) selectVariantOption(firstOption); });
+    else { addBtn.disabled = baseStock <= 0; if (baseStock <= 0) addBtn.innerHTML = '<span>Sin stock disponible</span>'; }
   }
 
-  document.addEventListener("astro:page-load", () => {
-    setTimeout(() => setupProductPage(), 100);
-  });
+  document.addEventListener("astro:page-load", () => setTimeout(() => setupProductPage(), 100));
 </script>
-
-<style>
-  .variant-option.has-image {
-    position: relative;
-    overflow: visible;
-  }
-  
-  .animate-spin {
-    animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  .variant-option.selected .selection-indicator {
-    display: block;
-    border-color: #eab308;
-  }
-
-  .variant-option.selected .selection-indicator div {
-    transform: scale(1);
-  }
-
-  .variant-option:hover:not([disabled]) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  .variant-option[disabled] {
-    position: relative;
-  }
-
-  .variant-option[disabled]:before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 10%;
-    right: 10%;
-    height: 2px;
-    background-color: #ef4444;
-    transform: rotate(-45deg);
-    z-index: 1;
-  }
-
-  .gallery-item {
-    position: relative;
-    cursor: pointer;
-  }
-
-  .gallery-item img {
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  #lightbox {
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  #lightbox-image {
-    animation: zoomIn 0.3s ease-out;
-  }
-
-  @keyframes zoomIn {
-    from {
-      transform: scale(0.9);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .gallery-item {
-      border-radius: 0.75rem;
-    }
-  }
-</style>

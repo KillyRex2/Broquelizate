@@ -10,9 +10,11 @@ interface Props {
   image?: string;
 }
 
-const { title = 'Productos', 
-        description = 'Broquelizate', 
-        image = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Ficono%20relleno.svg?alt=media&token=0ab9a46f-70c5-4136-9bec-d2db45fc1108' } = Astro.props;
+const { 
+  title = 'Productos', 
+  description = 'Broquelizate', 
+  image = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Ficono%20relleno.svg?alt=media&token=0ab9a46f-70c5-4136-9bec-d2db45fc1108' 
+} = Astro.props;
 ---
 
 <html lang="es">
@@ -26,43 +28,44 @@ const { title = 'Productos',
 
     <meta name="title" content={title} />
     <meta name="description" content={description} />
-
-    <!-- Open Graph / Facebook -->
     <meta property="og:title" content={title} />
     <meta property="og:url" content={Astro.url} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:image" content={image} />
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content={Astro.url} />
-    <meta property="twitter:title" content={title} />
-    <meta property="twitter:description" content={description} />
-    <meta property="twitter:image" content={image} />
   </head>
-  <body class="bg-[#1E1E1E] text-white">
+  <body class="bg-[#1E1E1E] text-white selection:bg-yellow-500/30">
     <NavBar />
 
-    <!-- Contenedor centrado con padding-top -->
-    <main class="container mx-auto px-4 pt-20">
+    <!-- Eliminamos el container restrictivo aquí para manejarlo dentro de la página -->
+    <main class="min-height-screen">
       <slot />
-
     </main>
+
+    <Footer />
   </body>
 </html>
 
 <style is:global>
   html {
-    font-family: system-ui, sans-serif;
-    color-scheme: dark light;
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #1E1E1E;
+    color-scheme: dark;
+    scroll-behavior: smooth;
   }
-  body {
-    /* Ajusta este padding al alto exacto de tu header si hiciera falta */
-    padding-top: 3rem;
+  
+  /* Scrollbar personalizado estilo lujo */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1E1E1E; }
+  ::-webkit-scrollbar-thumb { 
+    background: #333; 
+    border-radius: 10px; 
+    border: 2px solid #1E1E1E;
   }
-.divider-gold {
-  border: none;
-  border-top: 1px solid rgba(243, 212, 38, 0.671);
-}
+  ::-webkit-scrollbar-thumb:hover { background: #d4af37; }
+
+  .divider-gold {
+    border: none;
+    border-top: 1px solid rgba(212, 175, 55, 0.3);
+  }
 </style>

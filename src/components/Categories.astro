@@ -1,93 +1,712 @@
 ---
-import CategoryCard from '@/components/products/CategoryCard.astro';
+// src/components/CategoriesSection.astro
 
-const categories = [
-    {
-      title: "Aretes",
-      description: "Aretes brillantes para iluminar tu rostro",
-      image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/broqueles_bnxwun.jpg",
-      link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=arete"
-    },
+interface Category {
+  title: string;
+  description: string;
+  image: string;
+  link: string;
+  icon?: string;
+  count?: number;
+}
+
+const categories: Category[] = [
+  {
+    title: "Aretes",
+    description: "Aretes brillantes para iluminar tu rostro",
+    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/broqueles_bnxwun.jpg",
+    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=arete",
+    icon: "✨",
+    count: 45
+  },
   {
     title: "Anillos",
     description: "Elegantes anillos para toda ocasión",
     image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286209/anillos_r9dpsx.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=anillo"
+    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=anillo",
+    icon: "💎",
+    count: 32
   },
   {
     title: "Collares",
     description: "Collares únicos que realzan tu belleza",
     image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/cadena_jmkrtt.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=collar"
+    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=collar",
+    icon: "🌟",
+    count: 28
   },
   {
     title: "Pulseras",
     description: "Pulseras delicadas llenas de estilo",
     image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/pulseras_dxrzz8.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=pulsera"
+    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=pulsera",
+    icon: "⭐",
+    count: 24
   },
 ];
 ---
 
-<section class="bg-black py-16 px-6 text-white text-center">
-  <h2 class="text-yellow-400 text-3xl font-bold mb-4 hero-title p-4">Nuestras Categorías</h2>
-  <p class="max-w-2xl mx-auto text-sm text-gray-300 mb-10">
-    Descubre nuestra amplia selección de joyas premium organizadas por categorías.<br/>
-    Cada pieza está cuidadosamente seleccionada para ofrecerte la máxima calidad y elegancia.
-  </p>
-
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-    {categories.map((cat) => (
-      <CategoryCard {...cat} />
-    ))}
+<section class="categories-section">
+  <!-- Decoración de fondo -->
+  <div class="bg-decoration">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
   </div>
 
-  <div class="mt-10">
-    <a href="/categorias" class=" btn-primary btn-outline bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-6 rounded transition-all duration-300">
-      Ver Todas las Categorías
-    </a>
+  <div class="categories-container">
+    <!-- Header -->
+    <div class="section-header">
+      <span class="section-badge">
+        <span class="badge-dot"></span>
+        Colección Exclusiva
+      </span>
+      
+      <h2 class="section-title">
+        Explora Nuestras <span class="gradient-text">Categorías</span>
+      </h2>
+      
+      <p class="section-description">
+        Descubre nuestra amplia selección de joyas premium. Cada pieza está 
+        cuidadosamente seleccionada para ofrecerte la máxima calidad y elegancia.
+      </p>
+    </div>
+
+    <!-- Grid de categorías -->
+    <div class="categories-grid">
+      {categories.map((category, index) => (
+        <a 
+          href={category.link} 
+          class="category-card"
+          style={`--delay: ${index * 0.1}s`}
+        >
+          <!-- Imagen de fondo -->
+          <div class="card-image">
+            <img src={category.image} alt={category.title} loading="lazy" />
+            <div class="card-overlay"></div>
+          </div>
+          
+          <!-- Contenido -->
+          <div class="card-content">
+            <span class="card-icon">{category.icon}</span>
+            
+            <div class="card-info">
+              <h3 class="card-title">{category.title}</h3>
+              <p class="card-description">{category.description}</p>
+            </div>
+            
+            <div class="card-footer">
+              <span class="card-count">{category.count}+ productos</span>
+              <span class="card-arrow">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <!-- Borde brillante en hover -->
+          <div class="card-glow"></div>
+        </a>
+      ))}
+    </div>
+
+    <!-- Stats -->
+    <div class="categories-stats">
+      <div class="stat-item">
+        <div class="stat-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">150+</span>
+          <span class="stat-label">Productos únicos</span>
+        </div>
+      </div>
+      
+      <div class="stat-divider"></div>
+      
+      <div class="stat-item">
+        <div class="stat-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">100%</span>
+          <span class="stat-label">Hipoalergénico</span>
+        </div>
+      </div>
+      
+      <div class="stat-divider"></div>
+      
+      <div class="stat-item">
+        <div class="stat-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="stat-content">
+          <span class="stat-number">24h</span>
+          <span class="stat-label">Envío express</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA Button -->
+    <div class="section-cta">
+      <a href="/products" class="btn-primary">
+        <span>Ver Toda la Colección</span>
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+        </svg>
+      </a>
+      <a href="#services" class="btn-secondary">
+        Servicios de Perforación
+      </a>
+    </div>
   </div>
 </section>
 
 <style>
-.hero-title {
-  font-size: 3rem;
-  font-weight: bold;
-  background: linear-gradient(90deg, #FFD700, #B8860B);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
-}
+  .categories-section {
+    position: relative;
+    padding: 100px 0;
+    background: linear-gradient(180deg, #000 0%, #0a0a0a 50%, #000 100%);
+    overflow: hidden;
+  }
 
-.btn-primary,
-.btn-outline {
-  background: linear-gradient(90deg, #FFD700, #B8860B);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
+  /* Decoración de fondo */
+  .bg-decoration {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
 
-  border: 2px solid #FFD700;
-  padding: 0.75rem 1.5rem;
-  font-weight: 600; /* Más bold que antes */
-  font-size: 1rem; /* Tamaño ajustado */
-  cursor: pointer;
-  border-radius: 5px;
-  background-color: transparent;
-  transition: all 0.3s ease;
-}
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.5;
+  }
 
-.btn-primary:hover,
-.btn-outline:hover {
-  background: linear-gradient(90deg, #B8860B, #FFD700);
-  border-color: #B8860B;
-  transform: scale(1.05);
+  .glow-1 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.15) 0%, transparent 70%);
+    top: -100px;
+    left: -100px;
+  }
 
-  -webkit-background-clip: unset;
-  -webkit-text-fill-color: black;
-  background-clip: unset;
-  color: black;
-  font-weight: 700; /* Un poco más bold */
-}
+  .glow-2 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.1) 0%, transparent 70%);
+    bottom: -50px;
+    right: -50px;
+  }
+
+  /* Container */
+  .categories-container {
+    position: relative;
+    z-index: 10;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  .section-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .section-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 50px;
+    margin-bottom: 24px;
+    animation: fadeInDown 0.6s ease-out;
+  }
+
+  .badge-dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .section-badge {
+    color: #eab308;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 20px;
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #eab308 0%, #fbbf24 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .section-description {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.6);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.8;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+  }
+
+  /* Grid de categorías */
+  .categories-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 60px;
+  }
+
+  /* Category Card */
+  .category-card {
+    position: relative;
+    height: 380px;
+    border-radius: 24px;
+    overflow: hidden;
+    text-decoration: none;
+    animation: fadeInUp 0.6s ease-out var(--delay) both;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .category-card:hover {
+    transform: translateY(-12px) scale(1.02);
+  }
+
+  .card-image {
+    position: absolute;
+    inset: 0;
+  }
+
+  .card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.7s ease;
+  }
+
+  .category-card:hover .card-image img {
+    transform: scale(1.15);
+  }
+
+  .card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.2) 0%,
+      rgba(0, 0, 0, 0.4) 40%,
+      rgba(0, 0, 0, 0.9) 100%
+    );
+    transition: background 0.5s ease;
+  }
+
+  .category-card:hover .card-overlay {
+    background: linear-gradient(
+      180deg,
+      rgba(234, 179, 8, 0.1) 0%,
+      rgba(0, 0, 0, 0.5) 40%,
+      rgba(0, 0, 0, 0.95) 100%
+    );
+  }
+
+  /* Card Content */
+  .card-content {
+    position: relative;
+    z-index: 10;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 28px;
+  }
+
+  .card-icon {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 14px;
+    font-size: 24px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .category-card:hover .card-icon {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.3);
+    transform: scale(1.1) rotate(5deg);
+  }
+
+  .card-info {
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    transition: color 0.3s ease;
+  }
+
+  .category-card:hover .card-title {
+    color: #eab308;
+  }
+
+  .card-description {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.5;
+  }
+
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .card-count {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 500;
+  }
+
+  .card-arrow {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(234, 179, 8, 0.1);
+    border-radius: 50%;
+    color: #eab308;
+    transition: all 0.3s ease;
+  }
+
+  .category-card:hover .card-arrow {
+    background: #eab308;
+    color: #000;
+    transform: translateX(5px);
+  }
+
+  /* Card Glow Effect */
+  .card-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+    box-shadow: 
+      inset 0 0 0 1px rgba(234, 179, 8, 0.3),
+      0 0 40px rgba(234, 179, 8, 0.2);
+  }
+
+  .category-card:hover .card-glow {
+    opacity: 1;
+  }
+
+  /* Stats */
+  .categories-stats {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    margin-bottom: 50px;
+    animation: fadeInUp 0.6s ease-out 0.5s both;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .stat-icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(234, 179, 8, 0.1);
+    border-radius: 16px;
+    color: #eab308;
+  }
+
+  .stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-number {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* CTA Buttons */
+  .section-cta {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    animation: fadeInUp 0.6s ease-out 0.6s both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 36px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(234, 179, 8, 0.5);
+  }
+
+  .btn-primary svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-primary:hover svg {
+    transform: translateX(5px);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 36px;
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #eab308;
+  }
+
+  /* Animaciones */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.3);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .categories-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .category-card {
+      height: 350px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .categories-section {
+      padding: 70px 0;
+    }
+
+    .section-header {
+      margin-bottom: 40px;
+    }
+
+    .section-title {
+      font-size: 1.8rem;
+    }
+
+    .section-description {
+      font-size: 1rem;
+    }
+
+    .categories-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .category-card {
+      height: 300px;
+    }
+
+    .categories-stats {
+      flex-direction: column;
+      gap: 24px;
+      padding: 30px;
+    }
+
+    .stat-divider {
+      width: 100px;
+      height: 1px;
+    }
+
+    .section-cta {
+      flex-direction: column;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .categories-container {
+      padding: 0 16px;
+    }
+
+    .section-badge {
+      padding: 8px 16px;
+      font-size: 11px;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+    }
+
+    .card-content {
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      font-size: 20px;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .stat-number {
+      font-size: 1.25rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      padding: 16px 28px;
+    }
+  }
 </style>
+
+<script>
+  // Intersection Observer para animaciones al hacer scroll
+  document.addEventListener('astro:page-load', () => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('animate-in');
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+      }
+    );
+
+    // Observar elementos
+    document.querySelectorAll('.category-card, .stat-item').forEach((el) => {
+      observer.observe(el);
+    });
+  });
+</script>

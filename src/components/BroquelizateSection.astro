@@ -1,60 +1,542 @@
 ---
+// src/components/BroquelizateSection.astro
 import BroquelizateCard from '@/components/testimonials/BroquelizateCard.astro';
 
-// Mock de características o beneficios de Broquelízate
-const features = [
-  { title: '+5',     description: 'Años de experiencia en perforaciones.'},
-  { title: '+1000',      description: 'Modelos diferentes de joyería y piercings.'},
-  { title: '+3000', description: 'Clientes satisfechos en todo México.'},
-  { title: '100%', description: 'De calidad en materiales limpios y esterilizados.'},
+interface Feature {
+  title: string;
+  description: string;
+}
 
+interface Props {
+  features?: Feature[];
+}
+
+const defaultFeatures: Feature[] = [
+  { title: '+5', description: 'Años de experiencia en perforaciones profesionales.' },
+  { title: '+1000', description: 'Modelos diferentes de joyería y piercings.' },
+  { title: '+3000', description: 'Clientes satisfechos en todo México.' },
+  { title: '100%', description: 'Calidad en materiales limpios y esterilizados.' },
 ];
+
+const features = Astro.props.features || defaultFeatures;
+
+const localImage = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Flocal.jpg?alt=media&token=6d032c16-75dc-4dbe-a6a1-79a077db4df4';
+const logoImage = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Flogo-blanco.png?alt=media&token=5c5326cc-fa98-4094-8521-6cac0d97d4b9';
+const mapsLink = 'https://maps.app.goo.gl/rqBout55AJUcuyEp6';
 ---
-<section class="py-16 bg-black">
-  <div class="max-w-7xl mx-auto px-4">
-    <div class="flex flex-col lg:flex-row items-center gap-8">
-      <!-- Imagen lateral ampliada aún más -->
-      <div class="flex-shrink-0 lg:w-1/2">
 
-        <a href="https://maps.app.goo.gl/rqBout55AJUcuyEp6" 
-            target="_blank" 
-            rel="noopener noreferrer">
+<section class="broquelizate-section" id="about">
+  <!-- Decoración de fondo -->
+  <div class="bg-decoration">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="grid-pattern"></div>
+  </div>
 
-        
-        <img
-          src="https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Flocal.jpg?alt=media&token=6d032c16-75dc-4dbe-a6a1-79a077db4df4"
-          alt="Broquelízate local"
-          class="h-[30rem] lg:h-[35rem] w-full object-cover rounded-lg shadow-lg transition-transform duration-500 ease-in-out hover:scale-105 hover:brightness-90 hover:shadow-2xl"
-        />
-
-
+  <div class="broquelizate-container">
+    <div class="content-grid">
+      <!-- Columna izquierda: Imagen -->
+      <div class="image-column">
+        <a 
+          href={mapsLink}
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="image-link"
+        >
+          <div class="image-wrapper">
+            <img
+              src={localImage}
+              alt="Broquelízate local"
+              loading="lazy"
+            />
+            
+            <!-- Overlay con icono de ubicación -->
+            <div class="image-overlay">
+              <div class="location-badge">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                <span>Ver ubicación</span>
+              </div>
+            </div>
+            
+            <!-- Marco decorativo -->
+            <div class="image-frame"></div>
+          </div>
         </a>
+        
+        <!-- Badge flotante -->
+        <div class="floating-badge">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span>Visítanos</span>
+        </div>
       </div>
 
-      <div class="flex-1">
-        <!-- Logo centrado y más grande -->
-        <div class="flex justify-center mb-6">
+      <!-- Columna derecha: Contenido -->
+      <div class="content-column">
+        <!-- Logo -->
+        <div class="logo-container">
           <img
-            src="https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Flogo-blanco.png?alt=media&token=5c5326cc-fa98-4094-8521-6cac0d97d4b9"
+            src={logoImage}
             alt="Broquelízate logo"
-            class="h-32 w-auto"
+            class="logo"
           />
+          <div class="logo-glow"></div>
         </div>
 
-        <p class="text-gray-200 mb-8 text-center lg:text-left">
-         En Broquelízate nos dedicamos con pasión a la venta de joyería y piercings, ofreciendo piezas únicas y de alta calidad. Además, realizamos perforaciones seguras en un entorno profesional, limpio y completamente esterilizado. Nuestro compromiso es brindarte una experiencia cómoda, confiable y con el mayor cuidado en cada detalle. 💎✨
-        </p>
+        <!-- Descripción -->
+        <div class="description-box">
+          <p class="description">
+            En <strong>Broquelízate</strong> nos dedicamos con pasión a la venta de joyería y piercings, 
+            ofreciendo piezas únicas y de alta calidad. Además, realizamos perforaciones seguras en un 
+            entorno profesional, limpio y completamente esterilizado.
+          </p>
+          <p class="description-highlight">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Nuestro compromiso es brindarte una experiencia cómoda, confiable y con el mayor cuidado en cada detalle.
+          </p>
+        </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {features.map(feature => (
+        <!-- Grid de estadísticas -->
+        <div class="stats-grid">
+          {features.map((feature, index) => (
             <BroquelizateCard
               title={feature.title}
               description={feature.description}
-              
+              index={index}
             />
           ))}
+        </div>
+
+        <!-- CTA Buttons -->
+        <div class="cta-buttons">
+          <a href={mapsLink} target="_blank" rel="noopener noreferrer" class="btn-primary">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            <span>Cómo llegar</span>
+          </a>
+          <a href="https://wa.me/5218717522302" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>Contáctanos</span>
+          </a>
         </div>
       </div>
     </div>
   </div>
 </section>
+
+<style>
+  .broquelizate-section {
+    position: relative;
+    padding: 100px 0;
+    background: linear-gradient(180deg, #000 0%, #0a0a0a 50%, #000 100%);
+    overflow: hidden;
+  }
+
+  /* Decoración de fondo */
+  .bg-decoration {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.4;
+  }
+
+  .glow-1 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.12) 0%, transparent 70%);
+    top: -150px;
+    right: -100px;
+  }
+
+  .glow-2 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(234, 179, 8, 0.08) 0%, transparent 70%);
+    bottom: -100px;
+    left: -100px;
+  }
+
+  .grid-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Container */
+  .broquelizate-container {
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Content Grid */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 60px;
+    align-items: center;
+  }
+
+  /* Image Column */
+  .image-column {
+    position: relative;
+    animation: fadeInLeft 0.8s ease-out;
+  }
+
+  .image-link {
+    display: block;
+    text-decoration: none;
+  }
+
+  .image-wrapper {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+  }
+
+  .image-wrapper img {
+    width: 100%;
+    height: 500px;
+    object-fit: cover;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .image-link:hover .image-wrapper img {
+    transform: scale(1.05);
+    filter: brightness(0.8);
+  }
+
+  .image-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 50%);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 24px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .image-link:hover .image-overlay {
+    opacity: 1;
+  }
+
+  .location-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: rgba(234, 179, 8, 0.9);
+    color: #000;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-radius: 50px;
+    transform: translateY(20px);
+    transition: transform 0.4s ease;
+  }
+
+  .image-link:hover .location-badge {
+    transform: translateY(0);
+  }
+
+  .image-frame {
+    position: absolute;
+    inset: 0;
+    border: 2px solid rgba(234, 179, 8, 0.2);
+    border-radius: 24px;
+    pointer-events: none;
+    transition: border-color 0.4s ease;
+  }
+
+  .image-link:hover .image-frame {
+    border-color: rgba(234, 179, 8, 0.5);
+  }
+
+  /* Floating Badge */
+  .floating-badge {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 50px;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.4);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+
+  /* Content Column */
+  .content-column {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  /* Logo */
+  .logo-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    animation: fadeInDown 0.6s ease-out;
+  }
+
+  .logo {
+    height: 100px;
+    width: auto;
+    filter: drop-shadow(0 4px 20px rgba(234, 179, 8, 0.3));
+    transition: all 0.4s ease;
+  }
+
+  .logo:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 8px 30px rgba(234, 179, 8, 0.5));
+  }
+
+  .logo-glow {
+    position: absolute;
+    width: 200px;
+    height: 100px;
+    background: radial-gradient(ellipse, rgba(234, 179, 8, 0.2) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* Description */
+  .description-box {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+  }
+
+  .description {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 16px;
+  }
+
+  .description strong {
+    color: #eab308;
+    font-weight: 700;
+  }
+
+  .description-highlight {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+  }
+
+  .description-highlight svg {
+    color: #eab308;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  /* CTA Buttons */
+  .cta-buttons {
+    display: flex;
+    gap: 16px;
+    animation: fadeInUp 0.6s ease-out 0.6s both;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 28px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    flex: 1;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.3);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(234, 179, 8, 0.4);
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  }
+
+  .btn-secondary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(34, 197, 94, 0.4);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+
+    .image-column {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .image-wrapper img {
+      height: 400px;
+    }
+
+    .logo {
+      height: 80px;
+    }
+
+    .content-column {
+      text-align: center;
+    }
+
+    .description-highlight {
+      justify-content: center;
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .broquelizate-section {
+      padding: 70px 0;
+    }
+
+    .content-grid {
+      gap: 32px;
+    }
+
+    .image-wrapper img {
+      height: 350px;
+    }
+
+    .floating-badge {
+      top: -8px;
+      right: -8px;
+      padding: 8px 14px;
+      font-size: 0.75rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .cta-buttons {
+      flex-direction: column;
+    }
+
+    .description {
+      font-size: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .broquelizate-container {
+      padding: 0 16px;
+    }
+
+    .image-wrapper img {
+      height: 300px;
+    }
+
+    .logo {
+      height: 70px;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>
