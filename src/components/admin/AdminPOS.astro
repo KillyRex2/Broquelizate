@@ -8,53 +8,89 @@ const { data: allProducts = [], error } = await Astro.callAction(actions.getAllP
 const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
 ---
 
-<div class="flex bg-gray-100 font-sans text-gray-800 rounded-lg relative h-screen overflow-hidden">
+<div class="pos-container flex bg-gray-100 font-sans text-gray-800 rounded-lg relative h-screen overflow-hidden" data-astro-transition-persist="pos-main">
   <!-- Backdrop del carrito móvil -->
-  <div id="cart-backdrop" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden"></div>
+  <div id="cart-backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 hidden lg:hidden transition-opacity duration-300"></div>
 
   <main class="flex-1 flex flex-col p-3 md:p-4 lg:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
     <header class="mb-3 flex flex-col gap-3 flex-shrink-0">
       <div class="flex items-center justify-between">
-        <h1 class="text-xl md:text-2xl font-bold text-gray-900">Broqueventa</h1>
+        <div class="flex items-center gap-3">
+          <h1 class="text-xl md:text-2xl font-bold text-gray-900">Broqueventa</h1>
+          <span id="product-count" class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+            0 productos
+          </span>
+        </div>
         <!-- Botón carrito móvil -->
-        <button id="mobile-cart-toggle" class="lg:hidden bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 font-semibold">
+        <button id="mobile-cart-toggle" class="lg:hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 font-semibold hover:shadow-xl transition-all duration-300 active:scale-95">
           <Icon name="mdi:cart" class="h-5 w-5" />
-          <span id="mobile-cart-count" class="bg-white text-amber-600 rounded-full px-2 py-0.5 text-xs font-bold">0</span>
+          <span id="mobile-cart-count" class="bg-white text-amber-600 rounded-full px-2 py-0.5 text-xs font-bold min-w-[1.5rem]">0</span>
         </button>
       </div>
       
-      <div class="flex flex-col sm:flex-row gap-2 md:gap-4">
-        <div class="relative flex-grow">
-          <Icon name="mdi:magnify" class="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+      <!-- Filtros con data-astro-transition-persist para mantener estado -->
+      <div class="flex flex-col sm:flex-row gap-2 md:gap-3" data-astro-transition-persist="pos-filters">
+        <div class="relative flex-grow group">
+          <Icon name="mdi:magnify" class="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
           <input
             type="text"
             id="search-input"
             placeholder="Buscar producto o SKU..."
-            class="w-full rounded-full border border-gray-300 bg-white py-2 md:py-2.5 pl-10 md:pl-12 pr-3 md:pr-4 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm md:text-base"
+            autocomplete="off"
+            class="w-full rounded-xl border-2 border-gray-200 bg-white py-2.5 md:py-3 pl-10 md:pl-12 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 shadow-sm hover:border-gray-300"
           />
+          <!-- Botón limpiar búsqueda -->
+          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden transition-colors p-1 rounded-full hover:bg-gray-100">
+            <Icon name="mdi:close-circle" class="h-5 w-5" />
+          </button>
         </div>
-        <select id="category-filter" class="rounded-full border-gray-300 bg-white py-2 md:py-2.5 px-3 md:px-4 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm md:text-base">
-          <option value="all">Todas las categorías</option>
-          {categories.map(category => (
-            <option value={category}>{category}</option>
-          ))}
-        </select>
+        
+        <div class="relative">
+          <select id="category-filter" class="appearance-none rounded-xl border-2 border-gray-200 bg-white py-2.5 md:py-3 pl-4 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 cursor-pointer shadow-sm hover:border-gray-300 min-w-[180px]">
+            <option value="all">Todas las categorías</option>
+            {categories.map(category => (
+              <option value={category}>{category}</option>
+            ))}
+          </select>
+          <Icon name="mdi:chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+        </div>
+        
+        <!-- Botón reset filtros -->
+        <button id="reset-filters" class="hidden sm:flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <Icon name="mdi:filter-remove" class="h-4 w-4" />
+          <span class="hidden md:inline">Limpiar</span>
+        </button>
       </div>
+      
+      <!-- Chips de filtros activos -->
+      <div id="active-filters" class="hidden flex-wrap gap-2"></div>
     </header>
     
     <!-- Contenedor de productos con scroll -->
-    <div class="flex-1 min-h-0 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden">
+    <div class="flex-1 min-h-0 rounded-xl bg-white border border-gray-200 overflow-hidden shadow-sm">
+      <!-- Estado vacío -->
+      <div id="empty-state" class="hidden h-full flex-col items-center justify-center text-center p-8">
+        <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+          <Icon name="mdi:package-variant" class="h-10 w-10 text-gray-400" />
+        </div>
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">No se encontraron productos</h3>
+        <p class="text-gray-500 text-sm mb-4">Intenta con otros términos de búsqueda</p>
+        <button id="clear-filters-empty" class="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
+          Limpiar filtros
+        </button>
+      </div>
+      
+      <!-- Grid de productos -->
       <div id="product-grid"
            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-3 overflow-y-auto h-full product-scroll"
            style="align-content: start;">
-        <!-- Los productos se renderizan via JavaScript -->
       </div>
     </div>
   </main>
   
   <!-- Modal de Variantes Responsive -->
-  <div id="variant-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-3 md:p-4">
-    <div class="bg-white rounded-xl md:rounded-2xl w-full max-w-3xl max-h-[90vh] md:max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
+  <div id="variant-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-3 md:p-4 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] md:max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
       <!-- Header -->
       <div class="p-4 md:p-6 border-b bg-gradient-to-r from-amber-50 to-orange-50">
         <div class="flex items-start justify-between gap-3">
@@ -62,7 +98,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
             <h2 class="text-lg md:text-2xl font-bold text-gray-900 truncate" id="modal-product-name">Seleccionar Variante</h2>
             <p class="text-xs md:text-sm text-gray-600 mt-1" id="modal-product-description">Elige la variante</p>
           </div>
-          <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 p-2 hover:bg-white/50 rounded-full">
             <Icon name="mdi:close" class="h-5 w-5 md:h-6 md:w-6" />
           </button>
         </div>
@@ -75,26 +111,27 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     </div>
   </div>
   
-  <!-- Carrito Lateral (Desktop) / Drawer (Mobile) -->
-  <aside id="cart-drawer" class="fixed lg:relative right-0 top-0 lg:top-auto flex w-full sm:w-96 lg:w-full lg:max-w-sm flex-col border-l border-gray-200 bg-white shadow-2xl lg:shadow-lg overflow-hidden z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out" style="height: 100vh; max-height: 100vh;">
-    <!-- Header del carrito con botones importantes -->
+  <!-- Carrito Lateral -->
+  <aside id="cart-drawer" class="fixed lg:relative right-0 top-0 lg:top-auto flex w-full sm:w-96 lg:w-full lg:max-w-sm flex-col border-l border-gray-200 bg-white shadow-2xl lg:shadow-lg overflow-hidden z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out" style="height: 100vh; max-height: 100vh;">
+    <!-- Header del carrito -->
     <div class="flex flex-col border-b bg-white sticky top-0 z-10 shadow-sm">
-      <!-- Fila 1: Título y botón cerrar -->
       <div class="flex items-center justify-between p-3 md:p-4">
-        <h2 class="text-lg md:text-xl font-bold text-gray-800">Orden Actual</h2>
         <div class="flex items-center gap-2">
-          <!-- Botón vaciar en desktop -->
-          <button id="admin-clear-cart-btn-desktop" class="hidden lg:block text-xs md:text-sm font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-1 hover:bg-red-50 rounded">
+          <h2 class="text-lg md:text-xl font-bold text-gray-800">Orden Actual</h2>
+          <span id="cart-item-count" class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="admin-clear-cart-btn-desktop" class="hidden lg:flex items-center gap-1 text-xs md:text-sm font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-1 hover:bg-red-50 rounded-lg">
+            <Icon name="mdi:delete-outline" class="h-4 w-4" />
             Vaciar
           </button>
-          <!-- Botón cerrar carrito móvil -->
           <button id="close-cart-mobile" class="lg:hidden text-gray-500 hover:text-gray-700 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
             <Icon name="mdi:close" class="h-6 w-6" />
           </button>
         </div>
       </div>
       
-      <!-- Fila 2: Botones de acción (solo móvil) -->
+      <!-- Botones móvil -->
       <div class="lg:hidden border-t border-gray-100 grid grid-cols-2 gap-2 p-2">
         <button id="back-to-products-mobile" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
           <Icon name="mdi:arrow-left" class="h-5 w-5" />
@@ -109,8 +146,11 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     
     <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-gray-50 product-scroll">
       <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400 py-12">
-        <Icon name="mdi:cart-outline" class="h-12 w-12 md:h-16 md:w-16" />
-        <p class="text-sm md:text-base mt-2">Los productos aparecerán aquí</p>
+        <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+          <Icon name="mdi:cart-outline" class="h-8 w-8" />
+        </div>
+        <p class="text-sm md:text-base font-medium">Carrito vacío</p>
+        <p class="text-xs text-gray-400 mt-1">Agrega productos para comenzar</p>
       </div>
     </ul>
     
@@ -120,16 +160,19 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
           <span class="text-gray-600">Subtotal</span>
           <span id="subtotal-amount" class="font-medium text-gray-800">$0.00</span>
         </div>
-        <div class="flex justify-between text-base md:text-lg">
+        <div class="flex justify-between text-base md:text-lg pt-2 border-t border-gray-100">
           <span class="font-bold text-gray-900">Total</span>
-          <span id="total-amount" class="font-bold text-gray-900">$0.00</span>
+          <span id="total-amount" class="font-bold text-amber-600">$0.00</span>
         </div>
       </div>
       <button
         id="checkout-button"
-        class="mt-3 md:mt-4 w-full rounded-lg bg-amber-500 py-3 md:py-3.5 text-sm md:text-base font-bold text-white shadow-md transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-gray-300 active:scale-95"
+        class="mt-3 md:mt-4 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 md:py-3.5 text-sm md:text-base font-bold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none active:scale-[0.98]"
         disabled>
-        Ir al Pago
+        <span class="flex items-center justify-center gap-2">
+          <Icon name="mdi:credit-card-outline" class="h-5 w-5" />
+          Ir al Pago
+        </span>
       </button>
     </div>
   </aside>
@@ -143,13 +186,45 @@ import { navigate } from 'astro:transitions/client';
 import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
-let cleanupFunction: (() => void) | null = null;
-let isInitialized = false;
+// Estado global del POS
+const POSState = {
+  searchTerm: '',
+  category: 'all',
+  cart: [] as CartItem[],
+  isInitialized: false,
+  cleanupFunction: null as (() => void) | null
+};
 
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
+type CartItem = {
+  productId: string;
+  variantId?: string;
+  name: string;
+  variantName?: string;
+  price: number;
+  quantity: number;
+  images: string[];
+  stock: number;
+  sku?: string;
+  outOfStock?: boolean;
+};
+
+// Restaurar estado de filtros desde sessionStorage
+function restoreFilterState() {
+  const savedSearch = sessionStorage.getItem('pos-search');
+  const savedCategory = sessionStorage.getItem('pos-category');
+  
+  if (savedSearch) POSState.searchTerm = savedSearch;
+  if (savedCategory) POSState.category = savedCategory;
+}
+
+// Guardar estado de filtros en sessionStorage
+function saveFilterState() {
+  sessionStorage.setItem('pos-search', POSState.searchTerm);
+  sessionStorage.setItem('pos-category', POSState.category);
+}
+
+// Debounce utility
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   return function(...args: Parameters<T>) {
     if (timeout) clearTimeout(timeout);
@@ -158,43 +233,44 @@ function debounce<T extends (...args: any[]) => any>(
 }
 
 function initializePOS() {
-  if (isInitialized) {
+  // Evitar múltiples inicializaciones
+  if (POSState.isInitialized) {
     return;
   }
 
-  if (cleanupFunction) {
-    cleanupFunction();
-    cleanupFunction = null;
+  // Limpiar inicialización anterior
+  if (POSState.cleanupFunction) {
+    POSState.cleanupFunction();
+    POSState.cleanupFunction = null;
   }
 
-  type CartItem = {
-    productId: string;
-    variantId?: string;
-    name: string;
-    variantName?: string;
-    price: number;
-    quantity: number;
-    images: string[];
-    stock: number;
-    sku?: string;
-    outOfStock?: boolean;
-  };
+  // Restaurar estado de filtros
+  restoreFilterState();
 
   const allProductsDataElement = document.getElementById('all-products-data');
   if (!allProductsDataElement) {
     console.error('Elemento de datos de productos no encontrado.');
     return;
   }
+  
   const allProducts: ProductForPOS[] = JSON.parse(allProductsDataElement.textContent || '[]');
 
+  // Referencias a elementos del DOM
   const productGrid = document.getElementById('product-grid');
+  const emptyState = document.getElementById('empty-state');
+  const productCount = document.getElementById('product-count');
   const cartItemsList = document.getElementById('cart-items-list');
   const cartPlaceholder = document.getElementById('cart-placeholder');
+  const cartItemCount = document.getElementById('cart-item-count');
   const subtotalAmount = document.getElementById('subtotal-amount');
   const totalAmount = document.getElementById('total-amount');
   const checkoutButton = document.getElementById('checkout-button') as HTMLButtonElement;
   const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const clearSearchBtn = document.getElementById('clear-search');
   const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement;
+  const resetFiltersBtn = document.getElementById('reset-filters');
+  const clearFiltersEmptyBtn = document.getElementById('clear-filters-empty');
+  const activeFiltersContainer = document.getElementById('active-filters');
   const clearCartBtn = document.getElementById('admin-clear-cart-btn');
   const clearCartBtnDesktop = document.getElementById('admin-clear-cart-btn-desktop');
   const variantModal = document.getElementById('variant-modal');
@@ -202,8 +278,6 @@ function initializePOS() {
   const modalProductName = document.getElementById('modal-product-name');
   const modalProductDescription = document.getElementById('modal-product-description');
   const variantList = document.getElementById('variant-list');
-  
-  // Elementos móviles
   const cartDrawer = document.getElementById('cart-drawer');
   const cartBackdrop = document.getElementById('cart-backdrop');
   const mobileCartToggle = document.getElementById('mobile-cart-toggle');
@@ -211,11 +285,19 @@ function initializePOS() {
   const mobileCartCount = document.getElementById('mobile-cart-count');
   const backToProductsMobile = document.getElementById('back-to-products-mobile');
 
-  let cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
+  // Restaurar valores en inputs
+  if (searchInput) searchInput.value = POSState.searchTerm;
+  if (categoryFilter) categoryFilter.value = POSState.category;
+
+  // Cargar carrito desde localStorage
+  POSState.cart = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
 
   const formatCurrency = (value: number) => `$${Number(value).toFixed(2)}`;
 
-  // Funciones para el carrito móvil
+  // ==========================================
+  // FUNCIONES DE CARRITO MÓVIL
+  // ==========================================
+  
   function openMobileCart() {
     if (window.innerWidth < 1024) {
       cartDrawer?.classList.remove('translate-x-full');
@@ -233,65 +315,150 @@ function initializePOS() {
   }
 
   function updateMobileCartCount() {
-    if (mobileCartCount) {
-      const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-      mobileCartCount.textContent = totalItems.toString();
+    const totalItems = POSState.cart.reduce((sum, item) => sum + item.quantity, 0);
+    if (mobileCartCount) mobileCartCount.textContent = totalItems.toString();
+    if (cartItemCount) cartItemCount.textContent = totalItems.toString();
+  }
+
+  // ==========================================
+  // FUNCIONES DE FILTRADO
+  // ==========================================
+
+  function updateActiveFilters() {
+    if (!activeFiltersContainer) return;
+    
+    const hasFilters = POSState.searchTerm || POSState.category !== 'all';
+    
+    if (hasFilters) {
+      activeFiltersContainer.classList.remove('hidden');
+      activeFiltersContainer.classList.add('flex');
+      
+      let chips = '';
+      
+      if (POSState.searchTerm) {
+        chips += `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            "${POSState.searchTerm}"
+            <button class="remove-filter hover:text-amber-900 ml-1" data-type="search">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+          </span>
+        `;
+      }
+      
+      if (POSState.category !== 'all') {
+        chips += `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            ${POSState.category}
+            <button class="remove-filter hover:text-indigo-900 ml-1" data-type="category">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+          </span>
+        `;
+      }
+      
+      activeFiltersContainer.innerHTML = chips;
+    } else {
+      activeFiltersContainer.classList.add('hidden');
+      activeFiltersContainer.classList.remove('flex');
+    }
+    
+    // Mostrar/ocultar botón limpiar búsqueda
+    if (clearSearchBtn) {
+      clearSearchBtn.classList.toggle('hidden', !POSState.searchTerm);
     }
   }
 
+  function filterProducts(): ProductForPOS[] {
+    const searchLower = POSState.searchTerm.toLowerCase().trim();
+    
+    return allProducts.filter(p => {
+      const matchesSearch = !searchLower || 
+        p.name.toLowerCase().includes(searchLower) || 
+        (p.variantOptions?.some(v => v.sku && v.sku.toLowerCase().includes(searchLower)));
+      
+      const matchesCategory = POSState.category === 'all' || p.category === POSState.category;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }
+
   function renderProductGrid(productsToRender: ProductForPOS[]) {
-    if (!productGrid) return;
-    productGrid.innerHTML = productsToRender
-      .map((product: ProductForPOS) => {
-        const imageUrl = product.images?.[0] || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
-        
-        // Badge de AGOTADO
-        const outOfStockBadge = product.stock <= 0
-          ? `<span class="absolute top-1 left-1 inline-flex items-center gap-1 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow z-10">
-               <span class="w-1 h-1 bg-white rounded-full animate-pulse"></span>
-               AGOTADO
-             </span>`
-          : '';
+    if (!productGrid || !emptyState) return;
+    
+    // Actualizar contador
+    if (productCount) {
+      productCount.textContent = `${productsToRender.length} producto${productsToRender.length !== 1 ? 's' : ''}`;
+    }
+    
+    // Mostrar estado vacío si no hay productos
+    if (productsToRender.length === 0) {
+      productGrid.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      emptyState.classList.add('flex');
+      return;
+    }
+    
+    productGrid.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+    emptyState.classList.remove('flex');
+    
+    productGrid.innerHTML = productsToRender.map((product: ProductForPOS) => {
+      const imageUrl = product.images?.[0] || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
+      
+      const outOfStockBadge = product.stock <= 0
+        ? `<span class="absolute top-1.5 left-1.5 inline-flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10">
+             <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+             AGOTADO
+           </span>`
+        : '';
 
-        // Badge de variantes
-        const variantBadge = product.hasVariants && product.variantOptions && product.variantOptions.length > 0
-          ? `<span class="absolute top-1 right-1 inline-flex items-center gap-0.5 bg-indigo-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow z-10">
-               <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                 <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
-               </svg>
-               ${product.variantOptions.length}
-             </span>`
-          : '';
+      const variantBadge = product.hasVariants && product.variantOptions && product.variantOptions.length > 0
+        ? `<span class="absolute top-1.5 right-1.5 inline-flex items-center gap-1 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10">
+             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+               <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+             </svg>
+             ${product.variantOptions.length}
+           </span>`
+        : '';
 
-        let priceDisplay = formatCurrency(product.price);
-        if (product.hasVariants && product.variantOptions && product.variantOptions.length > 0) {
-          const prices = product.variantOptions.map(v => v.finalPrice);
-          const minPrice = Math.min(...prices);
-          const maxPrice = Math.max(...prices);
-          if (minPrice !== maxPrice) {
-            priceDisplay = `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
-          }
+      let priceDisplay = formatCurrency(product.price);
+      if (product.hasVariants && product.variantOptions && product.variantOptions.length > 0) {
+        const prices = product.variantOptions.map(v => v.finalPrice);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        if (minPrice !== maxPrice) {
+          priceDisplay = `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
         }
+      }
 
-        // Indicador de stock con colores
-        let stockText = '';
-        if (product.stock <= 0) {
-          stockText = `<span class="text-red-600 font-semibold">Sin stock</span>`;
-        } else if (product.stock <= 5) {
-          stockText = `<span class="text-amber-600 font-semibold">¡Solo ${product.stock}!</span>`;
-        } else {
-          stockText = `<span class="text-green-600">${product.stock} disp.</span>`;
-        }
+      let stockIndicator = '';
+      if (product.stock <= 0) {
+        stockIndicator = `<span class="text-red-600 font-semibold">Sin stock</span>`;
+      } else if (product.stock <= 5) {
+        stockIndicator = `<span class="text-amber-600 font-semibold">¡Solo ${product.stock}!</span>`;
+      } else {
+        stockIndicator = `<span class="text-green-600">${product.stock} disp.</span>`;
+      }
 
-        return `
+      return `
         <article
-          class="product-card group cursor-pointer bg-white rounded-xl shadow-md hover:shadow-xl border border-gray-200 hover:border-amber-400 transition-all duration-300 overflow-hidden flex flex-col"
+          class="product-card group cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg border-2 border-gray-100 hover:border-amber-400 transition-all duration-200 overflow-hidden flex flex-col"
           style="height: 280px;"
           data-product-id="${product.id}"
           data-has-variants="${product.hasVariants}"
         >
-          <!-- Imagen -->
-          <div class="relative bg-gray-100 flex-shrink-0" style="height: 140px;">
+          <div class="relative bg-gray-50 flex-shrink-0" style="height: 140px;">
             ${outOfStockBadge}
             ${variantBadge}
             <img
@@ -301,30 +468,41 @@ function initializePOS() {
               loading="lazy"
               onerror="this.src='https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen'"
             />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
           </div>
           
-          <!-- Información -->
-          <div class="flex flex-col flex-1 p-2 border-t border-gray-100">
-            <!-- Nombre -->
-            <h3 class="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight">${product.name}</h3>
-            
-            <!-- Categoría -->
+          <div class="flex flex-col flex-1 p-2.5 border-t border-gray-100">
+            <h3 class="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight group-hover:text-amber-700 transition-colors">${product.name}</h3>
             <p class="text-[10px] text-amber-600 font-medium mt-0.5">${product.category || 'Sin categoría'}</p>
-            
-            <!-- Espaciador -->
             <div class="flex-1"></div>
-            
-            <!-- Precio y Stock -->
-            <div class="mt-1 pt-1 border-t border-gray-50">
+            <div class="mt-1.5 pt-1.5 border-t border-gray-50">
               <p class="text-sm font-bold text-gray-900">${priceDisplay}</p>
-              <p class="text-[10px]">${stockText}</p>
+              <p class="text-[10px]">${stockIndicator}</p>
             </div>
           </div>
         </article>
       `;
-    })
-    .join('');
+    }).join('');
   }
+
+  function filterAndRender() {
+    saveFilterState();
+    updateActiveFilters();
+    const filtered = filterProducts();
+    renderProductGrid(filtered);
+  }
+
+  function resetFilters() {
+    POSState.searchTerm = '';
+    POSState.category = 'all';
+    if (searchInput) searchInput.value = '';
+    if (categoryFilter) categoryFilter.value = 'all';
+    filterAndRender();
+  }
+
+  // ==========================================
+  // MODAL DE VARIANTES
+  // ==========================================
 
   function showVariantModal(product: ProductForPOS) {
     if (!variantModal || !modalProductName || !variantList || !modalProductDescription) return;
@@ -338,7 +516,7 @@ function initializePOS() {
       const hasDiscount = variant.priceAdjustment < 0;
       
       return `
-        <div class="variant-card hover:shadow-xl cursor-pointer bg-white border-2 border-gray-200 rounded-lg md:rounded-xl p-3 md:p-4 transition-all duration-300 hover:border-amber-500 hover:-translate-y-1 active:scale-95"
+        <div class="variant-card cursor-pointer bg-white border-2 border-gray-200 rounded-xl p-3 md:p-4 transition-all duration-200 hover:border-amber-400 hover:shadow-lg active:scale-[0.98]"
              data-variant-id="${variant.id}"
              data-product-id="${product.id}"
              data-no-stock="${hasNoStock}">
@@ -348,33 +526,21 @@ function initializePOS() {
                    alt="${variant.name}" 
                    class="w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 object-contain rounded-lg shadow-sm bg-gray-50 p-1"
                    onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
-              ${hasDiscount ? `
-                <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">
-                  Oferta
-                </span>
-              ` : ''}
-              ${hasNoStock ? `
-                <span class="absolute -bottom-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full shadow">
-                  Sin Stock
-                </span>
-              ` : ''}
+              ${hasDiscount ? `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">Oferta</span>` : ''}
+              ${hasNoStock ? `<span class="absolute -bottom-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full shadow">Sin Stock</span>` : ''}
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-semibold text-gray-900 text-base md:text-lg truncate">${variant.name}</h3>
               ${variant.sku ? `<p class="text-xs text-gray-500 mb-1">SKU: ${variant.sku}</p>` : ''}
-              
               <div class="flex items-center gap-2 mt-2">
                 <p class="text-xl md:text-2xl font-bold text-amber-600">${formatCurrency(variant.finalPrice)}</p>
-                ${hasDiscount ? `
-                  <span class="text-xs md:text-sm line-through text-gray-400">${formatCurrency(product.price)}</span>
-                ` : ''}
+                ${hasDiscount ? `<span class="text-sm line-through text-gray-400">${formatCurrency(product.price)}</span>` : ''}
               </div>
-              
               <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mt-3">
-                <p class="text-xs md:text-sm ${variant.stock > 10 ? 'text-green-600' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
+                <p class="text-sm ${variant.stock > 10 ? 'text-green-600' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
                   ${variant.stock > 0 ? `${variant.stock} disponibles` : 'Sin stock'}
                 </p>
-                <button class="add-variant-btn w-full sm:w-auto sm:ml-auto px-3 md:px-4 py-2 bg-gradient-to-r ${hasNoStock ? 'from-orange-500 to-amber-500' : 'from-amber-500 to-orange-500'} text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-300 shadow-md hover:shadow-lg font-medium text-sm md:text-base active:scale-95">
+                <button class="add-variant-btn w-full sm:w-auto sm:ml-auto px-4 py-2 bg-gradient-to-r ${hasNoStock ? 'from-orange-500 to-amber-500' : 'from-amber-500 to-orange-500'} text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm active:scale-95">
                   ${hasNoStock ? 'Agregar (sin stock)' : 'Agregar'}
                 </button>
               </div>
@@ -394,6 +560,10 @@ function initializePOS() {
       document.body.style.overflow = '';
     }
   }
+
+  // ==========================================
+  // FUNCIONES DE CARRITO
+  // ==========================================
 
   function addToCart(productId: string, variantId?: string, forceAdd: boolean = false) {
     const product = allProducts.find(p => p.id === productId);
@@ -425,7 +595,7 @@ function initializePOS() {
         return;
       }
       
-      const existingItem = cart.find(i => i.productId === productId && i.variantId === variantId);
+      const existingItem = POSState.cart.find(i => i.productId === productId && i.variantId === variantId);
       
       if (existingItem) {
         existingItem.quantity++;
@@ -442,7 +612,7 @@ function initializePOS() {
           sku: variant.sku,
           outOfStock: hasNoStock
         };
-        cart.push(cartItem);
+        POSState.cart.push(cartItem);
       }
     } else {
       const hasNoStock = product.stock <= 0;
@@ -465,7 +635,7 @@ function initializePOS() {
         return;
       }
       
-      const existingItem = cart.find(i => i.productId === productId && !i.variantId);
+      const existingItem = POSState.cart.find(i => i.productId === productId && !i.variantId);
       
       if (existingItem) {
         existingItem.quantity++;
@@ -479,21 +649,20 @@ function initializePOS() {
           stock: product.stock || 999,
           outOfStock: hasNoStock
         };
-        cart.push(cartItem);
+        POSState.cart.push(cartItem);
       }
     }
     
     updateAndSaveCart();
     hideVariantModal();
     
-    // Solo abrir carrito en móvil si está cerrado
     if (window.innerWidth < 1024 && cartDrawer?.classList.contains('translate-x-full')) {
       openMobileCart();
     }
     
     const addedItem = variantId ? 
-      cart.find(i => i.productId === productId && i.variantId === variantId) :
-      cart.find(i => i.productId === productId && !i.variantId);
+      POSState.cart.find(i => i.productId === productId && i.variantId === variantId) :
+      POSState.cart.find(i => i.productId === productId && !i.variantId);
     
     Swal.fire({
       icon: 'success',
@@ -509,15 +678,15 @@ function initializePOS() {
   function renderCart() {
     if (!cartItemsList || !cartPlaceholder || !checkoutButton || !subtotalAmount || !totalAmount) return;
     
-    if (cart.length > 0) {
+    if (POSState.cart.length > 0) {
       cartPlaceholder.style.display = 'none';
-      cartItemsList.innerHTML = cart.map((item: CartItem, index: number) => {
+      cartItemsList.innerHTML = POSState.cart.map((item: CartItem, index: number) => {
         const imageUrl = item.images?.[0] || 'https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen';
         const displayName = item.variantName ? `${item.name} - ${item.variantName}` : item.name;
         
         return `
-          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2 md:p-3 rounded-lg hover:bg-gray-50 transition-colors border ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white'}">
-            <div class="h-14 w-14 md:h-16 md:w-16 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-1 flex-shrink-0">
+          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2.5 md:p-3 rounded-xl transition-all duration-200 border-2 ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white hover:border-gray-200'} shadow-sm">
+            <div class="h-14 w-14 md:h-16 md:w-16 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
               <img src="${imageUrl}" 
                    alt="${displayName}" 
                    class="max-h-full max-w-full object-contain"
@@ -537,7 +706,7 @@ function initializePOS() {
                        value="${item.quantity}" 
                        min="1" 
                        data-index="${index}" 
-                       class="w-10 md:w-14 border rounded-md bg-white text-center font-medium qty-input text-xs md:text-sm" />
+                       class="w-10 md:w-14 border-2 rounded-lg bg-white text-center font-medium qty-input text-xs md:text-sm" />
                 <button data-action="incr" data-index="${index}" class="qty-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 md:h-3 md:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -549,7 +718,7 @@ function initializePOS() {
               <p class="font-bold text-gray-900 text-xs md:text-sm">${formatCurrency(item.price * item.quantity)}</p>
               <p class="text-[10px] md:text-xs text-gray-500">${formatCurrency(item.price)} c/u</p>
             </div>
-            <button data-action="remove" data-index="${index}" class="remove-btn text-gray-400 hover:text-red-500 p-0.5 md:p-1 transition-colors flex-shrink-0">
+            <button data-action="remove" data-index="${index}" class="remove-btn text-gray-400 hover:text-red-500 p-0.5 md:p-1 transition-colors flex-shrink-0 hover:bg-red-50 rounded-lg">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -564,7 +733,7 @@ function initializePOS() {
       checkoutButton.disabled = true;
     }
     
-    const subtotal = cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+    const subtotal = POSState.cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
     subtotalAmount.textContent = formatCurrency(subtotal);
     totalAmount.textContent = formatCurrency(subtotal);
     
@@ -572,7 +741,7 @@ function initializePOS() {
   }
 
   function updateQuantity(index: number, newQuantity: string | number) {
-    const item = cart[index];
+    const item = POSState.cart[index];
     if (!item) return;
     
     const qty = parseInt(String(newQuantity));
@@ -582,7 +751,7 @@ function initializePOS() {
     }
     
     if (qty === 0) {
-      cart.splice(index, 1);
+      POSState.cart.splice(index, 1);
     } else {
       item.quantity = qty;
     }
@@ -603,7 +772,7 @@ function initializePOS() {
     });
 
     if (result.isConfirmed) {
-      cart = [];
+      POSState.cart = [];
       updateAndSaveCart();
       Swal.fire({
         title: 'Carrito vaciado',
@@ -618,27 +787,62 @@ function initializePOS() {
 
   function updateAndSaveCart() {
     renderCart();
-    localStorage.setItem('admin-pos-cart', JSON.stringify(cart));
+    localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
   }
 
-  function filterAndRender() {
-    const searchTerm = searchInput?.value.toLowerCase().trim() || '';
-    const category = categoryFilter?.value || 'all';
-    const filteredProducts = allProducts.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm) || 
-                            (p.variantOptions?.some(v => v.sku && v.sku.toLowerCase().includes(searchTerm)));
-      const matchesCategory = category === 'all' || p.category === category;
-      return matchesSearch && matchesCategory;
-    });
-    renderProductGrid(filteredProducts);
-  }
+  // ==========================================
+  // EVENT HANDLERS
+  // ==========================================
 
-  const debouncedFilterAndRender = debounce(filterAndRender, 300);
+  const debouncedFilterAndRender = debounce(filterAndRender, 250);
 
-  // EVENT LISTENERS
+  const handleSearchInput = (e: Event) => {
+    e.preventDefault();
+    POSState.searchTerm = (e.target as HTMLInputElement).value;
+    debouncedFilterAndRender();
+  };
+
+  const handleCategoryChange = (e: Event) => {
+    e.preventDefault();
+    POSState.category = (e.target as HTMLSelectElement).value;
+    filterAndRender();
+  };
+
+  const handleClearSearch = (e: Event) => {
+    e.preventDefault();
+    POSState.searchTerm = '';
+    if (searchInput) searchInput.value = '';
+    filterAndRender();
+    searchInput?.focus();
+  };
+
+  const handleResetFilters = (e: Event) => {
+    e.preventDefault();
+    resetFilters();
+  };
+
+  const handleRemoveFilter = (e: Event) => {
+    const btn = (e.target as HTMLElement).closest('.remove-filter') as HTMLButtonElement;
+    if (!btn) return;
+    
+    e.preventDefault();
+    const type = btn.dataset.type;
+    
+    if (type === 'search') {
+      POSState.searchTerm = '';
+      if (searchInput) searchInput.value = '';
+    } else if (type === 'category') {
+      POSState.category = 'all';
+      if (categoryFilter) categoryFilter.value = 'all';
+    }
+    
+    filterAndRender();
+  };
+
   const handleProductClick = (e: Event) => {
     const card = (e.target as HTMLElement).closest('[data-product-id]') as HTMLElement;
     if (card) {
+      e.preventDefault();
       const productId = card.dataset.productId!;
       const hasVariants = card.dataset.hasVariants === 'true';
       const product = allProducts.find(p => p.id === productId);
@@ -656,6 +860,7 @@ function initializePOS() {
   const handleVariantClick = (e: Event) => {
     const addBtn = (e.target as HTMLElement).closest('.add-variant-btn');
     if (addBtn) {
+      e.preventDefault();
       const variantCard = addBtn.closest('.variant-card') as HTMLElement;
       if (variantCard) {
         const productId = variantCard.dataset.productId!;
@@ -669,11 +874,12 @@ function initializePOS() {
     const button = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement;
     if (!button) return;
     
+    e.preventDefault();
     const { action, index: indexStr } = button.dataset;
     if (!indexStr) return;
     
     const index = parseInt(indexStr);
-    const item = cart[index];
+    const item = POSState.cart[index];
     if (!item) return;
     
     if (action === 'remove') {
@@ -694,6 +900,7 @@ function initializePOS() {
   const handleQuantityInput = (e: Event) => {
     const input = e.target as HTMLInputElement;
     if (input.matches('.qty-input')) {
+      e.preventDefault();
       const index = parseInt(input.dataset.index || '');
       if (!isNaN(index)) {
         updateQuantity(index, input.value);
@@ -701,22 +908,27 @@ function initializePOS() {
     }
   };
 
-  const handleCloseModal = () => hideVariantModal();
-  const handleModalBackdrop = (e: Event) => {
-    if (e.target === variantModal) hideVariantModal();
+  const handleCloseModal = (e: Event) => {
+    e.preventDefault();
+    hideVariantModal();
   };
-  
-  const handleSearch = () => debouncedFilterAndRender();
-  const handleCategoryChange = () => filterAndRender();
+
+  const handleModalBackdrop = (e: Event) => {
+    if (e.target === variantModal) {
+      e.preventDefault();
+      hideVariantModal();
+    }
+  };
   
   const handleClearCart = (e: Event) => {
     e.preventDefault();
     clearCart();
   };
   
-  const handleCheckout = () => {
-    if (cart.length > 0) {
-      const hasOutOfStockItems = cart.some(item => item.outOfStock);
+  const handleCheckout = (e: Event) => {
+    e.preventDefault();
+    if (POSState.cart.length > 0) {
+      const hasOutOfStockItems = POSState.cart.some(item => item.outOfStock);
       if (hasOutOfStockItems) {
         Swal.fire({
           icon: 'warning',
@@ -729,12 +941,12 @@ function initializePOS() {
           cancelButtonText: 'Revisar'
         }).then((result) => {
           if (result.isConfirmed) {
-            localStorage.setItem('admin-pos-cart', JSON.stringify(cart));
+            localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
             navigate('/admin/checkout');
           }
         });
       } else {
-        localStorage.setItem('admin-pos-cart', JSON.stringify(cart));
+        localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
         navigate('/admin/checkout');
       }
     }
@@ -754,27 +966,51 @@ function initializePOS() {
     }
   };
 
-  const handleMobileCartToggle = () => openMobileCart();
-  const handleCloseCartMobile = () => closeMobileCart();
-  const handleBackToProducts = () => closeMobileCart();
-  const handleBackdropClick = () => closeMobileCart();
+  const handleMobileCartToggle = (e: Event) => {
+    e.preventDefault();
+    openMobileCart();
+  };
 
-  // Cerrar carrito móvil al redimensionar a desktop
+  const handleCloseCartMobile = (e: Event) => {
+    e.preventDefault();
+    closeMobileCart();
+  };
+
+  const handleBackToProducts = (e: Event) => {
+    e.preventDefault();
+    closeMobileCart();
+  };
+
+  const handleBackdropClick = (e: Event) => {
+    e.preventDefault();
+    closeMobileCart();
+  };
+
   const handleResize = () => {
     if (window.innerWidth >= 1024) {
       closeMobileCart();
     }
   };
 
-  // Agregar event listeners
+  // ==========================================
+  // REGISTRAR EVENT LISTENERS
+  // ==========================================
+
+  searchInput?.addEventListener('input', handleSearchInput);
+  searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+  clearSearchBtn?.addEventListener('click', handleClearSearch);
+  categoryFilter?.addEventListener('change', handleCategoryChange);
+  resetFiltersBtn?.addEventListener('click', handleResetFilters);
+  clearFiltersEmptyBtn?.addEventListener('click', handleResetFilters);
+  activeFiltersContainer?.addEventListener('click', handleRemoveFilter);
   productGrid?.addEventListener('click', handleProductClick);
   variantList?.addEventListener('click', handleVariantClick);
   closeModalBtn?.addEventListener('click', handleCloseModal);
   variantModal?.addEventListener('click', handleModalBackdrop);
   cartItemsList?.addEventListener('click', handleCartClick);
   cartItemsList?.addEventListener('change', handleQuantityInput);
-  searchInput?.addEventListener('input', handleSearch);
-  categoryFilter?.addEventListener('change', handleCategoryChange);
   clearCartBtn?.addEventListener('click', handleClearCart);
   clearCartBtnDesktop?.addEventListener('click', handleClearCart);
   checkoutButton?.addEventListener('click', handleCheckout);
@@ -786,15 +1022,19 @@ function initializePOS() {
   window.addEventListener('resize', handleResize);
 
   // Función de limpieza
-  cleanupFunction = () => {
+  POSState.cleanupFunction = () => {
+    searchInput?.removeEventListener('input', handleSearchInput);
+    clearSearchBtn?.removeEventListener('click', handleClearSearch);
+    categoryFilter?.removeEventListener('change', handleCategoryChange);
+    resetFiltersBtn?.removeEventListener('click', handleResetFilters);
+    clearFiltersEmptyBtn?.removeEventListener('click', handleResetFilters);
+    activeFiltersContainer?.removeEventListener('click', handleRemoveFilter);
     productGrid?.removeEventListener('click', handleProductClick);
     variantList?.removeEventListener('click', handleVariantClick);
     closeModalBtn?.removeEventListener('click', handleCloseModal);
     variantModal?.removeEventListener('click', handleModalBackdrop);
     cartItemsList?.removeEventListener('click', handleCartClick);
     cartItemsList?.removeEventListener('change', handleQuantityInput);
-    searchInput?.removeEventListener('input', handleSearch);
-    categoryFilter?.removeEventListener('change', handleCategoryChange);
     clearCartBtn?.removeEventListener('click', handleClearCart);
     clearCartBtnDesktop?.removeEventListener('click', handleClearCart);
     checkoutButton?.removeEventListener('click', handleCheckout);
@@ -806,25 +1046,37 @@ function initializePOS() {
     window.removeEventListener('resize', handleResize);
     
     document.body.style.overflow = '';
-    isInitialized = false;
+    POSState.isInitialized = false;
   };
 
-  isInitialized = true;
+  POSState.isInitialized = true;
 
-  // Inicializar
+  // ==========================================
+  // INICIALIZAR
+  // ==========================================
+  
   renderCart();
-  renderProductGrid(allProducts);
+  filterAndRender();
 }
 
+// Cleanup antes de navegación
 document.addEventListener('astro:before-preparation', () => {
-  if (cleanupFunction) {
-    cleanupFunction();
-    cleanupFunction = null;
+  if (POSState.cleanupFunction) {
+    POSState.cleanupFunction();
+    POSState.cleanupFunction = null;
   }
-  isInitialized = false;
+  POSState.isInitialized = false;
 });
 
+// Inicializar en carga de página
 document.addEventListener('astro:page-load', initializePOS);
+
+// Fallback para carga inicial sin View Transitions
+if (document.readyState === 'complete') {
+  initializePOS();
+} else {
+  document.addEventListener('DOMContentLoaded', initializePOS);
+}
 </script>
 
 <style is:global>
@@ -833,23 +1085,22 @@ document.addEventListener('astro:page-load', initializePOS);
    ============================================= */
 
 .product-scroll {
-  scrollbar-width: auto;
-  scrollbar-color: #f59e0b #e5e7eb;
+  scrollbar-width: thin;
+  scrollbar-color: #f59e0b #f3f4f6;
 }
 
 .product-scroll::-webkit-scrollbar {
-  width: 12px;
+  width: 8px;
 }
 
 .product-scroll::-webkit-scrollbar-track {
-  background: #e5e7eb;
-  border-radius: 6px;
+  background: #f3f4f6;
+  border-radius: 4px;
 }
 
 .product-scroll::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-  border-radius: 6px;
-  border: 2px solid #e5e7eb;
+  border-radius: 4px;
 }
 
 .product-scroll::-webkit-scrollbar-thumb:hover {
@@ -862,6 +1113,7 @@ document.addEventListener('astro:page-load', initializePOS);
 
 .product-card {
   transition: all 0.2s ease;
+  will-change: transform, box-shadow;
 }
 
 .product-card:hover {
@@ -877,32 +1129,25 @@ document.addEventListener('astro:page-load', initializePOS);
    ============================================= */
 
 .qty-btn { 
-  height: 1.5rem; 
-  width: 1.5rem; 
-  border-radius: 9999px; 
+  height: 1.75rem; 
+  width: 1.75rem; 
+  border-radius: 0.5rem; 
   background-color: #f3f4f6; 
   color: #374151; 
   display: inline-flex; 
   align-items: center; 
   justify-content: center; 
   cursor: pointer; 
-  transition: all 0.2s ease; 
-  border: 1px solid #e5e7eb;
+  transition: all 0.15s ease; 
+  border: 2px solid #e5e7eb;
   user-select: none;
   flex-shrink: 0;
-}
-
-@media (min-width: 768px) {
-  .qty-btn {
-    height: 1.75rem;
-    width: 1.75rem;
-  }
 }
 
 .qty-btn:hover { 
   background-color: #fef3c7; 
   border-color: #f59e0b;
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .qty-btn:active { 
@@ -910,18 +1155,19 @@ document.addEventListener('astro:page-load', initializePOS);
 }
 
 .qty-input { 
-  border: 1px solid #d1d5db; 
-  border-radius: 0.375rem; 
+  border: 2px solid #e5e7eb; 
+  border-radius: 0.5rem; 
   text-align: center; 
-  font-weight: 500; 
+  font-weight: 600; 
   padding: 0.25rem; 
+  transition: all 0.15s ease;
   -moz-appearance: textfield; 
 }
 
 .qty-input:focus { 
   border-color: #f59e0b; 
   outline: none; 
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); 
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); 
 }
 
 input[type="number"]::-webkit-inner-spin-button, 
@@ -931,48 +1177,27 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 /* =============================================
-   BOTONES Y ELEMENTOS INTERACTIVOS
-   ============================================= */
-
-.remove-btn {
-  user-select: none;
-  cursor: pointer;
-}
-
-.remove-btn:hover svg {
-  transform: scale(1.1);
-}
-
-.remove-btn:active svg {
-  transform: scale(0.95);
-}
-
-/* =============================================
    ANIMACIONES
    ============================================= */
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .animate-slideUp {
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp 0.25s ease-out;
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .animate-pulse {
@@ -984,38 +1209,16 @@ input[type="number"]::-webkit-outer-spin-button {
    ============================================= */
 
 .variant-card {
-  transition: all 0.3s ease;
-  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .variant-card:hover {
-  transform: translateY(-4px);
-}
-
-.add-variant-btn {
-  user-select: none;
-  cursor: pointer;
-}
-
-.add-variant-btn:hover {
-  transform: scale(1.05);
-}
-
-.add-variant-btn:active {
-  transform: scale(0.98);
+  transform: translateY(-2px);
 }
 
 /* =============================================
    UTILIDADES
    ============================================= */
-
-.border-orange-300 {
-  border-color: rgb(253 186 116);
-}
-
-.bg-orange-50 {
-  background-color: rgb(255 247 237);
-}
 
 .line-clamp-1 {
   overflow: hidden;
@@ -1031,6 +1234,10 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-line-clamp: 2;
 }
 
+.shadow-up {
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
 /* =============================================
    CARRITO MÓVIL
    ============================================= */
@@ -1039,38 +1246,29 @@ input[type="number"]::-webkit-outer-spin-button {
   will-change: transform;
 }
 
-.shadow-up {
-  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
-}
+/* =============================================
+   FOCUS STATES
+   ============================================= */
 
-#back-to-products-mobile,
-#admin-clear-cart-btn {
-  min-height: 44px;
-}
-
-body.modal-open {
-  overflow: hidden;
-}
-
-.transition-transform {
-  will-change: transform;
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
 }
 
 /* =============================================
-   TOUCH FEEDBACK MÓVIL
+   TOUCH FEEDBACK
    ============================================= */
 
 @media (hover: none) and (pointer: coarse) {
-  .hover\:shadow-xl:active {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  .product-card:active {
+    transform: scale(0.97);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
   
-  .group:active .group-hover\:scale-110 {
-    transform: scale(1.1);
-  }
-  
-  .group:active .group-hover\:opacity-100 {
-    opacity: 1;
+  .qty-btn:active {
+    transform: scale(0.9);
   }
 }
 </style>
