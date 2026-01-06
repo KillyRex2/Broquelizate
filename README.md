@@ -1,9 +1,9 @@
-![Logo Broquelízate](/public/assets/Broquelizate-logos/logo-contornos.png)
+![Logo Broquelizate](/public/assets/Broquelizate-logos/logo-contornos.png)
 
 
 
 **Tienda de Joyería y Perforaciones**  
-El repositorio oficial de Broquelízate, un e-commerce construido 100% con **Astro** para ofrecer joyería única y un servicio de perforaciones profesional.
+El repositorio oficial de Broquelizate, un e-commerce construido 100% con **Astro** para ofrecer joyería única y un servicio de perforaciones profesional.
 
 ---
 

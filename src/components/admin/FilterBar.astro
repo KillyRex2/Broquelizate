@@ -1,79 +1,564 @@
 ---
 // src/components/admin/FilterBar.astro
-import { Icon } from 'astro-icon/components';
-
 interface Props {
   categories: string[];
   initialSearch?: string;
   initialCategory?: string;
+  initialStockFilter?: string;
+  initialSortBy?: string;
+  initialSortOrder?: string;
+  initialMinPrice?: number;
+  initialMaxPrice?: number;
+  totalResults?: number;
 }
 
 const { 
   categories, 
   initialSearch = '', 
-  initialCategory = 'all' 
+  initialCategory = 'all',
+  initialStockFilter = 'all',
+  initialSortBy = 'name',
+  initialSortOrder = 'asc',
+  initialMinPrice = 0,
+  initialMaxPrice = 99999,
+  totalResults = 0
 } = Astro.props;
+
+// Contar filtros activos
+let activeFiltersCount = 0;
+if (initialCategory !== 'all') activeFiltersCount++;
+if (initialStockFilter !== 'all') activeFiltersCount++;
+if (initialMinPrice > 0) activeFiltersCount++;
+if (initialMaxPrice < 99999) activeFiltersCount++;
+
+const stockOptions = [
+  { value: 'all', label: 'Todos', icon: '📦', color: 'gray' },
+  { value: 'out', label: 'Agotado', icon: '🔴', color: 'red' },
+  { value: 'low', label: 'Mínimo (1-5)', icon: '🟠', color: 'orange' },
+  { value: 'available', label: 'Disponible (6-20)', icon: '🟢', color: 'green' },
+  { value: 'high', label: 'Alto stock (+20)', icon: '💎', color: 'blue' },
+];
 ---
-<div class="flex flex-col md:flex-row items-center gap-4 w-full">
-  <div class="relative flex-grow w-full">
-    <Icon name="mdi:magnify" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-    <input
-      type="text"
-      id="search-input"
-      placeholder="Buscar por nombre..."
-      value={initialSearch}
-      class="w-full rounded-full border border-gray-300 bg-white py-2.5 pl-12 pr-4 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
-    />
+
+<div class="filter-bar-container" data-astro-transition-persist="inventory-filters">
+  <!-- Barra principal de filtros -->
+  <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+    <!-- Búsqueda -->
+    <div class="relative flex-1 min-w-0">
+      <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <input
+        type="text"
+        id="search-input"
+        placeholder="Buscar por nombre, descripción..."
+        value={initialSearch}
+        autocomplete="off"
+        class="w-full pl-12 pr-10 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-yellow-400 focus:bg-white transition-all duration-200"
+      />
+      <button 
+        id="clear-search-btn"
+        class={`absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors ${!initialSearch ? 'hidden' : ''}`}
+      >
+        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Botón de filtros avanzados -->
+    <button
+      id="open-filters-btn"
+      class="relative flex items-center justify-center gap-2 px-5 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 min-w-[140px]"
+    >
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+      </svg>
+      <span>Filtros</span>
+      {activeFiltersCount > 0 && (
+        <span class="absolute -top-2 -right-2 flex items-center justify-center w-6 h-6 bg-yellow-500 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
+          {activeFiltersCount}
+        </span>
+      )}
+    </button>
+
+    <!-- Selector de ordenamiento rápido -->
+    <div class="flex items-center gap-2">
+      <select
+        id="sort-select"
+        class="py-3 px-4 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-700 font-medium focus:outline-none focus:border-yellow-400 transition-all duration-200 cursor-pointer"
+      >
+        <option value="name-asc" selected={initialSortBy === 'name' && initialSortOrder === 'asc'}>Nombre A-Z</option>
+        <option value="name-desc" selected={initialSortBy === 'name' && initialSortOrder === 'desc'}>Nombre Z-A</option>
+        <option value="price-asc" selected={initialSortBy === 'price' && initialSortOrder === 'asc'}>Precio ↑</option>
+        <option value="price-desc" selected={initialSortBy === 'price' && initialSortOrder === 'desc'}>Precio ↓</option>
+        <option value="stock-asc" selected={initialSortBy === 'stock' && initialSortOrder === 'asc'}>Stock ↑</option>
+        <option value="stock-desc" selected={initialSortBy === 'stock' && initialSortOrder === 'desc'}>Stock ↓</option>
+      </select>
+    </div>
+
+    <!-- Contador de resultados -->
+    <div class="hidden lg:flex items-center px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl">
+      <span class="text-sm font-medium text-yellow-700">
+        <span id="results-count">{totalResults}</span> productos
+      </span>
+    </div>
   </div>
-  <select id="category-filter" class="w-full md:w-auto rounded-full border-gray-300 bg-white py-2.5 px-4 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500">
-    <option value="all">Todas las categorías</option>
-    {categories.map(category => (
-      <option value={category} selected={category === initialCategory}>{category}</option>
-    ))}
-  </select>
+
+  <!-- Chips de filtros activos -->
+  <div id="active-filters-chips" class={`flex flex-wrap gap-2 mt-3 ${activeFiltersCount === 0 && !initialSearch ? 'hidden' : ''}`}>
+    {initialSearch && (
+      <span class="filter-chip bg-blue-100 text-blue-800 border-blue-200" data-filter="search">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        "{initialSearch}"
+        <button class="remove-chip ml-1 hover:text-blue-900" data-filter="search">×</button>
+      </span>
+    )}
+    {initialCategory !== 'all' && (
+      <span class="filter-chip bg-purple-100 text-purple-800 border-purple-200" data-filter="category">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+        </svg>
+        {initialCategory}
+        <button class="remove-chip ml-1 hover:text-purple-900" data-filter="category">×</button>
+      </span>
+    )}
+    {initialStockFilter !== 'all' && (
+      <span class="filter-chip bg-green-100 text-green-800 border-green-200" data-filter="stock">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+        {stockOptions.find(s => s.value === initialStockFilter)?.label}
+        <button class="remove-chip ml-1 hover:text-green-900" data-filter="stock">×</button>
+      </span>
+    )}
+    {(initialMinPrice > 0 || initialMaxPrice < 99999) && (
+      <span class="filter-chip bg-yellow-100 text-yellow-800 border-yellow-200" data-filter="price">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        ${initialMinPrice} - ${initialMaxPrice}
+        <button class="remove-chip ml-1 hover:text-yellow-900" data-filter="price">×</button>
+      </span>
+    )}
+    {activeFiltersCount > 0 && (
+      <button id="clear-all-filters" class="filter-chip bg-red-50 text-red-600 border-red-200 hover:bg-red-100 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        Limpiar todo
+      </button>
+    )}
+  </div>
+</div>
+
+<!-- Modal/Panel de Filtros Avanzados -->
+<div id="filters-modal" class="fixed inset-0 z-50 hidden">
+  <!-- Backdrop -->
+  <div id="filters-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"></div>
+  
+  <!-- Panel lateral -->
+  <div id="filters-panel" class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-out overflow-hidden flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between p-5 border-b bg-gradient-to-r from-yellow-50 to-orange-50">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Filtros Avanzados</h2>
+        <p class="text-sm text-gray-500 mt-0.5">Refina tu búsqueda</p>
+      </div>
+      <button id="close-filters-btn" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-full transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- Contenido de filtros -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-6">
+      <!-- Stock -->
+      <div class="filter-section">
+        <h3 class="filter-section-title">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+          Stock
+        </h3>
+        <div class="space-y-2">
+          {stockOptions.map(option => (
+            <label class="filter-option group">
+              <input 
+                type="radio" 
+                name="stockFilter" 
+                value={option.value}
+                checked={initialStockFilter === option.value}
+                class="filter-radio"
+              />
+              <span class="flex items-center gap-2">
+                <span class="text-lg">{option.icon}</span>
+                <span class="font-medium text-gray-700 group-hover:text-gray-900">{option.label}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <!-- Rango de precios -->
+      <div class="filter-section">
+        <h3 class="filter-section-title">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Rango de Precio
+        </h3>
+        <div class="flex items-center gap-3">
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 mb-1 block">Mínimo</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+              <input 
+                type="number" 
+                id="min-price-input"
+                value={initialMinPrice}
+                min="0"
+                placeholder="0"
+                class="w-full pl-8 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
+              />
+            </div>
+          </div>
+          <span class="text-gray-400 mt-5">—</span>
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 mb-1 block">Máximo</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+              <input 
+                type="number" 
+                id="max-price-input"
+                value={initialMaxPrice === 99999 ? '' : initialMaxPrice}
+                min="0"
+                placeholder="Sin límite"
+                class="w-full pl-8 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
+              />
+            </div>
+          </div>
+        </div>
+        <!-- Precios rápidos -->
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button class="quick-price-btn" data-min="0" data-max="500">Hasta $500</button>
+          <button class="quick-price-btn" data-min="500" data-max="1000">$500 - $1,000</button>
+          <button class="quick-price-btn" data-min="1000" data-max="5000">$1,000 - $5,000</button>
+          <button class="quick-price-btn" data-min="5000" data-max="99999">+$5,000</button>
+        </div>
+      </div>
+
+      <!-- Categorías -->
+      <div class="filter-section">
+        <h3 class="filter-section-title">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+          </svg>
+          Categorías
+        </h3>
+        <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          <label class="filter-option-checkbox group">
+            <input 
+              type="radio" 
+              name="categoryFilter" 
+              value="all"
+              checked={initialCategory === 'all'}
+              class="filter-checkbox"
+            />
+            <span class="font-medium text-gray-700 group-hover:text-gray-900">Todas</span>
+          </label>
+          {categories.map(cat => (
+            <label class="filter-option-checkbox group">
+              <input 
+                type="radio" 
+                name="categoryFilter" 
+                value={cat}
+                checked={initialCategory === cat}
+                class="filter-checkbox"
+              />
+              <span class="font-medium text-gray-700 group-hover:text-gray-900 truncate">{cat}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer con acciones -->
+    <div class="p-5 border-t bg-gray-50 space-y-3">
+      <button id="apply-filters-btn" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-bold rounded-xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition-all duration-200 active:scale-[0.98]">
+        Aplicar Filtros
+      </button>
+      <button id="reset-filters-btn" class="w-full py-3 bg-white border-2 border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">
+        Restablecer Todo
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
-  import { navigate } from 'astro:transitions/client';
-
-  // Función de "debounce" para no hacer peticiones en cada tecla
-  function debounce(func: Function, delay: number) {
-    // ✅ CORRECCIÓN: Se cambia el tipo a 'any' para ser compatible
-    // tanto con el 'number' del navegador como con el 'Timeout' de Node.js.
-    let timeoutId: any;
-    return (...args: any[]) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        func(...args);
-      }, delay);
-    };
-  }
-
-  function initializeFilters() {
+  function initFilterBar() {
+    // Elementos
     const searchInput = document.getElementById('search-input') as HTMLInputElement;
-    const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement;
+    const clearSearchBtn = document.getElementById('clear-search-btn');
+    const openFiltersBtn = document.getElementById('open-filters-btn');
+    const closeFiltersBtn = document.getElementById('close-filters-btn');
+    const filtersModal = document.getElementById('filters-modal');
+    const filtersBackdrop = document.getElementById('filters-backdrop');
+    const filtersPanel = document.getElementById('filters-panel');
+    const applyFiltersBtn = document.getElementById('apply-filters-btn');
+    const resetFiltersBtn = document.getElementById('reset-filters-btn');
+    const clearAllFilters = document.getElementById('clear-all-filters');
+    const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
+    const minPriceInput = document.getElementById('min-price-input') as HTMLInputElement;
+    const maxPriceInput = document.getElementById('max-price-input') as HTMLInputElement;
+    const activeFiltersChips = document.getElementById('active-filters-chips');
 
-    if (!searchInput || !categoryFilter) return;
+    let searchTimeout: ReturnType<typeof setTimeout>;
 
-    const applyFilters = () => {
-      const currentParams = new URLSearchParams(window.location.search);
+    // Funciones de navegación
+    function buildUrl(params: Record<string, string>) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', '1'); // Reset a página 1 al filtrar
       
-      // Actualizar parámetros
-      currentParams.set('search', searchInput.value);
-      currentParams.set('category', categoryFilter.value);
-      currentParams.set('page', '1'); // Siempre volver a la página 1 al filtrar
+      Object.entries(params).forEach(([key, value]) => {
+        if (value && value !== 'all' && value !== '0' && value !== '99999') {
+          url.searchParams.set(key, value);
+        } else {
+          url.searchParams.delete(key);
+        }
+      });
+      
+      return url.toString();
+    }
 
-      // Navegar a la nueva URL
-      navigate(`${window.location.pathname}?${currentParams.toString()}`);
-    };
+    function navigateWithFilters(params: Record<string, string>) {
+      const url = buildUrl(params);
+      window.location.href = url;
+    }
 
-    // Usar debounce en la búsqueda para mejorar el rendimiento
-    const debouncedSearch = debounce(applyFilters, 300);
+    function getCurrentParams(): Record<string, string> {
+      const url = new URL(window.location.href);
+      return {
+        search: url.searchParams.get('search') || '',
+        category: url.searchParams.get('category') || 'all',
+        stockFilter: url.searchParams.get('stockFilter') || 'all',
+        sortBy: url.searchParams.get('sortBy') || 'name',
+        sortOrder: url.searchParams.get('sortOrder') || 'asc',
+        minPrice: url.searchParams.get('minPrice') || '0',
+        maxPrice: url.searchParams.get('maxPrice') || '99999',
+      };
+    }
 
-    searchInput.addEventListener('input', debouncedSearch);
-    categoryFilter.addEventListener('change', applyFilters);
+    // Abrir/cerrar modal de filtros
+    function openFiltersModal() {
+      if (!filtersModal || !filtersPanel) return;
+      filtersModal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        filtersPanel.classList.remove('translate-x-full');
+      });
+    }
+
+    function closeFiltersModal() {
+      if (!filtersModal || !filtersPanel) return;
+      filtersPanel.classList.add('translate-x-full');
+      setTimeout(() => {
+        filtersModal.classList.add('hidden');
+        document.body.style.overflow = '';
+      }, 300);
+    }
+
+    // Event: Búsqueda con debounce
+    searchInput?.addEventListener('input', (e) => {
+      const value = (e.target as HTMLInputElement).value;
+      clearSearchBtn?.classList.toggle('hidden', !value);
+      
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        const params = getCurrentParams();
+        params.search = value;
+        navigateWithFilters(params);
+      }, 500);
+    });
+
+    // Event: Limpiar búsqueda
+    clearSearchBtn?.addEventListener('click', () => {
+      if (searchInput) searchInput.value = '';
+      clearSearchBtn.classList.add('hidden');
+      const params = getCurrentParams();
+      params.search = '';
+      navigateWithFilters(params);
+    });
+
+    // Event: Abrir modal de filtros
+    openFiltersBtn?.addEventListener('click', openFiltersModal);
+    closeFiltersBtn?.addEventListener('click', closeFiltersModal);
+    filtersBackdrop?.addEventListener('click', closeFiltersModal);
+
+    // Event: Cambio de ordenamiento
+    sortSelect?.addEventListener('change', () => {
+      const [sortBy, sortOrder] = sortSelect.value.split('-');
+      const params = getCurrentParams();
+      params.sortBy = sortBy;
+      params.sortOrder = sortOrder;
+      navigateWithFilters(params);
+    });
+
+    // Event: Aplicar filtros
+    applyFiltersBtn?.addEventListener('click', () => {
+      const params = getCurrentParams();
+      
+      // Stock
+      const stockRadio = document.querySelector('input[name="stockFilter"]:checked') as HTMLInputElement;
+      params.stockFilter = stockRadio?.value || 'all';
+      
+      // Categoría
+      const categoryRadio = document.querySelector('input[name="categoryFilter"]:checked') as HTMLInputElement;
+      params.category = categoryRadio?.value || 'all';
+      
+      // Precios
+      params.minPrice = minPriceInput?.value || '0';
+      params.maxPrice = maxPriceInput?.value || '99999';
+      
+      navigateWithFilters(params);
+    });
+
+    // Event: Restablecer filtros
+    resetFiltersBtn?.addEventListener('click', () => {
+      navigateWithFilters({
+        search: '',
+        category: 'all',
+        stockFilter: 'all',
+        sortBy: 'name',
+        sortOrder: 'asc',
+        minPrice: '0',
+        maxPrice: '99999',
+      });
+    });
+
+    // Event: Limpiar todos los filtros
+    clearAllFilters?.addEventListener('click', () => {
+      const params = getCurrentParams();
+      params.search = searchInput?.value || '';
+      params.category = 'all';
+      params.stockFilter = 'all';
+      params.minPrice = '0';
+      params.maxPrice = '99999';
+      navigateWithFilters(params);
+    });
+
+    // Event: Remover chip individual
+    activeFiltersChips?.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.remove-chip') as HTMLButtonElement;
+      if (!btn) return;
+      
+      const filterType = btn.dataset.filter;
+      const params = getCurrentParams();
+      
+      switch (filterType) {
+        case 'search':
+          params.search = '';
+          if (searchInput) searchInput.value = '';
+          break;
+        case 'category':
+          params.category = 'all';
+          break;
+        case 'stock':
+          params.stockFilter = 'all';
+          break;
+        case 'price':
+          params.minPrice = '0';
+          params.maxPrice = '99999';
+          break;
+      }
+      
+      navigateWithFilters(params);
+    });
+
+    // Event: Botones de precio rápido
+    document.querySelectorAll('.quick-price-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const min = btn.getAttribute('data-min') || '0';
+        const max = btn.getAttribute('data-max') || '99999';
+        if (minPriceInput) minPriceInput.value = min;
+        if (maxPriceInput) maxPriceInput.value = max === '99999' ? '' : max;
+      });
+    });
+
+    // Cerrar con Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !filtersModal?.classList.contains('hidden')) {
+        closeFiltersModal();
+      }
+    });
   }
 
-  // Ejecutar en cada carga de página para compatibilidad con View Transitions
-  document.addEventListener('astro:page-load', initializeFilters);
+  // Inicializar
+  document.addEventListener('astro:page-load', initFilterBar);
+  if (document.readyState === 'complete') {
+    initFilterBar();
+  }
 </script>
+
+<style>
+  .filter-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full border cursor-default;
+  }
+
+  .filter-section-title {
+    @apply flex items-center gap-2 text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3;
+  }
+
+  .filter-option {
+    @apply flex items-center gap-3 p-3 rounded-xl border-2 border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 cursor-pointer transition-all duration-200;
+  }
+
+  .filter-option-checkbox {
+    @apply flex items-center gap-2 p-2.5 rounded-lg border-2 border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 cursor-pointer transition-all duration-200 text-sm;
+  }
+
+  .filter-radio {
+    @apply w-5 h-5 text-yellow-500 border-2 border-gray-300 focus:ring-yellow-400 focus:ring-offset-0 cursor-pointer;
+  }
+
+  .filter-checkbox {
+    @apply w-4 h-4 text-yellow-500 border-2 border-gray-300 rounded focus:ring-yellow-400 focus:ring-offset-0 cursor-pointer;
+  }
+
+  .quick-price-btn {
+    @apply px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-yellow-100 hover:text-yellow-700 transition-colors;
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #fbbf24 #f3f4f6;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #fbbf24;
+    border-radius: 3px;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+</style>

@@ -20,7 +20,7 @@ export const subscribeToNewsletter = defineAction({
       // --- CORREO 1: Notificación para el administrador ---
       await resend.emails.send({
         // ✅ CORRECCIÓN: Se usa la dirección de remitente permitida por Resend para pruebas.
-        from: 'Notificaciones Broquelízate <onboarding@resend.dev>',
+        from: 'Notificaciones Broquelizate <onboarding@resend.dev>',
         to: ['broquelizate@gmail.com'], // Tu correo para recibir notificaciones
         subject: '¡Nueva suscripción al Newsletter! 🎉',
         html: `<p>El correo <strong>${email}</strong> se ha suscrito al newsletter.</p>`,
@@ -29,9 +29,9 @@ export const subscribeToNewsletter = defineAction({
       // --- CORREO 2: Correo de bienvenida para el nuevo suscriptor ---
       await resend.emails.send({
         // ✅ CORRECCIÓN: Se usa la misma dirección de remitente permitida.
-        from: 'Broquelízate La Laguna <onboarding@resend.dev>',
+        from: 'Broquelizate La Laguna <onboarding@resend.dev>',
         to: [email], // Se envía al email que el usuario ingresó.
-        subject: '¡Bienvenido/a a Broquelízate La Laguna!',
+        subject: '¡Bienvenido/a a Broquelizate La Laguna!',
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #eee; border-radius: 8px;">
             <h1 style="color: #c2a24d;">¡Gracias por suscribirte!</h1>

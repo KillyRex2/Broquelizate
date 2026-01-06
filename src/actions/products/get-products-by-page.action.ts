@@ -1,13 +1,14 @@
 import type { ProductWithImages } from "@/interfaces";
 import { defineAction } from "astro:actions";
-import { and, count, db, eq, gt, inArray, lte, Product, ProductImage, sql } from "astro:db";
+import { and, count, db, eq, gt, inArray, lte, Product, ProductImage, sql, asc, desc } from "astro:db";
 import { z } from "astro:schema";
 
 // Lista de categorías válidas
 const validCategories = [
   "Titanio", "Acero Quirúrgico", "Oro 10k", "Oro 14k", "Oro 18k",
   "Chapa de Oro 14K", "Chapa de Oro 18K", "Acero Inoxidable",
-  "Plástico", "Plata", "Rodio"
+  "Plástico", "Plata", "Rodio", "Oro 10k cadenas", "Oro 10k anillos",
+  "Oro 10k arracadas", "Plata .925"
 ];
 
 const validPiercings = [
@@ -16,37 +17,61 @@ const validPiercings = [
   'Séptum', 'Nóstril', 'Navel', 'Flat'
 ];
 
+// Columnas válidas para ordenamiento
+const validSortColumns = ['name', 'price', 'stock', 'category', 'createdAt'];
+const validSortOrders = ['asc', 'desc'];
+
+// Opciones de stock
+const stockFilters = ['all', 'out', 'low', 'available', 'high'] as const;
+
 export const inputSchema = z.object({
   page: z.number().optional().default(1),
   limit: z.number().optional().default(12),
   category: z.string().optional().default('all'),
-  maxPrice: z.number().optional().default(5000),
-  inStock: z.boolean().optional().default(false),
+  maxPrice: z.number().optional().default(99999),
+  minPrice: z.number().optional().default(0),
+  stockFilter: z.enum(stockFilters).optional().default('all'),
   search: z.string().optional().default(''),
-  piercing: z.string().optional().default('all')
+  piercing: z.string().optional().default('all'),
+  sortBy: z.string().optional().default('name'),
+  sortOrder: z.string().optional().default('asc'),
 });
 
 export const handler = async ({ 
   page, 
   limit, 
   category, 
-  maxPrice, 
-  inStock, 
+  maxPrice,
+  minPrice,
+  stockFilter,
   search,
   piercing,
+  sortBy,
+  sortOrder,
 }: z.infer<typeof inputSchema>) => {
   console.log("Parámetros de búsqueda recibidos:", {
     search,
     category,
+    minPrice,
     maxPrice,
-    inStock,
+    stockFilter,
     page,
     limit,
-    piercing
+    piercing,
+    sortBy,
+    sortOrder
   });
 
   try {
     page = Math.max(page, 1);
+    
+    // Validar ordenamiento
+    if (!validSortColumns.includes(sortBy)) {
+      sortBy = 'name';
+    }
+    if (!validSortOrders.includes(sortOrder)) {
+      sortOrder = 'asc';
+    }
     
     // Construir condiciones de filtro
     const filters = [];
@@ -62,24 +87,43 @@ export const handler = async ({
       filters.push(eq(Product.category, filteredCategory));
     }
     
-    if (maxPrice > 0) {
+    // Filtro de precio mínimo
+    if (minPrice > 0) {
+      filters.push(sql`${Product.price} >= ${minPrice}`);
+    }
+    
+    // Filtro de precio máximo
+    if (maxPrice > 0 && maxPrice < 99999) {
       filters.push(lte(Product.price, maxPrice));
     }
     
-    if (inStock) {
-      filters.push(gt(Product.stock, 0));
+    // FILTRO DE STOCK MEJORADO
+    switch (stockFilter) {
+      case 'out': // Agotado (0)
+        filters.push(eq(Product.stock, 0));
+        break;
+      case 'low': // Mínimo (1-5)
+        filters.push(gt(Product.stock, 0));
+        filters.push(lte(Product.stock, 5));
+        break;
+      case 'available': // Arriba del mínimo (6-20)
+        filters.push(gt(Product.stock, 5));
+        filters.push(lte(Product.stock, 20));
+        break;
+      case 'high': // Alto stock (>20)
+        filters.push(gt(Product.stock, 20));
+        break;
+      // 'all' no aplica filtro
     }
     
-    // FILTRO POR PIERCING - CORREGIDO con validación null
+    // FILTRO POR PIERCING
     if (piercing && piercing !== 'all' && validPiercings.includes(piercing)) {
       console.log(`Filtrando por piercing: ${piercing}`);
-      
-      // Buscar coincidencia exacta con acentos - usando placeholders seguros
       const piercingPattern = `%${piercing}%`;
       filters.push(sql`${Product.piercing_name} LIKE ${piercingPattern}`);
     }
 
-    // FILTRO POR BÚSQUEDA - CORREGIDO con validación null
+    // FILTRO POR BÚSQUEDA
     if (search && search.trim() !== '') {
       console.log(`Filtrando por término de búsqueda: ${search}`);
       const searchPattern = `%${search.toLowerCase()}%`;
@@ -109,11 +153,26 @@ export const handler = async ({
     if (page > totalPages && totalPages > 0) {
       return {
         products: [] as ProductWithImages[],
-        totalPages
+        totalPages,
+        totalItems
       };
     }
     
-    // Consulta principal para productos
+    // Determinar columna de ordenamiento
+    const getSortColumn = () => {
+      switch (sortBy) {
+        case 'name': return Product.name;
+        case 'price': return Product.price;
+        case 'stock': return Product.stock;
+        case 'category': return Product.category;
+        default: return Product.name;
+      }
+    };
+    
+    // Consulta principal para productos con ordenamiento
+    const sortColumn = getSortColumn();
+    const orderFn = sortOrder === 'desc' ? desc : asc;
+    
     const baseProductsQuery = db
       .select({
         id: Product.id,
@@ -129,6 +188,7 @@ export const handler = async ({
         user: Product.user
       })
       .from(Product)
+      .orderBy(orderFn(sortColumn))
       .limit(limit)
       .offset((page - 1) * limit);
     
@@ -141,7 +201,7 @@ export const handler = async ({
     // Obtener IDs de productos para buscar imágenes
     const productIds = products.map(p => p.id);
     
-    // Consulta para imágenes - con validación de IDs vacíos y null safety
+    // Consulta para imágenes
     let imagesQuery: Array<{ productId: string; image: string }> = [];
     if (productIds.length > 0) {
       const rawImagesQuery = await db
@@ -152,7 +212,6 @@ export const handler = async ({
         .from(ProductImage)
         .where(inArray(ProductImage.productId, productIds));
       
-      // Filtrar solo las imágenes con productId válido (no null)
       imagesQuery = rawImagesQuery
         .filter((img): img is { productId: string; image: string } => 
           img.productId !== null
@@ -179,7 +238,8 @@ export const handler = async ({
     
     return {
       products: formattedProducts,
-      totalPages
+      totalPages,
+      totalItems
     };
     
   } catch (error) {
@@ -196,13 +256,9 @@ export const getProductsByPage = defineAction({
 
 export const getInventoryStats = defineAction({
   handler: async () => {
-    // Obtenemos TODOS los productos para los cálculos
     const allProducts = await db.select().from(Product);
-
-    // Definimos el umbral para "Stock bajo"
     const LOW_STOCK_THRESHOLD = 5;
 
-    // Realizamos los cálculos
     const stats = allProducts.reduce((acc, product) => {
       const stock = product.stock ?? 0;
       const price = product.price ?? 0;
@@ -221,6 +277,10 @@ export const getInventoryStats = defineAction({
       if (stock > 0 && stock <= LOW_STOCK_THRESHOLD) {
         acc.lowStockCount++;
       }
+      
+      if (stock > 20) {
+        acc.highStockCount++;
+      }
 
       return acc;
     }, {
@@ -229,13 +289,15 @@ export const getInventoryStats = defineAction({
       inStockCount: 0,
       outOfStockCount: 0,
       lowStockCount: 0,
+      highStockCount: 0,
     });
 
     const estimatedProfit = stats.totalValue - stats.totalCost;
 
     return {
       ...stats,
-      estimatedProfit
+      estimatedProfit,
+      totalProducts: allProducts.length
     };
   }
 });
