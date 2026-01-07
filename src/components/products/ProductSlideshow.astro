@@ -2,7 +2,7 @@
 // src/components/products/ProductSlideshow.astro
 interface Props {
     images: string[];
-    sliderId?: string; // ✅ NUEVO: ID único para múltiples instancias
+    sliderId?: string;
 }
 
 const { images, sliderId = 'main-slider' } = Astro.props;
@@ -197,8 +197,17 @@ const fullImages = images.map(image => {
 </style>
 
 <script>
-    // ✅ NUEVA FUNCIÓN: Cambiar imágenes dinámicamente
-    function updateSliderImages(sliderId: string, newImages: string[]) {
+    // =====================================================
+    // PRODUCT SLIDESHOW - Corregido para View Transitions
+    // =====================================================
+
+    // Flag para rastrear sliders inicializados (evita duplicación)
+    const slidersInitialized = new Set<string>();
+
+    /**
+     * Actualiza las imágenes de un slider dinámicamente
+     */
+    function updateSliderImages(sliderId: string, newImages: string[]): void {
         const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
         if (!slider) return;
 
@@ -208,12 +217,13 @@ const fullImages = images.map(image => {
         
         if (!wrapper || !indicators) return;
 
-        // Limpiar slides existentes
+        // Limpiar contenido existente
         wrapper.innerHTML = '';
         indicators.innerHTML = '';
 
         // Crear nuevos slides
         newImages.forEach((image, index) => {
+            // Crear slide
             const slide = document.createElement('div');
             slide.className = `slide ${index === 0 ? 'active' : ''}`;
             slide.dataset.index = index.toString();
@@ -236,7 +246,7 @@ const fullImages = images.map(image => {
             indicators.appendChild(indicator);
         });
 
-        // Actualizar total
+        // Actualizar contador total
         if (totalSpan) {
             totalSpan.textContent = newImages.length.toString();
         }
@@ -248,8 +258,10 @@ const fullImages = images.map(image => {
         showSlide(sliderId, 0);
     }
 
-    // ✅ Función para mostrar un slide específico
-    function showSlide(sliderId: string, index: number) {
+    /**
+     * Muestra un slide específico
+     */
+    function showSlide(sliderId: string, index: number): void {
         const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
         if (!slider) return;
 
@@ -257,6 +269,7 @@ const fullImages = images.map(image => {
         const indicators = slider.querySelectorAll('.indicator');
         const currentSpan = slider.querySelector('.counter .current');
 
+        // Actualizar clases de slides
         slides.forEach((slide, i) => {
             slide.classList.remove('active', 'prev');
             if (i < index) {
@@ -264,8 +277,10 @@ const fullImages = images.map(image => {
             }
         });
 
+        // Actualizar indicadores
         indicators.forEach(ind => ind.classList.remove('active'));
 
+        // Activar slide e indicador actual
         if (slides[index]) {
             slides[index].classList.add('active');
         }
@@ -273,20 +288,27 @@ const fullImages = images.map(image => {
             indicators[index].classList.add('active');
         }
 
+        // Actualizar contador
         if (currentSpan) {
             currentSpan.textContent = (index + 1).toString();
         }
     }
 
-    // ✅ Exponer función globalmente
-    (window as any).updateSliderImages = updateSliderImages;
-
-    // Inicialización
-    document.addEventListener('DOMContentLoaded', function() {
+    /**
+     * Inicializa todos los sliders en la página
+     */
+    function initializeSliders(): void {
         const sliders = document.querySelectorAll('.product-slider');
         
         sliders.forEach(slider => {
             const sliderId = slider.getAttribute('data-slider-id') || 'main-slider';
+            
+            // Evitar reinicialización del mismo slider
+            if (slidersInitialized.has(sliderId)) {
+                return;
+            }
+            slidersInitialized.add(sliderId);
+            
             const indicators = slider.querySelectorAll('.indicator');
             
             // Event listeners para indicadores
@@ -301,33 +323,58 @@ const fullImages = images.map(image => {
             slider.addEventListener('touchstart', (e) => {
                 const touchEvent = e as TouchEvent;
                 touchStartX = touchEvent.changedTouches[0].screenX;
-            }, false);
+            }, { passive: true });
             
             slider.addEventListener('touchend', (e) => {
                 const touchEvent = e as TouchEvent;
                 touchEndX = touchEvent.changedTouches[0].screenX;
                 
+                const slides = slider.querySelectorAll('.slide');
+                const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+                
+                // Swipe izquierda - siguiente
                 if (touchEndX < touchStartX - 50) {
-                    // Swipe izquierda - siguiente
-                    const slides = slider.querySelectorAll('.slide');
-                    const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
                     const nextIndex = (currentIndex + 1) % slides.length;
                     showSlide(sliderId, nextIndex);
                 }
+                // Swipe derecha - anterior
                 if (touchEndX > touchStartX + 50) {
-                    // Swipe derecha - anterior
-                    const slides = slider.querySelectorAll('.slide');
-                    const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
                     const prevIndex = (currentIndex - 1 + slides.length) % slides.length;
                     showSlide(sliderId, prevIndex);
                 }
-            }, false);
+            }, { passive: true });
         });
+    }
+
+    /**
+     * Limpia el estado de inicialización
+     */
+    function cleanupSliders(): void {
+        slidersInitialized.clear();
+    }
+
+    // Exponer funciones globalmente para uso externo
+    (window as any).updateSliderImages = updateSliderImages;
+    (window as any).showSlide = showSlide;
+
+    // =====================================================
+    // INICIALIZACIÓN
+    // =====================================================
+
+    // Para View Transitions de Astro - limpiar y reinicializar
+    document.addEventListener('astro:page-load', () => {
+        cleanupSliders();
+        initializeSliders();
     });
-    
-    // Reinicializar en navegación de Astro
-    document.addEventListener('astro:page-load', function() {
-        const event = new Event('DOMContentLoaded');
-        document.dispatchEvent(event);
-    });
+
+    // Para navegación antes de salir - limpiar estado
+    document.addEventListener('astro:before-preparation', cleanupSliders);
+
+    // Inicialización en primera carga (sin View Transitions)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeSliders, { once: true });
+    } else {
+        // DOM ya está listo
+        initializeSliders();
+    }
 </script>

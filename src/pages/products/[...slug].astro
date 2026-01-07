@@ -608,10 +608,22 @@ const processedVariants = processVariants(variantsData);
   import { CartCookiesClient } from "../../utils/cart-cookies";
   import { actions } from "astro:actions";
 
-  function setupProductPage() {
+  // =====================================================
+  // PRODUCT PAGE SCRIPT - Corregido para View Transitions
+  // =====================================================
+
+  let isPageInitialized = false;
+
+  function setupProductPage(): void {
+    // Evitar inicialización múltiple
+    if (isPageInitialized) return;
+    
     const productIdInput = document.getElementById("product-id") as HTMLInputElement;
     if (!productIdInput) return;
+    
+    isPageInitialized = true;
 
+    // Referencias a elementos del DOM
     const qtyInput = document.getElementById("qty-input") as HTMLInputElement;
     const decrementBtn = document.getElementById("qty-decr") as HTMLButtonElement;
     const incrementBtn = document.getElementById("qty-incr") as HTMLButtonElement;
@@ -640,32 +652,50 @@ const processedVariants = processVariants(variantsData);
     
     let currentCombination: any = null;
     let selectedVariants: Record<string, string> = {};
+    let isAddingToCart = false;
 
-    const formatCurrency = (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+    // Utilidades
+    const formatCurrency = (value: number): string => {
+      return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+    };
 
-    function showMessage(message: string, type: 'info' | 'error' | 'success' = 'info') {
+    function showMessage(message: string, type: 'info' | 'error' | 'success' = 'info'): void {
       if (!variantMessage) return;
       variantMessage.textContent = message;
       variantMessage.className = `msg ${type}`;
-      setTimeout(() => variantMessage.classList.add('hidden'), 5000);
+      
+      // Auto-ocultar después de 5 segundos
+      const hideTimeout = window.setTimeout(() => {
+        variantMessage.classList.add('hidden');
+      }, 5000);
+      
+      // Guardar referencia para limpiar si es necesario
+      (variantMessage as any)._hideTimeout = hideTimeout;
     }
 
-    const updateQuantity = (newQty: number) => {
+    function updateQuantity(newQty: number): void {
       const maxStock = hasVariants && currentCombination ? currentCombination.stock : baseStock;
       qtyInput.value = Math.max(1, Math.min(maxStock, newQty)).toString();
-    };
+    }
     
-    function updateProductImage(variantId: string | null) {
-      const fn = (window as any).updateSliderImages;
-      if (typeof fn !== 'function') return;
-      if (!variantId) { fn('product-main-slider', generalImages); return; }
+    function updateProductImage(variantId: string | null): void {
+      const updateSliderFn = (window as any).updateSliderImages;
+      if (typeof updateSliderFn !== 'function') return;
+      
+      if (!variantId) {
+        updateSliderFn('product-main-slider', generalImages);
+        return;
+      }
+      
       const variantImage = variantImageMap[variantId];
-      fn('product-main-slider', variantImage ? [variantImage] : generalImages);
+      updateSliderFn('product-main-slider', variantImage ? [variantImage] : generalImages);
     }
 
-    async function updateCombination() {
+    async function updateCombination(): Promise<void> {
       if (!hasVariants) return;
+      
       const variantGroups = document.querySelectorAll('.variant-group');
+      
       if (Object.keys(selectedVariants).length < variantGroups.length) {
         addBtn.disabled = true;
         showMessage('Por favor, selecciona una opción para cada variante.', 'info');
@@ -673,79 +703,203 @@ const processedVariants = processVariants(variantsData);
       }
 
       try {
-        const { data, error } = await actions.getVariantCombination({ productId: productIdInput.value, selectedVariants });
-        if (error || !data) { showMessage('Esta combinación no está disponible.', 'error'); addBtn.disabled = true; currentCombination = null; return; }
+        const { data, error } = await actions.getVariantCombination({
+          productId: productIdInput.value,
+          selectedVariants
+        });
+        
+        if (error || !data) {
+          showMessage('Esta combinación no está disponible.', 'error');
+          addBtn.disabled = true;
+          currentCombination = null;
+          return;
+        }
 
         currentCombination = data;
+        
+        // Construir nombre de combinación si no existe
         if (!currentCombination.combinationName) {
-          currentCombination.combinationName = Object.entries(selectedVariants).map(([variantName, variantId]) => {
-            const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
-            return button ? `${variantName}: ${button.dataset.variantValue}` : '';
-          }).filter(Boolean).join(' / ');
+          currentCombination.combinationName = Object.entries(selectedVariants)
+            .map(([variantName, variantId]) => {
+              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
+              return button ? `${variantName}: ${button.dataset.variantValue}` : '';
+            })
+            .filter(Boolean)
+            .join(' / ');
         }
         
-        if (priceElement) priceElement.textContent = formatCurrency(data.price);
-        if (stockBadge) { const isInStock = data.stock > 0; stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`; stockBadge.textContent = isInStock ? `${data.stock} en stock` : 'Agotado'; }
+        // Actualizar precio
+        if (priceElement) {
+          priceElement.textContent = formatCurrency(data.price);
+        }
+        
+        // Actualizar badge de stock
+        if (stockBadge) {
+          const isInStock = data.stock > 0;
+          stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`;
+          stockBadge.textContent = isInStock ? `${data.stock} en stock` : 'Agotado';
+        }
+        
+        // Actualizar info de variante
         if (variantInfo && selectedCombination && combinationSku) {
-          selectedCombination.textContent = Object.values(selectedVariants).map(variantId => { const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement; return button ? button.dataset.variantValue : ''; }).join(' / ');
+          selectedCombination.textContent = Object.values(selectedVariants)
+            .map(variantId => {
+              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
+              return button ? button.dataset.variantValue : '';
+            })
+            .join(' / ');
           combinationSku.textContent = data.sku || '-';
           variantInfo.classList.remove('hidden');
         }
 
+        // Actualizar botón de añadir
         const isOutOfStock = data.stock <= 0;
         addBtn.disabled = isOutOfStock;
-        addBtn.innerHTML = isOutOfStock ? '<span>Sin stock disponible</span>' : `<svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Añadir al carrito</span>`;
+        
+        if (isOutOfStock) {
+          addBtn.innerHTML = '<span>Sin stock disponible</span>';
+        } else {
+          addBtn.innerHTML = `
+            <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+            </svg>
+            <span>Añadir al carrito</span>
+          `;
+        }
+        
+        // Actualizar límite de cantidad
         qtyInput.max = data.stock.toString();
-        if (parseInt(qtyInput.value) > data.stock) qtyInput.value = Math.max(1, data.stock).toString();
-      } catch (e) { showMessage('Error al consultar el producto.', 'error'); }
+        if (parseInt(qtyInput.value) > data.stock) {
+          qtyInput.value = Math.max(1, data.stock).toString();
+        }
+        
+      } catch (e) {
+        console.error('Error al consultar combinación:', e);
+        showMessage('Error al consultar el producto.', 'error');
+      }
     }
     
-    function selectVariantOption(button: HTMLElement) {
+    function selectVariantOption(button: HTMLElement): void {
       const variantName = button.dataset.variantName;
       const variantId = button.dataset.variantId;
       const hasImage = button.dataset.hasImage === 'true';
       const group = button.closest('.variant-group');
+      
       if (!group || !variantName || !variantId) return;
-      group.querySelectorAll('.variant-option').forEach(opt => opt.classList.remove('selected'));
+      
+      // Deseleccionar otras opciones del grupo
+      group.querySelectorAll('.variant-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      
+      // Seleccionar esta opción
       button.classList.add('selected');
       selectedVariants[variantName] = variantId;
+      
+      // Actualizar imagen si tiene
       updateProductImage(hasImage ? variantId : null);
+      
+      // Actualizar combinación
       updateCombination();
     }
-    
-    if (hasVariants) document.querySelectorAll('.variant-option').forEach(button => button.addEventListener('click', () => selectVariantOption(button as HTMLElement)));
 
+    // =====================================================
+    // EVENT LISTENERS
+    // =====================================================
+    
+    // Variantes
+    if (hasVariants) {
+      document.querySelectorAll('.variant-option').forEach(button => {
+        button.addEventListener('click', () => selectVariantOption(button as HTMLElement));
+      });
+    }
+
+    // Cantidad
     decrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) - 1));
     incrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) + 1));
     qtyInput?.addEventListener("change", () => updateQuantity(parseInt(qtyInput.value)));
 
+    // Añadir al carrito
     addBtn?.addEventListener("click", async () => {
+      if (isAddingToCart) return;
+      
       const quantityToAdd = parseInt(qtyInput.value) || 1;
       const productId = productIdInput.value;
-      if (hasVariants && !currentCombination) { showMessage('Por favor, selecciona todas las opciones de variante.', 'error'); return; }
+      
+      if (hasVariants && !currentCombination) {
+        showMessage('Por favor, selecciona todas las opciones de variante.', 'error');
+        return;
+      }
+      
+      isAddingToCart = true;
       addBtn.disabled = true;
-      addBtn.innerHTML = `<svg class="animate-spin" width="22" height="22" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Procesando...</span>`;
+      addBtn.innerHTML = `
+        <svg class="animate-spin" width="22" height="22" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Procesando...</span>
+      `;
+      
       try {
-        const cartItem: any = { productId, quantity: quantityToAdd, combinationId: currentCombination?.id, variantName: currentCombination?.combinationName, variantSku: currentCombination?.sku };
+        // Construir item del carrito
+        const cartItem: any = {
+          productId,
+          quantity: quantityToAdd
+        };
+        
         if (hasVariants && currentCombination) {
           cartItem.combinationId = currentCombination.id;
-          cartItem.variantName = currentCombination.combinationName || Object.entries(selectedVariants).map(([name, id]) => { const btn = document.querySelector(`[data-variant-id="${id}"]`) as HTMLElement; return btn ? `${name}: ${btn.dataset.variantValue}` : ''; }).filter(Boolean).join(' / ');
-          if (currentCombination.sku) cartItem.variantSku = currentCombination.sku;
+          cartItem.variantName = currentCombination.combinationName || 
+            Object.entries(selectedVariants)
+              .map(([name, id]) => {
+                const btn = document.querySelector(`[data-variant-id="${id}"]`) as HTMLElement;
+                return btn ? `${name}: ${btn.dataset.variantValue}` : '';
+              })
+              .filter(Boolean)
+              .join(' / ');
+          
+          if (currentCombination.sku) {
+            cartItem.variantSku = currentCombination.sku;
+          }
+          
           cartItem.variantPrice = currentCombination.price;
-          if (currentCombination.price && currentCombination.price !== basePrice) cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
+          
+          if (currentCombination.price && currentCombination.price !== basePrice) {
+            cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
+          }
         }
+        
+        // Añadir al carrito
         CartCookiesClient.addItem(cartItem);
         itemsInCart.set(CartCookiesClient.getTotalItems());
+        
         showMessage('¡Producto añadido al carrito!', 'success');
-        setTimeout(async () => await navigate("/cart"), 800);
+        
+        // Navegar al carrito después de un breve delay
+        window.setTimeout(() => {
+          navigate("/cart");
+        }, 800);
+        
       } catch (error) {
+        console.error('Error al añadir al carrito:', error);
         showMessage('Error al añadir el producto', 'error');
+        
+        isAddingToCart = false;
         addBtn.disabled = false;
-        addBtn.innerHTML = `<svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20"><path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><span>Añadir al carrito</span>`;
+        addBtn.innerHTML = `
+          <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+          </svg>
+          <span>Añadir al carrito</span>
+        `;
       }
     });
 
-    // Lightbox
+    // =====================================================
+    // LIGHTBOX
+    // =====================================================
+    
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightbox-image') as HTMLImageElement;
     const lightboxCounter = document.getElementById('lightbox-counter');
@@ -753,30 +907,103 @@ const processedVariants = processVariants(variantsData);
     let currentImageIndex = 0;
     const totalImages = galleryImages.length;
 
-    function openLightbox(index: number) {
+    function openLightbox(index: number): void {
       currentImageIndex = index;
       const item = galleryImages[index] as HTMLElement;
       const img = item.querySelector('img') as HTMLImageElement;
-      if (lightboxImage && img) { lightboxImage.src = img.src; lightboxImage.alt = img.alt; }
-      if (lightboxCounter) lightboxCounter.textContent = `${index + 1} / ${totalImages}`;
-      if (lightbox) { lightbox.classList.add('open'); document.body.style.overflow = 'hidden'; }
+      
+      if (lightboxImage && img) {
+        lightboxImage.src = img.src;
+        lightboxImage.alt = img.alt;
+      }
+      
+      if (lightboxCounter) {
+        lightboxCounter.textContent = `${index + 1} / ${totalImages}`;
+      }
+      
+      if (lightbox) {
+        lightbox.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
     }
 
-    function closeLightbox() { if (lightbox) { lightbox.classList.remove('open'); document.body.style.overflow = ''; } }
-    function showPrevImage() { currentImageIndex = (currentImageIndex - 1 + totalImages) % totalImages; openLightbox(currentImageIndex); }
-    function showNextImage() { currentImageIndex = (currentImageIndex + 1) % totalImages; openLightbox(currentImageIndex); }
+    function closeLightbox(): void {
+      if (lightbox) {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
 
-    galleryImages.forEach((item, index) => item.addEventListener('click', () => openLightbox(index)));
+    function showPrevImage(): void {
+      currentImageIndex = (currentImageIndex - 1 + totalImages) % totalImages;
+      openLightbox(currentImageIndex);
+    }
+
+    function showNextImage(): void {
+      currentImageIndex = (currentImageIndex + 1) % totalImages;
+      openLightbox(currentImageIndex);
+    }
+
+    // Event listeners del lightbox
+    galleryImages.forEach((item, index) => {
+      item.addEventListener('click', () => openLightbox(index));
+    });
+    
     document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);
     document.getElementById('lightbox-prev')?.addEventListener('click', showPrevImage);
     document.getElementById('lightbox-next')?.addEventListener('click', showNextImage);
     document.querySelector('.lb-backdrop')?.addEventListener('click', closeLightbox);
-    document.addEventListener('keydown', (e) => { if (lightbox?.classList.contains('open')) { if (e.key === 'Escape') closeLightbox(); if (e.key === 'ArrowLeft') showPrevImage(); if (e.key === 'ArrowRight') showNextImage(); } });
+    
+    // Keyboard navigation
+    function handleKeydown(e: KeyboardEvent): void {
+      if (!lightbox?.classList.contains('open')) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          closeLightbox();
+          break;
+        case 'ArrowLeft':
+          showPrevImage();
+          break;
+        case 'ArrowRight':
+          showNextImage();
+          break;
+      }
+    }
+    
+    document.addEventListener('keydown', handleKeydown);
 
-    // Init
-    if (hasVariants) document.querySelectorAll('.variant-group').forEach(group => { const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement; if (firstOption) selectVariantOption(firstOption); });
-    else { addBtn.disabled = baseStock <= 0; if (baseStock <= 0) addBtn.innerHTML = '<span>Sin stock disponible</span>'; }
+    // =====================================================
+    // INICIALIZACIÓN
+    // =====================================================
+    
+    if (hasVariants) {
+      // Seleccionar primera opción disponible de cada grupo
+      document.querySelectorAll('.variant-group').forEach(group => {
+        const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement;
+        if (firstOption) {
+          selectVariantOption(firstOption);
+        }
+      });
+    } else {
+      // Producto sin variantes
+      addBtn.disabled = baseStock <= 0;
+      if (baseStock <= 0) {
+        addBtn.innerHTML = '<span>Sin stock disponible</span>';
+      }
+    }
   }
 
-  document.addEventListener("astro:page-load", () => setTimeout(() => setupProductPage(), 100));
+  // =====================================================
+  // LIFECYCLE HOOKS
+  // =====================================================
+
+  // Limpiar estado antes de navegar
+  document.addEventListener('astro:before-preparation', () => {
+    isPageInitialized = false;
+    document.body.style.overflow = '';
+  });
+
+  // Inicializar en cada carga de página (View Transitions)
+  document.addEventListener("astro:page-load", setupProductPage);
 </script>

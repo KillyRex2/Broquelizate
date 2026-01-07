@@ -57,19 +57,24 @@ export const Pagination = ({
   const pages = getPageNumbers();
 
   return (
-    <nav className="pagination-wrapper" aria-label="Navegación de páginas">
+    <nav 
+      className="pagination-wrapper" 
+      aria-label="Navegación de páginas"
+      suppressHydrationWarning
+    >
       {/* Previous Button */}
       <button
         onClick={() => goToPage(currentPage - 1)}
         disabled={currentPage === 1}
         className={`page-btn prev ${currentPage === 1 ? "disabled" : ""}`}
         aria-label="Página anterior"
+        suppressHydrationWarning
       >
         <FaChevronLeft />
       </button>
 
       {/* Page Numbers */}
-      <div className="page-numbers">
+      <div className="page-numbers" suppressHydrationWarning>
         {pages.map((page, index) => 
           page === "dots" ? (
             <span key={`dots-${index}`} className="page-dots">•••</span>
@@ -79,6 +84,7 @@ export const Pagination = ({
               onClick={() => goToPage(page)}
               className={`page-number ${currentPage === page ? "active" : ""}`}
               aria-current={currentPage === page ? "page" : undefined}
+              suppressHydrationWarning
             >
               {page}
             </button>
@@ -92,12 +98,13 @@ export const Pagination = ({
         disabled={currentPage === totalPages}
         className={`page-btn next ${currentPage === totalPages ? "disabled" : ""}`}
         aria-label="Página siguiente"
+        suppressHydrationWarning
       >
         <FaChevronRight />
       </button>
 
       {/* Page info */}
-      <span className="page-info">
+      <span className="page-info" suppressHydrationWarning>
         Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
       </span>
 

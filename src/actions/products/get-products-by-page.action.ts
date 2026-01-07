@@ -21,8 +21,8 @@ const validPiercings = [
 const validSortColumns = ['name', 'price', 'stock', 'category', 'createdAt'];
 const validSortOrders = ['asc', 'desc'];
 
-// Opciones de stock
-const stockFilters = ['all', 'out', 'low', 'available', 'high'] as const;
+// ✅ CORREGIDO: Añadida opción 'inStock' para filtrar productos con stock > 0
+const stockFilters = ['all', 'inStock', 'out', 'low', 'available', 'high'] as const;
 
 export const inputSchema = z.object({
   page: z.number().optional().default(1),
@@ -97,8 +97,11 @@ export const handler = async ({
       filters.push(lte(Product.price, maxPrice));
     }
     
-    // FILTRO DE STOCK MEJORADO
+    // ✅ FILTRO DE STOCK MEJORADO - Añadido caso 'inStock'
     switch (stockFilter) {
+      case 'inStock': // ✅ NUEVO: Solo productos con stock > 0
+        filters.push(gt(Product.stock, 0));
+        break;
       case 'out': // Agotado (0)
         filters.push(eq(Product.stock, 0));
         break;

@@ -13,18 +13,19 @@ const searchParams = Astro.url.searchParams;
 const pageParam = Number(searchParams.get('page') || 1);
 const categoryParam = searchParams.get('category') || 'all';
 const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
-const inStockParam = searchParams.get('inStock') === 'true';
+const stockFilterParam = searchParams.get('stockFilter') || 'all';
 const search = searchParams.get('search') || '';
 const piercingParam = searchParams.get('piercing') || '';
 
-// Llamar a la acción para obtener los productos
+// ✅ CORREGIDO: Pasar limit y stockFilter correctamente
 const result = await Astro.callAction(
   actions.getProductsByPage,
   {
     page: pageParam,
+    limit: 16, // ✅ 16 productos por página
     category: categoryParam,
     maxPrice: maxPriceParam,
-    inStock: true,
+    stockFilter: 'inStock', // ✅ Solo productos con stock > 0
     search: search,
     piercing: piercingParam
   }
@@ -55,11 +56,11 @@ const transformedProducts: ProductWithImages[] = products.map(product => ({
   hasVariants: product.hasVariants ?? false,
 }));
 
-// Filtrar por stock localmente si es necesario
-const inStockProducts = transformedProducts.filter(p => p.stock > 0);
+// ✅ Ya no necesitamos filtrar localmente - el backend ya filtra por stock > 0
+const displayProducts = transformedProducts;
 
 // Redirigir si la página está fuera de rango
-if (transformedProducts.length === 0 && totalPages > 0 && pageParam > totalPages) {
+if (displayProducts.length === 0 && totalPages > 0 && pageParam > totalPages) {
   const queryParams = new URLSearchParams(Astro.url.search);
   queryParams.set('page', totalPages.toString());
   return Astro.redirect(`/products?${queryParams.toString()}`);
@@ -68,7 +69,7 @@ if (transformedProducts.length === 0 && totalPages > 0 && pageParam > totalPages
 const filterState = {
   selectedCat: categoryParam,
   price: maxPriceParam,
-  inStock: inStockParam,
+  inStock: stockFilterParam !== 'out',
   search: search,
   piercing: piercingParam
 };
@@ -114,7 +115,7 @@ const activeFilters = [
         <!-- Estadísticas rápidas -->
         <div class="quick-stats">
           <div class="stat-item">
-            <span class="stat-value">{inStockProducts.length}</span>
+            <span class="stat-value">{displayProducts.length}</span>
             <span class="stat-label">Resultados</span>
           </div>
           <div class="stat-divider"></div>
@@ -131,7 +132,7 @@ const activeFilters = [
           <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
-          <span><strong>{inStockProducts.length}</strong> productos</span>
+          <span><strong>{displayProducts.length}</strong> productos</span>
         </div>
         <button id="open-filters-btn" class="mobile-filter-btn">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,8 +172,8 @@ const activeFilters = [
 
         <!-- Columna de Productos -->
         <main class="products-column">
-          {inStockProducts.length > 0 ? (
-            <ProductList products={inStockProducts} client:only="react" />
+          {displayProducts.length > 0 ? (
+            <ProductList products={displayProducts} client:only="react" />
           ) : (
             <div class="empty-state">
               <div class="empty-icon">
