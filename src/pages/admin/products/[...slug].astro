@@ -97,7 +97,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     <form id="product-form" class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 pb-20 md:pb-24" enctype="multipart/form-data">
       {!isCreate && <input type="hidden" name="id" value={product.id} />}
       
-      <!-- ✅ CAMPO HIDDEN PARA TIPOS DE PERFORACIÓN - Este es el que se envía al servidor -->
+      <!-- ✅ CAMPO HIDDEN PARA TIPOS DE PERFORACIÓN -->
       <input type="hidden" name="piercing_name" id="piercing_name_hidden" value={initialPiercingValue} />
 
       <div class="lg:col-span-2 space-y-4 md:space-y-8">
@@ -384,7 +384,6 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
               const isChecked = piercingArray.includes(p);
               return (
                 <label class="flex items-center space-x-2 cursor-pointer">
-                  {/* ✅ CAMBIO: Los checkboxes ya NO tienen name, solo se usan para la UI */}
                   <input 
                     type="checkbox" 
                     value={p} 
@@ -540,14 +539,61 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     </div>
   </div>
 
-<script>
+  <script>
+  // =====================================================
+  // Script para admin/products/[...slug].astro
+  // ✅ Nuevo sistema de alertas (sin SweetAlert2)
+  // ✅ Persistencia de filtros - navega con filtros guardados
+  // =====================================================
+
   import { actions } from "astro:actions";
-  import Swal from 'sweetalert2';
+  import { Confirm, Alert, Toast } from '@/utils/alerts';
   import { navigate } from 'astro:transitions/client';
+
+  const FILTERS_STORAGE_KEY = 'admin_products_filters';
+
+  // ✅ Función para obtener URL con filtros guardados
+  function getProductsUrlWithFilters(): string {
+    try {
+      const saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
+      console.log('🔍 Leyendo filtros de sessionStorage:', saved);
+      
+      if (!saved) {
+        console.log('⚠️ No hay filtros guardados, volviendo a /admin/products');
+        return '/admin/products';
+      }
+      
+      const filters = JSON.parse(saved);
+      console.log('📖 Filtros parseados:', filters);
+      
+      const url = new URL('/admin/products', window.location.origin);
+      
+      // Solo agregar parámetros que no sean valores por defecto
+      if (filters.search) url.searchParams.set('search', filters.search);
+      if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category);
+      if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter);
+      if (filters.sortBy && filters.sortBy !== 'name') url.searchParams.set('sortBy', filters.sortBy);
+      if (filters.sortOrder && filters.sortOrder !== 'asc') url.searchParams.set('sortOrder', filters.sortOrder);
+      if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice);
+      if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
+      if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
+      
+      const finalUrl = url.pathname + url.search;
+      console.log('✅ URL construida con filtros:', finalUrl);
+      return finalUrl;
+    } catch (e) {
+      console.error('❌ Error leyendo filtros:', e);
+      return '/admin/products';
+    }
+  }
 
   let isInitialized = false;
 
   document.addEventListener('astro:page-load', () => {
+    // Solo inicializar en páginas de edición/creación de producto
+    if (!window.location.pathname.startsWith('/admin/products/')) return;
+    if (window.location.pathname === '/admin/products/') return;
+    
     if (isInitialized) return;
     isInitialized = true;
 
@@ -571,23 +617,14 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const variantsContainer = document.getElementById('variants-container');
     const isCreate = !form.querySelector('input[name="id"]');
     
-    // ✅ REFERENCIA AL CAMPO HIDDEN DE PIERCINGS
+    // Referencia al campo hidden de piercings
     const piercingHiddenInput = document.getElementById('piercing_name_hidden') as HTMLInputElement;
     
     let newFiles: File[] = [];
     let isProcessing = false;
 
-    const Toast = Swal.mixin({
-      toast: true,
-      position: 'top-end',
-      showConfirmButton: false,
-      timer: 3000,
-      timerProgressBar: true,
-      customClass: { popup: 'text-sm md:text-base' }
-    });
-
     // =====================================================
-    // ✅ FUNCIÓN PARA ACTUALIZAR CAMPO HIDDEN DE PIERCINGS
+    // FUNCIÓN PARA ACTUALIZAR CAMPO HIDDEN DE PIERCINGS
     // =====================================================
     function updatePiercingHiddenField() {
       const checkboxes = document.querySelectorAll('.piercing-checkbox:checked') as NodeListOf<HTMLInputElement>;
@@ -599,12 +636,14 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       }
     }
 
-    // ✅ AGREGAR LISTENER A TODOS LOS CHECKBOXES DE PIERCING
+    // Agregar listener a todos los checkboxes de piercing
     document.querySelectorAll('.piercing-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', updatePiercingHiddenField);
     });
 
-    // Manejo de archivos
+    // =====================================================
+    // MANEJO DE ARCHIVOS
+    // =====================================================
     const handleNewFiles = (incomingFiles: FileList) => {
       const uniqueFiles = Array.from(incomingFiles).filter(
         file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size)
@@ -683,7 +722,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       });
     });
 
-    // Subir imagen de variante
+    // =====================================================
+    // SUBIR IMAGEN DE VARIANTE
+    // =====================================================
     document.addEventListener('change', async (e) => {
       const target = e.target as HTMLInputElement;
       
@@ -695,23 +736,18 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         if (!variantId || !productId) return;
         
         if (!file.type.startsWith('image/')) {
-          Toast.fire({ icon: 'error', title: 'Debe ser una imagen' });
+          Toast.error('Error', 'Debe ser una imagen');
           target.value = '';
           return;
         }
         
         if (file.size > 5 * 1024 * 1024) {
-          Toast.fire({ icon: 'error', title: 'Imagen muy grande (máx 5MB)' });
+          Toast.error('Error', 'Imagen muy grande (máx 5MB)');
           target.value = '';
           return;
         }
         
-        Swal.fire({
-          title: 'Subiendo imagen...',
-          text: 'Por favor espera',
-          allowOutsideClick: false,
-          didOpen: () => { Swal.showLoading(); }
-        });
+        const loadingId = Toast.loading('Subiendo imagen...');
         
         try {
           const formData = new FormData();
@@ -722,25 +758,30 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           const { data, error } = await actions.uploadVariantImage(formData);
           if (error) throw new Error(error.message);
           
-          Swal.close();
-          Toast.fire({ icon: 'success', title: '¡Imagen subida!' });
+          Toast.dismiss(loadingId);
+          Toast.success('¡Imagen subida!');
           setTimeout(() => window.location.reload(), 1000);
         } catch (err: any) {
-          Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+          Toast.dismiss(loadingId);
+          await Alert.error('Error', err.message);
         }
         
         target.value = '';
       }
     });
 
-    // Toggle de variantes
+    // =====================================================
+    // TOGGLE DE VARIANTES
+    // =====================================================
     if (hasVariantsCheckbox && variantsContainer) {
       hasVariantsCheckbox.addEventListener('change', () => {
         variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked);
       });
     }
 
-    // Modales
+    // =====================================================
+    // MODALES
+    // =====================================================
     const variantModal = document.getElementById('variant-modal');
     const editVariantModal = document.getElementById('edit-variant-modal');
     const addVariantBtn = document.getElementById('add-variant-btn');
@@ -782,7 +823,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       });
     }
 
-    // Click handlers para variantes
+    // =====================================================
+    // CLICK HANDLERS PARA VARIANTES
+    // =====================================================
     document.addEventListener('click', async (e) => {
       if (isProcessing) return;
       
@@ -798,24 +841,26 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const variantId = button.dataset.variantId;
         if (!variantId) return;
         
-        const result = await Swal.fire({
+        const confirmed = await Confirm.show({
           title: '¿Eliminar imagen?',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#dc2626',
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No'
+          message: 'Esta acción no se puede deshacer.',
+          confirmText: 'Sí, eliminar',
+          cancelText: 'Cancelar',
+          type: 'danger'
         });
         
-        if (result.isConfirmed) {
+        if (confirmed) {
           isProcessing = true;
+          const loadingId = Toast.loading('Eliminando imagen...');
           try {
             const { error } = await actions.deleteVariantImage(variantId);
             if (error) throw new Error(error.message);
-            Toast.fire({ icon: 'success', title: 'Imagen eliminada' });
+            Toast.dismiss(loadingId);
+            Toast.success('Imagen eliminada');
             setTimeout(() => window.location.reload(), 1000);
           } catch (err: any) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            Toast.dismiss(loadingId);
+            await Alert.error('Error', err.message);
           } finally {
             isProcessing = false;
           }
@@ -843,33 +888,36 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const button = target.closest('.delete-variant') as HTMLElement;
         const variantId = button.dataset.variantId;
         
-        const result = await Swal.fire({
+        const confirmed = await Confirm.show({
           title: '¿Eliminar variante?',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#dc2626',
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No'
+          message: 'Esta acción no se puede deshacer.',
+          confirmText: 'Sí, eliminar',
+          cancelText: 'Cancelar',
+          type: 'danger'
         });
 
-        if (result.isConfirmed) {
+        if (confirmed) {
           isProcessing = true;
+          const loadingId = Toast.loading('Eliminando variante...');
           try {
             const { data, error } = await actions.deleteVariant(variantId!);
             if (error) throw new Error(error.message);
             
+            Toast.dismiss(loadingId);
             button.closest('.variant-item')?.remove();
             
             if (data?.shouldRegenerateCombinations && productId) {
-              const regen = await Swal.fire({
+              const regenConfirmed = await Confirm.show({
                 title: '¿Regenerar combinaciones?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí',
-                cancelButtonText: 'No'
+                message: 'Se actualizarán las combinaciones de variantes.',
+                confirmText: 'Sí, regenerar',
+                cancelText: 'No',
+                type: 'info'
               });
-              if (regen.isConfirmed) {
+              if (regenConfirmed) {
+                const regenLoading = Toast.loading('Regenerando combinaciones...');
                 await actions.generateVariantCombinations(productId);
+                Toast.dismiss(regenLoading);
                 setTimeout(() => window.location.reload(), 1000);
               }
             }
@@ -879,9 +927,10 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
               variantGroup.remove();
             }
             
-            Toast.fire({ icon: 'success', title: 'Eliminada' });
+            Toast.success('Variante eliminada');
           } catch (err: any) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            Toast.dismiss(loadingId);
+            await Alert.error('Error', err.message);
           } finally {
             isProcessing = false;
           }
@@ -893,22 +942,23 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const button = target.closest('.delete-variant-group') as HTMLElement;
         const variantName = button.dataset.variantName;
         
-        const result = await Swal.fire({
+        const confirmed = await Confirm.show({
           title: `¿Eliminar "${variantName}"?`,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#dc2626',
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No'
+          message: 'Se eliminarán todas las opciones de esta variante.',
+          confirmText: 'Sí, eliminar',
+          cancelText: 'Cancelar',
+          type: 'danger'
         });
 
-        if (result.isConfirmed) {
+        if (confirmed) {
           isProcessing = true;
+          const loadingId = Toast.loading('Eliminando grupo...');
           try {
             if (!productId) throw new Error('ID de producto no encontrado');
             const { error } = await actions.deleteVariantGroup({ productId, variantName: variantName! });
             if (error) throw new Error(error.message);
             
+            Toast.dismiss(loadingId);
             button.closest('.variant-group')?.remove();
             
             if (document.querySelectorAll('.variant-group').length === 0 && hasVariantsCheckbox) {
@@ -916,9 +966,10 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
               variantsContainer?.classList.add('hidden');
             }
             
-            Toast.fire({ icon: 'success', title: 'Grupo eliminado' });
+            Toast.success('Grupo eliminado');
           } catch (err: any) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            Toast.dismiss(loadingId);
+            await Alert.error('Error', err.message);
           } finally {
             isProcessing = false;
           }
@@ -931,24 +982,28 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         if (allRows.length > 1) {
           target.closest('.variant-option-row')?.remove();
         } else {
-          Toast.fire({ icon: 'warning', title: 'Debe haber al menos una opción' });
+          Toast.warning('Atención', 'Debe haber al menos una opción');
         }
       }
     });
 
-    // Cancelar edición
+    // Cancelar edición de variante
     document.getElementById('cancel-edit-variant')?.addEventListener('click', () => {
       editVariantModal?.classList.add('hidden');
       document.body.style.overflow = '';
       editVariantForm?.reset();
     });
 
-    // Submit edición de variante
+    // =====================================================
+    // SUBMIT EDICIÓN DE VARIANTE
+    // =====================================================
     editVariantForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (isProcessing) return;
       
       isProcessing = true;
+      const loadingId = Toast.loading('Actualizando variante...');
+      
       try {
         const { error } = await actions.updateVariant({
           variantId: (document.getElementById('edit-variant-id') as HTMLInputElement).value,
@@ -960,25 +1015,29 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         
         if (error) throw new Error(error.message);
         
+        Toast.dismiss(loadingId);
         editVariantModal?.classList.add('hidden');
         document.body.style.overflow = '';
-        Toast.fire({ icon: 'success', title: 'Actualizada' });
+        Toast.success('Variante actualizada');
         setTimeout(() => window.location.reload(), 1000);
       } catch (err: any) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+        Toast.dismiss(loadingId);
+        await Alert.error('Error', err.message);
       } finally {
         isProcessing = false;
       }
     });
 
-    // Submit nueva variante
+    // =====================================================
+    // SUBMIT NUEVA VARIANTE
+    // =====================================================
     variantForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (isProcessing) return;
       
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
       if (!productId) {
-        Swal.fire({ icon: 'warning', title: 'Primero guarda el producto' });
+        await Alert.warning('Atención', 'Primero guarda el producto');
         return;
       }
 
@@ -993,52 +1052,63 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       }));
 
       isProcessing = true;
+      const loadingId = Toast.loading('Creando variantes...');
+      
       try {
         const { error } = await actions.createBatchVariants({ productId, variants });
         if (error) throw new Error(error.message);
         
+        Toast.dismiss(loadingId);
         variantModal?.classList.add('hidden');
         document.body.style.overflow = '';
-        Toast.fire({ icon: 'success', title: 'Creadas' });
+        Toast.success('Variantes creadas');
         setTimeout(() => window.location.reload(), 1000);
       } catch (err: any) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+        Toast.dismiss(loadingId);
+        await Alert.error('Error', err.message);
       } finally {
         isProcessing = false;
       }
     });
 
-    // Generar combinaciones
+    // =====================================================
+    // GENERAR COMBINACIONES
+    // =====================================================
     document.getElementById('generate-combinations-btn')?.addEventListener('click', async () => {
       if (isProcessing) return;
       
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
       if (!productId) return;
 
-      const result = await Swal.fire({
+      const confirmed = await Confirm.show({
         title: '¿Generar combinaciones?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí',
-        cancelButtonText: 'No'
+        message: 'Se crearán todas las combinaciones posibles de variantes.',
+        confirmText: 'Sí, generar',
+        cancelText: 'Cancelar',
+        type: 'info'
       });
 
-      if (result.isConfirmed) {
+      if (confirmed) {
         isProcessing = true;
+        const loadingId = Toast.loading('Generando combinaciones...');
         try {
           const { error } = await actions.generateVariantCombinations(productId);
           if (error) throw new Error(error.message);
-          Toast.fire({ icon: 'success', title: 'Generadas' });
+          Toast.dismiss(loadingId);
+          Toast.success('Combinaciones generadas');
           setTimeout(() => window.location.reload(), 1000);
         } catch (err: any) {
-          Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+          Toast.dismiss(loadingId);
+          await Alert.error('Error', err.message);
         } finally {
           isProcessing = false;
         }
       }
     });
 
-    // Stock de combinaciones
+    // =====================================================
+    // STOCK DE COMBINACIONES
+    // =====================================================
     document.querySelectorAll('.combination-stock-input').forEach(input => {
       let timeout: NodeJS.Timeout;
       input.addEventListener('change', async (e) => {
@@ -1064,7 +1134,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       });
     });
 
-    // Eliminar imágenes existentes
+    // =====================================================
+    // ELIMINAR IMÁGENES EXISTENTES
+    // =====================================================
     imageListContainers.forEach(container => {
       container?.addEventListener('click', async (e) => {
         if (isProcessing) return;
@@ -1074,24 +1146,26 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const id = target.dataset.id;
         if (!id) return;
         
-        const result = await Swal.fire({
+        const confirmed = await Confirm.show({
           title: '¿Eliminar imagen?',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#dc2626',
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No'
+          message: 'Esta acción no se puede deshacer.',
+          confirmText: 'Sí, eliminar',
+          cancelText: 'Cancelar',
+          type: 'danger'
         });
 
-        if (result.isConfirmed) {
+        if (confirmed) {
           isProcessing = true;
+          const loadingId = Toast.loading('Eliminando imagen...');
           try {
             const { error } = await actions.deleteProductImage(id);
             if (error) throw new Error(error.message);
+            Toast.dismiss(loadingId);
             imageListContainers.forEach(c => c?.querySelector(`[data-id="${id}"]`)?.remove());
-            Toast.fire({ icon: 'success', title: 'Eliminada' });
+            Toast.success('Imagen eliminada');
           } catch (err: any) {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            Toast.dismiss(loadingId);
+            await Alert.error('Error', err.message);
           } finally {
             isProcessing = false;
           }
@@ -1099,7 +1173,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       });
     });
 
-    // Remover nuevas imágenes
+    // =====================================================
+    // REMOVER NUEVAS IMÁGENES (PREVIEW)
+    // =====================================================
     previewContainers.forEach(container => {
       container?.addEventListener('click', e => {
         const target = e.target as HTMLElement;
@@ -1114,7 +1190,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       });
     });
 
-    // Auto-generar slug
+    // =====================================================
+    // AUTO-GENERAR SLUG
+    // =====================================================
     const nameInput = document.getElementById('name') as HTMLInputElement;
     const slugInput = document.getElementById('slug') as HTMLInputElement;
     if (nameInput && slugInput && isCreate) {
@@ -1142,8 +1220,10 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       saveButton.disabled = true;
       saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
       
+      const loadingId = Toast.loading(isCreate ? 'Creando producto...' : 'Guardando cambios...');
+      
       try {
-        // ✅ ACTUALIZAR EL CAMPO HIDDEN ANTES DE ENVIAR
+        // Actualizar el campo hidden antes de enviar
         updatePiercingHiddenField();
         
         const formData = new FormData(form);
@@ -1158,16 +1238,19 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const { data, error } = await actions.crateUpdateProduct(formData);
         if (error) throw new Error(error.message);
         
-        await Swal.fire({
-          icon: 'success',
-          title: isCreate ? '¡Creado!' : '¡Guardado!',
-          timer: 1500,
-          showConfirmButton: false
-        });
+        Toast.dismiss(loadingId);
+        Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!');
         
-        navigate('/admin/products');
+        // ✅ CAMBIO PRINCIPAL: Navegar con filtros preservados
+        setTimeout(() => {
+          const returnUrl = getProductsUrlWithFilters();
+          console.log('🚀 Navegando a:', returnUrl);
+          navigate(returnUrl);
+        }, 1000);
+        
       } catch (err: any) {
-        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+        Toast.dismiss(loadingId);
+        await Alert.error('Error', err.message);
       } finally {
         isProcessing = false;
         saveButton.disabled = false;
@@ -1180,7 +1263,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     isInitialized = false;
     document.body.style.overflow = '';
   });
-</script>
+  </script>
 
   <style>
     .card { @apply bg-white p-4 md:p-6 rounded-xl md:rounded-2xl shadow-lg ring-1 ring-slate-100; }
@@ -1188,6 +1271,5 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     .form-label { @apply block text-xs md:text-sm font-bold text-slate-600 mb-2; }
     .form-input { @apply w-full px-3 md:px-4 py-2 md:py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors text-sm md:text-base; }
     .btn-secondary { @apply px-3 md:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium; }
-    @media (max-width: 640px) { .swal2-popup { width: 90% !important; padding: 1rem !important; } }
   </style>
 </AdminLayout>

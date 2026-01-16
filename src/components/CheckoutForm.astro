@@ -353,11 +353,12 @@ const productsData = products.map(p => ({
 </style>
 
 <script>
+  // ✅ CAMBIO: Importar nuevo sistema de alertas en lugar de Swal
   import { CartCookiesClient } from '@/utils/cart-cookies';
   import { loadScript } from '@paypal/paypal-js';
   import { loadStripe } from '@stripe/stripe-js';
   import type { Stripe, StripeCardElement } from '@stripe/stripe-js';
-  import Swal from 'sweetalert2';
+  import { Alert, Toast } from '@/utils/alerts'; // ✅ Reemplaza: import Swal from 'sweetalert2';
   import { navigate } from 'astro:transitions/client';
   import { actions } from 'astro:actions';
 
@@ -368,6 +369,7 @@ const productsData = products.map(p => ({
   function getCarrierIcon(c: string): string { const i: Record<string, string> = { 'fedex': '🚚', 'dhl': '📦', 'estafeta': '📫', 'redpack': '🔴', 'ups': '🟤', 'paquetexpress': '📬', '99minutos': '⚡', 'sendex': '✉️' }; return i[c.toLowerCase()] || '📦'; }
 
   let stripe: Stripe | null = null, cardElement: StripeCardElement | null = null, selectedShipping: SelectedShipping | null = null, subtotalValue = 0;
+  let isProcessing = false;
 
   function loadShippingInfo() {
     let saved: string | null = null;
@@ -407,25 +409,74 @@ const productsData = products.map(p => ({
   }
 
   async function processCard(): Promise<void> {
-    if (!stripe || !cardElement) { await Swal.fire({ title: 'Error', text: 'Pasarela no lista', icon: 'error', confirmButtonColor: '#eab308' }); return; }
-    const v = validateForm(); if (!v.valid) { await Swal.fire({ title: 'Campos incompletos', html: `• ${v.missingFields.join('<br>• ')}`, icon: 'warning', confirmButtonColor: '#eab308' }); return; }
+    if (isProcessing) return;
+    
+    // ✅ CAMBIO: Swal.fire → Alert.error
+    if (!stripe || !cardElement) { 
+      await Alert.error('Error', 'Pasarela no está lista'); 
+      return; 
+    }
+    
+    const v = validateForm(); 
+    // ✅ CAMBIO: Swal.fire → Alert.warning
+    if (!v.valid) { 
+      await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); 
+      return; 
+    }
+    
     const email = (document.getElementById('email') as HTMLInputElement)?.value.trim(), chn = (document.getElementById('card-holder-name') as HTMLInputElement)?.value.trim(), str = (document.getElementById('street-address') as HTMLInputElement)?.value.trim(), nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim(), ct = (document.getElementById('city') as HTMLInputElement)?.value.trim(), st = (document.getElementById('state') as HTMLInputElement)?.value.trim(), pc = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim(), ph = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
-    if (!chn) { await Swal.fire({ title: 'Nombre requerido', icon: 'warning', confirmButtonColor: '#eab308' }); return; }
-    const d = getCheckoutData(); if (!d) { await Swal.fire({ title: 'Error', text: 'Sin datos', icon: 'error', confirmButtonColor: '#eab308' }); return; }
+    
+    // ✅ CAMBIO: Swal.fire → Alert.warning
+    if (!chn) { 
+      await Alert.warning('Nombre requerido', 'Ingresa el nombre del titular'); 
+      return; 
+    }
+    
+    const d = getCheckoutData(); 
+    // ✅ CAMBIO: Swal.fire → Alert.error
+    if (!d) { 
+      await Alert.error('Error', 'Sin datos del pedido'); 
+      return; 
+    }
+    
     const cs = selectedShipping, sc = cs?.price || 0, sub = d.totalValue - sc;
-    const btn = document.getElementById('submit-card-payment') as HTMLButtonElement, txt = document.getElementById('card-btn-text'), orig = txt?.textContent || 'Pagar'; if (btn) btn.disabled = true; if (txt) txt.textContent = 'Procesando...';
+    const btn = document.getElementById('submit-card-payment') as HTMLButtonElement, txt = document.getElementById('card-btn-text'), orig = txt?.textContent || 'Pagar'; 
+    
+    isProcessing = true;
+    if (btn) btn.disabled = true; 
+    if (txt) txt.textContent = 'Procesando...';
+    
+    // ✅ CAMBIO: Swal.fire con loading → Toast.loading
+    const loadingId = Toast.loading('Procesando tu pago...');
+    
     try {
-      Swal.fire({ title: 'Procesando...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
       const r = await fetch('/api/create-payment-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: d.productsData, subtotal: sub, shippingCost: sc, total: d.totalValue, customerEmail: email, customerName: chn, shippingAddress: { line1: str, line2: nb, city: ct, state: st, postal_code: pc, country: 'MX', phone: ph }, shippingInfo: cs ? { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null }) });
       if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error pago'); }
       const { clientSecret } = await r.json();
       const { error: se, paymentIntent: pi } = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: cardElement, billing_details: { name: chn, email, phone: ph || undefined, address: { line1: str, line2: nb || undefined, city: ct, state: st, postal_code: pc, country: 'MX' } } } });
-      if (se) throw new Error(se.message || 'Error tarjeta'); if (pi?.status !== 'succeeded') throw new Error('Pago no completado');
-      await updateStock(); const o = await createOrder('card', pi.id);
-      CartCookiesClient.clearCart(); localStorage.removeItem('selectedShipping'); Swal.close();
-      await Swal.fire({ title: '¡Pago exitoso!', html: `Orden <strong>#${o.orderNumber}</strong> procesada`, icon: 'success', confirmButtonColor: '#eab308' });
-      navigate(`/order-success?order_id=${o.id}`);
-    } catch (e) { Swal.close(); await Swal.fire({ title: 'Error', text: e instanceof Error ? e.message : 'Error', icon: 'error', confirmButtonColor: '#eab308' }); } finally { if (btn) btn.disabled = false; if (txt) txt.textContent = orig; }
+      if (se) throw new Error(se.message || 'Error tarjeta'); 
+      if (pi?.status !== 'succeeded') throw new Error('Pago no completado');
+      
+      await updateStock(); 
+      const o = await createOrder('card', pi.id);
+      CartCookiesClient.clearCart(); 
+      localStorage.removeItem('selectedShipping'); 
+      
+      // ✅ CAMBIO: Swal.close() + Swal.fire → Toast.dismiss + Toast.success
+      Toast.dismiss(loadingId);
+      Toast.success('¡Pago exitoso!', `Orden #${o.orderNumber} procesada`);
+      
+      setTimeout(() => navigate(`/order-success?order_id=${o.id}`), 1000);
+      
+    } catch (e) { 
+      // ✅ CAMBIO: Swal.close() + Swal.fire → Toast.dismiss + Alert.error
+      Toast.dismiss(loadingId);
+      await Alert.error('Error en el pago', e instanceof Error ? e.message : 'Error desconocido'); 
+    } finally { 
+      isProcessing = false;
+      if (btn) btn.disabled = false; 
+      if (txt) txt.textContent = orig; 
+    }
   }
 
   function getCheckoutData() {
@@ -443,7 +494,14 @@ const productsData = products.map(p => ({
     return { valid: mf.length === 0, missingFields: mf };
   }
 
-  function setupFormValidation() { ['email', 'street-address', 'neighborhood', 'city', 'state', 'postal-code', 'phone'].forEach(id => { const f = document.getElementById(id); if (f) f.addEventListener('blur', () => { f.style.borderColor = !(f as HTMLInputElement).value.trim() ? '#ef4444' : 'rgba(255,255,255,0.1)'; }); }); }
+  function setupFormValidation() { 
+    ['email', 'street-address', 'neighborhood', 'city', 'state', 'postal-code', 'phone'].forEach(id => { 
+      const f = document.getElementById(id); 
+      if (f) f.addEventListener('blur', () => { 
+        f.style.borderColor = !(f as HTMLInputElement).value.trim() ? '#ef4444' : 'rgba(255,255,255,0.1)'; 
+      }); 
+    }); 
+  }
 
   function updatePaymentVis() {
     const sm = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement; if (!sm) return;
@@ -469,7 +527,20 @@ const productsData = products.map(p => ({
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error stock'); }
   }
 
-  function validatePaypal() { const v = validateForm(); if (!v.valid) { Swal.fire({ title: 'Campos incompletos', html: `• ${v.missingFields.join('<br>• ')}`, icon: 'warning', confirmButtonColor: '#eab308' }); return null; } const d = getCheckoutData(); if (!d?.totalValue) { Swal.fire({ title: 'Error', text: 'Sin total', icon: 'error', confirmButtonColor: '#eab308' }); return null; } return { total: d.totalValue }; }
+  // ✅ CAMBIO: Swal.fire → Alert.warning/error
+  function validatePaypal() { 
+    const v = validateForm(); 
+    if (!v.valid) { 
+      Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); 
+      return null; 
+    } 
+    const d = getCheckoutData(); 
+    if (!d?.totalValue) { 
+      Alert.error('Error', 'Sin total'); 
+      return null; 
+    } 
+    return { total: d.totalValue }; 
+  }
 
   async function initPayPal() {
     const c = document.getElementById('paypal-button-container'); if (!c) return; c.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.4);">Cargando PayPal...</div>';
@@ -482,9 +553,42 @@ const productsData = products.map(p => ({
   function renderPayPal(pp: any) {
     pp.Buttons({
       style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' },
-      createOrder: async () => { const d = validatePaypal(); if (!d) return Promise.reject('Val fail'); try { const r = await actions.createPaypalOrder({ total: d.total }); if (r.error) throw new Error(r.error.message); return r.data.orderId; } catch (e) { Swal.fire('Error', e instanceof Error ? e.message : 'Error', 'error'); return Promise.reject(e); } },
-      onApprove: async (data: any) => { Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() }); try { const r = await actions.capturePaypalOrder({ orderId: data.orderID }); if (r.error) throw new Error(r.error.message); await updateStock(); const o = await createOrder('paypal'); CartCookiesClient.clearCart(); localStorage.removeItem('selectedShipping'); Swal.close(); navigate(`/order-success?order_id=${o.id}`); } catch (e) { Swal.close(); Swal.fire('Error', e instanceof Error ? e.message : 'Error', 'error'); } },
-      onError: () => Swal.fire('Error', 'Error PayPal', 'error'), onCancel: () => {}
+      createOrder: async () => { 
+        const d = validatePaypal(); 
+        if (!d) return Promise.reject('Val fail'); 
+        try { 
+          const r = await actions.createPaypalOrder({ total: d.total }); 
+          if (r.error) throw new Error(r.error.message); 
+          return r.data.orderId; 
+        } catch (e) { 
+          // ✅ CAMBIO: Swal.fire → Alert.error
+          Alert.error('Error', e instanceof Error ? e.message : 'Error'); 
+          return Promise.reject(e); 
+        } 
+      },
+      onApprove: async (data: any) => { 
+        // ✅ CAMBIO: Swal.fire loading → Toast.loading
+        const loadingId = Toast.loading('Procesando pago con PayPal...');
+        try { 
+          const r = await actions.capturePaypalOrder({ orderId: data.orderID }); 
+          if (r.error) throw new Error(r.error.message); 
+          await updateStock(); 
+          const o = await createOrder('paypal'); 
+          CartCookiesClient.clearCart(); 
+          localStorage.removeItem('selectedShipping'); 
+          // ✅ CAMBIO: Swal.close() → Toast.dismiss + Toast.success
+          Toast.dismiss(loadingId);
+          Toast.success('¡Pago exitoso!', `Orden #${o.orderNumber}`);
+          setTimeout(() => navigate(`/order-success?order_id=${o.id}`), 1000);
+        } catch (e) { 
+          // ✅ CAMBIO: Swal.close() + Swal.fire → Toast.dismiss + Alert.error
+          Toast.dismiss(loadingId);
+          Alert.error('Error', e instanceof Error ? e.message : 'Error'); 
+        } 
+      },
+      // ✅ CAMBIO: Swal.fire → Alert.error / Toast.info
+      onError: () => Alert.error('Error', 'Error con PayPal'), 
+      onCancel: () => Toast.info('Pago cancelado')
     }).render('#paypal-button-container');
   }
 
@@ -500,6 +604,7 @@ const productsData = products.map(p => ({
   document.addEventListener('astro:page-load', init);
   setTimeout(() => { const w = document.getElementById('shipping-warning'); if (w && !w.classList.contains('hidden')) loadShippingInfo(); }, 500);
 </script>
+
 
 <div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku })))}</div>
 <div id="products-images" class="hidden">{JSON.stringify(products.map(p => p.image || ''))}</div>

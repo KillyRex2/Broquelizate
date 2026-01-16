@@ -5,7 +5,6 @@ import Pagination from "@/components/shared/Pagination.astro";
 import AdminLayout from "@/layouts/AdminLayout.astro";
 import { Formatter } from "@/utils";
 import { actions } from "astro:actions";
-import InventoryStatCard from '@/components/admin/InventoryStatCard.astro';
 import FilterBar from '@/components/admin/FilterBar.astro';
 
 const searchParams = Astro.url.searchParams;
@@ -56,10 +55,8 @@ function getSortUrl(column: string) {
   const currentOrder = sortOrderParam;
   
   if (currentSort === column) {
-    // Si ya está ordenando por esta columna, invertir el orden
     url.searchParams.set('sortOrder', currentOrder === 'asc' ? 'desc' : 'asc');
   } else {
-    // Nueva columna, ordenar ascendente
     url.searchParams.set('sortBy', column);
     url.searchParams.set('sortOrder', 'asc');
   }
@@ -453,98 +450,102 @@ function getSortIcon(column: string) {
     </div>
   </div>
 
-<script>
-  import Swal from 'sweetalert2';
-  import { actions } from 'astro:actions';
-  import 'sweetalert2/dist/sweetalert2.min.css';
-
-  function initInventoryPage() {
-    const deleteButtons = document.querySelectorAll('.delete-btn');
-
-    deleteButtons.forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const button = e.currentTarget as HTMLButtonElement;
-        const id = button.dataset.productId;
-        const name = button.dataset.productName;
-
-        if (!id || !name) return;
-
-        const { isConfirmed } = await Swal.fire({
-          title: '¿Eliminar producto?',
-          html: `
-            <div class="text-center">
-              <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-              </div>
-              <p class="text-gray-600">¿Seguro que quieres eliminar <strong class="text-gray-900">${name}</strong>?</p>
-              <p class="text-sm text-gray-500 mt-2">Esta acción no se puede deshacer.</p>
-            </div>
-          `,
-          icon: undefined,
-          showCancelButton: true,
-          confirmButtonColor: '#ef4444',
-          cancelButtonColor: '#6b7280',
-          confirmButtonText: 'Sí, eliminar',
-          cancelButtonText: 'Cancelar',
-          customClass: {
-            popup: 'rounded-2xl shadow-2xl',
-            confirmButton: 'rounded-xl px-6 py-2.5 font-semibold',
-            cancelButton: 'rounded-xl px-6 py-2.5 font-semibold',
-          }
-        });
-
-        if (!isConfirmed) return;
-
-        Swal.fire({
-          title: 'Eliminando...',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading(),
-          customClass: { popup: 'rounded-2xl' }
-        });
-
-        const { data, error } = await actions.deleteProduct({ id });
-
-        if (error) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: error.message || 'No se pudo eliminar el producto.',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#f59e0b',
-            customClass: { popup: 'rounded-2xl' }
-          });
-          return;
-        }
-
-        if (data?.success) {
-          const row = document.getElementById(`product-row-${id}`);
-          if (row) {
-            row.style.transition = 'all 0.4s ease';
-            row.style.opacity = '0';
-            row.style.transform = 'translateX(20px)';
-            setTimeout(() => row.remove(), 400);
-          }
-          
-          await Swal.fire({
-            icon: 'success',
-            title: '¡Eliminado!',
-            html: `<strong>${name}</strong> fue eliminado correctamente.`,
-            timer: 2000,
-            showConfirmButton: false,
-            customClass: { popup: 'rounded-2xl' }
-          });
+  <!-- ✅ SCRIPT 1: Solo guardar filtros (is:inline - SIN imports) -->
+  <script is:inline>
+    (function() {
+      var FILTERS_STORAGE_KEY = 'admin_products_filters';
+      
+      function saveCurrentFilters() {
+        var url = new URL(window.location.href);
+        var filters = {
+          search: url.searchParams.get('search') || '',
+          category: url.searchParams.get('category') || 'all',
+          stockFilter: url.searchParams.get('stockFilter') || 'all',
+          sortBy: url.searchParams.get('sortBy') || 'name',
+          sortOrder: url.searchParams.get('sortOrder') || 'asc',
+          minPrice: url.searchParams.get('minPrice') || '0',
+          maxPrice: url.searchParams.get('maxPrice') || '99999',
+          page: url.searchParams.get('page') || '1'
+        };
+        
+        console.log('📦 GUARDANDO filtros:', filters);
+        sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+      }
+      
+      // Ejecutar inmediatamente
+      saveCurrentFilters();
+      
+      // También ejecutar en navegación con View Transitions
+      document.addEventListener('astro:page-load', function() {
+        if (window.location.pathname === '/admin/products') {
+          saveCurrentFilters();
         }
       });
-    });
-  }
+    })();
+  </script>
 
-  document.addEventListener('astro:page-load', initInventoryPage);
-  if (document.readyState === 'complete') {
-    initInventoryPage();
-  }
-</script>
+  <!-- ✅ SCRIPT 2: Funcionalidad de eliminar (CON imports) -->
+  <script>
+    import { Confirm, Alert, Toast } from '@/utils/alerts';
+    import { actions } from 'astro:actions';
+
+    function initDeleteButtons() {
+      const deleteButtons = document.querySelectorAll('.delete-btn');
+
+      deleteButtons.forEach(btn => {
+        // Evitar múltiples listeners
+        if (btn.hasAttribute('data-listener-attached')) return;
+        btn.setAttribute('data-listener-attached', 'true');
+        
+        btn.addEventListener('click', async (e) => {
+          const button = e.currentTarget as HTMLButtonElement;
+          const id = button.dataset.productId;
+          const name = button.dataset.productName;
+
+          if (!id || !name) return;
+
+          const confirmed = await Confirm.show({
+            title: '¿Eliminar producto?',
+            message: `¿Seguro que quieres eliminar "${name}"? Esta acción no se puede deshacer.`,
+            confirmText: 'Sí, eliminar',
+            cancelText: 'Cancelar',
+            type: 'danger'
+          });
+
+          if (!confirmed) return;
+
+          const loadingId = Toast.loading('Eliminando producto...');
+
+          const { data, error } = await actions.deleteProduct({ id });
+
+          Toast.dismiss(loadingId);
+
+          if (error) {
+            await Alert.error('Error', error.message || 'No se pudo eliminar el producto.');
+            return;
+          }
+
+          if (data?.success) {
+            const row = document.getElementById(`product-row-${id}`);
+            if (row) {
+              row.style.transition = 'all 0.4s ease';
+              row.style.opacity = '0';
+              row.style.transform = 'translateX(20px)';
+              setTimeout(() => row.remove(), 400);
+            }
+            
+            Toast.success('¡Eliminado!', `${name} fue eliminado correctamente.`);
+          }
+        });
+      });
+    }
+
+    // Inicializar
+    document.addEventListener('astro:page-load', initDeleteButtons);
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      initDeleteButtons();
+    }
+  </script>
 
 <style>
   @keyframes fadeIn {
