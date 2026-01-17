@@ -89,8 +89,20 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight text-yellow-600">
         {isCreate ? 'Crear Producto' : product.name}
       </h1>
-      <a href="/admin/products" class="inline-block mt-2 md:mt-4 text-sm md:text-base text-yellow-600 hover:underline font-medium">
-        ← Volver
+      <a 
+        href="/admin/products" 
+        id="back-to-products" 
+        class="group inline-flex items-center gap-2 mt-3 md:mt-4 px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-slate-800 hover:to-slate-700 text-black hover:text-white rounded-full text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+      >
+        <svg 
+          class="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        <span>Inventario</span>
       </a>
     </header>
 
@@ -590,6 +602,16 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
   let isInitialized = false;
 
   document.addEventListener('astro:page-load', () => {
+
+    const backButton = document.getElementById('back-to-products');
+    if (backButton) {
+      backButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        const returnUrl = getProductsUrlWithFilters();
+        console.log('🔙 Volver a:', returnUrl);
+        navigate(returnUrl);
+      });
+    }
     // Solo inicializar en páginas de edición/creación de producto
     if (!window.location.pathname.startsWith('/admin/products/')) return;
     if (window.location.pathname === '/admin/products/') return;
@@ -1272,4 +1294,67 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     .form-input { @apply w-full px-3 md:px-4 py-2 md:py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors text-sm md:text-base; }
     .btn-secondary { @apply px-3 md:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium; }
   </style>
+  <!-- ✅ SCRIPT INLINE: Botón Volver con filtros (SIN imports) -->
+<script is:inline>
+  (function() {
+    var FILTERS_STORAGE_KEY = 'admin_products_filters';
+    
+    function getProductsUrlWithFilters() {
+      try {
+        var saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
+        console.log('🔍 Leyendo filtros:', saved);
+        
+        if (!saved) {
+          console.log('⚠️ No hay filtros guardados');
+          return '/admin/products';
+        }
+        
+        var filters = JSON.parse(saved);
+        var url = new URL('/admin/products', window.location.origin);
+        
+        if (filters.search) url.searchParams.set('search', filters.search);
+        if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category);
+        if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter);
+        if (filters.sortBy && filters.sortBy !== 'name') url.searchParams.set('sortBy', filters.sortBy);
+        if (filters.sortOrder && filters.sortOrder !== 'asc') url.searchParams.set('sortOrder', filters.sortOrder);
+        if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice);
+        if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
+        if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
+        
+        var finalUrl = url.pathname + url.search;
+        console.log('✅ URL construida:', finalUrl);
+        return finalUrl;
+      } catch (e) {
+        console.error('❌ Error:', e);
+        return '/admin/products';
+      }
+    }
+    
+    function setupBackButton() {
+      var backButton = document.getElementById('back-to-products');
+      if (backButton && !backButton.hasAttribute('data-listener-attached')) {
+        backButton.setAttribute('data-listener-attached', 'true');
+        backButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          var returnUrl = getProductsUrlWithFilters();
+          console.log('🔙 Volver a:', returnUrl);
+          
+          // Usar View Transitions si está disponible
+          if (typeof window.navigation !== 'undefined' && window.navigation.navigate) {
+            window.navigation.navigate(returnUrl);
+          } else {
+            window.location.href = returnUrl;
+          }
+        });
+        console.log('✅ Listener de Volver configurado');
+      }
+    }
+    
+    // Ejecutar inmediatamente
+    setupBackButton();
+    
+    // También ejecutar en View Transitions
+    document.addEventListener('astro:page-load', setupBackButton);
+  })();
+</script>
 </AdminLayout>
