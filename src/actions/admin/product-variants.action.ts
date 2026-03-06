@@ -7,7 +7,7 @@ import type {
   GroupedVariants 
 } from '@/interfaces/product-with-variants.interface';
 
-// --- ✅ SOLUCIÓN: Se define una interfaz explícita para el tipo de retorno ---
+// --- Interfaz explícita para el tipo de retorno ---
 interface VariantCombinationResult {
   id: string;
   productId: string;
@@ -24,7 +24,7 @@ export const getVariantCombination = defineAction({
   accept: 'json',
   input: z.object({
     productId: z.string(),
-    selectedVariants: z.record(z.string()) // { "Color": "var_1", "Tamaño": "var_2" }
+    selectedVariants: z.record(z.string())
   }),
   handler: async ({ productId, selectedVariants }): Promise<VariantCombinationResult> => {
     try {
@@ -61,7 +61,6 @@ export const getVariantCombination = defineAction({
         );
 
       if (!combination) {
-        // Si no existe combinación, se calcula una al vuelo
         const [baseProduct] = await db
           .select({ price: Product.price })
           .from(Product)
@@ -108,7 +107,7 @@ export const getVariantCombination = defineAction({
 // ===== OBTENER VARIANTES AGRUPADAS PARA UN PRODUCTO =====
 export const getGroupedProductVariants = defineAction({
   accept: 'json',
-  input: z.string(), // productId
+  input: z.string(),
   handler: async (productId) => {
     try {
       const [product] = await db.select().from(Product).where(eq(Product.id, productId));
@@ -130,8 +129,10 @@ export const getGroupedProductVariants = defineAction({
           id: variant.id,
           value: variant.variantValue,
           priceAdjustment: variant.priceAdjustment,
+          cost: variant.cost ?? null, // ✅ NUEVO: Incluir costo
           stock: variant.stock,
-          isDefault: variant.isDefault
+          isDefault: variant.isDefault,
+          isActive: variant.isActive
         });
       });
 
@@ -152,6 +153,7 @@ export const createBatchVariants = defineAction({
       variantName: z.string(),
       variantValue: z.string(),
       priceAdjustment: z.number(),
+      cost: z.number().optional(), // ✅ NUEVO
       stock: z.number(),
       sku: z.string().optional(),
       isDefault: z.boolean().optional().default(false)
@@ -173,29 +175,33 @@ export const createBatchVariants = defineAction({
       variantName: variant.variantName,
       variantValue: variant.variantValue,
       priceAdjustment: variant.priceAdjustment,
+      cost: variant.cost ?? null, // ✅ NUEVO
       stock: variant.stock,
       sku: variant.sku,
       isDefault: variant.isDefault || false,
-      isActive: true, // Asegurarnos de que esté activa
+      isActive: true,
       createdAt: new Date()
     }));
 
-    await db.update(Product).set({ hasVariants: true } as any).where(eq(Product.id, productId));
-    if (variantInserts.length > 0) {
-      await db.insert(ProductVariant).values(variantInserts as any);
-    }
+    await db.batch([
+      db.update(Product).set({ hasVariants: true } as any).where(eq(Product.id, productId)),
+      ...(variantInserts.length > 0 
+        ? [db.insert(ProductVariant).values(variantInserts as any)] 
+        : [])
+    ]);
     
     return { success: true, message: 'Variantes creadas correctamente' };
   }
 });
 
-// ===== NUEVA ACCIÓN: EDITAR UNA VARIANTE INDIVIDUAL =====
+// ===== EDITAR UNA VARIANTE INDIVIDUAL =====
 export const updateVariant = defineAction({
   accept: 'json',
   input: z.object({
     variantId: z.string(),
     variantValue: z.string().optional(),
     priceAdjustment: z.number().optional(),
+    cost: z.number().nullable().optional(), // ✅ NUEVO
     stock: z.number().optional(),
     sku: z.string().nullable().optional(),
     isActive: z.boolean().optional()
@@ -209,7 +215,6 @@ export const updateVariant = defineAction({
     const { variantId, ...updateData } = input;
     
     try {
-      // Verificar que la variante existe
       const [variant] = await db
         .select()
         .from(ProductVariant)
@@ -219,10 +224,10 @@ export const updateVariant = defineAction({
         throw new Error('Variante no encontrada');
       }
 
-      // Actualizar la variante
       const dataToUpdate: any = {};
       if (updateData.variantValue !== undefined) dataToUpdate.variantValue = updateData.variantValue;
       if (updateData.priceAdjustment !== undefined) dataToUpdate.priceAdjustment = updateData.priceAdjustment;
+      if (updateData.cost !== undefined) dataToUpdate.cost = updateData.cost; // ✅ NUEVO
       if (updateData.stock !== undefined) dataToUpdate.stock = updateData.stock;
       if (updateData.sku !== undefined) dataToUpdate.sku = updateData.sku;
       if (updateData.isActive !== undefined) dataToUpdate.isActive = updateData.isActive;
@@ -234,9 +239,7 @@ export const updateVariant = defineAction({
 
       console.log(`Variante ${variantId} actualizada:`, dataToUpdate);
 
-      // Si se cambió el stock o el precio, actualizar las combinaciones relacionadas
       if (updateData.stock !== undefined || updateData.priceAdjustment !== undefined) {
-        // Aquí podrías recalcular las combinaciones si es necesario
         console.log('Considera regenerar las combinaciones para reflejar los cambios');
       }
 
@@ -252,100 +255,88 @@ export const updateVariant = defineAction({
   }
 });
 
-// ===== NUEVA ACCIÓN: ELIMINAR UNA VARIANTE INDIVIDUAL =====
+// ===== ELIMINAR UNA VARIANTE INDIVIDUAL (sin db.transaction) =====
 export const deleteVariant = defineAction({
   accept: 'json',
-  input: z.string(), // variantId
+  input: z.string(),
   handler: async (variantId, { request }) => {
     const session = await getSession(request);
     if (!session?.user) {
       throw new Error('No autorizado');
     }
 
-    return await db.transaction(async (tx) => {
-      try {
-        // Verificar que la variante existe
-        const [variant] = await tx
-          .select()
-          .from(ProductVariant)
-          .where(eq(ProductVariant.id, variantId));
-        
-        if (!variant) {
-          throw new Error('Variante no encontrada');
-        }
-
-        // Verificar si hay imágenes asociadas a esta variante
-        const variantImages = await tx
-          .select()
-          .from(ProductImage)
-          .where(eq(ProductImage.variantId, variantId));
-
-        if (variantImages.length > 0) {
-          // Opción 1: Reasignar las imágenes al producto principal
-          await tx
-            .update(ProductImage)
-            .set({ variantId: null } as any)
-            .where(eq(ProductImage.variantId, variantId));
-          
-          console.log(`${variantImages.length} imágenes reasignadas al producto principal`);
-        }
-
-        // Eliminar la variante
-        await tx.delete(ProductVariant).where(eq(ProductVariant.id, variantId));
-        
-        console.log(`Variante ${variantId} eliminada`);
-
-        // Verificar si quedan más variantes del mismo tipo
-        const remainingVariants = await tx
-          .select()
-          .from(ProductVariant)
-          .where(
-            and(
-              eq(ProductVariant.productId, variant.productId),
-              eq(ProductVariant.variantName, variant.variantName)
-            )
-          );
-
-        // Si no quedan variantes del mismo tipo, limpiar combinaciones
-        if (remainingVariants.length === 0) {
-          // Eliminar combinaciones que incluían esta variante
-          await tx
-            .delete(ProductVariantCombination)
-            .where(eq(ProductVariantCombination.productId, variant.productId));
-          
-          console.log('Combinaciones eliminadas ya que no quedan variantes del tipo', variant.variantName);
-        }
-
-        // Verificar si el producto ya no tiene ninguna variante
-        const allVariants = await tx
-          .select()
-          .from(ProductVariant)
-          .where(eq(ProductVariant.productId, variant.productId));
-
-        if (allVariants.length === 0) {
-          // Actualizar el producto para indicar que ya no tiene variantes
-          await tx
-            .update(Product)
-            .set({ hasVariants: false } as any)
-            .where(eq(Product.id, variant.productId));
-          
-          console.log('Producto actualizado: hasVariants = false');
-        }
-
-        return { 
-          success: true, 
-          message: 'Variante eliminada correctamente',
-          shouldRegenerateCombinations: remainingVariants.length > 0
-        };
-      } catch (error: any) {
-        console.error('Error eliminando variante:', error);
-        throw new Error(`Error al eliminar la variante: ${error.message}`);
+    try {
+      const [variant] = await db
+        .select()
+        .from(ProductVariant)
+        .where(eq(ProductVariant.id, variantId));
+      
+      if (!variant) {
+        throw new Error('Variante no encontrada');
       }
-    });
+
+      const variantImages = await db
+        .select()
+        .from(ProductImage)
+        .where(eq(ProductImage.variantId, variantId));
+
+      if (variantImages.length > 0) {
+        await db
+          .update(ProductImage)
+          .set({ variantId: null } as any)
+          .where(eq(ProductImage.variantId, variantId));
+        
+        console.log(`${variantImages.length} imágenes reasignadas al producto principal`);
+      }
+
+      await db.delete(ProductVariant).where(eq(ProductVariant.id, variantId));
+      console.log(`Variante ${variantId} eliminada`);
+
+      const remainingVariants = await db
+        .select()
+        .from(ProductVariant)
+        .where(
+          and(
+            eq(ProductVariant.productId, variant.productId),
+            eq(ProductVariant.variantName, variant.variantName)
+          )
+        );
+
+      if (remainingVariants.length === 0) {
+        await db
+          .delete(ProductVariantCombination)
+          .where(eq(ProductVariantCombination.productId, variant.productId));
+        
+        console.log('Combinaciones eliminadas ya que no quedan variantes del tipo', variant.variantName);
+      }
+
+      const allVariants = await db
+        .select()
+        .from(ProductVariant)
+        .where(eq(ProductVariant.productId, variant.productId));
+
+      if (allVariants.length === 0) {
+        await db
+          .update(Product)
+          .set({ hasVariants: false } as any)
+          .where(eq(Product.id, variant.productId));
+        
+        console.log('Producto actualizado: hasVariants = false');
+      }
+
+      return { 
+        success: true, 
+        message: 'Variante eliminada correctamente',
+        shouldRegenerateCombinations: remainingVariants.length > 0
+      };
+    } catch (error: any) {
+      console.error('Error eliminando variante:', error);
+      throw new Error(`Error al eliminar la variante: ${error.message}`);
+    }
   }
 });
 
-// ===== NUEVA ACCIÓN: ELIMINAR TODAS LAS VARIANTES DE UN TIPO =====
+// ===== ELIMINAR TODAS LAS VARIANTES DE UN TIPO (sin db.transaction) =====
 export const deleteVariantGroup = defineAction({
   accept: 'json',
   input: z.object({
@@ -358,76 +349,68 @@ export const deleteVariantGroup = defineAction({
       throw new Error('No autorizado');
     }
 
-    return await db.transaction(async (tx) => {
-      try {
-        // Obtener todas las variantes del grupo
-        const variants = await tx
-          .select()
-          .from(ProductVariant)
-          .where(
-            and(
-              eq(ProductVariant.productId, productId),
-              eq(ProductVariant.variantName, variantName)
-            )
-          );
+    try {
+      const variants = await db
+        .select()
+        .from(ProductVariant)
+        .where(
+          and(
+            eq(ProductVariant.productId, productId),
+            eq(ProductVariant.variantName, variantName)
+          )
+        );
 
-        if (variants.length === 0) {
-          throw new Error('No se encontraron variantes para eliminar');
-        }
-
-        const variantIds = variants.map(v => v.id);
-
-        // Reasignar imágenes al producto principal
-        await tx
-          .update(ProductImage)
-          .set({ variantId: null } as any)
-          .where(inArray(ProductImage.variantId, variantIds));
-
-        // Eliminar todas las variantes del grupo
-        await tx
-          .delete(ProductVariant)
-          .where(
-            and(
-              eq(ProductVariant.productId, productId),
-              eq(ProductVariant.variantName, variantName)
-            )
-          );
-
-        // Eliminar todas las combinaciones del producto
-        await tx
-          .delete(ProductVariantCombination)
-          .where(eq(ProductVariantCombination.productId, productId));
-
-        // Verificar si quedan más variantes
-        const remainingVariants = await tx
-          .select()
-          .from(ProductVariant)
-          .where(eq(ProductVariant.productId, productId));
-
-        if (remainingVariants.length === 0) {
-          await tx
-            .update(Product)
-            .set({ hasVariants: false } as any)
-            .where(eq(Product.id, productId));
-        }
-
-        return { 
-          success: true, 
-          message: `Grupo de variantes "${variantName}" eliminado correctamente`,
-          deletedCount: variants.length
-        };
-      } catch (error: any) {
-        console.error('Error eliminando grupo de variantes:', error);
-        throw new Error(`Error al eliminar el grupo de variantes: ${error.message}`);
+      if (variants.length === 0) {
+        throw new Error('No se encontraron variantes para eliminar');
       }
-    });
+
+      const variantIds = variants.map(v => v.id);
+
+      await db.batch([
+        db.update(ProductImage)
+          .set({ variantId: null } as any)
+          .where(inArray(ProductImage.variantId, variantIds)),
+        
+        db.delete(ProductVariant)
+          .where(
+            and(
+              eq(ProductVariant.productId, productId),
+              eq(ProductVariant.variantName, variantName)
+            )
+          ),
+        
+        db.delete(ProductVariantCombination)
+          .where(eq(ProductVariantCombination.productId, productId)),
+      ]);
+
+      const remainingVariants = await db
+        .select()
+        .from(ProductVariant)
+        .where(eq(ProductVariant.productId, productId));
+
+      if (remainingVariants.length === 0) {
+        await db
+          .update(Product)
+          .set({ hasVariants: false } as any)
+          .where(eq(Product.id, productId));
+      }
+
+      return { 
+        success: true, 
+        message: `Grupo de variantes "${variantName}" eliminado correctamente`,
+        deletedCount: variants.length
+      };
+    } catch (error: any) {
+      console.error('Error eliminando grupo de variantes:', error);
+      throw new Error(`Error al eliminar el grupo de variantes: ${error.message}`);
+    }
   }
 });
 
 // ===== GENERAR COMBINACIONES AUTOMÁTICAMENTE =====
 export const generateVariantCombinations = defineAction({
   accept: 'json',
-  input: z.string(), // productId
+  input: z.string(),
   handler: async (productId, { request }) => {
     const session = await getSession(request);
     if (!session?.user) throw new Error('Unauthorized');
@@ -441,7 +424,7 @@ export const generateVariantCombinations = defineAction({
       .where(
         and(
           eq(ProductVariant.productId, productId),
-          eq(ProductVariant.isActive, true) // Solo variantes activas
+          eq(ProductVariant.isActive, true)
         )
       );
 
@@ -490,10 +473,13 @@ export const generateVariantCombinations = defineAction({
     };
 
     const combinations = generateCombinations(groupedVariants, variantNames);
-    await db.delete(ProductVariantCombination).where(eq(ProductVariantCombination.productId, productId));
-    if (combinations.length > 0) {
-      await db.insert(ProductVariantCombination).values(combinations);
-    }
+    
+    await db.batch([
+      db.delete(ProductVariantCombination).where(eq(ProductVariantCombination.productId, productId)),
+      ...(combinations.length > 0 
+        ? [db.insert(ProductVariantCombination).values(combinations)]
+        : [])
+    ]);
 
     return { success: true, message: `${combinations.length} combinaciones generadas` };
   }

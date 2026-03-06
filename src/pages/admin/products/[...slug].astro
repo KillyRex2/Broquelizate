@@ -1,5 +1,5 @@
 ---
-import ProductSlideshow from '@/components/products/ProductSlideshow.astro';
+import AdminProductSlideshow from '@/components/products/Adminproductslideshow.astro';
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { actions } from 'astro:actions';
 
@@ -77,7 +77,6 @@ if (!isCreate) {
 
 const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}`;
 
-// Preparar el valor inicial para el campo hidden de piercings
 const initialPiercingValue = Array.isArray(product.piercing_name) 
   ? product.piercing_name.join(',') 
   : product.piercing_name || '';
@@ -109,7 +108,6 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     <form id="product-form" class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 pb-20 md:pb-24" enctype="multipart/form-data">
       {!isCreate && <input type="hidden" name="id" value={product.id} />}
       
-      <!-- ✅ CAMPO HIDDEN PARA TIPOS DE PERFORACIÓN -->
       <input type="hidden" name="piercing_name" id="piercing_name_hidden" value={initialPiercingValue} />
 
       <div class="lg:col-span-2 space-y-4 md:space-y-8">
@@ -174,7 +172,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           
           {!isCreate && initialImages.length > 0 && (
             <div id="slideshow-container-mobile" class="mb-4">
-              <ProductSlideshow images={initialImages.map(i => i.image)} />
+              <AdminProductSlideshow images={initialImages.map(i => i.image)} />
             </div>
           )}
 
@@ -234,7 +232,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
               {!isCreate && (
                 <div class="flex flex-col sm:flex-row gap-2 md:gap-3">
                   <button type="button" id="add-variant-btn" class="btn-secondary text-sm md:text-base">
-                    + Agregar Variante
+                    + Nuevo Tipo de Variante
                   </button>
                   <button type="button" id="generate-combinations-btn" class="btn-secondary text-sm md:text-base">
                     ⚡ Generar Combinaciones
@@ -247,13 +245,23 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
                   <div class="border border-slate-200 rounded-lg p-3 md:p-4 bg-slate-50 variant-group" data-variant-name={variantName}>
                     <div class="flex items-center justify-between mb-3">
                       <h4 class="font-semibold text-slate-800 text-sm md:text-base">{variantName}</h4>
-                      <button 
-                        type="button" 
-                        class="delete-variant-group text-red-600 hover:text-red-800 text-xs md:text-sm font-medium"
-                        data-variant-name={variantName}
-                      >
-                        Eliminar
-                      </button>
+                      <div class="flex items-center gap-2">
+                        {/* ✅ NUEVO: Botón para agregar opción al grupo existente */}
+                        <button 
+                          type="button" 
+                          class="add-option-to-group text-green-600 hover:text-green-800 text-xs md:text-sm font-medium"
+                          data-variant-name={variantName}
+                        >
+                          + Agregar opción
+                        </button>
+                        <button 
+                          type="button" 
+                          class="delete-variant-group text-red-600 hover:text-red-800 text-xs md:text-sm font-medium"
+                          data-variant-name={variantName}
+                        >
+                          Eliminar grupo
+                        </button>
+                      </div>
                     </div>
                     <div class="grid grid-cols-1 gap-2">
                       {group.options.map((option: any) => {
@@ -295,6 +303,11 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
                                     {option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}
                                   </span>
                                 )}
+                                {option.cost != null && option.cost > 0 && (
+                                  <span class="text-amber-600">
+                                    Costo: ${option.cost}
+                                  </span>
+                                )}
                                 <span>Stock: {option.stock}</span>
                                 {option.sku && <span class="truncate">SKU: {option.sku}</span>}
                               </div>
@@ -323,6 +336,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
                                 data-variant-name={variantName}
                                 data-variant-value={option.value}
                                 data-price-adjustment={option.priceAdjustment}
+                                data-cost={option.cost ?? ''}
                                 data-stock={option.stock}
                                 data-sku={option.sku || ''}
                               >
@@ -417,7 +431,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           
           {!isCreate && initialImages.length > 0 && (
             <div id="slideshow-container" class="mb-6">
-              <ProductSlideshow images={initialImages.map(i => i.image)} />
+              <AdminProductSlideshow images={initialImages.map(i => i.image)} />
             </div>
           )}
 
@@ -462,11 +476,11 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     </div>
   </section>
 
-  <!-- Modal para agregar variantes -->
+  <!-- ✅ Modal para agregar variantes (soporta modo "nuevo tipo" y "agregar a grupo existente") -->
   <div id="variant-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 md:p-4">
     <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
       <div class="p-4 md:p-6">
-        <h3 class="text-lg md:text-xl font-bold text-slate-800 mb-4">Agregar Nueva Variante</h3>
+        <h3 id="variant-modal-title" class="text-lg md:text-xl font-bold text-slate-800 mb-4">Agregar Nueva Variante</h3>
         
         <form id="variant-form" class="space-y-4">
           <div>
@@ -478,8 +492,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <label class="form-label">Opciones</label>
             <div class="variant-option-row space-y-2">
               <input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
-              <div class="grid grid-cols-3 gap-2">
-                <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <input type="number" placeholder="Aj. Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
+                <input type="number" placeholder="Costo" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-cost" />
                 <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
                 <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
               </div>
@@ -527,6 +542,11 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <label class="form-label">Ajuste de Precio</label>
             <input type="number" id="edit-price-adjustment" step="0.01" class="form-input text-sm md:text-base" />
           </div>
+
+          <div>
+            <label class="form-label">Costo</label>
+            <input type="number" id="edit-cost" step="0.01" class="form-input text-sm md:text-base" placeholder="Costo de esta variante" />
+          </div>
           
           <div>
             <label class="form-label">Stock</label>
@@ -552,35 +572,18 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
   </div>
 
   <script>
-  // =====================================================
-  // Script para admin/products/[...slug].astro
-  // ✅ Nuevo sistema de alertas (sin SweetAlert2)
-  // ✅ Persistencia de filtros - navega con filtros guardados
-  // =====================================================
-
   import { actions } from "astro:actions";
   import { Confirm, Alert, Toast } from '@/utils/alerts';
   import { navigate } from 'astro:transitions/client';
 
   const FILTERS_STORAGE_KEY = 'admin_products_filters';
 
-  // ✅ Función para obtener URL con filtros guardados
   function getProductsUrlWithFilters(): string {
     try {
       const saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
-      console.log('🔍 Leyendo filtros de sessionStorage:', saved);
-      
-      if (!saved) {
-        console.log('⚠️ No hay filtros guardados, volviendo a /admin/products');
-        return '/admin/products';
-      }
-      
+      if (!saved) return '/admin/products';
       const filters = JSON.parse(saved);
-      console.log('📖 Filtros parseados:', filters);
-      
       const url = new URL('/admin/products', window.location.origin);
-      
-      // Solo agregar parámetros que no sean valores por defecto
       if (filters.search) url.searchParams.set('search', filters.search);
       if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category);
       if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter);
@@ -589,12 +592,8 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice);
       if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
       if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
-      
-      const finalUrl = url.pathname + url.search;
-      console.log('✅ URL construida con filtros:', finalUrl);
-      return finalUrl;
+      return url.pathname + url.search;
     } catch (e) {
-      console.error('❌ Error leyendo filtros:', e);
       return '/admin/products';
     }
   }
@@ -607,15 +606,12 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     if (backButton) {
       backButton.addEventListener('click', (e) => {
         e.preventDefault();
-        const returnUrl = getProductsUrlWithFilters();
-        console.log('🔙 Volver a:', returnUrl);
-        navigate(returnUrl);
+        navigate(getProductsUrlWithFilters());
       });
     }
-    // Solo inicializar en páginas de edición/creación de producto
+
     if (!window.location.pathname.startsWith('/admin/products/')) return;
     if (window.location.pathname === '/admin/products/') return;
-    
     if (isInitialized) return;
     isInitialized = true;
 
@@ -638,27 +634,22 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
     const variantsContainer = document.getElementById('variants-container');
     const isCreate = !form.querySelector('input[name="id"]');
-    
-    // Referencia al campo hidden de piercings
     const piercingHiddenInput = document.getElementById('piercing_name_hidden') as HTMLInputElement;
     
     let newFiles: File[] = [];
     let isProcessing = false;
 
     // =====================================================
-    // FUNCIÓN PARA ACTUALIZAR CAMPO HIDDEN DE PIERCINGS
+    // PIERCINGS
     // =====================================================
     function updatePiercingHiddenField() {
       const checkboxes = document.querySelectorAll('.piercing-checkbox:checked') as NodeListOf<HTMLInputElement>;
       const selectedValues = Array.from(checkboxes).map(cb => cb.value);
-      
       if (piercingHiddenInput) {
         piercingHiddenInput.value = selectedValues.join(',');
-        console.log('✅ piercing_name actualizado:', piercingHiddenInput.value);
       }
     }
 
-    // Agregar listener a todos los checkboxes de piercing
     document.querySelectorAll('.piercing-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', updatePiercingHiddenField);
     });
@@ -705,43 +696,22 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       });
     };
 
-    // Event listeners para drag & drop
     dropZones.forEach((dropZone, idx) => {
       const fileInput = fileInputs[idx];
       if (!dropZone || !fileInput) return;
-
       dropZone.addEventListener('click', () => fileInput.click());
-
       let changeTimeout: NodeJS.Timeout;
       fileInput.addEventListener('change', () => {
         clearTimeout(changeTimeout);
         changeTimeout = setTimeout(() => {
-          if (fileInput.files && fileInput.files.length > 0) {
-            handleNewFiles(fileInput.files);
-          }
+          if (fileInput.files && fileInput.files.length > 0) handleNewFiles(fileInput.files);
         }, 100);
       });
-
       const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
-      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, preventDefaults);
-      });
-
-      ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-          dropZone.classList.add('border-yellow-600', 'bg-yellow-50');
-        });
-      });
-
-      ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-          dropZone.classList.remove('border-yellow-600', 'bg-yellow-50');
-        });
-      });
-      
-      dropZone.addEventListener('drop', (e: DragEvent) => {
-        if (e.dataTransfer?.files) handleNewFiles(e.dataTransfer.files);
-      });
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, preventDefaults));
+      ['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.add('border-yellow-600', 'bg-yellow-50')));
+      ['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.remove('border-yellow-600', 'bg-yellow-50')));
+      dropZone.addEventListener('drop', (e: DragEvent) => { if (e.dataTransfer?.files) handleNewFiles(e.dataTransfer.files); });
     });
 
     // =====================================================
@@ -749,37 +719,21 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     // =====================================================
     document.addEventListener('change', async (e) => {
       const target = e.target as HTMLInputElement;
-      
       if (target.classList.contains('variant-image-input') && target.files && target.files[0]) {
         const file = target.files[0];
         const variantId = target.dataset.variantId;
         const productId = target.dataset.productId;
-        
         if (!variantId || !productId) return;
-        
-        if (!file.type.startsWith('image/')) {
-          Toast.error('Error', 'Debe ser una imagen');
-          target.value = '';
-          return;
-        }
-        
-        if (file.size > 5 * 1024 * 1024) {
-          Toast.error('Error', 'Imagen muy grande (máx 5MB)');
-          target.value = '';
-          return;
-        }
-        
+        if (!file.type.startsWith('image/')) { Toast.error('Error', 'Debe ser una imagen'); target.value = ''; return; }
+        if (file.size > 5 * 1024 * 1024) { Toast.error('Error', 'Imagen muy grande (máx 5MB)'); target.value = ''; return; }
         const loadingId = Toast.loading('Subiendo imagen...');
-        
         try {
           const formData = new FormData();
           formData.append('variantId', variantId);
           formData.append('productId', productId);
           formData.append('imageFile', file);
-          
           const { data, error } = await actions.uploadVariantImage(formData);
           if (error) throw new Error(error.message);
-          
           Toast.dismiss(loadingId);
           Toast.success('¡Imagen subida!');
           setTimeout(() => window.location.reload(), 1000);
@@ -787,7 +741,6 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           Toast.dismiss(loadingId);
           await Alert.error('Error', err.message);
         }
-        
         target.value = '';
       }
     });
@@ -802,9 +755,10 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     }
 
     // =====================================================
-    // MODALES
+    // MODALES DE VARIANTES
     // =====================================================
     const variantModal = document.getElementById('variant-modal');
+    const variantModalTitle = document.getElementById('variant-modal-title');
     const editVariantModal = document.getElementById('edit-variant-modal');
     const addVariantBtn = document.getElementById('add-variant-btn');
     const cancelVariantBtn = document.getElementById('cancel-variant-btn');
@@ -812,30 +766,69 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const editVariantForm = document.getElementById('edit-variant-form') as HTMLFormElement;
     const addOptionBtn = document.getElementById('add-option-btn');
     const variantOptions = document.getElementById('variant-options');
+    const variantNameInput = document.getElementById('variant-name') as HTMLInputElement;
 
-    if (addVariantBtn && variantModal) {
-      addVariantBtn.addEventListener('click', () => {
-        variantModal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-      });
+    // ✅ Helper para abrir el modal de variantes en dos modos
+    function openVariantModal(mode: 'new' | 'add-to-group', groupName?: string) {
+      if (!variantModal || !variantNameInput || !variantModalTitle) return;
+
+      // Reset del formulario
+      variantForm?.reset();
+
+      // Limpiar filas extra (dejar solo la primera)
+      const allRows = variantOptions?.querySelectorAll('.variant-option-row');
+      if (allRows && allRows.length > 1) {
+        for (let i = 1; i < allRows.length; i++) {
+          allRows[i].remove();
+        }
+      }
+
+      if (mode === 'add-to-group' && groupName) {
+        // Modo: agregar opciones a grupo existente
+        variantModalTitle.textContent = `Agregar opciones a "${groupName}"`;
+        variantNameInput.value = groupName;
+        variantNameInput.readOnly = true;
+        variantNameInput.classList.add('bg-slate-100', 'cursor-not-allowed');
+      } else {
+        // Modo: nuevo tipo de variante
+        variantModalTitle.textContent = 'Agregar Nueva Variante';
+        variantNameInput.value = '';
+        variantNameInput.readOnly = false;
+        variantNameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+      }
+
+      variantModal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // Botón "+ Nuevo Tipo de Variante"
+    if (addVariantBtn) {
+      addVariantBtn.addEventListener('click', () => openVariantModal('new'));
     }
 
     if (cancelVariantBtn && variantModal) {
       cancelVariantBtn.addEventListener('click', () => {
         variantModal.classList.add('hidden');
         document.body.style.overflow = '';
-        if (variantForm) variantForm.reset();
+        variantForm?.reset();
+        // Restaurar estado del input
+        if (variantNameInput) {
+          variantNameInput.readOnly = false;
+          variantNameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+        }
       });
     }
 
+    // Agregar nueva fila de opción
     if (addOptionBtn && variantOptions) {
       addOptionBtn.addEventListener('click', () => {
         const newRow = document.createElement('div');
         newRow.className = 'variant-option-row space-y-2 border-t border-slate-200 pt-3 mt-3';
         newRow.innerHTML = `
           <input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
-          <div class="grid grid-cols-3 gap-2">
-            <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <input type="number" placeholder="Aj. Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
+            <input type="number" placeholder="Costo" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-cost" />
             <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
             <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
           </div>
@@ -846,31 +839,31 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     }
 
     // =====================================================
-    // CLICK HANDLERS PARA VARIANTES
+    // CLICK HANDLERS
     // =====================================================
     document.addEventListener('click', async (e) => {
       if (isProcessing) return;
-      
       const target = e.target as HTMLElement;
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+
+      // ✅ NUEVO: Agregar opción a grupo existente
+      if (target.closest('.add-option-to-group')) {
+        const button = target.closest('.add-option-to-group') as HTMLElement;
+        const groupName = button.dataset.variantName;
+        if (groupName) {
+          openVariantModal('add-to-group', groupName);
+        }
+        return;
+      }
       
       // Eliminar imagen de variante
       if (target.closest('.delete-variant-image')) {
         e.stopPropagation();
         e.preventDefault();
-        
         const button = target.closest('.delete-variant-image') as HTMLElement;
         const variantId = button.dataset.variantId;
         if (!variantId) return;
-        
-        const confirmed = await Confirm.show({
-          title: '¿Eliminar imagen?',
-          message: 'Esta acción no se puede deshacer.',
-          confirmText: 'Sí, eliminar',
-          cancelText: 'Cancelar',
-          type: 'danger'
-        });
-        
+        const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
         if (confirmed) {
           isProcessing = true;
           const loadingId = Toast.loading('Eliminando imagen...');
@@ -880,12 +873,8 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             Toast.dismiss(loadingId);
             Toast.success('Imagen eliminada');
             setTimeout(() => window.location.reload(), 1000);
-          } catch (err: any) {
-            Toast.dismiss(loadingId);
-            await Alert.error('Error', err.message);
-          } finally {
-            isProcessing = false;
-          }
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+          finally { isProcessing = false; }
         }
         return;
       }
@@ -898,6 +887,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           (document.getElementById('edit-variant-name') as HTMLInputElement).value = button.dataset.variantName || '';
           (document.getElementById('edit-variant-value') as HTMLInputElement).value = button.dataset.variantValue || '';
           (document.getElementById('edit-price-adjustment') as HTMLInputElement).value = button.dataset.priceAdjustment || '0';
+          (document.getElementById('edit-cost') as HTMLInputElement).value = button.dataset.cost || '';
           (document.getElementById('edit-stock') as HTMLInputElement).value = button.dataset.stock || '0';
           (document.getElementById('edit-sku') as HTMLInputElement).value = button.dataset.sku || '';
           editVariantModal.classList.remove('hidden');
@@ -909,33 +899,17 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       if (target.closest('.delete-variant')) {
         const button = target.closest('.delete-variant') as HTMLElement;
         const variantId = button.dataset.variantId;
-        
-        const confirmed = await Confirm.show({
-          title: '¿Eliminar variante?',
-          message: 'Esta acción no se puede deshacer.',
-          confirmText: 'Sí, eliminar',
-          cancelText: 'Cancelar',
-          type: 'danger'
-        });
-
+        const confirmed = await Confirm.show({ title: '¿Eliminar variante?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
         if (confirmed) {
           isProcessing = true;
           const loadingId = Toast.loading('Eliminando variante...');
           try {
             const { data, error } = await actions.deleteVariant(variantId!);
             if (error) throw new Error(error.message);
-            
             Toast.dismiss(loadingId);
             button.closest('.variant-item')?.remove();
-            
             if (data?.shouldRegenerateCombinations && productId) {
-              const regenConfirmed = await Confirm.show({
-                title: '¿Regenerar combinaciones?',
-                message: 'Se actualizarán las combinaciones de variantes.',
-                confirmText: 'Sí, regenerar',
-                cancelText: 'No',
-                type: 'info'
-              });
+              const regenConfirmed = await Confirm.show({ title: '¿Regenerar combinaciones?', message: 'Se actualizarán las combinaciones de variantes.', confirmText: 'Sí, regenerar', cancelText: 'No', type: 'info' });
               if (regenConfirmed) {
                 const regenLoading = Toast.loading('Regenerando combinaciones...');
                 await actions.generateVariantCombinations(productId);
@@ -943,19 +917,11 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
                 setTimeout(() => window.location.reload(), 1000);
               }
             }
-            
             const variantGroup = button.closest('.variant-group');
-            if (variantGroup && variantGroup.querySelectorAll('.variant-item').length === 0) {
-              variantGroup.remove();
-            }
-            
+            if (variantGroup && variantGroup.querySelectorAll('.variant-item').length === 0) variantGroup.remove();
             Toast.success('Variante eliminada');
-          } catch (err: any) {
-            Toast.dismiss(loadingId);
-            await Alert.error('Error', err.message);
-          } finally {
-            isProcessing = false;
-          }
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+          finally { isProcessing = false; }
         }
       }
 
@@ -963,15 +929,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       if (target.closest('.delete-variant-group')) {
         const button = target.closest('.delete-variant-group') as HTMLElement;
         const variantName = button.dataset.variantName;
-        
-        const confirmed = await Confirm.show({
-          title: `¿Eliminar "${variantName}"?`,
-          message: 'Se eliminarán todas las opciones de esta variante.',
-          confirmText: 'Sí, eliminar',
-          cancelText: 'Cancelar',
-          type: 'danger'
-        });
-
+        const confirmed = await Confirm.show({ title: `¿Eliminar "${variantName}"?`, message: 'Se eliminarán todas las opciones de esta variante.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
         if (confirmed) {
           isProcessing = true;
           const loadingId = Toast.loading('Eliminando grupo...');
@@ -979,33 +937,23 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             if (!productId) throw new Error('ID de producto no encontrado');
             const { error } = await actions.deleteVariantGroup({ productId, variantName: variantName! });
             if (error) throw new Error(error.message);
-            
             Toast.dismiss(loadingId);
             button.closest('.variant-group')?.remove();
-            
             if (document.querySelectorAll('.variant-group').length === 0 && hasVariantsCheckbox) {
               hasVariantsCheckbox.checked = false;
               variantsContainer?.classList.add('hidden');
             }
-            
             Toast.success('Grupo eliminado');
-          } catch (err: any) {
-            Toast.dismiss(loadingId);
-            await Alert.error('Error', err.message);
-          } finally {
-            isProcessing = false;
-          }
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+          finally { isProcessing = false; }
         }
       }
 
       // Remover opción del modal
       if (target.classList.contains('remove-option')) {
         const allRows = document.querySelectorAll('.variant-option-row');
-        if (allRows.length > 1) {
-          target.closest('.variant-option-row')?.remove();
-        } else {
-          Toast.warning('Atención', 'Debe haber al menos una opción');
-        }
+        if (allRows.length > 1) { target.closest('.variant-option-row')?.remove(); }
+        else { Toast.warning('Atención', 'Debe haber al menos una opción'); }
       }
     });
 
@@ -1022,75 +970,68 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     editVariantForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (isProcessing) return;
-      
       isProcessing = true;
       const loadingId = Toast.loading('Actualizando variante...');
-      
       try {
+        const costValue = (document.getElementById('edit-cost') as HTMLInputElement).value;
         const { error } = await actions.updateVariant({
           variantId: (document.getElementById('edit-variant-id') as HTMLInputElement).value,
           variantValue: (document.getElementById('edit-variant-value') as HTMLInputElement).value,
           priceAdjustment: parseFloat((document.getElementById('edit-price-adjustment') as HTMLInputElement).value) || 0,
+          cost: costValue ? parseFloat(costValue) : null,
           stock: parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0,
           sku: (document.getElementById('edit-sku') as HTMLInputElement).value || null
         });
-        
         if (error) throw new Error(error.message);
-        
         Toast.dismiss(loadingId);
         editVariantModal?.classList.add('hidden');
         document.body.style.overflow = '';
         Toast.success('Variante actualizada');
         setTimeout(() => window.location.reload(), 1000);
-      } catch (err: any) {
-        Toast.dismiss(loadingId);
-        await Alert.error('Error', err.message);
-      } finally {
-        isProcessing = false;
-      }
+      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+      finally { isProcessing = false; }
     });
 
     // =====================================================
-    // SUBMIT NUEVA VARIANTE
+    // SUBMIT NUEVA VARIANTE (funciona para ambos modos)
     // =====================================================
     variantForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (isProcessing) return;
-      
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
-      if (!productId) {
-        await Alert.warning('Atención', 'Primero guarda el producto');
-        return;
-      }
+      if (!productId) { await Alert.warning('Atención', 'Primero guarda el producto'); return; }
 
       const variantName = (document.getElementById('variant-name') as HTMLInputElement).value;
       const rows = document.querySelectorAll('.variant-option-row');
-      const variants = Array.from(rows).map(row => ({
-        variantName,
-        variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value,
-        priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0,
-        stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0,
-        sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
-      }));
+      const variants = Array.from(rows).map(row => {
+        const costInput = (row.querySelector('.variant-cost') as HTMLInputElement)?.value;
+        return {
+          variantName,
+          variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value,
+          priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0,
+          cost: costInput ? parseFloat(costInput) : undefined,
+          stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0,
+          sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
+        };
+      });
 
       isProcessing = true;
-      const loadingId = Toast.loading('Creando variantes...');
-      
+      const loadingId = Toast.loading('Guardando variantes...');
       try {
         const { error } = await actions.createBatchVariants({ productId, variants });
         if (error) throw new Error(error.message);
-        
         Toast.dismiss(loadingId);
         variantModal?.classList.add('hidden');
         document.body.style.overflow = '';
-        Toast.success('Variantes creadas');
+        // Restaurar estado del input
+        if (variantNameInput) {
+          variantNameInput.readOnly = false;
+          variantNameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
+        }
+        Toast.success('Variantes guardadas');
         setTimeout(() => window.location.reload(), 1000);
-      } catch (err: any) {
-        Toast.dismiss(loadingId);
-        await Alert.error('Error', err.message);
-      } finally {
-        isProcessing = false;
-      }
+      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+      finally { isProcessing = false; }
     });
 
     // =====================================================
@@ -1098,18 +1039,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     // =====================================================
     document.getElementById('generate-combinations-btn')?.addEventListener('click', async () => {
       if (isProcessing) return;
-      
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
       if (!productId) return;
-
-      const confirmed = await Confirm.show({
-        title: '¿Generar combinaciones?',
-        message: 'Se crearán todas las combinaciones posibles de variantes.',
-        confirmText: 'Sí, generar',
-        cancelText: 'Cancelar',
-        type: 'info'
-      });
-
+      const confirmed = await Confirm.show({ title: '¿Generar combinaciones?', message: 'Se crearán todas las combinaciones posibles de variantes.', confirmText: 'Sí, generar', cancelText: 'Cancelar', type: 'info' });
       if (confirmed) {
         isProcessing = true;
         const loadingId = Toast.loading('Generando combinaciones...');
@@ -1119,12 +1051,8 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           Toast.dismiss(loadingId);
           Toast.success('Combinaciones generadas');
           setTimeout(() => window.location.reload(), 1000);
-        } catch (err: any) {
-          Toast.dismiss(loadingId);
-          await Alert.error('Error', err.message);
-        } finally {
-          isProcessing = false;
-        }
+        } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+        finally { isProcessing = false; }
       }
     });
 
@@ -1138,13 +1066,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const target = e.target as HTMLInputElement;
         const combinationId = target.dataset.combinationId;
         if (!combinationId) return;
-
         timeout = setTimeout(async () => {
           try {
-            const { error } = await actions.updateCombinationStock({
-              combinationId,
-              newStock: parseInt(target.value)
-            });
+            const { error } = await actions.updateCombinationStock({ combinationId, newStock: parseInt(target.value) });
             if (error) throw new Error(error.message);
             target.classList.add('border-green-500');
             setTimeout(() => target.classList.remove('border-green-500'), 1000);
@@ -1164,18 +1088,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         if (isProcessing) return;
         const target = e.target as HTMLButtonElement;
         if (!target.classList.contains('delete-existing')) return;
-        
         const id = target.dataset.id;
         if (!id) return;
-        
-        const confirmed = await Confirm.show({
-          title: '¿Eliminar imagen?',
-          message: 'Esta acción no se puede deshacer.',
-          confirmText: 'Sí, eliminar',
-          cancelText: 'Cancelar',
-          type: 'danger'
-        });
-
+        const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
         if (confirmed) {
           isProcessing = true;
           const loadingId = Toast.loading('Eliminando imagen...');
@@ -1185,12 +1100,8 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             Toast.dismiss(loadingId);
             imageListContainers.forEach(c => c?.querySelector(`[data-id="${id}"]`)?.remove());
             Toast.success('Imagen eliminada');
-          } catch (err: any) {
-            Toast.dismiss(loadingId);
-            await Alert.error('Error', err.message);
-          } finally {
-            isProcessing = false;
-          }
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+          finally { isProcessing = false; }
         }
       });
     });
@@ -1203,11 +1114,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         const target = e.target as HTMLElement;
         if (target.classList.contains('remove-new-btn')) {
           const index = parseInt(target.dataset.index || '-1');
-          if (index > -1) {
-            newFiles.splice(index, 1);
-            renderNewPreviews();
-            updateFileInput();
-          }
+          if (index > -1) { newFiles.splice(index, 1); renderNewPreviews(); updateFileInput(); }
         }
       });
     });
@@ -1219,61 +1126,34 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const slugInput = document.getElementById('slug') as HTMLInputElement;
     if (nameInput && slugInput && isCreate) {
       nameInput.addEventListener('input', () => {
-        slugInput.value = nameInput.value
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
+        slugInput.value = nameInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       });
     }
 
     // =====================================================
-    // ✅ SUBMIT DEL FORMULARIO PRINCIPAL
+    // SUBMIT DEL FORMULARIO PRINCIPAL
     // =====================================================
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (isProcessing) return;
-      
       const saveButton = document.getElementById('save-button') as HTMLButtonElement;
       if (!saveButton) return;
-      
       isProcessing = true;
       saveButton.disabled = true;
       saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
-      
       const loadingId = Toast.loading(isCreate ? 'Creando producto...' : 'Guardando cambios...');
-      
       try {
-        // Actualizar el campo hidden antes de enviar
         updatePiercingHiddenField();
-        
         const formData = new FormData(form);
-        
-        // Debug
-        console.log('✅ piercing_name a enviar:', formData.get('piercing_name'));
-        
-        // Manejo de imágenes
         formData.delete('imageFiles');
         newFiles.forEach(file => formData.append('imageFiles', file));
-        
         const { data, error } = await actions.crateUpdateProduct(formData);
         if (error) throw new Error(error.message);
-        
         Toast.dismiss(loadingId);
         Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!');
-        
-        // ✅ CAMBIO PRINCIPAL: Navegar con filtros preservados
-        setTimeout(() => {
-          const returnUrl = getProductsUrlWithFilters();
-          console.log('🚀 Navegando a:', returnUrl);
-          navigate(returnUrl);
-        }, 1000);
-        
-      } catch (err: any) {
-        Toast.dismiss(loadingId);
-        await Alert.error('Error', err.message);
-      } finally {
+        setTimeout(() => navigate(getProductsUrlWithFilters()), 1000);
+      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+      finally {
         isProcessing = false;
         saveButton.disabled = false;
         saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar';
@@ -1294,24 +1174,16 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     .form-input { @apply w-full px-3 md:px-4 py-2 md:py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors text-sm md:text-base; }
     .btn-secondary { @apply px-3 md:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium; }
   </style>
-  <!-- ✅ SCRIPT INLINE: Botón Volver con filtros (SIN imports) -->
-<script is:inline>
+
+  <script is:inline>
   (function() {
     var FILTERS_STORAGE_KEY = 'admin_products_filters';
-    
     function getProductsUrlWithFilters() {
       try {
         var saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
-        console.log('🔍 Leyendo filtros:', saved);
-        
-        if (!saved) {
-          console.log('⚠️ No hay filtros guardados');
-          return '/admin/products';
-        }
-        
+        if (!saved) return '/admin/products';
         var filters = JSON.parse(saved);
         var url = new URL('/admin/products', window.location.origin);
-        
         if (filters.search) url.searchParams.set('search', filters.search);
         if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category);
         if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter);
@@ -1320,16 +1192,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice);
         if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
         if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
-        
-        var finalUrl = url.pathname + url.search;
-        console.log('✅ URL construida:', finalUrl);
-        return finalUrl;
-      } catch (e) {
-        console.error('❌ Error:', e);
-        return '/admin/products';
-      }
+        return url.pathname + url.search;
+      } catch (e) { return '/admin/products'; }
     }
-    
     function setupBackButton() {
       var backButton = document.getElementById('back-to-products');
       if (backButton && !backButton.hasAttribute('data-listener-attached')) {
@@ -1337,24 +1202,13 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         backButton.addEventListener('click', function(e) {
           e.preventDefault();
           var returnUrl = getProductsUrlWithFilters();
-          console.log('🔙 Volver a:', returnUrl);
-          
-          // Usar View Transitions si está disponible
-          if (typeof window.navigation !== 'undefined' && window.navigation.navigate) {
-            window.navigation.navigate(returnUrl);
-          } else {
-            window.location.href = returnUrl;
-          }
+          if (typeof window.navigation !== 'undefined' && window.navigation.navigate) { window.navigation.navigate(returnUrl); }
+          else { window.location.href = returnUrl; }
         });
-        console.log('✅ Listener de Volver configurado');
       }
     }
-    
-    // Ejecutar inmediatamente
     setupBackButton();
-    
-    // También ejecutar en View Transitions
     document.addEventListener('astro:page-load', setupBackButton);
   })();
-</script>
+  </script>
 </AdminLayout>

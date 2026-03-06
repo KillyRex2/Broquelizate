@@ -10,6 +10,7 @@ export interface VariantOption {
   name: string;
   sku: string;
   priceAdjustment: number;
+  cost: number | null; 
   stock: number;
   images: string[];
   finalPrice: number;
@@ -52,6 +53,7 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           name: combo.combinationName || 'Variante',
           sku: combo.sku || '',
           priceAdjustment: combo.price - product.price,
+          cost: combo.cost || null,
           stock: combo.stock,
           images: (combo as any).images || product.images, // TODO: Las imágenes se agregan dinámicamente cuando esté disponible
           finalPrice: combo.price
@@ -69,6 +71,7 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           name: `${variant.variantName}: ${variant.variantValue}`,
           sku: variant.sku || '',
           priceAdjustment: variant.priceAdjustment,
+          cost: variant.cost ?? null, // ✅ FALTA ESTA LÍNEA
           stock: variant.stock,
           images: product.images,
           finalPrice: product.price + variant.priceAdjustment

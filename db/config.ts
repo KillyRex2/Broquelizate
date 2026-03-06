@@ -38,16 +38,15 @@ const Product = defineTable({
   }
 })
 
-// IMPORTANTE: ProductImage debe usar productId como campo principal
 const ProductImage = defineTable({  
   columns: {
     id: column.text({ primaryKey: true }),
-    productId: column.text({ references: () => Product.columns.id }), // Campo principal - SIEMPRE requerido
+    productId: column.text({ references: () => Product.columns.id }),
     variantId: column.text({ 
       references: () => ProductVariant.columns.id, 
-      optional: true // Solo se usa si la imagen es específica de una variante
+      optional: true
     }),
-    image: column.text(), // URL de Cloudinary
+    image: column.text(),
   }
 })
 
@@ -58,6 +57,7 @@ const ProductVariant = defineTable({
     variantName: column.text(),
     variantValue: column.text(),
     priceAdjustment: column.number({ default: 0 }),
+    cost: column.number({ optional: true }), // ✅ NUEVO: Costo individual de la variante
     stock: column.number({ default: 0 }),
     sku: column.text({ optional: true }),
     isDefault: column.boolean({ default: false }),

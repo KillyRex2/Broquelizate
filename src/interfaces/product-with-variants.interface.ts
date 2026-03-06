@@ -8,6 +8,7 @@ export interface ProductVariant {
   variantName: string; // "Color", "Tamaño de Poste", etc.
   variantValue: string; // "Dorado", "6mm", etc.
   priceAdjustment: number; // diferencia vs precio base
+  cost: number | null;
   stock: number;
   sku: string | null; // Cambiado para coincidir con DB
   isDefault: boolean;
@@ -20,6 +21,7 @@ export interface ProductVariantCombination {
   productId: string;
   combinationName: string | null; // Cambiado para coincidir con DB
   price: number; // precio final de esta combinación
+  cost: number | null;
   stock: number;
   sku: string | null; // Cambiado para coincidir con DB
   isActive: boolean;
@@ -59,6 +61,7 @@ export interface GroupedVariants {
       id: string;
       value: string; // "Dorado", "6mm"
       priceAdjustment: number;
+      cost: number | null;
       stock: number;
       isDefault: boolean;
       isActive: boolean; // Agregado para consistencia

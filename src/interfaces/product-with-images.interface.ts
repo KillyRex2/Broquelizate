@@ -5,6 +5,7 @@ export interface ProductVariantInfo {
   name: string;
   sku: string;
   priceAdjustment: number;
+  cost: number | null;
   stock: number;
   images: string[];
   finalPrice: number;
