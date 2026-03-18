@@ -5,25 +5,25 @@ import type { ProductWithImages } from "./index";
 export interface ProductVariant {
   id: string;
   productId: string;
-  variantName: string; // "Color", "Tamaño de Poste", etc.
-  variantValue: string; // "Dorado", "6mm", etc.
-  priceAdjustment: number; // diferencia vs precio base
+  variantName: string;
+  variantValue: string;
+  priceAdjustment: number;
   cost: number | null;
   stock: number;
-  sku: string | null; // Cambiado para coincidir con DB
+  sku: string | null;
   isDefault: boolean;
-  isActive: boolean; // Agregado para coincidir con DB
+  isActive: boolean;
   createdAt: Date;
 }
 
 export interface ProductVariantCombination {
   id: string;
   productId: string;
-  combinationName: string | null; // Cambiado para coincidir con DB
-  price: number; // precio final de esta combinación
+  combinationName: string | null;
+  price: number;
   cost: number | null;
   stock: number;
-  sku: string | null; // Cambiado para coincidir con DB
+  sku: string | null;
   isActive: boolean;
   createdAt: Date;
 }
@@ -34,42 +34,39 @@ export interface VariantCombinationItem {
   variantId: string;
 }
 
-// Extendemos la interfaz existente
 export interface ProductWithVariants extends ProductWithImages {
-  // hasVariants ya está en ProductWithImages, no necesitamos redefinirlo
-  // variants de ProductWithImages se mantiene como ProductVariantInfo[]
-  
-  // Usamos nombres diferentes para evitar conflicto
-  productVariants?: ProductVariant[]; // Cambiado de 'variants' a 'productVariants'
+  productVariants?: ProductVariant[];
   combinations?: ProductVariantCombination[];
-  selectedCombination?: ProductVariantCombination; // Para el carrito
+  selectedCombination?: ProductVariantCombination;
 }
 
-// Para el carrito, extendemos CartItem
 export interface CartItemWithVariants {
   productId: string;
   quantity: number;
-  variantCombinationId?: string; // ID de la combinación seleccionada
-  variantDescription?: string; // Descripción legible: "Dorado - 6mm"
+  variantCombinationId?: string;
+  variantDescription?: string;
+  engraving?: {
+    id: string;
+    imageUrl: string;
+    notes: string;
+  };
 }
 
-// Interface para organizar variantes por tipo en el frontend
 export interface GroupedVariants {
   [variantName: string]: {
-    name: string; // "Color", "Tamaño de Poste"
+    name: string;
     options: {
       id: string;
-      value: string; // "Dorado", "6mm"
+      value: string;
       priceAdjustment: number;
       cost: number | null;
       stock: number;
       isDefault: boolean;
-      isActive: boolean; // Agregado para consistencia
+      isActive: boolean;
     }[];
   };
 }
 
-// Para el formulario de administración
 export interface VariantFormData {
   variantName: string;
   variantValue: string;
@@ -81,7 +78,7 @@ export interface VariantFormData {
 }
 
 export interface CombinationFormData {
-  variants: string[]; // IDs de las variantes que forman esta combinación
+  variants: string[];
   price: number;
   stock: number;
   sku: string | null;
@@ -89,22 +86,17 @@ export interface CombinationFormData {
   combinationName: string | null;
 }
 
-// Helper type para el selector de variantes en el frontend
 export interface VariantSelection {
-  [variantName: string]: string; // ej: { "Color": "var_1", "Tamaño": "var_4" }
+  [variantName: string]: string;
 }
 
-// Para mostrar información completa en el producto
 export interface ProductWithCompleteVariants extends ProductWithImages {
-  // hasVariants ya está en ProductWithImages
   groupedVariants: GroupedVariants;
   availableCombinations: ProductVariantCombination[];
   defaultCombination?: ProductVariantCombination;
 }
 
-// Si necesitas un tipo que tenga ambos tipos de variantes, puedes crear uno adicional
 export interface ProductWithAllVariants extends ProductWithImages {
-  // variants viene de ProductWithImages como ProductVariantInfo[]
   productVariants?: ProductVariant[];
   combinations?: ProductVariantCombination[];
   selectedCombination?: ProductVariantCombination;

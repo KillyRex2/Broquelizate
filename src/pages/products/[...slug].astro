@@ -1,6 +1,7 @@
 ---
 // src/pages/products/[...slug].astro
 import ProductSlideshow from "@/components/products/ProductSlideshow.astro";
+import LaserEngraving from "@/components/products/LaserEngraving.astro";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
 import { Formatter } from "@/utils";
@@ -55,7 +56,8 @@ if (typeof rawProduct.piercing_name === 'string') {
 
 const product = {
   ...rawProduct,
-  piercing_name
+  piercing_name,
+  allowsEngraving: (rawProduct as any).allowsEngraving ?? false,
 };
 
 interface VariantOption {
@@ -316,6 +318,14 @@ const processedVariants = processVariants(variantsData);
               </svg>
             </div>
           </div>
+
+          <!-- ✅ GRABADO LÁSER (solo si el producto lo permite) -->
+          {product.allowsEngraving && (
+            <LaserEngraving 
+              productId={product.id} 
+              productName={product.name} 
+            />
+          )}
 
           <!-- Cart Section -->
           <div class="cart-section">
@@ -664,12 +674,10 @@ const processedVariants = processVariants(variantsData);
       variantMessage.textContent = message;
       variantMessage.className = `msg ${type}`;
       
-      // Auto-ocultar después de 5 segundos
       const hideTimeout = window.setTimeout(() => {
         variantMessage.classList.add('hidden');
       }, 5000);
       
-      // Guardar referencia para limpiar si es necesario
       (variantMessage as any)._hideTimeout = hideTimeout;
     }
 
@@ -717,7 +725,6 @@ const processedVariants = processVariants(variantsData);
 
         currentCombination = data;
         
-        // Construir nombre de combinación si no existe
         if (!currentCombination.combinationName) {
           currentCombination.combinationName = Object.entries(selectedVariants)
             .map(([variantName, variantId]) => {
@@ -728,19 +735,16 @@ const processedVariants = processVariants(variantsData);
             .join(' / ');
         }
         
-        // Actualizar precio
         if (priceElement) {
           priceElement.textContent = formatCurrency(data.price);
         }
         
-        // Actualizar badge de stock
         if (stockBadge) {
           const isInStock = data.stock > 0;
           stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`;
           stockBadge.textContent = isInStock ? `${data.stock} en stock` : 'Agotado';
         }
         
-        // Actualizar info de variante
         if (variantInfo && selectedCombination && combinationSku) {
           selectedCombination.textContent = Object.values(selectedVariants)
             .map(variantId => {
@@ -752,7 +756,6 @@ const processedVariants = processVariants(variantsData);
           variantInfo.classList.remove('hidden');
         }
 
-        // Actualizar botón de añadir
         const isOutOfStock = data.stock <= 0;
         addBtn.disabled = isOutOfStock;
         
@@ -767,7 +770,6 @@ const processedVariants = processVariants(variantsData);
           `;
         }
         
-        // Actualizar límite de cantidad
         qtyInput.max = data.stock.toString();
         if (parseInt(qtyInput.value) > data.stock) {
           qtyInput.value = Math.max(1, data.stock).toString();
@@ -787,19 +789,14 @@ const processedVariants = processVariants(variantsData);
       
       if (!group || !variantName || !variantId) return;
       
-      // Deseleccionar otras opciones del grupo
       group.querySelectorAll('.variant-option').forEach(opt => {
         opt.classList.remove('selected');
       });
       
-      // Seleccionar esta opción
       button.classList.add('selected');
       selectedVariants[variantName] = variantId;
       
-      // Actualizar imagen si tiene
       updateProductImage(hasImage ? variantId : null);
-      
-      // Actualizar combinación
       updateCombination();
     }
 
@@ -807,14 +804,12 @@ const processedVariants = processVariants(variantsData);
     // EVENT LISTENERS
     // =====================================================
     
-    // Variantes
     if (hasVariants) {
       document.querySelectorAll('.variant-option').forEach(button => {
         button.addEventListener('click', () => selectVariantOption(button as HTMLElement));
       });
     }
 
-    // Cantidad
     decrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) - 1));
     incrementBtn?.addEventListener("click", () => updateQuantity(parseInt(qtyInput.value) + 1));
     qtyInput?.addEventListener("change", () => updateQuantity(parseInt(qtyInput.value)));
@@ -869,6 +864,20 @@ const processedVariants = processVariants(variantsData);
             cartItem.variantPriceAdjustment = currentCombination.price - basePrice;
           }
         }
+
+        // ✅ NUEVO: Agregar datos de grabado láser si existe
+        const engravingUrl = (document.getElementById('engr-image-url') as HTMLInputElement)?.value;
+        const engravingId = (document.getElementById('engr-image-id') as HTMLInputElement)?.value;
+        const engravingNotes = (document.getElementById('engr-notes-input') as HTMLTextAreaElement)?.value;
+        const engravingToggle = (document.getElementById('engr-toggle-check') as HTMLInputElement)?.checked;
+
+        if (engravingToggle && engravingUrl) {
+          cartItem.engraving = {
+            id: engravingId,
+            imageUrl: engravingUrl,
+            notes: engravingNotes || '',
+          };
+        }
         
         // Añadir al carrito
         CartCookiesClient.addItem(cartItem);
@@ -876,7 +885,6 @@ const processedVariants = processVariants(variantsData);
         
         showMessage('¡Producto añadido al carrito!', 'success');
         
-        // Navegar al carrito después de un breve delay
         window.setTimeout(() => {
           navigate("/cart");
         }, 800);
@@ -944,7 +952,6 @@ const processedVariants = processVariants(variantsData);
       openLightbox(currentImageIndex);
     }
 
-    // Event listeners del lightbox
     galleryImages.forEach((item, index) => {
       item.addEventListener('click', () => openLightbox(index));
     });
@@ -954,7 +961,6 @@ const processedVariants = processVariants(variantsData);
     document.getElementById('lightbox-next')?.addEventListener('click', showNextImage);
     document.querySelector('.lb-backdrop')?.addEventListener('click', closeLightbox);
     
-    // Keyboard navigation
     function handleKeydown(e: KeyboardEvent): void {
       if (!lightbox?.classList.contains('open')) return;
       
@@ -978,7 +984,6 @@ const processedVariants = processVariants(variantsData);
     // =====================================================
     
     if (hasVariants) {
-      // Seleccionar primera opción disponible de cada grupo
       document.querySelectorAll('.variant-group').forEach(group => {
         const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement;
         if (firstOption) {
@@ -986,7 +991,6 @@ const processedVariants = processVariants(variantsData);
         }
       });
     } else {
-      // Producto sin variantes
       addBtn.disabled = baseStock <= 0;
       if (baseStock <= 0) {
         addBtn.innerHTML = '<span>Sin stock disponible</span>';
@@ -998,12 +1002,10 @@ const processedVariants = processVariants(variantsData);
   // LIFECYCLE HOOKS
   // =====================================================
 
-  // Limpiar estado antes de navegar
   document.addEventListener('astro:before-preparation', () => {
     isPageInitialized = false;
     document.body.style.overflow = '';
   });
 
-  // Inicializar en cada carga de página (View Transitions)
   document.addEventListener("astro:page-load", setupProductPage);
 </script>

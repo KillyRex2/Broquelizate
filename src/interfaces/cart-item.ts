@@ -10,7 +10,14 @@ export interface CartItem {
     variantName?: string;
     variantSku?: string;
     variantPriceAdjustment?: number;
-    variantPrice?: number; // ⭐ AGREGAR ESTA LÍNEA
+    variantPrice?: number;
+
+    // Grabado láser
+    engraving?: {
+        id: string;
+        imageUrl: string;
+        notes: string;
+    };
 }
 
 // Tipo para el producto cargado desde el carrito con toda la información
@@ -26,8 +33,8 @@ export interface CartProductItem {
     image: string;
     
     // Precios
-    price: number;           // Precio base del producto
-    variantPrice?: number;   // Precio con variante (si aplica)
+    price: number;
+    variantPrice?: number;
     
     // Información de variantes
     variantId?: string;
@@ -42,4 +49,11 @@ export interface CartProductItem {
     // Flags
     hasVariant: boolean;
     variantImage?: string;
+
+    // Grabado láser
+    engraving?: {
+        id: string;
+        imageUrl: string;
+        notes: string;
+    };
 }

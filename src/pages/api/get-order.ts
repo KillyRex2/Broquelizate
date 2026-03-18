@@ -32,6 +32,11 @@ export const GET: APIRoute = async ({ request }) => {
     // Buscar los items de la orden
     const items = await db.select().from(order_items).where(eq(order_items.orderId, orderId)).all();
 
+    console.log('🔍 Items de la orden:', items.map(i => ({ 
+      name: i.productName, 
+      engraving: i.engraving,
+      hasEngraving: !!i.engraving 
+    })));
     // Enriquecer los items con imágenes de productos
     const enrichedItems = await Promise.all(items.map(async (item) => {
       let productImage: string | null = null;
@@ -90,14 +95,26 @@ export const GET: APIRoute = async ({ request }) => {
         console.warn('Error obteniendo imagen para item:', item.id, imgError);
       }
 
-      return {
+    // Parsear engraving de JSON string a objeto
+    let engravingData = null;
+    if (item.engraving) {
+        try {
+            engravingData = typeof item.engraving === 'string' 
+                ? JSON.parse(item.engraving) 
+                : item.engraving;
+        } catch (e) {
+            console.warn('Error parseando engraving:', e);
+        }
+    }
+
+    return {
         ...item,
         productImage: productImage,
         variantImage: variantImage,
         variantSku: variantSku,
-        // Usar la imagen de variante si existe, sino la del producto
-        image: variantImage || productImage
-      };
+        image: variantImage || productImage,
+        engraving: engravingData
+    };
     }));
 
     // Parsear shippingInfo si existe en la orden

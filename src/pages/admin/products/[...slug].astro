@@ -1,5 +1,5 @@
 ---
-import AdminProductSlideshow from '@/components/products/Adminproductslideshow.astro';
+import ProductSlideshow from '@/components/products/ProductSlideshow.astro';
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { actions } from 'astro:actions';
 
@@ -23,6 +23,7 @@ interface ProductData {
   type: string;
   piercing_name: string[] | string;
   hasVariants: boolean;
+  allowsEngraving: boolean;
   user?: string;
 }
 
@@ -45,6 +46,7 @@ if (!isCreate) {
   product = {
     ...productData.product,
     hasVariants: productData.product.hasVariants ?? false,
+    allowsEngraving: (productData.product as any).allowsEngraving ?? false,
     cost: productData.product.cost ?? 0,
     piercing_name: Array.isArray(productData.product.piercing_name)
       ? productData.product.piercing_name
@@ -71,7 +73,8 @@ if (!isCreate) {
     category: 'Titanio',
     type: 'Broqueles',
     piercing_name: [],
-    hasVariants: false
+    hasVariants: false,
+    allowsEngraving: false
   };
 }
 
@@ -93,12 +96,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
         id="back-to-products" 
         class="group inline-flex items-center gap-2 mt-3 md:mt-4 px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-slate-800 hover:to-slate-700 text-black hover:text-white rounded-full text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
       >
-        <svg 
-          class="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
+        <svg class="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
         </svg>
         <span>Inventario</span>
@@ -107,7 +105,6 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
 
     <form id="product-form" class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 pb-20 md:pb-24" enctype="multipart/form-data">
       {!isCreate && <input type="hidden" name="id" value={product.id} />}
-      
       <input type="hidden" name="piercing_name" id="piercing_name_hidden" value={initialPiercingValue} />
 
       <div class="lg:col-span-2 space-y-4 md:space-y-8">
@@ -166,16 +163,14 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           </div>
         </div>
 
-        <!-- Imágenes (movidas aquí para móvil) -->
+        <!-- Imágenes (móvil) -->
         <div class="card lg:hidden">
           <h2 class="card-title">Imágenes</h2>
-          
           {!isCreate && initialImages.length > 0 && (
             <div id="slideshow-container-mobile" class="mb-4">
-              <AdminProductSlideshow images={initialImages.map(i => i.image)} />
+              <ProductSlideshow images={initialImages.map(i => i.image)} />
             </div>
           )}
-
           <div class="mt-4">
             <label for="file-upload-mobile" class="form-label">
               {isCreate ? 'Agregar imágenes' : 'Añadir nuevas'}
@@ -189,7 +184,6 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             </div>
           </div>
           <div id="new-images-preview-mobile" class="mt-3 grid grid-cols-3 gap-2"></div>
-
           {!isCreate && initialImages.length > 0 && (
             <>
               <h3 class="form-label mt-4 mb-2">Imágenes Actuales</h3>
@@ -205,154 +199,115 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           )}
         </div>
 
+        <!-- Grabado Láser -->
+        <div class="card">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-sm md:text-base font-bold text-slate-800 mb-0">Grabado Láser</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Permitir que el cliente suba una imagen para grabar en este producto</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
+              <input 
+                type="checkbox" 
+                id="allowsEngraving" 
+                name="allowsEngraving" 
+                checked={product.allowsEngraving}
+                class="sr-only peer"
+              />
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
+            </label>
+          </div>
+          <div id="engraving-info" class={`mt-4 ${product.allowsEngraving ? '' : 'hidden'}`}>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                  <p class="text-sm font-semibold text-amber-800">Grabado láser activado</p>
+                  <p class="text-xs text-amber-700 mt-1">Los clientes podrán subir una imagen para personalizar este producto. La imagen estará disponible en los detalles del pedido para producción.</p>
+                  <div class="flex flex-wrap gap-2 mt-3">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 rounded text-xs font-medium text-amber-800">JPG, PNG, WEBP, GIF</span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 rounded text-xs font-medium text-amber-800">Máx. 10MB</span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 rounded text-xs font-medium text-amber-800">Cloudinary</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Configuración de Variantes -->
         <div class="card">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6 gap-3">
             <h2 class="card-title mb-0">Variantes</h2>
             <label class="flex items-center space-x-2 cursor-pointer">
-              <input 
-                type="checkbox" 
-                id="hasVariants" 
-                name="hasVariants" 
-                checked={product.hasVariants}
-                class="h-5 w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600"
-              />
+              <input type="checkbox" id="hasVariants" name="hasVariants" checked={product.hasVariants} class="h-5 w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" />
               <span class="font-medium text-slate-700 text-sm md:text-base">Habilitar variantes</span>
             </label>
           </div>
-          
           <div id="variants-container" class={product.hasVariants ? '' : 'hidden'}>
             <div class="space-y-4">
               <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4">
-                <p class="text-xs md:text-sm text-amber-800">
-                  Las variantes permiten ofrecer diferentes versiones del producto (ej: colores, tamaños).
-                </p>
+                <p class="text-xs md:text-sm text-amber-800">Las variantes permiten ofrecer diferentes versiones del producto (ej: colores, tamaños).</p>
               </div>
-
               {!isCreate && (
                 <div class="flex flex-col sm:flex-row gap-2 md:gap-3">
-                  <button type="button" id="add-variant-btn" class="btn-secondary text-sm md:text-base">
-                    + Nuevo Tipo de Variante
-                  </button>
-                  <button type="button" id="generate-combinations-btn" class="btn-secondary text-sm md:text-base">
-                    ⚡ Generar Combinaciones
-                  </button>
+                  <button type="button" id="add-variant-btn" class="btn-secondary text-sm md:text-base">+ Agregar Variante</button>
+                  <button type="button" id="generate-combinations-btn" class="btn-secondary text-sm md:text-base">⚡ Generar Combinaciones</button>
                 </div>
               )}
-
               <div id="variants-list" class="space-y-3">
                 {variantData?.groupedVariants && Object.entries(variantData.groupedVariants).map(([variantName, group]: [string, any]) => (
                   <div class="border border-slate-200 rounded-lg p-3 md:p-4 bg-slate-50 variant-group" data-variant-name={variantName}>
                     <div class="flex items-center justify-between mb-3">
                       <h4 class="font-semibold text-slate-800 text-sm md:text-base">{variantName}</h4>
-                      <div class="flex items-center gap-2">
-                        {/* ✅ NUEVO: Botón para agregar opción al grupo existente */}
-                        <button 
-                          type="button" 
-                          class="add-option-to-group text-green-600 hover:text-green-800 text-xs md:text-sm font-medium"
-                          data-variant-name={variantName}
-                        >
-                          + Agregar opción
-                        </button>
-                        <button 
-                          type="button" 
-                          class="delete-variant-group text-red-600 hover:text-red-800 text-xs md:text-sm font-medium"
-                          data-variant-name={variantName}
-                        >
-                          Eliminar grupo
-                        </button>
-                      </div>
+                      <button type="button" class="delete-variant-group text-red-600 hover:text-red-800 text-xs md:text-sm font-medium" data-variant-name={variantName}>Eliminar</button>
                     </div>
                     <div class="grid grid-cols-1 gap-2">
                       {group.options.map((option: any) => {
                         const variantImage = initialImages.find(img => img.variantId === option.id);
-                        
                         return (
                           <div class="flex items-center gap-3 bg-white rounded px-2 md:px-3 py-2 border border-slate-200 variant-item" data-variant-id={option.id}>
-                            
                             <div class="flex-shrink-0">
                               {variantImage ? ( 
                                 <div class="relative group">
-                                  <img 
-                                    src={variantImage.image} 
-                                    alt={option.value}
-                                    class="w-12 h-12 md:w-16 md:h-16 object-cover rounded border-2 border-yellow-500"
-                                  />
-                                  <button
-                                    type="button"
-                                    class="delete-variant-image absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                    data-variant-id={option.id}
-                                  >
-                                    ×
-                                  </button>
+                                  <img src={variantImage.image} alt={option.value} class="w-12 h-12 md:w-16 md:h-16 object-cover rounded border-2 border-yellow-500" />
+                                  <button type="button" class="delete-variant-image absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" data-variant-id={option.id}>×</button>
                                 </div>
                               ) : (
                                 <div class="w-12 h-12 md:w-16 md:h-16 bg-slate-100 rounded border-2 border-dashed border-slate-300 flex items-center justify-center">
-                                  <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
+                                  <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
                               )}
                             </div>
-
                             <div class="flex-1 min-w-0">
                               <span class="text-xs md:text-sm font-medium truncate block">{option.value}</span>
                               <div class="flex items-center gap-2 mt-1 text-xs text-slate-600 flex-wrap">
-                                {option.priceAdjustment !== 0 && (
-                                  <span class={option.priceAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
-                                    {option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}
-                                  </span>
-                                )}
-                                {option.cost != null && option.cost > 0 && (
-                                  <span class="text-amber-600">
-                                    Costo: ${option.cost}
-                                  </span>
-                                )}
+                                {option.priceAdjustment !== 0 && (<span class={option.priceAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>{option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}</span>)}
                                 <span>Stock: {option.stock}</span>
                                 {option.sku && <span class="truncate">SKU: {option.sku}</span>}
                               </div>
                             </div>
-
                             <div class="flex items-center gap-1 md:gap-2 flex-shrink-0">
                               <label class="cursor-pointer">
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  class="hidden variant-image-input"
-                                  data-variant-id={option.id}
-                                  data-product-id={product.id}
-                                />
+                                <input type="file" accept="image/*" class="hidden variant-image-input" data-variant-id={option.id} data-product-id={product.id} />
                                 <div class="upload-variant-image p-1 text-purple-600 hover:text-purple-800" title="Subir imagen">
-                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
                               </label>
-
-                              <button 
-                                type="button" 
-                                class="edit-variant text-blue-600 hover:text-blue-800 p-1"
-                                data-variant-id={option.id}
-                                data-variant-name={variantName}
-                                data-variant-value={option.value}
-                                data-price-adjustment={option.priceAdjustment}
-                                data-cost={option.cost ?? ''}
-                                data-stock={option.stock}
-                                data-sku={option.sku || ''}
-                              >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
+                              <button type="button" class="edit-variant text-blue-600 hover:text-blue-800 p-1" data-variant-id={option.id} data-variant-name={variantName} data-variant-value={option.value} data-price-adjustment={option.priceAdjustment} data-stock={option.stock} data-sku={option.sku || ''}>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                               </button>
-
-                              <button 
-                                type="button" 
-                                class="delete-variant text-red-600 hover:text-red-800 p-1"
-                                data-variant-id={option.id}
-                              >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                              <button type="button" class="delete-variant text-red-600 hover:text-red-800 p-1" data-variant-id={option.id}>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                               </button>
                             </div>
                           </div>
@@ -362,7 +317,6 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
                   </div>
                 ))}
               </div>
-
               {variantData?.combinations && variantData.combinations.length > 0 && (
                 <div class="mt-6">
                   <h3 class="font-semibold text-slate-800 mb-3 text-sm md:text-base">Combinaciones Activas</h3>
@@ -382,12 +336,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
                             <td class="px-2 md:px-4 py-2">{combo.combinationName}</td>
                             <td class="px-2 md:px-4 py-2">${combo.price}</td>
                             <td class="px-2 md:px-4 py-2">
-                              <input 
-                                type="number" 
-                                value={combo.stock} 
-                                data-combination-id={combo.id}
-                                class="w-16 md:w-20 px-1 md:px-2 py-1 border rounded combination-stock-input text-xs md:text-sm"
-                              />
+                              <input type="number" value={combo.stock} data-combination-id={combo.id} class="w-16 md:w-20 px-1 md:px-2 py-1 border rounded combination-stock-input text-xs md:text-sm" />
                             </td>
                             <td class="px-2 md:px-4 py-2 truncate max-w-[80px]">{combo.sku || '-'}</td>
                           </tr>
@@ -410,12 +359,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
               const isChecked = piercingArray.includes(p);
               return (
                 <label class="flex items-center space-x-2 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    value={p} 
-                    checked={isChecked} 
-                    class="piercing-checkbox h-4 w-4 md:h-5 md:w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" 
-                  />
+                  <input type="checkbox" value={p} checked={isChecked} class="piercing-checkbox h-4 w-4 md:h-5 md:w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" />
                   <span class="font-medium text-slate-700 text-sm md:text-base">{p}</span>
                 </label>
               );
@@ -428,27 +372,20 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       <div class="hidden lg:block lg:col-span-1 space-y-8">
         <div class="card">
           <h2 class="card-title">Imágenes</h2>
-          
           {!isCreate && initialImages.length > 0 && (
             <div id="slideshow-container" class="mb-6">
-              <AdminProductSlideshow images={initialImages.map(i => i.image)} />
+              <ProductSlideshow images={initialImages.map(i => i.image)} />
             </div>
           )}
-
           <div class="mt-6">
-            <label for="file-upload" class="form-label">
-              {isCreate ? 'Agregar imágenes' : 'Añadir nuevas'}
-            </label>
+            <label for="file-upload" class="form-label">{isCreate ? 'Agregar imágenes' : 'Añadir nuevas'}</label>
             <div id="drop-zone" class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer bg-white hover:bg-slate-50 hover:border-yellow-600 transition-colors">
-              <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-              </svg>
+              <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
               <p class="text-sm text-slate-500">Click o arrastra</p>
               <input id="file-upload" type="file" accept="image/*" multiple class="hidden" />
             </div>
           </div>
           <div id="new-images-preview" class="mt-4 grid grid-cols-3 gap-2"></div>
-
           {!isCreate && initialImages.length > 0 && (
             <>
               <h3 class="form-label mt-6 mb-2">Imágenes Actuales</h3>
@@ -476,43 +413,32 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     </div>
   </section>
 
-  <!-- ✅ Modal para agregar variantes (soporta modo "nuevo tipo" y "agregar a grupo existente") -->
+  <!-- Modal para agregar variantes -->
   <div id="variant-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 md:p-4">
     <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
       <div class="p-4 md:p-6">
-        <h3 id="variant-modal-title" class="text-lg md:text-xl font-bold text-slate-800 mb-4">Agregar Nueva Variante</h3>
-        
+        <h3 class="text-lg md:text-xl font-bold text-slate-800 mb-4">Agregar Nueva Variante</h3>
         <form id="variant-form" class="space-y-4">
           <div>
             <label class="form-label">Tipo (Color, Tamaño)</label>
             <input type="text" id="variant-name" class="form-input" placeholder="Color" required />
           </div>
-          
           <div id="variant-options" class="space-y-3">
             <label class="form-label">Opciones</label>
             <div class="variant-option-row space-y-2">
               <input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <input type="number" placeholder="Aj. Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
-                <input type="number" placeholder="Costo" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-cost" />
+              <div class="grid grid-cols-3 gap-2">
+                <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
                 <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
                 <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
               </div>
               <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>
             </div>
           </div>
-          
-          <button type="button" id="add-option-btn" class="btn-secondary w-full text-sm md:text-base">
-            + Agregar opción
-          </button>
-          
+          <button type="button" id="add-option-btn" class="btn-secondary w-full text-sm md:text-base">+ Agregar opción</button>
           <div class="flex flex-col sm:flex-row gap-3 mt-6">
-            <button type="button" id="cancel-variant-btn" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">
-              Cancelar
-            </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">
-              Guardar
-            </button>
+            <button type="button" id="cancel-variant-btn" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">Cancelar</button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">Guardar</button>
           </div>
         </form>
       </div>
@@ -524,47 +450,16 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     <div class="bg-white rounded-lg max-w-md w-full">
       <div class="p-4 md:p-6">
         <h3 class="text-lg md:text-xl font-bold text-slate-800 mb-4">Editar Variante</h3>
-        
         <form id="edit-variant-form" class="space-y-4">
           <input type="hidden" id="edit-variant-id" />
-          
-          <div>
-            <label class="form-label">Tipo</label>
-            <input type="text" id="edit-variant-name" class="form-input bg-slate-100 text-sm md:text-base" readonly />
-          </div>
-          
-          <div>
-            <label class="form-label">Valor</label>
-            <input type="text" id="edit-variant-value" class="form-input text-sm md:text-base" required />
-          </div>
-          
-          <div>
-            <label class="form-label">Ajuste de Precio</label>
-            <input type="number" id="edit-price-adjustment" step="0.01" class="form-input text-sm md:text-base" />
-          </div>
-
-          <div>
-            <label class="form-label">Costo</label>
-            <input type="number" id="edit-cost" step="0.01" class="form-input text-sm md:text-base" placeholder="Costo de esta variante" />
-          </div>
-          
-          <div>
-            <label class="form-label">Stock</label>
-            <input type="number" id="edit-stock" class="form-input text-sm md:text-base" required />
-          </div>
-          
-          <div>
-            <label class="form-label">SKU (opcional)</label>
-            <input type="text" id="edit-sku" class="form-input text-sm md:text-base" />
-          </div>
-          
+          <div><label class="form-label">Tipo</label><input type="text" id="edit-variant-name" class="form-input bg-slate-100 text-sm md:text-base" readonly /></div>
+          <div><label class="form-label">Valor</label><input type="text" id="edit-variant-value" class="form-input text-sm md:text-base" required /></div>
+          <div><label class="form-label">Ajuste de Precio</label><input type="number" id="edit-price-adjustment" step="0.01" class="form-input text-sm md:text-base" /></div>
+          <div><label class="form-label">Stock</label><input type="number" id="edit-stock" class="form-input text-sm md:text-base" required /></div>
+          <div><label class="form-label">SKU (opcional)</label><input type="text" id="edit-sku" class="form-input text-sm md:text-base" /></div>
           <div class="flex flex-col sm:flex-row gap-3 mt-6">
-            <button type="button" id="cancel-edit-variant" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">
-              Cancelar
-            </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">
-              Guardar
-            </button>
+            <button type="button" id="cancel-edit-variant" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">Cancelar</button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">Guardar</button>
           </div>
         </form>
       </div>
@@ -593,21 +488,15 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
       if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
       return url.pathname + url.search;
-    } catch (e) {
-      return '/admin/products';
-    }
+    } catch (e) { return '/admin/products'; }
   }
 
   let isInitialized = false;
 
   document.addEventListener('astro:page-load', () => {
-
     const backButton = document.getElementById('back-to-products');
     if (backButton) {
-      backButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        navigate(getProductsUrlWithFilters());
-      });
+      backButton.addEventListener('click', (e) => { e.preventDefault(); navigate(getProductsUrlWithFilters()); });
     }
 
     if (!window.location.pathname.startsWith('/admin/products/')) return;
@@ -619,18 +508,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     if (!form) return;
 
     const dropZones = [document.getElementById('drop-zone'), document.getElementById('drop-zone-mobile')].filter(Boolean);
-    const fileInputs = [
-      document.getElementById('file-upload') as HTMLInputElement,
-      document.getElementById('file-upload-mobile') as HTMLInputElement
-    ].filter(Boolean);
-    const previewContainers = [
-      document.getElementById('new-images-preview'),
-      document.getElementById('new-images-preview-mobile')
-    ].filter(Boolean);
-    const imageListContainers = [
-      document.getElementById('image-list-container'),
-      document.getElementById('image-list-container-mobile')
-    ].filter(Boolean);
+    const fileInputs = [document.getElementById('file-upload') as HTMLInputElement, document.getElementById('file-upload-mobile') as HTMLInputElement].filter(Boolean);
+    const previewContainers = [document.getElementById('new-images-preview'), document.getElementById('new-images-preview-mobile')].filter(Boolean);
+    const imageListContainers = [document.getElementById('image-list-container'), document.getElementById('image-list-container-mobile')].filter(Boolean);
     const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
     const variantsContainer = document.getElementById('variants-container');
     const isCreate = !form.querySelector('input[name="id"]');
@@ -640,27 +520,31 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     let isProcessing = false;
 
     // =====================================================
+    // TOGGLE DE GRABADO LÁSER
+    // =====================================================
+    const engravingCheckbox = document.getElementById('allowsEngraving') as HTMLInputElement;
+    const engravingInfo = document.getElementById('engraving-info');
+    if (engravingCheckbox && engravingInfo) {
+      engravingCheckbox.addEventListener('change', () => {
+        engravingInfo.classList.toggle('hidden', !engravingCheckbox.checked);
+      });
+    }
+
+    // =====================================================
     // PIERCINGS
     // =====================================================
     function updatePiercingHiddenField() {
       const checkboxes = document.querySelectorAll('.piercing-checkbox:checked') as NodeListOf<HTMLInputElement>;
       const selectedValues = Array.from(checkboxes).map(cb => cb.value);
-      if (piercingHiddenInput) {
-        piercingHiddenInput.value = selectedValues.join(',');
-      }
+      if (piercingHiddenInput) { piercingHiddenInput.value = selectedValues.join(','); }
     }
-
-    document.querySelectorAll('.piercing-checkbox').forEach(checkbox => {
-      checkbox.addEventListener('change', updatePiercingHiddenField);
-    });
+    document.querySelectorAll('.piercing-checkbox').forEach(checkbox => { checkbox.addEventListener('change', updatePiercingHiddenField); });
 
     // =====================================================
     // MANEJO DE ARCHIVOS
     // =====================================================
     const handleNewFiles = (incomingFiles: FileList) => {
-      const uniqueFiles = Array.from(incomingFiles).filter(
-        file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size)
-      );
+      const uniqueFiles = Array.from(incomingFiles).filter(file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size));
       if (uniqueFiles.length === 0) return;
       newFiles = [...newFiles, ...uniqueFiles];
       renderNewPreviews();
@@ -677,10 +561,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             if (!e.target?.result) return;
             const wrapper = document.createElement('div');
             wrapper.className = 'relative group';
-            wrapper.innerHTML = `
-              <img src="${e.target.result as string}" alt="${file.name}" class="h-20 md:h-24 w-full object-cover rounded-lg shadow-md" />
-              <button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-            `;
+            wrapper.innerHTML = `<img src="${e.target.result as string}" alt="${file.name}" class="h-20 md:h-24 w-full object-cover rounded-lg shadow-md" /><button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>`;
             container.appendChild(wrapper);
           };
           reader.readAsDataURL(file);
@@ -691,9 +572,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const updateFileInput = () => {
       const dataTransfer = new DataTransfer();
       newFiles.forEach(file => dataTransfer.items.add(file));
-      fileInputs.forEach(input => {
-        if (input) input.files = dataTransfer.files;
-      });
+      fileInputs.forEach(input => { if (input) input.files = dataTransfer.files; });
     };
 
     dropZones.forEach((dropZone, idx) => {
@@ -701,12 +580,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       if (!dropZone || !fileInput) return;
       dropZone.addEventListener('click', () => fileInput.click());
       let changeTimeout: NodeJS.Timeout;
-      fileInput.addEventListener('change', () => {
-        clearTimeout(changeTimeout);
-        changeTimeout = setTimeout(() => {
-          if (fileInput.files && fileInput.files.length > 0) handleNewFiles(fileInput.files);
-        }, 100);
-      });
+      fileInput.addEventListener('change', () => { clearTimeout(changeTimeout); changeTimeout = setTimeout(() => { if (fileInput.files && fileInput.files.length > 0) handleNewFiles(fileInput.files); }, 100); });
       const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
       ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, preventDefaults));
       ['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.add('border-yellow-600', 'bg-yellow-50')));
@@ -720,27 +594,17 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     document.addEventListener('change', async (e) => {
       const target = e.target as HTMLInputElement;
       if (target.classList.contains('variant-image-input') && target.files && target.files[0]) {
-        const file = target.files[0];
-        const variantId = target.dataset.variantId;
-        const productId = target.dataset.productId;
+        const file = target.files[0]; const variantId = target.dataset.variantId; const productId = target.dataset.productId;
         if (!variantId || !productId) return;
         if (!file.type.startsWith('image/')) { Toast.error('Error', 'Debe ser una imagen'); target.value = ''; return; }
         if (file.size > 5 * 1024 * 1024) { Toast.error('Error', 'Imagen muy grande (máx 5MB)'); target.value = ''; return; }
         const loadingId = Toast.loading('Subiendo imagen...');
         try {
-          const formData = new FormData();
-          formData.append('variantId', variantId);
-          formData.append('productId', productId);
-          formData.append('imageFile', file);
+          const formData = new FormData(); formData.append('variantId', variantId); formData.append('productId', productId); formData.append('imageFile', file);
           const { data, error } = await actions.uploadVariantImage(formData);
           if (error) throw new Error(error.message);
-          Toast.dismiss(loadingId);
-          Toast.success('¡Imagen subida!');
-          setTimeout(() => window.location.reload(), 1000);
-        } catch (err: any) {
-          Toast.dismiss(loadingId);
-          await Alert.error('Error', err.message);
-        }
+          Toast.dismiss(loadingId); Toast.success('¡Imagen subida!'); setTimeout(() => window.location.reload(), 1000);
+        } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
         target.value = '';
       }
     });
@@ -749,16 +613,13 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     // TOGGLE DE VARIANTES
     // =====================================================
     if (hasVariantsCheckbox && variantsContainer) {
-      hasVariantsCheckbox.addEventListener('change', () => {
-        variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked);
-      });
+      hasVariantsCheckbox.addEventListener('change', () => { variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked); });
     }
 
     // =====================================================
-    // MODALES DE VARIANTES
+    // MODALES
     // =====================================================
     const variantModal = document.getElementById('variant-modal');
-    const variantModalTitle = document.getElementById('variant-modal-title');
     const editVariantModal = document.getElementById('edit-variant-modal');
     const addVariantBtn = document.getElementById('add-variant-btn');
     const cancelVariantBtn = document.getElementById('cancel-variant-btn');
@@ -766,74 +627,15 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const editVariantForm = document.getElementById('edit-variant-form') as HTMLFormElement;
     const addOptionBtn = document.getElementById('add-option-btn');
     const variantOptions = document.getElementById('variant-options');
-    const variantNameInput = document.getElementById('variant-name') as HTMLInputElement;
 
-    // ✅ Helper para abrir el modal de variantes en dos modos
-    function openVariantModal(mode: 'new' | 'add-to-group', groupName?: string) {
-      if (!variantModal || !variantNameInput || !variantModalTitle) return;
+    if (addVariantBtn && variantModal) { addVariantBtn.addEventListener('click', () => { variantModal.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }); }
+    if (cancelVariantBtn && variantModal) { cancelVariantBtn.addEventListener('click', () => { variantModal.classList.add('hidden'); document.body.style.overflow = ''; if (variantForm) variantForm.reset(); }); }
 
-      // Reset del formulario
-      variantForm?.reset();
-
-      // Limpiar filas extra (dejar solo la primera)
-      const allRows = variantOptions?.querySelectorAll('.variant-option-row');
-      if (allRows && allRows.length > 1) {
-        for (let i = 1; i < allRows.length; i++) {
-          allRows[i].remove();
-        }
-      }
-
-      if (mode === 'add-to-group' && groupName) {
-        // Modo: agregar opciones a grupo existente
-        variantModalTitle.textContent = `Agregar opciones a "${groupName}"`;
-        variantNameInput.value = groupName;
-        variantNameInput.readOnly = true;
-        variantNameInput.classList.add('bg-slate-100', 'cursor-not-allowed');
-      } else {
-        // Modo: nuevo tipo de variante
-        variantModalTitle.textContent = 'Agregar Nueva Variante';
-        variantNameInput.value = '';
-        variantNameInput.readOnly = false;
-        variantNameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
-      }
-
-      variantModal.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-    }
-
-    // Botón "+ Nuevo Tipo de Variante"
-    if (addVariantBtn) {
-      addVariantBtn.addEventListener('click', () => openVariantModal('new'));
-    }
-
-    if (cancelVariantBtn && variantModal) {
-      cancelVariantBtn.addEventListener('click', () => {
-        variantModal.classList.add('hidden');
-        document.body.style.overflow = '';
-        variantForm?.reset();
-        // Restaurar estado del input
-        if (variantNameInput) {
-          variantNameInput.readOnly = false;
-          variantNameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
-        }
-      });
-    }
-
-    // Agregar nueva fila de opción
     if (addOptionBtn && variantOptions) {
       addOptionBtn.addEventListener('click', () => {
         const newRow = document.createElement('div');
         newRow.className = 'variant-option-row space-y-2 border-t border-slate-200 pt-3 mt-3';
-        newRow.innerHTML = `
-          <input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <input type="number" placeholder="Aj. Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
-            <input type="number" placeholder="Costo" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-cost" />
-            <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
-            <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
-          </div>
-          <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>
-        `;
+        newRow.innerHTML = `<input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required /><div class="grid grid-cols-3 gap-2"><input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" /><input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required /><input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" /></div><button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>`;
         variantOptions.appendChild(newRow);
       });
     }
@@ -846,40 +648,15 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       const target = e.target as HTMLElement;
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
 
-      // ✅ NUEVO: Agregar opción a grupo existente
-      if (target.closest('.add-option-to-group')) {
-        const button = target.closest('.add-option-to-group') as HTMLElement;
-        const groupName = button.dataset.variantName;
-        if (groupName) {
-          openVariantModal('add-to-group', groupName);
-        }
-        return;
-      }
-      
-      // Eliminar imagen de variante
       if (target.closest('.delete-variant-image')) {
-        e.stopPropagation();
-        e.preventDefault();
-        const button = target.closest('.delete-variant-image') as HTMLElement;
-        const variantId = button.dataset.variantId;
-        if (!variantId) return;
+        e.stopPropagation(); e.preventDefault();
+        const button = target.closest('.delete-variant-image') as HTMLElement; const variantId = button.dataset.variantId; if (!variantId) return;
         const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
-        if (confirmed) {
-          isProcessing = true;
-          const loadingId = Toast.loading('Eliminando imagen...');
-          try {
-            const { error } = await actions.deleteVariantImage(variantId);
-            if (error) throw new Error(error.message);
-            Toast.dismiss(loadingId);
-            Toast.success('Imagen eliminada');
-            setTimeout(() => window.location.reload(), 1000);
-          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-          finally { isProcessing = false; }
-        }
-        return;
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando imagen...');
+          try { const { error } = await actions.deleteVariantImage(variantId); if (error) throw new Error(error.message); Toast.dismiss(loadingId); Toast.success('Imagen eliminada'); setTimeout(() => window.location.reload(), 1000); } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+        } return;
       }
-      
-      // Editar variante
+
       if (target.closest('.edit-variant')) {
         const button = target.closest('.edit-variant') as HTMLElement;
         if (editVariantModal) {
@@ -887,69 +664,44 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           (document.getElementById('edit-variant-name') as HTMLInputElement).value = button.dataset.variantName || '';
           (document.getElementById('edit-variant-value') as HTMLInputElement).value = button.dataset.variantValue || '';
           (document.getElementById('edit-price-adjustment') as HTMLInputElement).value = button.dataset.priceAdjustment || '0';
-          (document.getElementById('edit-cost') as HTMLInputElement).value = button.dataset.cost || '';
           (document.getElementById('edit-stock') as HTMLInputElement).value = button.dataset.stock || '0';
           (document.getElementById('edit-sku') as HTMLInputElement).value = button.dataset.sku || '';
-          editVariantModal.classList.remove('hidden');
-          document.body.style.overflow = 'hidden';
+          editVariantModal.classList.remove('hidden'); document.body.style.overflow = 'hidden';
         }
       }
 
-      // Eliminar variante
       if (target.closest('.delete-variant')) {
-        const button = target.closest('.delete-variant') as HTMLElement;
-        const variantId = button.dataset.variantId;
+        const button = target.closest('.delete-variant') as HTMLElement; const variantId = button.dataset.variantId;
         const confirmed = await Confirm.show({ title: '¿Eliminar variante?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
-        if (confirmed) {
-          isProcessing = true;
-          const loadingId = Toast.loading('Eliminando variante...');
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando variante...');
           try {
-            const { data, error } = await actions.deleteVariant(variantId!);
-            if (error) throw new Error(error.message);
-            Toast.dismiss(loadingId);
-            button.closest('.variant-item')?.remove();
+            const { data, error } = await actions.deleteVariant(variantId!); if (error) throw new Error(error.message);
+            Toast.dismiss(loadingId); button.closest('.variant-item')?.remove();
             if (data?.shouldRegenerateCombinations && productId) {
               const regenConfirmed = await Confirm.show({ title: '¿Regenerar combinaciones?', message: 'Se actualizarán las combinaciones de variantes.', confirmText: 'Sí, regenerar', cancelText: 'No', type: 'info' });
-              if (regenConfirmed) {
-                const regenLoading = Toast.loading('Regenerando combinaciones...');
-                await actions.generateVariantCombinations(productId);
-                Toast.dismiss(regenLoading);
-                setTimeout(() => window.location.reload(), 1000);
-              }
+              if (regenConfirmed) { const regenLoading = Toast.loading('Regenerando combinaciones...'); await actions.generateVariantCombinations(productId); Toast.dismiss(regenLoading); setTimeout(() => window.location.reload(), 1000); }
             }
             const variantGroup = button.closest('.variant-group');
             if (variantGroup && variantGroup.querySelectorAll('.variant-item').length === 0) variantGroup.remove();
             Toast.success('Variante eliminada');
-          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-          finally { isProcessing = false; }
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
         }
       }
 
-      // Eliminar grupo de variantes
       if (target.closest('.delete-variant-group')) {
-        const button = target.closest('.delete-variant-group') as HTMLElement;
-        const variantName = button.dataset.variantName;
+        const button = target.closest('.delete-variant-group') as HTMLElement; const variantName = button.dataset.variantName;
         const confirmed = await Confirm.show({ title: `¿Eliminar "${variantName}"?`, message: 'Se eliminarán todas las opciones de esta variante.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
-        if (confirmed) {
-          isProcessing = true;
-          const loadingId = Toast.loading('Eliminando grupo...');
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando grupo...');
           try {
             if (!productId) throw new Error('ID de producto no encontrado');
-            const { error } = await actions.deleteVariantGroup({ productId, variantName: variantName! });
-            if (error) throw new Error(error.message);
-            Toast.dismiss(loadingId);
-            button.closest('.variant-group')?.remove();
-            if (document.querySelectorAll('.variant-group').length === 0 && hasVariantsCheckbox) {
-              hasVariantsCheckbox.checked = false;
-              variantsContainer?.classList.add('hidden');
-            }
+            const { error } = await actions.deleteVariantGroup({ productId, variantName: variantName! }); if (error) throw new Error(error.message);
+            Toast.dismiss(loadingId); button.closest('.variant-group')?.remove();
+            if (document.querySelectorAll('.variant-group').length === 0 && hasVariantsCheckbox) { hasVariantsCheckbox.checked = false; variantsContainer?.classList.add('hidden'); }
             Toast.success('Grupo eliminado');
-          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-          finally { isProcessing = false; }
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
         }
       }
 
-      // Remover opción del modal
       if (target.classList.contains('remove-option')) {
         const allRows = document.querySelectorAll('.variant-option-row');
         if (allRows.length > 1) { target.closest('.variant-option-row')?.remove(); }
@@ -957,214 +709,85 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       }
     });
 
-    // Cancelar edición de variante
-    document.getElementById('cancel-edit-variant')?.addEventListener('click', () => {
-      editVariantModal?.classList.add('hidden');
-      document.body.style.overflow = '';
-      editVariantForm?.reset();
-    });
+    document.getElementById('cancel-edit-variant')?.addEventListener('click', () => { editVariantModal?.classList.add('hidden'); document.body.style.overflow = ''; editVariantForm?.reset(); });
 
-    // =====================================================
-    // SUBMIT EDICIÓN DE VARIANTE
-    // =====================================================
     editVariantForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (isProcessing) return;
-      isProcessing = true;
+      e.preventDefault(); if (isProcessing) return; isProcessing = true;
       const loadingId = Toast.loading('Actualizando variante...');
       try {
-        const costValue = (document.getElementById('edit-cost') as HTMLInputElement).value;
         const { error } = await actions.updateVariant({
           variantId: (document.getElementById('edit-variant-id') as HTMLInputElement).value,
           variantValue: (document.getElementById('edit-variant-value') as HTMLInputElement).value,
           priceAdjustment: parseFloat((document.getElementById('edit-price-adjustment') as HTMLInputElement).value) || 0,
-          cost: costValue ? parseFloat(costValue) : null,
           stock: parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0,
           sku: (document.getElementById('edit-sku') as HTMLInputElement).value || null
         });
         if (error) throw new Error(error.message);
-        Toast.dismiss(loadingId);
-        editVariantModal?.classList.add('hidden');
-        document.body.style.overflow = '';
-        Toast.success('Variante actualizada');
-        setTimeout(() => window.location.reload(), 1000);
-      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-      finally { isProcessing = false; }
+        Toast.dismiss(loadingId); editVariantModal?.classList.add('hidden'); document.body.style.overflow = ''; Toast.success('Variante actualizada'); setTimeout(() => window.location.reload(), 1000);
+      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
     });
 
-    // =====================================================
-    // SUBMIT NUEVA VARIANTE (funciona para ambos modos)
-    // =====================================================
     variantForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (isProcessing) return;
+      e.preventDefault(); if (isProcessing) return;
       const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
       if (!productId) { await Alert.warning('Atención', 'Primero guarda el producto'); return; }
-
       const variantName = (document.getElementById('variant-name') as HTMLInputElement).value;
       const rows = document.querySelectorAll('.variant-option-row');
-      const variants = Array.from(rows).map(row => {
-        const costInput = (row.querySelector('.variant-cost') as HTMLInputElement)?.value;
-        return {
-          variantName,
-          variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value,
-          priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0,
-          cost: costInput ? parseFloat(costInput) : undefined,
-          stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0,
-          sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined
-        };
-      });
-
-      isProcessing = true;
-      const loadingId = Toast.loading('Guardando variantes...');
-      try {
-        const { error } = await actions.createBatchVariants({ productId, variants });
-        if (error) throw new Error(error.message);
-        Toast.dismiss(loadingId);
-        variantModal?.classList.add('hidden');
-        document.body.style.overflow = '';
-        // Restaurar estado del input
-        if (variantNameInput) {
-          variantNameInput.readOnly = false;
-          variantNameInput.classList.remove('bg-slate-100', 'cursor-not-allowed');
-        }
-        Toast.success('Variantes guardadas');
-        setTimeout(() => window.location.reload(), 1000);
-      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-      finally { isProcessing = false; }
+      const variants = Array.from(rows).map(row => ({ variantName, variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value, priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0, stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0, sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined }));
+      isProcessing = true; const loadingId = Toast.loading('Creando variantes...');
+      try { const { error } = await actions.createBatchVariants({ productId, variants }); if (error) throw new Error(error.message); Toast.dismiss(loadingId); variantModal?.classList.add('hidden'); document.body.style.overflow = ''; Toast.success('Variantes creadas'); setTimeout(() => window.location.reload(), 1000); }
+      catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
     });
 
-    // =====================================================
-    // GENERAR COMBINACIONES
-    // =====================================================
     document.getElementById('generate-combinations-btn')?.addEventListener('click', async () => {
-      if (isProcessing) return;
-      const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
-      if (!productId) return;
+      if (isProcessing) return; const productId = form.querySelector('input[name="id"]')?.getAttribute('value'); if (!productId) return;
       const confirmed = await Confirm.show({ title: '¿Generar combinaciones?', message: 'Se crearán todas las combinaciones posibles de variantes.', confirmText: 'Sí, generar', cancelText: 'Cancelar', type: 'info' });
-      if (confirmed) {
-        isProcessing = true;
-        const loadingId = Toast.loading('Generando combinaciones...');
-        try {
-          const { error } = await actions.generateVariantCombinations(productId);
-          if (error) throw new Error(error.message);
-          Toast.dismiss(loadingId);
-          Toast.success('Combinaciones generadas');
-          setTimeout(() => window.location.reload(), 1000);
-        } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-        finally { isProcessing = false; }
+      if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Generando combinaciones...');
+        try { const { error } = await actions.generateVariantCombinations(productId); if (error) throw new Error(error.message); Toast.dismiss(loadingId); Toast.success('Combinaciones generadas'); setTimeout(() => window.location.reload(), 1000); }
+        catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
       }
     });
 
-    // =====================================================
-    // STOCK DE COMBINACIONES
-    // =====================================================
     document.querySelectorAll('.combination-stock-input').forEach(input => {
       let timeout: NodeJS.Timeout;
-      input.addEventListener('change', async (e) => {
-        clearTimeout(timeout);
-        const target = e.target as HTMLInputElement;
-        const combinationId = target.dataset.combinationId;
-        if (!combinationId) return;
-        timeout = setTimeout(async () => {
-          try {
-            const { error } = await actions.updateCombinationStock({ combinationId, newStock: parseInt(target.value) });
-            if (error) throw new Error(error.message);
-            target.classList.add('border-green-500');
-            setTimeout(() => target.classList.remove('border-green-500'), 1000);
-          } catch (err: any) {
-            target.classList.add('border-red-500');
-            setTimeout(() => target.classList.remove('border-red-500'), 1000);
-          }
-        }, 500);
+      input.addEventListener('change', async (e) => { clearTimeout(timeout); const target = e.target as HTMLInputElement; const combinationId = target.dataset.combinationId; if (!combinationId) return;
+        timeout = setTimeout(async () => { try { const { error } = await actions.updateCombinationStock({ combinationId, newStock: parseInt(target.value) }); if (error) throw new Error(error.message); target.classList.add('border-green-500'); setTimeout(() => target.classList.remove('border-green-500'), 1000); } catch (err: any) { target.classList.add('border-red-500'); setTimeout(() => target.classList.remove('border-red-500'), 1000); } }, 500);
       });
     });
 
-    // =====================================================
-    // ELIMINAR IMÁGENES EXISTENTES
-    // =====================================================
     imageListContainers.forEach(container => {
-      container?.addEventListener('click', async (e) => {
-        if (isProcessing) return;
-        const target = e.target as HTMLButtonElement;
-        if (!target.classList.contains('delete-existing')) return;
-        const id = target.dataset.id;
-        if (!id) return;
+      container?.addEventListener('click', async (e) => { if (isProcessing) return; const target = e.target as HTMLButtonElement; if (!target.classList.contains('delete-existing')) return; const id = target.dataset.id; if (!id) return;
         const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
-        if (confirmed) {
-          isProcessing = true;
-          const loadingId = Toast.loading('Eliminando imagen...');
-          try {
-            const { error } = await actions.deleteProductImage(id);
-            if (error) throw new Error(error.message);
-            Toast.dismiss(loadingId);
-            imageListContainers.forEach(c => c?.querySelector(`[data-id="${id}"]`)?.remove());
-            Toast.success('Imagen eliminada');
-          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-          finally { isProcessing = false; }
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando imagen...');
+          try { const { error } = await actions.deleteProductImage(id); if (error) throw new Error(error.message); Toast.dismiss(loadingId); imageListContainers.forEach(c => c?.querySelector(`[data-id="${id}"]`)?.remove()); Toast.success('Imagen eliminada'); }
+          catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
         }
       });
     });
 
-    // =====================================================
-    // REMOVER NUEVAS IMÁGENES (PREVIEW)
-    // =====================================================
     previewContainers.forEach(container => {
-      container?.addEventListener('click', e => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('remove-new-btn')) {
-          const index = parseInt(target.dataset.index || '-1');
-          if (index > -1) { newFiles.splice(index, 1); renderNewPreviews(); updateFileInput(); }
-        }
-      });
+      container?.addEventListener('click', e => { const target = e.target as HTMLElement; if (target.classList.contains('remove-new-btn')) { const index = parseInt(target.dataset.index || '-1'); if (index > -1) { newFiles.splice(index, 1); renderNewPreviews(); updateFileInput(); } } });
     });
 
-    // =====================================================
-    // AUTO-GENERAR SLUG
-    // =====================================================
     const nameInput = document.getElementById('name') as HTMLInputElement;
     const slugInput = document.getElementById('slug') as HTMLInputElement;
-    if (nameInput && slugInput && isCreate) {
-      nameInput.addEventListener('input', () => {
-        slugInput.value = nameInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      });
-    }
+    if (nameInput && slugInput && isCreate) { nameInput.addEventListener('input', () => { slugInput.value = nameInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }); }
 
-    // =====================================================
-    // SUBMIT DEL FORMULARIO PRINCIPAL
-    // =====================================================
     form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (isProcessing) return;
-      const saveButton = document.getElementById('save-button') as HTMLButtonElement;
-      if (!saveButton) return;
-      isProcessing = true;
-      saveButton.disabled = true;
-      saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
+      e.preventDefault(); if (isProcessing) return;
+      const saveButton = document.getElementById('save-button') as HTMLButtonElement; if (!saveButton) return;
+      isProcessing = true; saveButton.disabled = true; saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
       const loadingId = Toast.loading(isCreate ? 'Creando producto...' : 'Guardando cambios...');
       try {
-        updatePiercingHiddenField();
-        const formData = new FormData(form);
-        formData.delete('imageFiles');
-        newFiles.forEach(file => formData.append('imageFiles', file));
-        const { data, error } = await actions.crateUpdateProduct(formData);
-        if (error) throw new Error(error.message);
-        Toast.dismiss(loadingId);
-        Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!');
-        setTimeout(() => navigate(getProductsUrlWithFilters()), 1000);
+        updatePiercingHiddenField(); const formData = new FormData(form); formData.delete('imageFiles'); newFiles.forEach(file => formData.append('imageFiles', file));
+        const { data, error } = await actions.crateUpdateProduct(formData); if (error) throw new Error(error.message);
+        Toast.dismiss(loadingId); Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!'); setTimeout(() => navigate(getProductsUrlWithFilters()), 1000);
       } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
-      finally {
-        isProcessing = false;
-        saveButton.disabled = false;
-        saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar';
-      }
+      finally { isProcessing = false; saveButton.disabled = false; saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar'; }
     });
   });
 
-  document.addEventListener('astro:before-preparation', () => {
-    isInitialized = false;
-    document.body.style.overflow = '';
-  });
+  document.addEventListener('astro:before-preparation', () => { isInitialized = false; document.body.style.overflow = ''; });
   </script>
 
   <style>
@@ -1178,37 +801,9 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
   <script is:inline>
   (function() {
     var FILTERS_STORAGE_KEY = 'admin_products_filters';
-    function getProductsUrlWithFilters() {
-      try {
-        var saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
-        if (!saved) return '/admin/products';
-        var filters = JSON.parse(saved);
-        var url = new URL('/admin/products', window.location.origin);
-        if (filters.search) url.searchParams.set('search', filters.search);
-        if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category);
-        if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter);
-        if (filters.sortBy && filters.sortBy !== 'name') url.searchParams.set('sortBy', filters.sortBy);
-        if (filters.sortOrder && filters.sortOrder !== 'asc') url.searchParams.set('sortOrder', filters.sortOrder);
-        if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice);
-        if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
-        if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
-        return url.pathname + url.search;
-      } catch (e) { return '/admin/products'; }
-    }
-    function setupBackButton() {
-      var backButton = document.getElementById('back-to-products');
-      if (backButton && !backButton.hasAttribute('data-listener-attached')) {
-        backButton.setAttribute('data-listener-attached', 'true');
-        backButton.addEventListener('click', function(e) {
-          e.preventDefault();
-          var returnUrl = getProductsUrlWithFilters();
-          if (typeof window.navigation !== 'undefined' && window.navigation.navigate) { window.navigation.navigate(returnUrl); }
-          else { window.location.href = returnUrl; }
-        });
-      }
-    }
-    setupBackButton();
-    document.addEventListener('astro:page-load', setupBackButton);
+    function getProductsUrlWithFilters() { try { var saved = sessionStorage.getItem(FILTERS_STORAGE_KEY); if (!saved) return '/admin/products'; var filters = JSON.parse(saved); var url = new URL('/admin/products', window.location.origin); if (filters.search) url.searchParams.set('search', filters.search); if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category); if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter); if (filters.sortBy && filters.sortBy !== 'name') url.searchParams.set('sortBy', filters.sortBy); if (filters.sortOrder && filters.sortOrder !== 'asc') url.searchParams.set('sortOrder', filters.sortOrder); if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice); if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice); if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page); return url.pathname + url.search; } catch (e) { return '/admin/products'; } }
+    function setupBackButton() { var backButton = document.getElementById('back-to-products'); if (backButton && !backButton.hasAttribute('data-listener-attached')) { backButton.setAttribute('data-listener-attached', 'true'); backButton.addEventListener('click', function(e) { e.preventDefault(); var returnUrl = getProductsUrlWithFilters(); if (typeof window.navigation !== 'undefined' && window.navigation.navigate) { window.navigation.navigate(returnUrl); } else { window.location.href = returnUrl; } }); } }
+    setupBackButton(); document.addEventListener('astro:page-load', setupBackButton);
   })();
   </script>
 </AdminLayout>

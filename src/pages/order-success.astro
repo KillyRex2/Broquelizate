@@ -1,29 +1,13 @@
 ---
 // src/pages/order-success.astro
-import MainLayout from "@/layouts/MainLayout.astro";
+import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { Formatter } from "@/utils";
 import Stripe from 'stripe';
-import { CartCookiesClient } from '@/utils/cart-cookies';
 import OrderTracking from '@/components/OrderTracking.astro';
 import { actions } from 'astro:actions';
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 const stripe = new Stripe(STRIPE_SECRET_KEY);
-
-// Configuración de tu tienda para Envia.com
-const STORE_CONFIG = {
-  origin: {
-    name: 'Broquelizate La Laguna',
-    street: 'Bravo',
-    number: '222',
-    district: 'Centro',
-    city: 'Gómez Palacio',
-    state: 'Durango',
-    postalCode: '35150',
-    phone: '8714617696',
-    email: 'broquelizatelaguna@gmail.com'
-  }
-};
 
 interface NormalizedProduct {
   id: string;
@@ -35,25 +19,15 @@ interface NormalizedProduct {
   variantSku?: string | null;
   variantImage?: string | null;
   weight?: number;
+  engraving?: { id: string; imageUrl: string; notes: string } | null;
 }
 
 interface OrderDetails {
   orderId: string;
   date: string;
   products: NormalizedProduct[];
-  shipping: {
-    method: string;
-    cost: number;
-    address: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-  };
-  customer: {
-    name: string;
-    email: string;
-    phone?: string;
-  };
+  shipping: { method: string; cost: number; address: string; city?: string; state?: string; postalCode?: string; };
+  customer: { name: string; email: string; phone?: string; };
   subtotal: number;
   total: number;
   paymentStatus: string;
@@ -65,562 +39,522 @@ interface OrderDetails {
 
 let orderDetails: OrderDetails | null = null;
 let errorMessage: string | null = null;
-let shippingLabel: any = null;
 let trackingInfo: any = null;
 
-CartCookiesClient.clearCart();
+// Limpiar carrito via Astro cookies (server-side safe)
+Astro.cookies.set('cart', '[]', { path: '/', maxAge: 60 * 60 * 24 * 30 });
 
 const sessionId = Astro.url.searchParams.get('session_id');
 const orderIdParam = Astro.url.searchParams.get('order_id');
 
 try {
   if (orderIdParam) {
-    // Cargar orden desde la base de datos
     const response = await fetch(`${Astro.url.origin}/api/get-order?order_id=${orderIdParam}`);
     if (response.ok) {
       const orderData = await response.json();
-      
-      // Parsear dirección de envío si existe
       const shippingData = orderData.shippingAddress ? JSON.parse(orderData.shippingAddress) : {};
-      
-      // Parsear información de envío si existe
       let shippingInfo = null;
       if (orderData.shippingInfo) {
-        try {
-          shippingInfo = typeof orderData.shippingInfo === 'string' 
-            ? JSON.parse(orderData.shippingInfo) 
-            : orderData.shippingInfo;
-        } catch (e) {
-          console.warn('No se pudo parsear shippingInfo:', e);
-        }
+        try { shippingInfo = typeof orderData.shippingInfo === 'string' ? JSON.parse(orderData.shippingInfo) : orderData.shippingInfo; } catch (e) {}
       }
       
       orderDetails = {
         orderId: orderData.orderNumber,
         date: new Date(orderData.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
         products: orderData.items.map((item: any) => ({
-          id: item.productId,
-          name: item.productName,
-          price: item.price,
-          quantity: item.quantity,
-          // Usar el campo 'image' que devuelve get-order (prioriza variantImage sobre productImage)
+          id: item.productId, name: item.productName, price: item.price, quantity: item.quantity,
           image: item.image || item.variantImage || item.productImage || null,
-          variantDescription: item.variantDescription || null,
-          variantSku: item.variantSku || null,
-          variantImage: item.variantImage || null,
-          weight: 100 // Peso default en gramos
+          variantDescription: item.variantDescription || null, variantSku: item.variantSku || null,
+          variantImage: item.variantImage || null, weight: 100,
+          engraving: item.engraving || null,
         })),
         shipping: {
           method: shippingInfo ? `${shippingInfo.carrier} - ${shippingInfo.service}` : "Envío Estándar",
           cost: orderData.shippingCost || shippingInfo?.price || 0,
           address: shippingData.streetAddress || "Dirección no disponible",
-          city: shippingData.city,
-          state: shippingData.state,
-          postalCode: shippingData.postalCode
+          city: shippingData.city, state: shippingData.state, postalCode: shippingData.postalCode
         },
-        customer: {
-          name: orderData.customerName || shippingData.name || "Cliente",
-          email: orderData.customerEmail,
-          phone: shippingData.phone
-        },
-        subtotal: orderData.subtotal,
-        total: orderData.total,
-        paymentStatus: "Pagado",
+        customer: { name: orderData.customerName || shippingData.name || "Cliente", email: orderData.customerEmail, phone: shippingData.phone },
+        subtotal: orderData.subtotal, total: orderData.total, paymentStatus: "Pagado",
         paymentMethod: orderData.paymentMethod || 'Tarjeta',
-        trackingNumber: orderData.trackingNumber,
-        carrier: shippingInfo?.carrier || orderData.carrier
+        trackingNumber: orderData.trackingNumber, carrier: shippingInfo?.carrier || orderData.carrier
       };
-    } else {
-      throw new Error("No se pudo cargar la orden desde la base de datos");
-    }
+    } else { throw new Error("No se pudo cargar la orden"); }
   } else if (sessionId) {
-    // Cargar desde Stripe Checkout Session (legacy)
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['line_items.data.price.product']
-    });
-
+    const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['line_items.data.price.product'] });
     const products = session.line_items?.data.map(item => {
       const product = item.price?.product as Stripe.Product;
-      return {
-        id: product.id || "",
-        name: item.description || product.name,
-        price: item.price?.unit_amount ? item.price.unit_amount / 100 : 0,
-        quantity: item.quantity || 1,
-        image: product.images?.[0] || null,
-        variantDescription: null,
-        variantSku: null,
-        variantImage: null,
-        weight: 100
-      };
+      return { id: product.id || "", name: item.description || product.name, price: item.price?.unit_amount ? item.price.unit_amount / 100 : 0, quantity: item.quantity || 1, image: product.images?.[0] || null, variantDescription: null, variantSku: null, variantImage: null, weight: 100 };
     }) || [];
-    
     const total = session.amount_total ? session.amount_total / 100 : 0;
-    const shippingAddress = session.customer_details?.address;
-    
+    const sa = session.customer_details?.address;
     orderDetails = {
       orderId: session.id.substring(0, 8).toUpperCase(),
       date: new Date(session.created * 1000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
-      products,
-      shipping: {
-        method: "Envío Estándar",
-        cost: session.shipping_cost?.amount_total ? session.shipping_cost.amount_total / 100 : 0,
-        address: shippingAddress?.line1 || "Dirección no disponible",
-        city: shippingAddress?.city || undefined,
-        state: shippingAddress?.state || undefined,
-        postalCode: shippingAddress?.postal_code || undefined
-      },
-      customer: {
-        name: session.customer_details?.name || "Cliente",
-        email: session.customer_details?.email || "Correo no disponible",
-        phone: session.customer_details?.phone || undefined
-      },
-      subtotal: total,
-      total: total,
-      paymentStatus: session.payment_status === "paid" ? "Pagado" : "Pendiente",
-      paymentMethod: 'Tarjeta'
+      products, shipping: { method: "Envío Estándar", cost: session.shipping_cost?.amount_total ? session.shipping_cost.amount_total / 100 : 0, address: sa?.line1 || "N/A", city: sa?.city || undefined, state: sa?.state || undefined, postalCode: sa?.postal_code || undefined },
+      customer: { name: session.customer_details?.name || "Cliente", email: session.customer_details?.email || "N/A", phone: session.customer_details?.phone || undefined },
+      subtotal: total, total, paymentStatus: session.payment_status === "paid" ? "Pagado" : "Pendiente", paymentMethod: 'Tarjeta'
     };
-  } else {
-    errorMessage = "No se encontró ID de sesión ni ID de pedido";
-  }
+  } else { errorMessage = "No se encontró ID de sesión ni ID de pedido"; }
 
-  // NOTA: La generación automática de etiquetas de envío se ha deshabilitado
-  // para evitar errores al visitar órdenes existentes.
-  // Las etiquetas se deben generar manualmente desde el panel de administración
-  // o en el momento del checkout (no al visitar order-success)
-  
-  // Si la orden ya tiene tracking, intentamos obtener el estado actual
-  if (orderDetails && orderDetails.trackingNumber && orderDetails.carrier) {
+  if (orderDetails?.trackingNumber && orderDetails?.carrier) {
     try {
-      const { data: trackingResult, error: trackingError } = await Astro.callAction(
-        actions.trackShipment,
-        {
-          trackingNumber: orderDetails.trackingNumber,
-          carrier: orderDetails.carrier
-        }
-      );
-      
-      if (!trackingError && trackingResult?.success) {
-        trackingInfo = trackingResult.tracking;
-      }
-    } catch (trackingError) {
-      console.warn('No se pudo obtener el estado del envío:', trackingError);
-      // No es crítico, continuamos sin tracking info
-    }
+      const { data: tr, error: te } = await Astro.callAction(actions.trackShipment, { trackingNumber: orderDetails.trackingNumber, carrier: orderDetails.carrier });
+      if (!te && tr?.success) trackingInfo = tr.tracking;
+    } catch {}
   }
+} catch (error: any) { errorMessage = error.message || "Error al cargar los detalles del pedido"; console.error('Error:', error); }
 
-} catch (error: any) {
-  errorMessage = error.message || "Error al cargar los detalles del pedido";
-  console.error('Error detallado:', error);
-}
-
-// Helper para obtener la mejor imagen disponible
 function getProductImage(product: NormalizedProduct): string {
-  // Prioridad: variantImage > image > placeholder
-  if (product.variantImage && product.variantImage.trim() !== '') {
-    return product.variantImage;
-  }
-  if (product.image && product.image.trim() !== '') {
-    return product.image;
-  }
-  return 'https://placehold.co/100x100/1f2937/9ca3af?text=Sin+imagen';
+  if (product.variantImage?.trim()) return product.variantImage;
+  if (product.image?.trim()) return product.image;
+  return 'https://placehold.co/100x100/1a1a2e/eab308?text=Sin+imagen';
 }
+
+const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) || 0;
 ---
 
-<MainLayout>
-  <div class="min-h-screen py-12 px-4 sm:px-6 lg:px-8 mt-10">
-    <div class="max-w-4xl mx-auto" aria-live="polite">
+<ProductsLayout title={orderDetails ? `Pedido ${orderDetails.orderId}` : 'Error'}>
+  <div class="os-page">
+    <div class="bg-decoration"><div class="glow glow-1"></div><div class="glow glow-2"></div><div class="grid-pattern"></div></div>
+
+    <div class="os-container">
       {errorMessage ? (
-        <div class="bg-red-50 rounded-lg p-6 text-center">
-          <h1 class="text-2xl font-bold text-red-800">Error al cargar la orden</h1>
-          <p class="mt-2 text-red-700">{errorMessage}</p>
-          <a href="/" class="mt-6 inline-block px-6 py-3 bg-red-500 text-white rounded-md hover:bg-red-600">Volver a la tienda</a>
+        <div class="error-state">
+          <div class="error-icon">
+            <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+          </div>
+          <h1 class="error-title">Error al cargar la orden</h1>
+          <p class="error-text">{errorMessage}</p>
+          <a href="/" class="error-cta">Volver a la tienda</a>
         </div>
       ) : orderDetails ? (
-        <div>
-          {/* Banner de éxito */}
-          <div class="bg-green-50 rounded-lg p-6 mb-8 border border-green-200">
-            <div class="flex flex-col md:flex-row items-start md:items-center">
-              <div class="flex items-center">
-                <svg class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div class="ml-4">
-                  <h1 class="text-2xl font-bold text-green-800">¡Pago Completado con Éxito!</h1>
-                  <p class="mt-1 text-green-700">Gracias por tu compra. Tu pedido está siendo preparado.</p>
-                </div>
-              </div>
-              <div class="md:ml-auto mt-4 md:mt-0">
-                <div class="bg-white rounded-lg p-4 shadow-sm">
-                  <p class="font-medium text-gray-700">ID de Pedido: <span class="font-bold text-green-800">{orderDetails.orderId}</span></p>
-                  <p class="text-sm text-gray-600">Fecha: {orderDetails.date}</p>
-                </div>
-              </div>
+        <>
+          {/* ═══ SUCCESS HERO ═══ */}
+          <div class="success-hero">
+            <div class="success-checkmark">
+              <svg width="48" height="48" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" stroke="#22c55e" stroke-width="1.5"/><path stroke="#22c55e" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12.5l2.5 2.5 5-5"/></svg>
+            </div>
+            <div class="success-text">
+              <h1 class="success-title">¡Pedido confirmado!</h1>
+              <p class="success-subtitle">Gracias por tu compra. Tu pedido está siendo preparado.</p>
+            </div>
+            <div class="order-id-card">
+              <span class="order-id-label">Pedido</span>
+              <span class="order-id-value">{orderDetails.orderId}</span>
+              <span class="order-id-date">{orderDetails.date}</span>
             </div>
           </div>
 
-          {/* INFORMACIÓN DE TRACKING SI ESTÁ DISPONIBLE */}
+          {/* ═══ TRACKING BANNER ═══ */}
           {orderDetails.trackingNumber && (
-            <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg p-6 mb-8 shadow-lg">
-              <div class="flex items-start space-x-4">
-                <div class="flex-shrink-0">
-                  <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
-                  </svg>
-                </div>
-                <div class="flex-1">
-                  <h3 class="text-xl font-bold text-white mb-2">🚚 ¡Tu envío está en camino!</h3>
-                  <p class="text-white text-sm mb-2">
-                    Número de rastreo: <code class="bg-white/20 px-2 py-1 rounded font-mono">{orderDetails.trackingNumber}</code>
-                  </p>
-                  <p class="text-white/90 text-sm mb-3">
-                    Transportista: <strong>{orderDetails.carrier?.toUpperCase()}</strong>
-                  </p>
-                  <div class="flex flex-col sm:flex-row gap-3">
-                    <a 
-                      href={`/account/mis-pedidos?tracking=${orderDetails.trackingNumber}`}
-                      class="inline-flex items-center justify-center px-4 py-2 bg-white text-yellow-600 font-bold rounded-lg hover:bg-yellow-50 transition-colors shadow-md"
-                    >
-                      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                      </svg>
-                      Ver estado del envío
-                    </a>
-                    {orderDetails.labelUrl && (
-                      <a 
-                        href={orderDetails.labelUrl}
-                        download
-                        class="inline-flex items-center justify-center px-4 py-2 bg-white/10 text-white font-medium rounded-lg hover:bg-white/20 transition-colors border border-white/30"
-                      >
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
-                        </svg>
-                        Descargar guía
-                      </a>
-                    )}
-                  </div>
-                </div>
+            <div class="tracking-banner">
+              <div class="tracking-icon-wrap">
+                <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
               </div>
+              <div class="tracking-info">
+                <span class="tracking-label">Número de rastreo</span>
+                <code class="tracking-code">{orderDetails.trackingNumber}</code>
+                <span class="tracking-carrier">{orderDetails.carrier?.toUpperCase()}</span>
+              </div>
+              <a href={`/account/mis-pedidos?tracking=${orderDetails.trackingNumber}`} class="tracking-btn">Ver envío</a>
             </div>
           )}
 
-          {/* CUADRO DE WHATSAPP PARA COMPROBANTE */}
-          <div class="bg-gradient-to-r from-green-400 to-green-600 rounded-lg p-6 mb-8 shadow-lg">
-            <div class="flex items-start space-x-4">
-              <div class="flex-shrink-0">
-                <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                </svg>
-              </div>
-              <div class="flex-1">
-                <h3 class="text-xl font-bold text-white mb-2">📲 Envía tu Comprobante</h3>
-                <p class="text-white text-sm mb-4">
-                  Para confirmar tu pedido, por favor envía tu comprobante de pago al siguiente número de WhatsApp:
-                </p>
-                <a 
-                  href={`https://wa.me/528714617696?text=Hola,%20adjunto%20comprobante%20de%20pago%20para%20el%20pedido%20%23${orderDetails.orderId}${orderDetails.trackingNumber ? '%20con%20número%20de%20rastreo%20' + orderDetails.trackingNumber : ''}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 bg-white text-green-600 font-bold rounded-lg hover:bg-green-50 transition-colors shadow-md"
-                >
-                  <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                  </svg>
-                  Enviar Comprobante por WhatsApp
-                </a>
-                <p class="text-white text-xs mt-3 opacity-90">
-                  💡 Incluye tu número de pedido: <strong>{orderDetails.orderId}</strong>
-                  {orderDetails.trackingNumber && (
-                    <span class="block mt-1">📦 Número de rastreo: <strong>{orderDetails.trackingNumber}</strong></span>
-                  )}
-                </p>
-              </div>
+          {/* ═══ WHATSAPP CTA ═══ */}
+          <div class="whatsapp-banner">
+            <div class="wa-icon">
+              <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
             </div>
+            <div class="wa-text">
+              <span class="wa-title">Envía tu comprobante por WhatsApp</span>
+              <span class="wa-sub">Incluye tu pedido: <strong>{orderDetails.orderId}</strong></span>
+            </div>
+            <a href={`https://wa.me/528714617696?text=Hola,%20adjunto%20comprobante%20de%20pago%20para%20el%20pedido%20%23${orderDetails.orderId}`} target="_blank" rel="noopener noreferrer" class="wa-btn">
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+              Enviar
+            </a>
           </div>
 
-          {/* COMPONENTE DE TRACKING SI HAY NÚMERO DE RASTREO */}
+          {/* ═══ TRACKING COMPONENT ═══ */}
           {orderDetails.trackingNumber && (
-            <div class="mb-8">
-              <OrderTracking 
-                trackingNumber={orderDetails.trackingNumber}
-                orderId={orderDetails.orderId}
-                showDetails={true}
-              />
+            <div class="tracking-section">
+              <OrderTracking trackingNumber={orderDetails.trackingNumber} orderId={orderDetails.orderId} showDetails={true} />
             </div>
           )}
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 rounded-lg">
-            {/* Columna Izquierda: Resumen y Envío */}
-            <div class="lg:col-span-2 space-y-8">
-              <div class="bg-white shadow rounded-lg">
-                <div class="px-6 py-5 border-b border-gray-200">
-                  <h2 class="text-xl font-semibold text-gray-900">Resumen del pedido</h2>
+          {/* ═══ MAIN GRID ═══ */}
+          <div class="os-grid">
+            {/* LEFT: Products + Shipping */}
+            <div class="os-left">
+              {/* Products Card */}
+              <div class="os-card">
+                <div class="card-header">
+                  <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg></div>
+                  <h2 class="card-title">Resumen del pedido</h2>
+                  <span class="card-badge">{totalItems} {totalItems === 1 ? 'producto' : 'productos'}</span>
                 </div>
-                <div class="divide-y divide-gray-100">
-                  {orderDetails.products.map((product) => {
+
+                <div class="products-list">
+                  {orderDetails.products.map((product, i) => {
                     const displayImage = getProductImage(product);
                     const hasVariant = !!product.variantDescription;
-
                     return (
-                      <div class="py-5 px-6 flex items-start">
-                        <div class="relative flex-shrink-0">
-                          <img 
-                            src={displayImage} 
-                            alt={product.name} 
-                            class="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-md shadow-sm bg-gray-100"
-                            loading="lazy"
-                            onerror="this.onerror=null; this.src='https://placehold.co/100x100/1f2937/9ca3af?text=Sin+imagen';"
-                          />
-                          {hasVariant && product.variantImage && (
-                            <div class="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full font-medium shadow-md flex items-center gap-1">
-                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
+                      <div class="product-row" style={`animation-delay: ${i * 0.08}s`}>
+                        <div class="product-img-wrap">
+                          <img src={displayImage} alt={product.name} class="product-img" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/100x100/1a1a2e/eab308?text=Sin+imagen';" />
+                          {product.quantity > 1 && <span class="qty-badge">{product.quantity}</span>}
+                        </div>
+                        <div class="product-details">
+                          <span class="product-name">{product.name}</span>
+                          {hasVariant && (
+                            <div class="variant-tag">
+                              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                              <span>{product.variantDescription}</span>
                             </div>
                           )}
-                        </div>
-
-                        <div class="ml-4 flex-1">
-                          <h3 class="text-lg font-medium text-gray-900">{product.name}</h3>
-                          
-                          {hasVariant && (
-                            <div class="mt-2 bg-yellow-50 border-l-4 border-yellow-500 p-2 rounded-r">
-                              <div class="flex items-start gap-2">
-                                <svg class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                </svg>
-                                <div class="flex-1">
-                                  <p class="text-xs font-medium text-gray-700">Variante:</p>
-                                  <p class="text-sm text-gray-800 font-semibold">{product.variantDescription}</p>
-                                  {product.variantSku && (
-                                    <p class="text-xs text-gray-600 mt-1 font-mono">SKU: {product.variantSku}</p>
-                                  )}
-                                </div>
+                          <span class="product-qty">Cantidad: {product.quantity}</span>
+                          {product.engraving && (
+                            <div class="engraving-row">
+                              <img src={product.engraving.imageUrl} alt="Grabado" class="engr-thumb" />
+                              <div class="engr-info">
+                                <span class="engr-label">
+                                  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                  Grabado láser
+                                </span>
+                                {product.engraving.notes && <span class="engr-notes">"{product.engraving.notes}"</span>}
                               </div>
                             </div>
                           )}
-
-                          <p class="text-gray-500 text-sm mt-2">Cantidad: {product.quantity}</p>
                         </div>
-
-                        <div class="text-right ml-4">
-                          <p class="text-lg font-semibold text-gray-900">{Formatter.currency(product.price * product.quantity)}</p>
-                          <p class="text-xs text-gray-500 mt-1">{Formatter.currency(product.price)} c/u</p>
+                        <div class="product-price-col">
+                          <span class="product-total">{Formatter.currency(product.price * product.quantity)}</span>
+                          {product.quantity > 1 && <span class="product-unit">{Formatter.currency(product.price)} c/u</span>}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <div class="px-6 py-5 bg-gray-50 rounded-b-lg">
-                  <div class="flex justify-between py-2">
-                    <span class="text-gray-600">Subtotal</span>
-                    <span class="font-medium text-black">{Formatter.currency(orderDetails.subtotal)}</span>
+
+                <div class="totals-section">
+                  <div class="total-row"><span>Subtotal</span><span>{Formatter.currency(orderDetails.subtotal)}</span></div>
+                  <div class="total-row">
+                    <span>Envío {orderDetails.shipping.method !== "Envío Estándar" && <span class="shipping-method">({orderDetails.shipping.method})</span>}</span>
+                    <span class={orderDetails.shipping.cost === 0 ? 'free-shipping' : ''}>{orderDetails.shipping.cost > 0 ? Formatter.currency(orderDetails.shipping.cost) : 'Gratis'}</span>
                   </div>
-                  <div class="flex justify-between py-2">
-                    <span class="text-gray-600">
-                      Envío {orderDetails.shipping.method !== "Envío Estándar" && `(${orderDetails.shipping.method})`}
-                    </span>
-                    <span class="font-medium text-black">
-                      {orderDetails.shipping.cost > 0 
-                        ? Formatter.currency(orderDetails.shipping.cost) 
-                        : <span class="text-green-600">Gratis</span>
-                      }
-                    </span>
-                  </div>
-                  <div class="flex justify-between py-4 border-t border-gray-200 mt-2">
-                    <span class="text-lg font-semibold text-black">Total</span>
-                    <span class="text-lg font-bold text-yellow-600">{Formatter.currency(orderDetails.total)}</span>
+                  <div class="total-row final">
+                    <span>Total</span>
+                    <span class="final-price">{Formatter.currency(orderDetails.total)}</span>
                   </div>
                 </div>
               </div>
 
-              <div class="bg-white shadow rounded-lg">
-                <div class="px-6 py-5 border-b border-gray-200">
-                  <h2 class="text-xl font-semibold text-gray-900">Información de envío</h2>
+              {/* Shipping Info Card */}
+              <div class="os-card">
+                <div class="card-header">
+                  <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+                  <h2 class="card-title">Información de envío</h2>
                 </div>
-                <div class="px-6 py-5 space-y-4">
-                  <div>
-                    <h3 class="font-medium text-gray-900 mb-2">Destinatario</h3>
-                    <p class="text-gray-600">{orderDetails.customer.name}</p>
-                    <p class="text-gray-600">{orderDetails.customer.email}</p>
-                    {orderDetails.customer.phone && (
-                      <p class="text-gray-600">Tel: {orderDetails.customer.phone}</p>
-                    )}
+                <div class="info-grid">
+                  <div class="info-block">
+                    <span class="info-label">Destinatario</span>
+                    <span class="info-value">{orderDetails.customer.name}</span>
+                    <span class="info-sub">{orderDetails.customer.email}</span>
+                    {orderDetails.customer.phone && <span class="info-sub">Tel: {orderDetails.customer.phone}</span>}
                   </div>
-                  
-                  <div>
-                    <h3 class="font-medium text-gray-900 mb-2">Dirección de entrega</h3>
-                    <p class="text-gray-600">{orderDetails.shipping.address}</p>
-                    {orderDetails.shipping.city && (
-                      <p class="text-gray-600">{orderDetails.shipping.city}, {orderDetails.shipping.state} {orderDetails.shipping.postalCode}</p>
-                    )}
+                  <div class="info-block">
+                    <span class="info-label">Dirección</span>
+                    <span class="info-value">{orderDetails.shipping.address}</span>
+                    {orderDetails.shipping.city && <span class="info-sub">{orderDetails.shipping.city}, {orderDetails.shipping.state} {orderDetails.shipping.postalCode}</span>}
                   </div>
-                  
                   {orderDetails.trackingNumber && (
-                    <div class="pt-4 border-t border-gray-200">
-                      <h3 class="font-medium text-gray-900 mb-2">Información de rastreo</h3>
-                      <p class="text-gray-600">Transportista: <span class="font-semibold">{orderDetails.carrier?.toUpperCase()}</span></p>
-                      <p class="text-gray-600">Número de guía: <code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono">{orderDetails.trackingNumber}</code></p>
+                    <div class="info-block full">
+                      <span class="info-label">Rastreo</span>
+                      <div class="tracking-inline">
+                        <span class="info-value">{orderDetails.carrier?.toUpperCase()}</span>
+                        <code class="tracking-mono">{orderDetails.trackingNumber}</code>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-            
-            {/* Columna Derecha: Seguimiento y Ayuda */}
-            <div class="space-y-8">
-              <div class="bg-white shadow rounded-lg">
-                <div class="px-6 py-5 border-b border-gray-200">
-                  <h2 class="text-xl font-semibold text-gray-900">Estado del pedido</h2>
+
+            {/* RIGHT: Status + Help */}
+            <div class="os-right">
+              {/* Order Status */}
+              <div class="os-card">
+                <div class="card-header">
+                  <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+                  <h2 class="card-title">Estado</h2>
                 </div>
-                <div class="p-6 space-y-4">
-                  <div class="flex items-center">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                      <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                      </svg>
-                    </div>
-                    <p class="ml-3 font-medium text-gray-800">Pago confirmado</p>
+                <div class="status-timeline">
+                  <div class="status-step done">
+                    <div class="status-dot"><svg width="14" height="14" fill="none" stroke="#000" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+                    <div class="status-info"><span class="status-name">Pago confirmado</span><span class="status-desc">{orderDetails.paymentMethod === 'card' ? 'Tarjeta' : orderDetails.paymentMethod === 'paypal' ? 'PayPal' : 'Pagado'}</span></div>
                   </div>
-                  
                   {orderDetails.trackingNumber ? (
                     <>
-                      <div class="flex items-center">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-                          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                          </svg>
-                        </div>
-                        <p class="ml-3 font-medium text-gray-800">Etiqueta generada</p>
+                      <div class="status-step done">
+                        <div class="status-dot"><svg width="14" height="14" fill="none" stroke="#000" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+                        <div class="status-info"><span class="status-name">Etiqueta generada</span><span class="status-desc">Guía lista</span></div>
                       </div>
-                      <div class="flex items-center">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center">
-                          <svg class="w-4 h-4 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                          </svg>
-                        </div>
-                        <p class="ml-3 font-medium text-gray-800">En proceso de envío</p>
+                      <div class="status-step active">
+                        <div class="status-dot pulse"></div>
+                        <div class="status-info"><span class="status-name">En tránsito</span><span class="status-desc">Tu pedido va en camino</span></div>
+                      </div>
+                      <div class="status-step pending">
+                        <div class="status-dot"></div>
+                        <div class="status-info"><span class="status-name">Entregado</span></div>
                       </div>
                     </>
                   ) : (
-                    <div class="flex items-center">
-                      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                    <>
+                      <div class="status-step active">
+                        <div class="status-dot pulse"></div>
+                        <div class="status-info"><span class="status-name">Preparando pedido</span><span class="status-desc">Empaquetando con cuidado</span></div>
                       </div>
-                      <p class="ml-3 font-medium text-gray-800">Preparando pedido</p>
-                    </div>
-                  )}
-                  
-                  {orderDetails.trackingNumber && (
-                    <div class="pt-4 border-t border-gray-200">
-                      <a 
-                        href="/account/mis-pedidos"
-                        class="w-full flex items-center justify-center px-4 py-3 bg-yellow-500 text-white font-medium rounded-lg hover:bg-yellow-600 transition-colors"
-                      >
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                        </svg>
-                        Ver todos mis pedidos
-                      </a>
-                    </div>
+                      <div class="status-step pending">
+                        <div class="status-dot"></div>
+                        <div class="status-info"><span class="status-name">En tránsito</span></div>
+                      </div>
+                      <div class="status-step pending">
+                        <div class="status-dot"></div>
+                        <div class="status-info"><span class="status-name">Entregado</span></div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
 
-              <div class="bg-white shadow rounded-lg">
-                <div class="px-6 py-5 border-b border-gray-200">
-                  <h2 class="text-xl font-semibold text-gray-900">¿Necesitas ayuda?</h2>
+              {/* Actions Card */}
+              <div class="os-card">
+                <div class="card-header">
+                  <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+                  <h2 class="card-title">Acciones</h2>
                 </div>
-                <div class="p-6 space-y-3">
-                  <a href="mailto:broquelizatelaguna@gmail.com" class="flex items-center text-yellow-600 font-medium hover:underline">
-                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                    </svg>
-                    <span>Contactar por correo</span>
-                  </a>
-                  
-                  <a href="https://wa.me/528714617696" target="_blank" rel="noopener noreferrer" class="flex items-center text-green-600 font-medium hover:underline">
-                    <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                    </svg>
-                    <span>WhatsApp</span>
-                  </a>
-                  
-                  <button id="download-invoice" class="w-full mt-4 py-3 px-4 bg-gray-800 text-white font-medium rounded-md hover:bg-black transition-colors flex items-center justify-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    Descargar Ticket
+                <div class="actions-list">
+                  <button id="download-invoice" class="action-btn">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span>Descargar ticket</span>
                   </button>
+                  {orderDetails.trackingNumber && (
+                    <a href="/account/mis-pedidos" class="action-btn">
+                      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                      <span>Mis pedidos</span>
+                    </a>
+                  )}
+                  <a href="mailto:broquelizatelaguna@gmail.com" class="action-btn">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <span>Contactar soporte</span>
+                  </a>
+                  <a href="/products" class="action-btn primary">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    <span>Seguir comprando</span>
+                  </a>
                 </div>
+              </div>
+
+              {/* Trust */}
+              <div class="trust-strip">
+                <div class="trust-item"><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg><span>Compra segura</span></div>
+                <div class="trust-item"><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3z"/></svg><span>Envío asegurado</span></div>
+                <div class="trust-item"><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><span>Calidad premium</span></div>
               </div>
             </div>
           </div>
-        </div>
+        </>
       ) : null}
     </div>
   </div>
 
-  {orderDetails && (
-    <div id="order-details-data" style="display: none;">
-      {JSON.stringify(orderDetails)}
-    </div>
-  )}
+  {orderDetails && <div id="order-details-data" style="display:none;">{JSON.stringify(orderDetails)}</div>}
+</ProductsLayout>
 
-  <script>
-    import { generateAndPrintTicket } from '@/services/ticketGenerator';
+<style>
+  .os-page { position: relative; min-height: 100vh; padding: 24px 0 80px; }
+  .bg-decoration { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(150px); }
+  .glow-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(34,197,94,0.06) 0%, transparent 70%); top: -100px; right: -100px; }
+  .glow-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(234,179,8,0.04) 0%, transparent 70%); bottom: 200px; left: -100px; }
+  .grid-pattern { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px); background-size: 60px 60px; }
+  .os-container { position: relative; z-index: 10; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 
-    async function handlePrintTicket() {
-      const btn = document.getElementById('download-invoice') as HTMLButtonElement;
-      const orderDetailsDataElement = document.getElementById('order-details-data');
-      if (!btn || !orderDetailsDataElement) return;
+  /* Error State */
+  .error-state { display: flex; flex-direction: column; align-items: center; padding: 80px 24px; text-align: center; }
+  .error-icon { width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 50%; color: #f87171; margin-bottom: 24px; }
+  .error-title { font-size: 1.75rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .error-text { color: rgba(255,255,255,0.5); margin-bottom: 24px; }
+  .error-cta { padding: 14px 32px; background: linear-gradient(135deg, #eab308, #f59e0b); border-radius: 14px; color: #000; font-weight: 700; text-decoration: none; }
 
-      const orderDetails = JSON.parse(orderDetailsDataElement.textContent || '{}');
-      if (!orderDetails.products || !orderDetails.orderId) {
-        alert('No se encontraron los detalles de la orden para generar el ticket.');
-        return;
-      }
-      
-      const originalContent = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = 'Generando...';
+  /* Success Hero */
+  .success-hero { display: flex; align-items: center; gap: 20px; padding: 28px 32px; background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); border-radius: 20px; margin-bottom: 24px; animation: fadeIn 0.5s ease-out; }
+  .success-checkmark { flex-shrink: 0; animation: scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  .success-text { flex: 1; }
+  .success-title { font-size: 1.5rem; font-weight: 900; color: #fff; letter-spacing: -0.02em; }
+  .success-subtitle { font-size: 0.9rem; color: rgba(255,255,255,0.5); margin-top: 4px; }
+  .order-id-card { display: flex; flex-direction: column; align-items: center; padding: 16px 24px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; flex-shrink: 0; }
+  .order-id-label { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.1em; }
+  .order-id-value { font-size: 1rem; font-weight: 800; color: #eab308; font-family: monospace; margin: 4px 0; }
+  .order-id-date { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
 
-      try {
-        const storeInfo = {
-          name: "Broquelizate La Laguna",
-          address: "Bravo 222, Colonia Centro, Gómez Palacio, Dgo.",
-          phone: "528714617696",
-        };
-        
-        const productsForTicket = orderDetails.products.map((p: any) => ({
-          ...p,
-          displayName: p.variantDescription 
-            ? `${p.name} (${p.variantDescription})` 
-            : p.name
-        }));
+  /* Tracking Banner */
+  .tracking-banner { display: flex; align-items: center; gap: 16px; padding: 20px 24px; background: linear-gradient(135deg, rgba(234,179,8,0.1), rgba(234,179,8,0.04)); border: 1px solid rgba(234,179,8,0.2); border-radius: 16px; margin-bottom: 16px; animation: fadeIn 0.6s ease-out 0.1s both; }
+  .tracking-icon-wrap { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(234,179,8,0.15); border-radius: 12px; color: #eab308; flex-shrink: 0; }
+  .tracking-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .tracking-label { font-size: 0.75rem; color: rgba(255,255,255,0.5); }
+  .tracking-code { font-family: monospace; font-size: 0.95rem; color: #fff; font-weight: 600; }
+  .tracking-carrier { font-size: 0.8rem; color: #eab308; font-weight: 500; }
+  .tracking-btn { padding: 10px 20px; background: #eab308; border-radius: 10px; color: #000; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; transition: all 0.2s; }
+  .tracking-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(234,179,8,0.3); }
 
-        await generateAndPrintTicket(
-          productsForTicket,
-          orderDetails.total,
-          orderDetails.orderId,
-          orderDetails.paymentMethod,
-          storeInfo
-        );
-      } catch (err) {
-        console.error('Error al generar el ticket:', err);
-        alert('Hubo un error al generar el ticket.');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalContent;
-      }
-    }
+  /* WhatsApp Banner */
+  .whatsapp-banner { display: flex; align-items: center; gap: 16px; padding: 18px 24px; background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); border-radius: 16px; margin-bottom: 24px; animation: fadeIn 0.6s ease-out 0.2s both; }
+  .wa-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(34,197,94,0.15); border-radius: 12px; color: #22c55e; flex-shrink: 0; }
+  .wa-text { flex: 1; }
+  .wa-title { display: block; font-size: 0.9rem; font-weight: 600; color: #fff; }
+  .wa-sub { display: block; font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .wa-sub strong { color: #eab308; }
+  .wa-btn { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: #22c55e; border-radius: 10px; color: #fff; font-weight: 700; font-size: 0.85rem; text-decoration: none; white-space: nowrap; transition: all 0.2s; }
+  .wa-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(34,197,94,0.3); }
 
-    document.addEventListener('astro:page-load', () => {
-      const button = document.getElementById('download-invoice');
-      if (button) {
-        button.onclick = handlePrintTicket;
-      }
-    });
-  </script>
-</MainLayout>
+  .tracking-section { margin-bottom: 24px; }
+
+  /* Grid */
+  .os-grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
+  .os-left, .os-right { display: flex; flex-direction: column; gap: 24px; }
+  .os-right { position: sticky; top: 24px; }
+
+  /* Cards */
+  .os-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; animation: fadeInUp 0.5s ease-out both; }
+  .card-header { display: flex; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .header-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(234,179,8,0.15), rgba(234,179,8,0.05)); border: 1px solid rgba(234,179,8,0.3); border-radius: 12px; color: #eab308; flex-shrink: 0; }
+  .card-title { font-size: 1.05rem; font-weight: 700; color: #fff; flex: 1; }
+  .card-badge { font-size: 0.75rem; color: rgba(255,255,255,0.5); padding: 4px 10px; background: rgba(255,255,255,0.05); border-radius: 20px; }
+
+  /* Products */
+  .products-list { padding: 8px 0; }
+  .product-row { display: flex; align-items: flex-start; gap: 16px; padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.04); animation: fadeIn 0.4s ease-out both; transition: background 0.2s; }
+  .product-row:last-child { border-bottom: none; }
+  .product-row:hover { background: rgba(255,255,255,0.02); }
+  .product-img-wrap { position: relative; width: 72px; height: 72px; border-radius: 14px; overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+  .product-img { width: 100%; height: 100%; object-fit: cover; }
+  .qty-badge { position: absolute; top: -4px; right: -4px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: #eab308; border-radius: 50%; color: #000; font-size: 0.7rem; font-weight: 800; }
+  .product-details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .product-name { font-size: 0.95rem; font-weight: 600; color: #fff; }
+  .product-qty { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+  .variant-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.15); border-radius: 8px; color: rgba(255,255,255,0.7); font-size: 0.75rem; width: fit-content; }
+  .variant-tag svg { color: #eab308; }
+  .product-price-col { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .product-total { font-size: 1rem; font-weight: 700; color: #fff; }
+  .product-unit { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+
+  /* Engraving */
+  .engraving-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.12); border-radius: 10px; }
+  .engr-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(234,179,8,0.3); flex-shrink: 0; }
+  .engr-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .engr-label { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; font-weight: 600; color: #eab308; }
+  .engr-notes { font-size: 0.7rem; color: rgba(255,255,255,0.4); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Totals */
+  .totals-section { padding: 20px 24px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 12px; }
+  .total-row { display: flex; justify-content: space-between; font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+  .total-row span:last-child { font-weight: 600; color: #fff; }
+  .free-shipping { color: #22c55e !important; }
+  .shipping-method { font-size: 0.8rem; color: rgba(255,255,255,0.3); }
+  .total-row.final { padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 1rem; }
+  .total-row.final span:first-child { font-weight: 700; color: #fff; }
+  .final-price { font-size: 1.5rem !important; font-weight: 900 !important; background: linear-gradient(135deg, #eab308, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  /* Info Grid */
+  .info-grid { padding: 20px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .info-block { display: flex; flex-direction: column; gap: 4px; }
+  .info-block.full { grid-column: span 2; }
+  .info-label { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em; }
+  .info-value { font-size: 0.9rem; font-weight: 600; color: #fff; }
+  .info-sub { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+  .tracking-inline { display: flex; align-items: center; gap: 12px; }
+  .tracking-mono { font-family: monospace; font-size: 0.85rem; padding: 6px 12px; background: rgba(255,255,255,0.05); border-radius: 8px; color: #eab308; }
+
+  /* Status Timeline */
+  .status-timeline { padding: 24px; display: flex; flex-direction: column; gap: 0; }
+  .status-step { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 24px; position: relative; }
+  .status-step:last-child { padding-bottom: 0; }
+  .status-step::before { content: ''; position: absolute; left: 15px; top: 32px; width: 2px; bottom: 0; background: rgba(255,255,255,0.08); }
+  .status-step:last-child::before { display: none; }
+  .status-step.done::before { background: #22c55e; }
+  .status-step.active::before { background: linear-gradient(to bottom, #eab308, rgba(255,255,255,0.08)); }
+  .status-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); position: relative; z-index: 1; }
+  .status-step.done .status-dot { background: #22c55e; border-color: #22c55e; }
+  .status-step.active .status-dot { background: #eab308; border-color: #eab308; }
+  .status-dot.pulse::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #eab308; animation: pulse 2s ease-in-out infinite; }
+  .status-info { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }
+  .status-name { font-size: 0.9rem; font-weight: 600; color: #fff; }
+  .status-step.pending .status-name { color: rgba(255,255,255,0.3); }
+  .status-desc { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+
+  /* Actions */
+  .actions-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .action-btn { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 500; text-decoration: none; cursor: pointer; transition: all 0.2s; }
+  .action-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #fff; }
+  .action-btn svg { color: #eab308; flex-shrink: 0; }
+  .action-btn.primary { background: linear-gradient(135deg, #eab308, #f59e0b); border-color: transparent; color: #000; font-weight: 700; }
+  .action-btn.primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(234,179,8,0.3); }
+  .action-btn.primary svg { color: #000; }
+
+  /* Trust */
+  .trust-strip { display: flex; flex-direction: column; gap: 8px; }
+  .trust-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 10px; }
+  .trust-item svg { color: #eab308; flex-shrink: 0; }
+  .trust-item span { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes scaleIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+
+  @media (max-width: 1024px) { .os-grid { grid-template-columns: 1fr; } .os-right { position: static; } }
+  @media (max-width: 768px) {
+    .os-page { padding: 16px 0 60px; } .os-container { padding: 0 16px; }
+    .success-hero { flex-direction: column; text-align: center; padding: 24px 20px; }
+    .order-id-card { width: 100%; }
+    .tracking-banner { flex-direction: column; text-align: center; }
+    .tracking-btn { width: 100%; text-align: center; }
+    .whatsapp-banner { flex-direction: column; text-align: center; }
+    .wa-btn { width: 100%; justify-content: center; }
+    .product-row { flex-wrap: wrap; }
+    .product-price-col { width: 100%; flex-direction: row; justify-content: space-between; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04); }
+    .info-grid { grid-template-columns: 1fr; }
+    .info-block.full { grid-column: span 1; }
+  }
+</style>
+
+<script>
+  import { generateAndPrintTicket } from '@/services/ticketGenerator';
+  import { clearCartStore } from '@/store';
+
+  // Clear cart store on client side too
+  clearCartStore();
+
+  async function handlePrintTicket() {
+    const btn = document.getElementById('download-invoice') as HTMLButtonElement;
+    const el = document.getElementById('order-details-data');
+    if (!btn || !el) return;
+    const od = JSON.parse(el.textContent || '{}');
+    if (!od.products || !od.orderId) { alert('No se encontraron los detalles.'); return; }
+    const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span>Generando...</span>';
+    try {
+      await generateAndPrintTicket(
+        od.products.map((p: any) => ({ ...p, displayName: p.variantDescription ? `${p.name} (${p.variantDescription})` : p.name })),
+        od.total, od.orderId, od.paymentMethod,
+        { name: "Broquelizate La Laguna", address: "Bravo 222, Colonia Centro, Gómez Palacio, Dgo.", phone: "528714617696" }
+      );
+    } catch (err) { console.error('Error ticket:', err); alert('Error al generar el ticket.'); }
+    finally { btn.disabled = false; btn.innerHTML = orig; }
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    const b = document.getElementById('download-invoice');
+    if (b) b.onclick = handlePrintTicket;
+  });
+</script>

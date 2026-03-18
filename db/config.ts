@@ -32,18 +32,19 @@ const Product = defineTable({
     type: column.text(),
     stock: column.number(),
     piercing_name: column.text({ optional: true }),
-    cost: column.number({ optional: true }), 
+    cost: column.number({ optional: true }),
     hasVariants: column.boolean({ default: false }),
+    allowsEngraving: column.boolean({ default: false }),
     user: column.text({ references: () => User.columns.id })
   }
 })
 
-const ProductImage = defineTable({  
+const ProductImage = defineTable({
   columns: {
     id: column.text({ primaryKey: true }),
     productId: column.text({ references: () => Product.columns.id }),
-    variantId: column.text({ 
-      references: () => ProductVariant.columns.id, 
+    variantId: column.text({
+      references: () => ProductVariant.columns.id,
       optional: true
     }),
     image: column.text(),
@@ -57,7 +58,7 @@ const ProductVariant = defineTable({
     variantName: column.text(),
     variantValue: column.text(),
     priceAdjustment: column.number({ default: 0 }),
-    cost: column.number({ optional: true }), // ✅ NUEVO: Costo individual de la variante
+    cost: column.number({ optional: true }),
     stock: column.number({ default: 0 }),
     sku: column.text({ optional: true }),
     isDefault: column.boolean({ default: false }),
@@ -99,7 +100,7 @@ const orders = defineTable({
     paymentMethod: column.text(),
     status: column.text({ default: 'pending' }),
     createdAt: column.date({ default: new Date() }),
-    clientId: column.number({ 
+    clientId: column.number({
       references: () => Client.columns.id,
       optional: true
     }),
@@ -122,11 +123,12 @@ const order_items = defineTable({
     quantity: column.number(),
     price: column.number(),
     subtotal: column.number(),
-    variantCombinationId: column.text({ 
+    variantCombinationId: column.text({
       references: () => ProductVariantCombination.columns.id,
-      optional: true 
+      optional: true
     }),
-    variantDescription: column.text({ optional: true })
+    variantDescription: column.text({ optional: true }),
+    engraving: column.text({ optional: true }),
   }
 });
 
@@ -152,7 +154,7 @@ const Client = defineTable({
     }),
     createdAt: column.date({
       default: new Date(),
-    }), 
+    }),
   }
 });
 
@@ -167,6 +169,6 @@ export default defineDb({
     VariantCombinationItem,
     orders,
     order_items,
-    Client  
+    Client
   }
 });

@@ -1,7 +1,6 @@
 ---
 // src/components/CheckoutForm.astro
 import { Formatter } from '../utils';
-import { CartCookiesClient } from '@/utils/cart-cookies';
 import { actions } from 'astro:actions';
 import { getSession } from 'auth-astro/server';
 
@@ -10,7 +9,16 @@ const userEmail = session?.user?.email || '';
 const userName = session?.user?.name || '';
 const isAuthenticated = !!session?.user;
 
-const cartItems = CartCookiesClient.getCart();
+const cartCookie = Astro.cookies.get('cart');
+let cartItems: Array<{ productId: string; quantity: number; variantId?: string; combinationId?: string; engraving?: { id: string; imageUrl: string; notes: string } }> = [];
+try {
+  if (cartCookie?.value) {
+    cartItems = JSON.parse(cartCookie.value);
+  }
+} catch (e) {
+  cartItems = [];
+}
+
 const { data: products, error } = await Astro.callAction(actions.loadProductsFromCart, cartItems);
 if (error || !products) return Astro.redirect('/');
 
@@ -19,10 +27,14 @@ const tax = 0;
 const total = subtotal;
 const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
 
-const productsData = products.map(p => ({ 
-  id: p.productId, name: p.name, price: p.variantPrice ?? p.price, quantity: p.quantity,
-  image: p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null
-}));
+const productsData = products.map(p => {
+  const cartItem = cartItems.find(ci => ci.productId === p.productId && ci.variantId === p.variantId && ci.combinationId === p.combinationId);
+  return { 
+    id: p.productId, name: p.name, price: p.variantPrice ?? p.price, quantity: p.quantity,
+    image: p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null,
+    engraving: cartItem?.engraving || null
+  };
+});
 ---
 
 <div class="checkout-wrapper">
@@ -363,7 +375,7 @@ const productsData = products.map(p => ({
   import { actions } from 'astro:actions';
 
   interface SelectedShipping { carrier: string; service: string; price: number; deliveryDays: number; postalCode: string; }
-  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; }
+  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; }
 
   const Formatter = { currency: (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value) };
   function getCarrierIcon(c: string): string { const i: Record<string, string> = { 'fedex': '🚚', 'dhl': '📦', 'estafeta': '📫', 'redpack': '🔴', 'ups': '🟤', 'paquetexpress': '📬', '99minutos': '⚡', 'sendex': '✉️' }; return i[c.toLowerCase()] || '📦'; }
@@ -483,7 +495,7 @@ const productsData = products.map(p => ({
     const pd = document.getElementById('products-data'), pi = document.getElementById('products-images'), txd = document.getElementById('tax-data'), td = document.getElementById('total-data');
     if (!pd || !txd || !td) return null;
     const rpd = JSON.parse(pd.textContent || '[]'), pim = pi ? JSON.parse(pi.textContent || '[]') : [], txv = parseFloat(txd.textContent || '0'), tv = parseFloat(td.textContent || '0'), sv = selectedShipping?.price || 0;
-    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null }));
+    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null, engraving: p.engraving || null }));
     return { productsData: pdata, taxValue: txv, totalValue: tv, shippingValue: sv };
   }
 
@@ -515,7 +527,7 @@ const productsData = products.map(p => ({
     const em = (document.getElementById('email') as HTMLInputElement)?.value, chn = (document.getElementById('card-holder-name') as HTMLInputElement)?.value, sa = (document.getElementById('street-address') as HTMLInputElement)?.value, nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value, ct = (document.getElementById('city') as HTMLInputElement)?.value, st = (document.getElementById('state') as HTMLInputElement)?.value, pc = (document.getElementById('postal-code') as HTMLInputElement)?.value, ph = (document.getElementById('phone') as HTMLInputElement)?.value, dn = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value || '';
     const d = getCheckoutData(); if (!d) throw new Error('Sin datos');
     let si: { carrier: string; service: string; price: number; deliveryDays: number } | null = null; const cs = selectedShipping; if (cs) si = { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays };
-    const od = { customerEmail: em, customerName: chn || em, shippingAddress: { streetAddress: sa, neighborhood: nb, city: ct, state: st, postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn }, shippingInfo: si, products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku })), subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue, paymentMethod: pm, paymentIntentId: piid || null, clientId: null };
+    const od = { customerEmail: em, customerName: chn || em, shippingAddress: { streetAddress: sa, neighborhood: nb, city: ct, state: st, postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn }, shippingInfo: si, products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null })), subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue, paymentMethod: pm, paymentIntentId: piid || null, clientId: null };
     const r = await fetch('/api/create-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(od) });
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error'); } return await r.json();
   }
@@ -606,7 +618,7 @@ const productsData = products.map(p => ({
 </script>
 
 
-<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku })))}</div>
+<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null })))}</div>
 <div id="products-images" class="hidden">{JSON.stringify(products.map(p => p.image || ''))}</div>
 <div id="tax-data" class="hidden">{tax}</div>
 <div id="total-data" class="hidden">{total}</div>

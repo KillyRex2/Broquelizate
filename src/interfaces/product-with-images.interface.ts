@@ -15,7 +15,7 @@ export interface ProductWithImages {
   id: string;
   name: string;
   price: number;
-  basePrice?: number; // Precio base sin ajustes de variante
+  basePrice?: number;
   description: string | null;
   category: string | null;
   slug: string;
@@ -26,5 +26,6 @@ export interface ProductWithImages {
   piercing_name: string[];
   images: string[];
   hasVariants: boolean;
-  variants?: ProductVariantInfo[]; // Información de variantes
+  allowsEngraving: boolean;
+  variants?: ProductVariantInfo[];
 }

@@ -1,61 +1,520 @@
 ---
+// src/components/shared/Pagination.astro
 interface Props {
   totalPages: number;
   currentPage: number;
-  queryParams: {
-    category?: string;
-    maxPrice?: number;
-    inStock?: boolean;
-    search?: string;
-    piercing?: string;
-  };
+  queryParams: Record<string, string | number | boolean | undefined>;
+  siblingCount?: number;
 }
 
-const { totalPages, currentPage, queryParams } = Astro.props;
+const { totalPages, currentPage, queryParams, siblingCount = 2 } = Astro.props;
 const path = Astro.url.pathname;
+const currentLimit = Number(queryParams.limit) || 12;
 
-// Generar URL manteniendo todos los parámetros
-const generateUrl = (page: number) => {
-  const params = new URLSearchParams({
-    ...(queryParams.category && { category: queryParams.category }),
-    ...(queryParams.maxPrice && { maxPrice: queryParams.maxPrice.toString() }),
-    ...(queryParams.inStock !== undefined && { inStock: queryParams.inStock.toString() }),
-    ...(queryParams.search && { search: queryParams.search }),
-    ...(queryParams.piercing && { piercing: queryParams.piercing }),
-    page: page.toString(),
+const generateUrl = (page: number, overrides?: Record<string, string>) => {
+  const params = new URLSearchParams();
+  Object.entries(queryParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '' && value !== 'all' && value !== '0' && String(value) !== '99999') {
+      params.set(key, String(value));
+    }
   });
+  if (overrides) Object.entries(overrides).forEach(([k, v]) => params.set(k, v));
+  params.set('page', page.toString());
   return `${path}?${params.toString()}`;
 };
 
+function getPageNumbers(): (number | 'dots')[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const pages: (number | 'dots')[] = [];
+  const left = Math.max(currentPage - siblingCount, 1);
+  const right = Math.min(currentPage + siblingCount, totalPages);
+  pages.push(1);
+  if (left > 2) pages.push('dots'); else { for (let i = 2; i < left; i++) pages.push(i); }
+  for (let i = left; i <= right; i++) { if (i !== 1 && i !== totalPages) pages.push(i); }
+  if (right < totalPages - 1) pages.push('dots'); else { for (let i = right + 1; i < totalPages; i++) pages.push(i); }
+  if (totalPages > 1) pages.push(totalPages);
+  return pages;
+}
+
+const pageNumbers = getPageNumbers();
 const prevPage = Math.max(currentPage - 1, 1);
 const nextPage = Math.min(currentPage + 1, totalPages);
+const isFirst = currentPage === 1;
+const isLast = currentPage === totalPages;
+const perPageOptions = [5, 10, 12, 25, 50];
 ---
 
-<div class="flex flex-wrap justify-center sm:justify-between items-center my-12 px-4 lg:px-0 gap-4">
-  <span class="text-yellow-500 font-medium order-1 sm:order-2">
-    Página <span class="font-bold text-yellow-400">{currentPage}</span> de <span class="font-bold text-yellow-400">{totalPages}</span>
-  </span>
+{totalPages >= 1 && (
+  <div class="pg-wrap">
+    <!-- Top row: per-page + info -->
+    <div class="pg-meta">
+      <div class="pg-per">
+        <span class="pg-per-label">Mostrar</span>
+        <div class="pg-per-select-wrap">
+          <select id="per-page-select" class="pg-per-select">
+            {perPageOptions.map(opt => (
+              <option value={opt} selected={opt === currentLimit}>{opt}</option>
+            ))}
+          </select>
+        </div>
+        <span class="pg-per-label">por página</span>
+      </div>
+      <div class="pg-summary">
+        <span class="pg-summary-text">
+          Página <span class="pg-highlight">{currentPage}</span> de <span class="pg-highlight">{totalPages}</span>
+        </span>
+      </div>
+    </div>
 
-  <a
-    href={generateUrl(prevPage)}
-    class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-2xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto order-2 sm:order-1 text-center"
-    aria-disabled={currentPage === 1}
-  >
-    ← Anteriores
-  </a>
+    <!-- Main pagination row -->
+    <div class="pg-main">
+      <!-- First + Prev -->
+      <div class="pg-nav-group">
+        <a href={isFirst ? undefined : generateUrl(1)} class:list={['pg-arrow pg-arrow--double', { 'pg-off': isFirst }]} aria-label="Primera página" title="Primera">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+        </a>
+        <a href={isFirst ? undefined : generateUrl(prevPage)} class:list={['pg-arrow', { 'pg-off': isFirst }]} aria-label="Anterior" title="Anterior">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </a>
+      </div>
 
-  <a
-    href={generateUrl(nextPage)}
-    class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold rounded-2xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto order-3 text-center"
-    aria-disabled={currentPage === totalPages}
-  >
-    Siguientes →
-  </a>
-</div>
+      <!-- Numbers -->
+      <div class="pg-numbers">
+        {pageNumbers.map((p) =>
+          p === 'dots' ? (
+            <span class="pg-ellipsis">
+              <span class="pg-ellipsis-dot"></span>
+              <span class="pg-ellipsis-dot"></span>
+              <span class="pg-ellipsis-dot"></span>
+            </span>
+          ) : (
+            <a
+              href={p === currentPage ? undefined : generateUrl(p)}
+              class:list={['pg-num', { 'pg-active': p === currentPage }]}
+              aria-current={p === currentPage ? 'page' : undefined}
+            >
+              <span class="pg-num-text">{p}</span>
+            </a>
+          )
+        )}
+      </div>
+
+      <!-- Next + Last -->
+      <div class="pg-nav-group">
+        <a href={isLast ? undefined : generateUrl(nextPage)} class:list={['pg-arrow', { 'pg-off': isLast }]} aria-label="Siguiente" title="Siguiente">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
+        <a href={isLast ? undefined : generateUrl(totalPages)} class:list={['pg-arrow pg-arrow--double', { 'pg-off': isLast }]} aria-label="Última página" title="Última">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+
+      <!-- Go to (only for many pages) -->
+      {totalPages > 7 && (
+        <div class="pg-goto">
+          <div class="pg-goto-divider"></div>
+          <span class="pg-goto-label">Ir a</span>
+          <input type="number" id="goto-input" min="1" max={totalPages} placeholder="—" class="pg-goto-input" />
+          <button id="goto-btn" class="pg-goto-btn" title="Ir a página">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+<script>
+  function initPagination() {
+    const perSelect = document.getElementById('per-page-select') as HTMLSelectElement;
+    perSelect?.addEventListener('change', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('limit', perSelect.value);
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    });
+
+    const gotoIn = document.getElementById('goto-input') as HTMLInputElement;
+    const gotoBtn = document.getElementById('goto-btn');
+    if (!gotoIn || !gotoBtn) return;
+    const max = parseInt(gotoIn.max);
+
+    function go() {
+      const p = parseInt(gotoIn.value);
+      if (!p || p < 1 || p > max) {
+        gotoIn.classList.add('pg-goto-err');
+        setTimeout(() => gotoIn.classList.remove('pg-goto-err'), 500);
+        return;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', String(p));
+      window.location.href = url.toString();
+    }
+
+    gotoBtn.addEventListener('click', go);
+    gotoIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  }
+
+  document.addEventListener('astro:page-load', initPagination);
+  if (document.readyState === 'complete' || document.readyState === 'interactive') initPagination();
+</script>
 
 <style>
-  a[aria-disabled="true"] {
+  /* ═══════════════════════════════════════════
+     WRAPPER
+  ═══════════════════════════════════════════ */
+  .pg-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 4px;
+  }
+
+  /* ═══════════════════════════════════════════
+     META ROW (per-page + summary)
+  ═══════════════════════════════════════════ */
+  .pg-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .pg-per {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pg-per-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #9ca3af;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+  }
+
+  .pg-per-select-wrap {
+    position: relative;
+  }
+
+  .pg-per-select {
+    height: 34px;
+    padding: 0 30px 0 14px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 9px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #374151;
+    background: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pg-per-select:hover { border-color: #d1d5db; }
+  .pg-per-select:focus {
+    outline: none;
+    border-color: #eab308;
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.08);
+  }
+
+  .pg-summary {
+    padding: 6px 14px;
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border: 1px solid #fde68a;
+    border-radius: 9px;
+  }
+
+  .pg-summary-text {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #92400e;
+    white-space: nowrap;
+  }
+
+  .pg-highlight {
+    font-weight: 800;
+    color: #b45309;
+  }
+
+  /* ═══════════════════════════════════════════
+     MAIN PAGINATION ROW
+  ═══════════════════════════════════════════ */
+  .pg-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .pg-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ═══════════════════════════════════════════
+     ARROW BUTTONS
+  ═══════════════════════════════════════════ */
+  .pg-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fff;
+    color: #6b7280;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .pg-arrow:hover:not(.pg-off) {
+    border-color: #eab308;
+    background: #fffbeb;
+    color: #ca8a04;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(234, 179, 8, 0.15);
+  }
+
+  .pg-arrow:active:not(.pg-off) {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  .pg-arrow--double { color: #9ca3af; }
+  .pg-arrow--double:hover:not(.pg-off) { color: #ca8a04; }
+
+  .pg-off {
+    opacity: 0.25;
+    cursor: default;
     pointer-events: none;
-    opacity: 0.5; /* Tailwind's disabled:opacity-50 might need this for full effect */
+  }
+
+  /* ═══════════════════════════════════════════
+     PAGE NUMBERS
+  ═══════════════════════════════════════════ */
+  .pg-numbers {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+  }
+
+  .pg-num {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 8px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fff;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+
+  .pg-num::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    opacity: 0;
+    transition: opacity 0.2s;
+    border-radius: inherit;
+  }
+
+  .pg-num:hover:not(.pg-active)::before { opacity: 1; }
+
+  .pg-num:hover:not(.pg-active) {
+    border-color: #fbbf24;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(234, 179, 8, 0.12);
+  }
+
+  .pg-num:active:not(.pg-active) {
+    transform: translateY(0);
+  }
+
+  .pg-num-text {
+    position: relative;
+    z-index: 1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4b5563;
+    transition: color 0.2s;
+  }
+
+  .pg-num:hover:not(.pg-active) .pg-num-text { color: #92400e; }
+
+  /* Active page */
+  .pg-active {
+    border-color: transparent;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .pg-active::before {
+    opacity: 1;
+    background: linear-gradient(135deg, #f59e0b, #eab308);
+  }
+
+  .pg-active .pg-num-text {
+    color: #000;
+    font-weight: 800;
+  }
+
+  .pg-active {
+    box-shadow:
+      0 2px 8px rgba(234, 179, 8, 0.3),
+      0 0 0 2px rgba(234, 179, 8, 0.1);
+  }
+
+  /* ═══════════════════════════════════════════
+     ELLIPSIS
+  ═══════════════════════════════════════════ */
+  .pg-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 32px;
+    height: 38px;
+    padding-top: 4px;
+  }
+
+  .pg-ellipsis-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #d1d5db;
+  }
+
+  /* ═══════════════════════════════════════════
+     GO TO PAGE
+  ═══════════════════════════════════════════ */
+  .pg-goto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 4px;
+  }
+
+  .pg-goto-divider {
+    width: 1.5px;
+    height: 24px;
+    background: #e5e7eb;
+    border-radius: 1px;
+    margin-right: 4px;
+  }
+
+  .pg-goto-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #9ca3af;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .pg-goto-input {
+    width: 50px;
+    height: 34px;
+    padding: 0 6px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #374151;
+    text-align: center;
+    background: #fff;
+    transition: all 0.2s;
+    -moz-appearance: textfield;
+  }
+
+  .pg-goto-input::-webkit-outer-spin-button,
+  .pg-goto-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .pg-goto-input::placeholder { color: #d1d5db; font-weight: 500; }
+
+  .pg-goto-input:focus {
+    outline: none;
+    border-color: #eab308;
+    background: #fffbeb;
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.08);
+  }
+
+  .pg-goto-input.pg-goto-err {
+    border-color: #ef4444;
+    background: #fef2f2;
+    animation: pg-shake 0.35s ease;
+  }
+
+  .pg-goto-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f59e0b, #eab308);
+    color: #000;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(234, 179, 8, 0.2);
+  }
+
+  .pg-goto-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(234, 179, 8, 0.3);
+  }
+
+  .pg-goto-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(234, 179, 8, 0.2);
+  }
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .pg-meta { flex-direction: column; gap: 8px; }
+    .pg-per { width: 100%; justify-content: center; }
+    .pg-summary { width: 100%; text-align: center; }
+    .pg-main { gap: 4px; }
+    .pg-arrow--double { display: none; }
+    .pg-arrow, .pg-num { width: 34px; height: 34px; min-width: 34px; border-radius: 8px; }
+    .pg-num-text { font-size: 0.78rem; }
+    .pg-goto { width: 100%; justify-content: center; margin-left: 0; margin-top: 8px; }
+    .pg-goto-divider { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    .pg-arrow, .pg-num { width: 30px; height: 30px; min-width: 30px; border-radius: 7px; }
+    .pg-num-text { font-size: 0.72rem; }
+    .pg-numbers { gap: 2px; }
+    .pg-ellipsis { width: 22px; }
+    .pg-ellipsis-dot { width: 3px; height: 3px; }
+  }
+
+  @keyframes pg-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(2px); }
   }
 </style>

@@ -496,6 +496,13 @@ const stockOptions = [
         closeFiltersModal();
       }
     });
+
+    // Sincronizar select de sort con URL actual al cargar la página
+    if (sortSelect) {
+      const params = getCurrentParams();
+      const sortValue = `${params.sortBy}-${params.sortOrder}`;
+      sortSelect.value = sortValue;
+    }
   }
 
   // Inicializar

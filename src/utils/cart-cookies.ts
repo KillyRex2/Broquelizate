@@ -21,6 +21,7 @@ export class CartCookiesClient {
         if (existingIndex > -1) {
             // Si existe el mismo producto con la misma variante, actualizar cantidad
             cart[existingIndex].quantity = cartItem.quantity;
+            cart[existingIndex].engraving = cartItem.engraving; 
         } else {
             // Si no existe o es una variante diferente, agregar como nuevo item
             cart.push(cartItem);

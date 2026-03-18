@@ -13,11 +13,12 @@ const searchParams = Astro.url.searchParams;
 const pageParam = Number(searchParams.get('page') ?? 1);
 const searchParam = searchParams.get('search') ?? '';
 const categoryParam = searchParams.get('category') ?? 'all';
-const stockFilterParam = searchParams.get('stockFilter') ?? 'all';
+const stockFilterParam = (searchParams.get('stockFilter') ?? 'all') as 'all' | 'inStock' | 'out' | 'low' | 'available' | 'high';
 const sortByParam = searchParams.get('sortBy') ?? 'name';
 const sortOrderParam = searchParams.get('sortOrder') ?? 'asc';
 const minPriceParam = Number(searchParams.get('minPrice') ?? 0);
 const maxPriceParam = Number(searchParams.get('maxPrice') ?? 99999);
+const limitParam = Number(searchParams.get('limit') ?? 12);
 
 // Petición para los productos de la página actual
 const { data: pageData, error: pageError } = await Astro.callAction(
@@ -31,6 +32,7 @@ const { data: pageData, error: pageError } = await Astro.callAction(
     sortOrder: sortOrderParam,
     minPrice: minPriceParam,
     maxPrice: maxPriceParam,
+    limit: limitParam,
   }
 );
 
@@ -39,7 +41,7 @@ const { data: stats, error: statsError } = await Astro.callAction(actions.getInv
 
 // Obtener todas las categorías para pasarlas al filtro
 const { data: allProductsForCategories = [] } = await Astro.callAction(actions.getAllProductsWithImages, undefined);
-const allCategories = Array.from(new Set(allProductsForCategories.map(p => p.category).filter(Boolean)));
+const allCategories = Array.from(new Set(allProductsForCategories.map(p => p.category).filter((c): c is string => !!c)));
 
 // Si alguna de las peticiones falla, redirige
 if (pageError || statsError) {
@@ -443,6 +445,7 @@ function getSortIcon(column: string) {
               sortOrder: sortOrderParam,
               minPrice: String(minPriceParam),
               maxPrice: String(maxPriceParam),
+              limit: String(limitParam),
             }} 
           />
         </div>

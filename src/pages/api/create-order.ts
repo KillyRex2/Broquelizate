@@ -59,7 +59,8 @@ export const POST: APIRoute = async ({ request }) => {
       productName: product.name,
       quantity: product.quantity,
       price: product.price,
-      subtotal: product.price * product.quantity
+      subtotal: product.price * product.quantity,
+      engraving: product.engraving ? JSON.stringify(product.engraving) : null
     }));
 
     await db.insert(order_items).values(orderItems);

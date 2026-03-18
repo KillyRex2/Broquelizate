@@ -2,24 +2,17 @@
 
 import type { ProductWithVariants } from "./product-with-variants.interface";
 
-/**
- * Información simplificada de variante para el POS
- */
 export interface VariantOption {
   id: string;
   name: string;
   sku: string;
   priceAdjustment: number;
-  cost: number | null; 
+  cost: number | null;
   stock: number;
   images: string[];
   finalPrice: number;
 }
 
-/**
- * Producto optimizado para el punto de venta
- * Contiene toda la información necesaria para mostrar y vender
- */
 export interface ProductForPOS {
   id: string;
   name: string;
@@ -35,17 +28,14 @@ export interface ProductForPOS {
   piercing_name: string[];
   images: string[];
   hasVariants: boolean;
-  variantOptions?: VariantOption[]; // Solo presente si hasVariants es true
+  allowsEngraving: boolean;
+  variantOptions?: VariantOption[];
 }
 
-/**
- * Convierte un ProductWithVariants al formato simplificado para POS
- */
 export function convertToProductForPOS(product: ProductWithVariants): ProductForPOS {
   const variantOptions: VariantOption[] = [];
 
   if (product.combinations && product.combinations.length > 0) {
-    // Usar combinaciones si existen
     product.combinations.forEach(combo => {
       if (combo.isActive) {
         variantOptions.push({
@@ -55,23 +45,21 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           priceAdjustment: combo.price - product.price,
           cost: combo.cost || null,
           stock: combo.stock,
-          images: (combo as any).images || product.images, // TODO: Las imágenes se agregan dinámicamente cuando esté disponible
+          images: (combo as any).images || product.images,
           finalPrice: combo.price
         });
       }
     });
   } else if (product.productVariants && product.productVariants.length > 0) {
-    // Si solo hay variantes simples sin combinaciones
-    // Solo incluir variantes activas
     product.productVariants
       .filter(variant => variant.isActive)
       .forEach(variant => {
         variantOptions.push({
           id: variant.id,
-          name: `${variant.variantName}: ${variant.variantValue}`,
+          name: variant.variantName + ': ' + variant.variantValue,
           sku: variant.sku || '',
           priceAdjustment: variant.priceAdjustment,
-          cost: variant.cost ?? null, // ✅ FALTA ESTA LÍNEA
+          cost: variant.cost ?? null,
           stock: variant.stock,
           images: product.images,
           finalPrice: product.price + variant.priceAdjustment
@@ -79,7 +67,6 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
       });
   }
 
-  // Retornar el producto en formato POS
   const productForPOS: ProductForPOS = {
     id: product.id,
     name: product.name,
@@ -94,10 +81,10 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
     cost: product.cost,
     piercing_name: product.piercing_name,
     images: product.images,
-    hasVariants: product.hasVariants
+    hasVariants: product.hasVariants,
+    allowsEngraving: product.allowsEngraving,
   };
 
-  // Solo agregar variantOptions si hay variantes
   if (variantOptions.length > 0) {
     productForPOS.variantOptions = variantOptions;
   }

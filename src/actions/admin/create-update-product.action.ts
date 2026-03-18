@@ -28,6 +28,7 @@ export const crateUpdateProduct = defineAction({
             return '';
         }, z.string().optional()),
         hasVariants: z.preprocess((val) => val === 'on' || val === true, z.boolean().default(false)),
+        allowsEngraving: z.preprocess((val) => val === 'on' || val === true, z.boolean().default(false)),
         imageFiles: z.instanceof(File).array().optional(),
     }),
     handler: async (form, context: ActionAPIContext) => {
@@ -54,6 +55,7 @@ export const crateUpdateProduct = defineAction({
                 piercing_name: form.piercing_name || '',
                 cost: form.cost,
                 hasVariants: form.hasVariants,
+                allowsEngraving: form.allowsEngraving,
                 user: user.id!,
             };
 
@@ -448,6 +450,89 @@ export const deleteVariantImage = defineAction({
         } catch (error: any) {
             console.error('Error eliminando imagen de variante:', error);
             throw new Error(`Error: ${error.message}`);
+        }
+    }
+});
+
+// ===== SUBIR IMAGEN DE GRABADO LÁSER =====
+export const uploadEngravingImage = defineAction({
+    accept: 'form',
+    input: z.object({
+        productId: z.string().min(1, "ID de producto requerido"),
+        imageFile: z.instanceof(File),
+    }),
+    handler: async (form, context: ActionAPIContext) => {
+        try {
+            const imageFile = form.imageFile;
+
+            // Validar que existe el archivo
+            if (!imageFile || imageFile.size === 0) {
+                throw new Error('No se proporcionó ninguna imagen');
+            }
+
+            // Validar tipo de archivo - solo imágenes
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!allowedTypes.includes(imageFile.type)) {
+                throw new Error('Formato no soportado. Usa JPG, PNG, WEBP o GIF.');
+            }
+
+            // Validar tamaño (máx 10MB para grabado láser - necesitan buena resolución)
+            const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+            if (imageFile.size > MAX_SIZE) {
+                throw new Error('La imagen no debe superar 10MB');
+            }
+
+            console.log(`[Grabado Láser] Subiendo imagen para producto ${form.productId}...`);
+            console.log(`[Grabado Láser] Archivo: ${imageFile.name}, Tamaño: ${(imageFile.size / 1024 / 1024).toFixed(2)}MB, Tipo: ${imageFile.type}`);
+
+            // Subir a Cloudinary
+            const imageUrl = await ImageUpload.upload(imageFile);
+            
+            console.log(`[Grabado Láser] Imagen subida exitosamente: ${imageUrl}`);
+
+            // Generar un ID único para esta imagen de grabado
+            const engravingId = UUID();
+
+            return {
+                success: true,
+                engravingId,
+                imageUrl,
+                fileName: imageFile.name,
+                fileSize: imageFile.size,
+                message: 'Imagen de grabado subida correctamente'
+            };
+
+        } catch (error: any) {
+            console.error('[Grabado Láser] Error:', error);
+            throw new Error(`Error al subir imagen de grabado: ${error.message}`);
+        }
+    }
+});
+
+// ===== ELIMINAR IMAGEN DE GRABADO LÁSER =====
+export const deleteEngravingImage = defineAction({
+    accept: 'json',
+    input: z.object({
+        imageUrl: z.string().min(1, "URL de imagen requerida"),
+    }),
+    handler: async ({ imageUrl }, context: ActionAPIContext) => {
+        try {
+            console.log(`[Grabado Láser] Eliminando imagen: ${imageUrl}`);
+
+            const deleted = await ImageUpload.delete(imageUrl);
+
+            if (deleted) {
+                console.log('[Grabado Láser] Imagen eliminada de Cloudinary');
+            }
+
+            return {
+                success: true,
+                message: 'Imagen de grabado eliminada'
+            };
+
+        } catch (error: any) {
+            console.error('[Grabado Láser] Error eliminando:', error);
+            throw new Error(`Error al eliminar imagen: ${error.message}`);
         }
     }
 });

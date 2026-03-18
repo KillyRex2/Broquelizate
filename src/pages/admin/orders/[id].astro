@@ -20,7 +20,22 @@ if (!id) return Astro.redirect('/admin/orders');
 const order = await db.select().from(orders).where(eq(orders.id, id)).get();
 if (!order) return Astro.redirect('/404');
 
-const items = await db.select().from(order_items).where(eq(order_items.orderId, order.id)).all();
+const rawItems = await db.select().from(order_items).where(eq(order_items.orderId, order.id)).all();
+
+// Parsear engraving de JSON string a objeto
+const items = rawItems.map(item => {
+  let engravingData = null;
+  if ((item as any).engraving) {
+    try {
+      engravingData = typeof (item as any).engraving === 'string' 
+        ? JSON.parse((item as any).engraving) 
+        : (item as any).engraving;
+    } catch (e) { console.warn('Error parseando engraving:', e); }
+  }
+  return { ...item, engraving: engravingData };
+});
+
+const engravingItems = items.filter(i => i.engraving);
 
 let clientName = 'Cliente de Mostrador';
 if (order.clientId) {
@@ -136,7 +151,8 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
           </h2>
           <ul class="divide-y divide-gray-200">
             {items.map(item => (
-              <li class="py-4 flex items-center justify-between hover:bg-amber-50 transition-colors">
+            <li class="py-4 hover:bg-amber-50 transition-colors rounded-lg px-3">
+              <div class="flex items-center justify-between">
                 <div>
                   <p class="font-semibold text-gray-900">{item.productName}</p>
                   <p class="text-sm text-gray-500">Cantidad: {item.quantity}</p>
@@ -145,7 +161,23 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
                   <p class="font-medium text-gray-800">{formatCurrency(item.price * (item.quantity ?? 1))}</p>
                   <p class="text-sm text-gray-500">{formatCurrency(item.price)} c/u</p>
                 </div>
-              </li>
+              </div>
+              {item.engraving && (
+                <div class="mt-3 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 animate-fade-in">
+                  <img src={item.engraving.imageUrl} alt="Grabado láser" class="w-14 h-14 object-cover rounded-lg border-2 border-amber-300 shadow-sm" />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                      <span class="text-sm font-bold text-amber-800">Grabado láser personalizado</span>
+                    </div>
+                    {item.engraving.notes && <p class="text-xs text-amber-700 mt-1 italic truncate">"{item.engraving.notes}"</p>}
+                  </div>
+                  <a href={item.engraving.imageUrl} target="_blank" class="flex-shrink-0 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors shadow-sm">
+                    Ver imagen
+                  </a>
+                </div>
+              )}
+            </li>
             ))}
           </ul>
         </div>
@@ -178,6 +210,89 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
             </div>
           </div>
         </div>
+
+        {/* ============================================ */}
+        {/* SECCIÓN DE GRABADO LÁSER PARA PRODUCCIÓN */}
+        {/* ============================================ */}
+        {engravingItems.length > 0 && (
+          <div class="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-2xl shadow-lg border-2 border-amber-200 relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-amber-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
+              🔥 GRABADO LÁSER
+            </div>
+            
+            <h2 class="text-xl font-semibold text-amber-900 mb-6 flex items-center gap-3">
+              <div class="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+              </div>
+              Archivos de Grabado para Producción
+            </h2>
+
+            <p class="text-sm text-amber-800 mb-4">
+              {engravingItems.length === 1 ? 'Este pedido incluye 1 producto con grabado láser personalizado.' : `Este pedido incluye ${engravingItems.length} productos con grabado láser personalizado.`}
+              Descarga las imágenes en alta resolución para producción.
+            </p>
+
+            <div class="space-y-4">
+              {engravingItems.map((item, idx) => (
+                <div class="bg-white rounded-xl border border-amber-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div class="flex items-stretch">
+                    <div class="w-32 sm:w-40 bg-gray-100 flex-shrink-0">
+                      <img 
+                        src={item.engraving.imageUrl} 
+                        alt={`Grabado para ${item.productName}`}
+                        class="w-full h-full object-contain p-2 min-h-[120px]"
+                      />
+                    </div>
+                    <div class="flex-1 p-4">
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <p class="font-bold text-gray-900 text-lg">{item.productName}</p>
+                          <p class="text-sm text-gray-500 mt-1">Cantidad a grabar: {item.quantity}</p>
+                          {item.engraving.notes && (
+                            <div class="mt-2 bg-amber-50 border-l-4 border-amber-400 p-2 rounded-r">
+                              <p class="text-xs text-gray-500 font-semibold">Notas del cliente:</p>
+                              <p class="text-sm text-gray-800 font-medium">"{item.engraving.notes}"</p>
+                            </div>
+                          )}
+                        </div>
+                        <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold flex-shrink-0">
+                          #{idx + 1}
+                        </span>
+                      </div>
+                      <div class="mt-4 flex flex-wrap gap-2">
+                        <a 
+                          href={item.engraving.imageUrl} 
+                          target="_blank"
+                          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                          Ver Original
+                        </a>
+                        <a 
+                          href={item.engraving.imageUrl} 
+                          download={`grabado-${item.productName?.replace(/\s+/g, '-').toLowerCase()}-${idx + 1}.png`}
+                          class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                          Descargar HD
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div class="mt-4 bg-white/60 border border-amber-200 rounded-lg p-3">
+              <p class="text-xs text-amber-700 flex items-center gap-2">
+                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                Las imágenes están almacenadas en Cloudinary. Formatos soportados: JPG, PNG, WEBP, GIF. Máximo 10MB.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ============================================ */}
         {/* SECCIÓN DE ETIQUETA DE ENVÍO GENERADA */}
@@ -548,6 +663,10 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
       <div id="tracking-content" class="p-6"></div>
     </div>
   </div>
+  <style>
+  @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .animate-fade-in { animation: fade-in 0.3s ease-out; }
+</style>
 </AdminLayout>
 
 <script>
@@ -1218,3 +1337,4 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
 
   document.addEventListener('astro:page-load', initializeOrderPage);
 </script>
+
