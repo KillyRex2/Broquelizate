@@ -66,8 +66,15 @@ export const getAllProductsWithImages = defineAction({
       // TODO: Implementar imágenes por combinación cuando se agregue combinationId a ProductImage
       // const imagesByCombination = new Map<string, string[]>();
       
+      // Mapa de coverImageId por producto
+      const coverImageByProduct = new Map<string, string>();
+      for (const product of allProducts) {
+        const coverId = (product as any).coverImageId;
+        if (coverId) coverImageByProduct.set(product.id, coverId);
+      }
+
       for (const image of allImages) {
-        // Imágenes por producto
+        // Imágenes por producto (guardar con id para ordenar después)
         if (image.productId) {
           if (!imagesByProduct.has(image.productId)) {
             imagesByProduct.set(image.productId, []);
@@ -97,8 +104,21 @@ export const getAllProductsWithImages = defineAction({
         const productVariants = variantsByProduct.get(product.id) || [];
         const productCombinations = combinationsByProduct.get(product.id) || [];
         
-        // Obtener todas las imágenes del producto
+        // Obtener todas las imágenes del producto, portada primero
         let productImages = imagesByProduct.get(product.id) || [];
+        
+        const coverId = coverImageByProduct.get(product.id);
+        if (coverId) {
+          // Buscar la imagen de portada en allImages para obtener su URL
+          const coverImg = allImages.find(img => img.id === coverId);
+          if (coverImg) {
+            // Mover portada al inicio
+            productImages = [
+              coverImg.image,
+              ...productImages.filter(url => url !== coverImg.image)
+            ];
+          }
+        }
         
         // Si no hay imágenes directas del producto, intentar obtener de las variantes
         if (productImages.length === 0 && productVariants.length > 0) {
@@ -153,18 +173,16 @@ export const getAllProductsWithImages = defineAction({
           hasVariants: product.hasVariants,
           // Los tipos ya coinciden correctamente con la DB
           productVariants: productVariants,
-          combinations: productCombinations
+          combinations: productCombinations as any,
+          customizationFields: (product as any).customizationFields || [],
+          allowsEngraving: (product as any).allowsEngraving || false
         };
 
         // Si hay combinaciones, enriquecer con el nombre construido
         if (productCombinations.length > 0) {
           productWithVariants.combinations = productCombinations.map(combo => {
-            // TODO: Agregar imágenes específicas de combinación cuando esté disponible
-            // const comboImages = imagesByCombination.get(combo.id) || [];
-            
             const comboItems = itemsByCombination.get(combo.id) || [];
             
-            // Construir el nombre de la combinación basado en las variantes si no existe
             let combinationName = combo.combinationName;
             if (!combinationName && comboItems.length > 0) {
               const variantNames = comboItems.map(item => {
@@ -174,13 +192,10 @@ export const getAllProductsWithImages = defineAction({
               combinationName = variantNames || null;
             }
             
-            // Retornar la combinación con el nombre actualizado
             return {
               ...combo,
               combinationName,
-              // TODO: Agregar imágenes cuando esté disponible
-              // images: comboImages.length > 0 ? comboImages : productImages
-            };
+            }as any;
           });
         }
 

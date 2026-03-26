@@ -21,7 +21,16 @@ const images = data.images || [];
 const generalImages = data.generalImages || [];
 const variantImages = data.variantImages || [];
 
-const fullGeneralImages = (generalImages.length > 0 ? generalImages : images).map((img: any) => 
+// Ordenar imágenes: coverImage primero
+const coverImageId = (rawProduct as any).coverImageId || '';
+const sourceImages = generalImages.length > 0 ? generalImages : images;
+const sortedImages = [...sourceImages].sort((a: any, b: any) => {
+  if (a.id === coverImageId) return -1;
+  if (b.id === coverImageId) return 1;
+  return 0;
+});
+
+const fullGeneralImages = sortedImages.map((img: any) => 
   img.image.startsWith("http") 
     ? img.image 
     : `${import.meta.env.PUBLIC_URL}/images/products/${img.image}`
@@ -38,14 +47,22 @@ if (variantImages.length > 0) {
 }
 
 let variantsData = null;
+let combinationImageMap = new Map();
 if (rawProduct.hasVariants) {
   const { data: variants } = await Astro.callAction(actions.getGroupedProductVariants, rawProduct.id);
   variantsData = variants;
+  
+  if (variantsData?.combinationImages) {
+    Object.entries(variantsData.combinationImages).forEach(([comboId, imgData]: [string, any]) => {
+      combinationImageMap.set(comboId, imgData.image);
+    });
+  }
 }
 
-const image = images[0]?.image.startsWith("http")
-  ? images[0].image
-  : `${import.meta.env.PUBLIC_URL}/images/products/${images[0]?.image}`;
+const coverImg = images.find((img: any) => img.id === coverImageId) || images[0];
+const image = coverImg?.image.startsWith("http")
+  ? coverImg.image
+  : `${import.meta.env.PUBLIC_URL}/images/products/${coverImg?.image}`;
 
 let piercing_name: string[] = [];
 if (typeof rawProduct.piercing_name === 'string') {
@@ -242,7 +259,7 @@ const processedVariants = processVariants(variantsData);
                         data-price-adjustment={option.priceAdjustment}
                         data-stock={option.stock}
                         data-has-image={option.hasImage}
-                        class={`variant-option ${option.isOutOfStock ? 'out-of-stock' : ''} ${index === 0 && !option.isOutOfStock ? 'selected' : ''}`}
+                        class={`variant-option ${option.isOutOfStock ? 'out-of-stock' : ''}`}
                         disabled={option.isOutOfStock}
                       >
                         <div class="variant-main">
@@ -465,6 +482,7 @@ const processedVariants = processVariants(variantsData);
     <input type="hidden" id="base-stock" value={product.stock} />
     <input type="hidden" id="variant-image-map" value={JSON.stringify(Object.fromEntries(variantImageMap))} />
     <input type="hidden" id="general-images" value={JSON.stringify(fullGeneralImages)} />
+    <input type="hidden" id="combination-image-map" value={JSON.stringify(Object.fromEntries(combinationImageMap))} />
   </div>
 </ProductsLayout>
 
@@ -643,9 +661,11 @@ const processedVariants = processVariants(variantsData);
     const basePriceInput = document.getElementById("base-price") as HTMLInputElement;
     const variantImageMapInput = document.getElementById("variant-image-map") as HTMLInputElement;
     const generalImagesInput = document.getElementById("general-images") as HTMLInputElement;
+    const combinationImageMapInput = document.getElementById("combination-image-map") as HTMLInputElement;
     
     const variantImageMap = variantImageMapInput ? JSON.parse(variantImageMapInput.value) : {};
     const generalImages = generalImagesInput ? JSON.parse(generalImagesInput.value) : [];
+    const combinationImageMapData = combinationImageMapInput ? JSON.parse(combinationImageMapInput.value) : {};
     
     const priceElement = document.getElementById("product-price");
     const stockBadge = document.getElementById("stock-badge");
@@ -774,6 +794,17 @@ const processedVariants = processVariants(variantsData);
         if (parseInt(qtyInput.value) > data.stock) {
           qtyInput.value = Math.max(1, data.stock).toString();
         }
+
+        // Actualizar imagen con la de la combinación si existe
+        const comboImage = combinationImageMapData[data.id];
+        const updateSliderFn = (window as any).updateSliderImages;
+        if (typeof updateSliderFn === 'function') {
+          if (comboImage) {
+            updateSliderFn('product-main-slider', [comboImage]);
+          } else {
+            updateSliderFn('product-main-slider', generalImages);
+          }
+        }
         
       } catch (e) {
         console.error('Error al consultar combinación:', e);
@@ -796,7 +827,12 @@ const processedVariants = processVariants(variantsData);
       button.classList.add('selected');
       selectedVariants[variantName] = variantId;
       
-      updateProductImage(hasImage ? variantId : null);
+      // Solo actualizar imagen por variante individual si NO hay combinaciones
+      // Si hay combinaciones, updateCombination se encarga de la imagen
+      const variantGroups = document.querySelectorAll('.variant-group');
+      if (variantGroups.length < 2) {
+        updateProductImage(hasImage ? variantId : null);
+      }
       updateCombination();
     }
 
@@ -984,12 +1020,10 @@ const processedVariants = processVariants(variantsData);
     // =====================================================
     
     if (hasVariants) {
-      document.querySelectorAll('.variant-group').forEach(group => {
-        const firstOption = group.querySelector('.variant-option:not([disabled])') as HTMLElement;
-        if (firstOption) {
-          selectVariantOption(firstOption);
-        }
-      });
+      // No preseleccionar ninguna combinación
+      // El usuario debe elegir manualmente
+      addBtn.disabled = true;
+      showMessage('Selecciona las opciones para tu producto.', 'info');
     } else {
       addBtn.disabled = baseStock <= 0;
       if (baseStock <= 0) {

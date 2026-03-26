@@ -188,6 +188,7 @@ export const handler = async ({
         stock: Product.stock,
         piercing_name: Product.piercing_name,
         cost: Product.cost,
+        coverImageId: Product.coverImageId,
         user: Product.user
       })
       .from(Product)
@@ -205,10 +206,11 @@ export const handler = async ({
     const productIds = products.map(p => p.id);
     
     // Consulta para imágenes
-    let imagesQuery: Array<{ productId: string; image: string }> = [];
+    let imagesQuery: Array<{ id: string; productId: string; image: string }> = [];
     if (productIds.length > 0) {
       const rawImagesQuery = await db
         .select({
+          id: ProductImage.id,
           productId: ProductImage.productId,
           image: ProductImage.image
         })
@@ -216,23 +218,46 @@ export const handler = async ({
         .where(inArray(ProductImage.productId, productIds));
       
       imagesQuery = rawImagesQuery
-        .filter((img): img is { productId: string; image: string } => 
+        .filter((img): img is { id: string; productId: string; image: string } => 
           img.productId !== null
         );
     }
     
     // Agrupar imágenes por producto
-    const imagesMap = new Map<string, string[]>();
+    const imagesMap = new Map<string, Array<{ id: string; image: string }>>();
     imagesQuery.forEach(img => {
       if (!imagesMap.has(img.productId)) {
         imagesMap.set(img.productId, []);
       }
-      imagesMap.get(img.productId)!.push(img.image);
+      imagesMap.get(img.productId)!.push({ id: img.id, image: img.image });
     });
     
-    // Combinar productos con imágenes
+    // Crear mapa de coverImageId por producto
+    const coverMap = new Map<string, string>();
+    products.forEach(p => {
+      if ((p as any).coverImageId) {
+        coverMap.set(p.id, (p as any).coverImageId);
+      }
+    });
+    
+    // Combinar productos con imágenes (portada primero)
     const formattedProducts = products.map(product => {
-      const images = imagesMap.get(product.id)?.slice(0, 2) || ['no-image.png'];
+      const productImages = imagesMap.get(product.id) || [];
+      const coverId = coverMap.get(product.id);
+      
+      // Ordenar: portada primero
+      const sorted = coverId 
+        ? [...productImages].sort((a, b) => {
+            if (a.id === coverId) return -1;
+            if (b.id === coverId) return 1;
+            return 0;
+          })
+        : productImages;
+      
+      const images = sorted.length > 0 
+        ? sorted.slice(0, 2).map(img => img.image) 
+        : ['no-image.png'];
+      
       return {
         ...product,
         images

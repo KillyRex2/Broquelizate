@@ -28,7 +28,13 @@ export const crateUpdateProduct = defineAction({
             return '';
         }, z.string().optional()),
         hasVariants: z.preprocess((val) => val === 'on' || val === true, z.boolean().default(false)),
+
+        // ✅ NUEVO: JSON string con los campos de personalización
+        customizationFields: z.string().default('[]'),
+
+        // ⚠️ DEPRECADO: Mantener temporalmente para compatibilidad
         allowsEngraving: z.preprocess((val) => val === 'on' || val === true, z.boolean().default(false)),
+
         imageFiles: z.instanceof(File).array().optional(),
     }),
     handler: async (form, context: ActionAPIContext) => {
@@ -43,7 +49,20 @@ export const crateUpdateProduct = defineAction({
         const productId = form.id || UUID();
 
         try {
-            // 1. Guardar o actualizar el producto
+            // Validar que customizationFields sea JSON válido
+            let parsedFields = [];
+            try {
+                parsedFields = JSON.parse(form.customizationFields);
+                if (!Array.isArray(parsedFields)) {
+                    parsedFields = [];
+                }
+            } catch {
+                parsedFields = [];
+            }
+
+            // Derivar allowsEngraving del nuevo campo para compatibilidad
+            const hasCustomization = parsedFields.length > 0;
+
             const productData = {
                 name: form.name,
                 price: form.price,
@@ -55,11 +74,16 @@ export const crateUpdateProduct = defineAction({
                 piercing_name: form.piercing_name || '',
                 cost: form.cost,
                 hasVariants: form.hasVariants,
-                allowsEngraving: form.allowsEngraving,
+                customizationFields: JSON.stringify(parsedFields),
+                // Mantener sincronizado durante la transición
+                allowsEngraving: hasCustomization,
                 user: user.id!,
             };
 
-            console.log('Datos del producto a guardar:', productData);
+            console.log('Datos del producto a guardar:', {
+                ...productData,
+                customizationFields: `[${parsedFields.length} campos]`
+            });
 
             if (isEditing) {
                 await db.update(Product).set(productData).where(eq(Product.id, productId));
@@ -79,19 +103,16 @@ export const crateUpdateProduct = defineAction({
                 console.log(`Procesando ${imageFiles.length} archivos de imagen...`);
                 
                 for (const file of imageFiles) {
-                    // Validar que es un archivo válido
                     if (!file || file.size === 0) {
                         console.log('Archivo vacío, saltando...');
                         continue;
                     }
                     
-                    // Validar tipo de archivo
                     if (!file.type.startsWith('image/')) {
                         console.warn(`Archivo ${file.name} no es una imagen válida (tipo: ${file.type})`);
                         continue;
                     }
 
-                    // Validar tamaño (máx 5MB)
                     if (file.size > 5 * 1024 * 1024) {
                         console.warn(`Archivo ${file.name} excede el tamaño máximo de 5MB`);
                         continue;
@@ -100,11 +121,9 @@ export const crateUpdateProduct = defineAction({
                     try {
                         console.log(`Subiendo imagen ${file.name} a Cloudinary...`);
                         
-                        // Subir a Cloudinary
                         const imageUrl = await ImageUpload.upload(file);
                         console.log(`Imagen subida exitosamente: ${imageUrl}`);
                         
-                        // Guardar en base de datos
                         const imageRecord = {
                             id: UUID(),
                             productId: productId,
@@ -120,7 +139,6 @@ export const crateUpdateProduct = defineAction({
                         
                     } catch (uploadError: any) {
                         console.error(`Error subiendo imagen ${file.name}:`, uploadError.message);
-                        // Si falla una imagen, continuar con las demás
                     }
                 }
                 
@@ -137,7 +155,6 @@ export const crateUpdateProduct = defineAction({
         } catch (error: any) {
             console.error('Error en crateUpdateProduct:', error);
             
-            // Rollback manual: Si es nuevo producto y falla, limpiar imágenes
             if (!isEditing) {
                 console.log('Iniciando rollback de imágenes...');
                 try {
@@ -178,7 +195,6 @@ export const deleteProductImage = defineAction({
         }
 
         try {
-            // Obtener la imagen de la base de datos
             const [image] = await db
                 .select()
                 .from(ProductImage)
@@ -190,7 +206,6 @@ export const deleteProductImage = defineAction({
 
             console.log(`Eliminando imagen ${imageId} de Cloudinary...`);
             
-            // Eliminar de Cloudinary
             const deleted = await ImageUpload.delete(image.image);
             
             if (deleted) {
@@ -199,7 +214,6 @@ export const deleteProductImage = defineAction({
                 console.warn('No se pudo eliminar la imagen de Cloudinary, pero continuando...');
             }
 
-            // Eliminar de la base de datos
             await db.delete(ProductImage).where(eq(ProductImage.id, imageId));
             console.log('Imagen eliminada de la base de datos');
 
@@ -216,7 +230,6 @@ export const deleteProductImage = defineAction({
 });
 
 // ===== ELIMINAR PRODUCTO CON TODAS SUS IMÁGENES =====
-// ===== ELIMINAR PRODUCTO CON TODAS SUS IMÁGENES =====
 export const deleteProduct = defineAction({
     accept: 'json',
     input: z.object({
@@ -229,7 +242,6 @@ export const deleteProduct = defineAction({
         try {
             console.log(`Eliminando producto ${id} y todos sus recursos...`);
             
-            // 1. Obtener TODAS las imágenes del producto
             const productImages = await db
                 .select()
                 .from(ProductImage)
@@ -237,13 +249,11 @@ export const deleteProduct = defineAction({
             
             console.log(`Encontradas ${productImages.length} imágenes del producto`);
             
-            // 2. Obtener variantes si existen
             const variants = await db
                 .select({ id: ProductVariant.id })
                 .from(ProductVariant)
                 .where(eq(ProductVariant.productId, id));
             
-            // 3. Si hay variantes, buscar sus imágenes también
             let variantImages: any[] = [];
             if (variants.length > 0) {
                 const variantIds = variants.map(v => v.id);
@@ -255,11 +265,9 @@ export const deleteProduct = defineAction({
                 console.log(`Encontradas ${variantImages.length} imágenes de variantes`);
             }
             
-            // 4. Combinar todas las imágenes
             const allImages = [...productImages, ...variantImages];
             console.log(`Total de imágenes a eliminar: ${allImages.length}`);
             
-            // 5. Eliminar todas las imágenes de Cloudinary
             if (allImages.length > 0) {
                 const deletePromises = allImages.map(async (img) => {
                     try {
@@ -277,10 +285,8 @@ export const deleteProduct = defineAction({
                 await Promise.allSettled(deletePromises);
             }
             
-            // 6. Construir array de queries dinámicamente para batch
             const batchQueries = [];
             
-            // Eliminar imágenes de la BD
             const imageIds = allImages.map(img => img.id);
             if (imageIds.length > 0) {
                 batchQueries.push(
@@ -288,24 +294,20 @@ export const deleteProduct = defineAction({
                 );
             }
             
-            // Eliminar combinaciones de variantes
             batchQueries.push(
                 db.delete(ProductVariantCombination).where(eq(ProductVariantCombination.productId, id))
             );
             
-            // Eliminar variantes
             if (variants.length > 0) {
                 batchQueries.push(
                     db.delete(ProductVariant).where(eq(ProductVariant.productId, id))
                 );
             }
             
-            // Eliminar el producto
             batchQueries.push(
                 db.delete(Product).where(eq(Product.id, id))
             );
             
-            // Ejecutar todas las queries en batch
             if (batchQueries.length > 0) {
                 await db.batch(batchQueries as any);
             }
@@ -323,6 +325,7 @@ export const deleteProduct = defineAction({
         }
     }
 });
+
 // ===== SUBIR IMAGEN DE VARIANTE =====
 export const uploadVariantImage = defineAction({
     accept: 'form',
@@ -338,7 +341,6 @@ export const uploadVariantImage = defineAction({
         }
 
         try {
-            // Verificar que la variante existe
             const [variant] = await db
                 .select()
                 .from(ProductVariant)
@@ -354,40 +356,32 @@ export const uploadVariantImage = defineAction({
                 throw new Error('No se proporcionó ninguna imagen');
             }
 
-            // Validar tipo de archivo
             if (!imageFile.type.startsWith('image/')) {
                 throw new Error('El archivo debe ser una imagen');
             }
 
-            // Validar tamaño (máx 5MB)
             if (imageFile.size > 5 * 1024 * 1024) {
                 throw new Error('La imagen no debe superar 5MB');
             }
 
             console.log(`Subiendo imagen para variante ${form.variantId}...`);
 
-            // Verificar si ya existe una imagen para esta variante
             const [existingImage] = await db
                 .select()
                 .from(ProductImage)
                 .where(eq(ProductImage.variantId, form.variantId));
 
-            // Si existe, eliminar la imagen anterior de Cloudinary
             if (existingImage) {
                 console.log('Eliminando imagen anterior de Cloudinary...');
                 await ImageUpload.delete(existingImage.image);
-                
-                // Eliminar registro de la BD
                 await db
                     .delete(ProductImage)
                     .where(eq(ProductImage.id, existingImage.id));
             }
 
-            // Subir nueva imagen a Cloudinary
             const imageUrl = await ImageUpload.upload(imageFile);
             console.log(`Imagen subida: ${imageUrl}`);
 
-            // Guardar en base de datos
             const imageRecord = {
                 id: UUID(),
                 productId: form.productId,
@@ -422,7 +416,6 @@ export const deleteVariantImage = defineAction({
         }
 
         try {
-            // Buscar imagen asociada a la variante
             const [variantImage] = await db
                 .select()
                 .from(ProductImage)
@@ -434,10 +427,8 @@ export const deleteVariantImage = defineAction({
 
             console.log(`Eliminando imagen de variante ${variantId}...`);
 
-            // Eliminar de Cloudinary
             await ImageUpload.delete(variantImage.image);
 
-            // Eliminar de BD
             await db
                 .delete(ProductImage)
                 .where(eq(ProductImage.id, variantImage.id));
@@ -454,7 +445,115 @@ export const deleteVariantImage = defineAction({
     }
 });
 
-// ===== SUBIR IMAGEN DE GRABADO LÁSER =====
+// ===== ✅ NUEVO: SUBIR IMAGEN DE PERSONALIZACIÓN (reemplaza uploadEngravingImage) =====
+export const uploadCustomizationImage = defineAction({
+    accept: 'form',
+    input: z.object({
+        productId: z.string().min(1, "ID de producto requerido"),
+        fieldId: z.string().min(1, "ID de campo requerido"),
+        imageFile: z.instanceof(File),
+    }),
+    handler: async (form, context: ActionAPIContext) => {
+        try {
+            const imageFile = form.imageFile;
+
+            if (!imageFile || imageFile.size === 0) {
+                throw new Error('No se proporcionó ninguna imagen');
+            }
+
+            // Obtener el producto para validar contra sus campos configurados
+            const [product] = await db
+                .select()
+                .from(Product)
+                .where(eq(Product.id, form.productId));
+
+            if (!product) {
+                throw new Error('Producto no encontrado');
+            }
+
+            // Parsear los campos de personalización del producto
+            let fields: any[] = [];
+            try {
+                fields = JSON.parse((product as any).customizationFields || '[]');
+            } catch {
+                fields = [];
+            }
+
+            // Buscar el campo específico
+            const field = fields.find((f: any) => f.id === form.fieldId);
+            if (!field || field.type !== 'image') {
+                throw new Error('Campo de imagen no encontrado en la configuración del producto');
+            }
+
+            // Validar tipo de archivo contra la configuración del campo
+            const allowedTypes = field.accept || ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!allowedTypes.includes(imageFile.type)) {
+                const friendlyTypes = allowedTypes.map((t: string) => t.split('/')[1]?.toUpperCase()).join(', ');
+                throw new Error(`Formato no soportado. Usa: ${friendlyTypes}`);
+            }
+
+            // Validar tamaño contra la configuración del campo
+            const maxSizeMB = field.maxSize || 10;
+            const maxSizeBytes = maxSizeMB * 1024 * 1024;
+            if (imageFile.size > maxSizeBytes) {
+                throw new Error(`La imagen no debe superar ${maxSizeMB}MB`);
+            }
+
+            console.log(`[Personalización] Subiendo imagen para campo "${field.label}" del producto ${form.productId}...`);
+            console.log(`[Personalización] Archivo: ${imageFile.name}, Tamaño: ${(imageFile.size / 1024 / 1024).toFixed(2)}MB, Tipo: ${imageFile.type}`);
+
+            // Subir a Cloudinary
+            const imageUrl = await ImageUpload.upload(imageFile);
+            
+            console.log(`[Personalización] Imagen subida exitosamente: ${imageUrl}`);
+
+            return {
+                success: true,
+                fieldId: form.fieldId,
+                imageUrl,
+                fileName: imageFile.name,
+                fileSize: imageFile.size,
+                message: `Imagen para "${field.label}" subida correctamente`
+            };
+
+        } catch (error: any) {
+            console.error('[Personalización] Error:', error);
+            throw new Error(`Error al subir imagen: ${error.message}`);
+        }
+    }
+});
+
+// ===== ✅ NUEVO: ELIMINAR IMAGEN DE PERSONALIZACIÓN (reemplaza deleteEngravingImage) =====
+export const deleteCustomizationImage = defineAction({
+    accept: 'json',
+    input: z.object({
+        imageUrl: z.string().min(1, "URL de imagen requerida"),
+    }),
+    handler: async ({ imageUrl }, context: ActionAPIContext) => {
+        try {
+            console.log(`[Personalización] Eliminando imagen: ${imageUrl}`);
+
+            const deleted = await ImageUpload.delete(imageUrl);
+
+            if (deleted) {
+                console.log('[Personalización] Imagen eliminada de Cloudinary');
+            }
+
+            return {
+                success: true,
+                message: 'Imagen eliminada'
+            };
+
+        } catch (error: any) {
+            console.error('[Personalización] Error eliminando:', error);
+            throw new Error(`Error al eliminar imagen: ${error.message}`);
+        }
+    }
+});
+
+// ===== ⚠️ DEPRECADOS: Mantener como wrappers durante la transición =====
+// Eliminar cuando el storefront esté migrado a uploadCustomizationImage
+
 export const uploadEngravingImage = defineAction({
     accept: 'form',
     input: z.object({
@@ -465,37 +564,29 @@ export const uploadEngravingImage = defineAction({
         try {
             const imageFile = form.imageFile;
 
-            // Validar que existe el archivo
             if (!imageFile || imageFile.size === 0) {
                 throw new Error('No se proporcionó ninguna imagen');
             }
 
-            // Validar tipo de archivo - solo imágenes
             const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
             if (!allowedTypes.includes(imageFile.type)) {
                 throw new Error('Formato no soportado. Usa JPG, PNG, WEBP o GIF.');
             }
 
-            // Validar tamaño (máx 10MB para grabado láser - necesitan buena resolución)
-            const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+            const MAX_SIZE = 10 * 1024 * 1024;
             if (imageFile.size > MAX_SIZE) {
                 throw new Error('La imagen no debe superar 10MB');
             }
 
-            console.log(`[Grabado Láser] Subiendo imagen para producto ${form.productId}...`);
-            console.log(`[Grabado Láser] Archivo: ${imageFile.name}, Tamaño: ${(imageFile.size / 1024 / 1024).toFixed(2)}MB, Tipo: ${imageFile.type}`);
+            console.log(`[Grabado Láser - DEPRECADO] Subiendo imagen para producto ${form.productId}...`);
 
-            // Subir a Cloudinary
             const imageUrl = await ImageUpload.upload(imageFile);
             
             console.log(`[Grabado Láser] Imagen subida exitosamente: ${imageUrl}`);
 
-            // Generar un ID único para esta imagen de grabado
-            const engravingId = UUID();
-
             return {
                 success: true,
-                engravingId,
+                engravingId: UUID(),
                 imageUrl,
                 fileName: imageFile.name,
                 fileSize: imageFile.size,
@@ -509,7 +600,6 @@ export const uploadEngravingImage = defineAction({
     }
 });
 
-// ===== ELIMINAR IMAGEN DE GRABADO LÁSER =====
 export const deleteEngravingImage = defineAction({
     accept: 'json',
     input: z.object({
@@ -517,7 +607,7 @@ export const deleteEngravingImage = defineAction({
     }),
     handler: async ({ imageUrl }, context: ActionAPIContext) => {
         try {
-            console.log(`[Grabado Láser] Eliminando imagen: ${imageUrl}`);
+            console.log(`[Grabado Láser - DEPRECADO] Eliminando imagen: ${imageUrl}`);
 
             const deleted = await ImageUpload.delete(imageUrl);
 
@@ -534,5 +624,24 @@ export const deleteEngravingImage = defineAction({
             console.error('[Grabado Láser] Error eliminando:', error);
             throw new Error(`Error al eliminar imagen: ${error.message}`);
         }
+    }
+});
+// ===== ESTABLECER IMAGEN DE PORTADA =====
+export const setProductCoverImage = defineAction({
+    accept: 'json',
+    input: z.object({
+        productId: z.string().min(1),
+        imageId: z.string().min(1),
+    }),
+    handler: async ({ productId, imageId }, context: ActionAPIContext) => {
+        const session = await getSession(context.request);
+        if (!session?.user) throw new Error('No autorizado');
+
+        const [image] = await db.select().from(ProductImage).where(eq(ProductImage.id, imageId));
+        if (!image) throw new Error('Imagen no encontrada');
+
+        await db.update(Product).set({ coverImageId: imageId } as any).where(eq(Product.id, productId));
+
+        return { success: true, message: 'Portada actualizada' };
     }
 });

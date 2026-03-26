@@ -1,5 +1,7 @@
 // src/interfaces/cart-item.ts
 
+import type { CustomizationValue } from "@/utils/customization";
+
 export interface CartItem {
     productId: string;
     quantity: number;
@@ -12,7 +14,10 @@ export interface CartItem {
     variantPriceAdjustment?: number;
     variantPrice?: number;
 
-    // Grabado láser
+    // ✅ NUEVO: Valores de personalización del cliente
+    customizationValues?: CustomizationValue[];
+
+    // ⚠️ DEPRECADO: Mantener durante la transición
     engraving?: {
         id: string;
         imageUrl: string;
@@ -20,7 +25,6 @@ export interface CartItem {
     };
 }
 
-// Tipo para el producto cargado desde el carrito con toda la información
 export interface CartProductItem {
     // Información básica del producto
     productId: string;
@@ -50,7 +54,10 @@ export interface CartProductItem {
     hasVariant: boolean;
     variantImage?: string;
 
-    // Grabado láser
+    // ✅ NUEVO: Valores de personalización del cliente
+    customizationValues?: CustomizationValue[];
+
+    // ⚠️ DEPRECADO: Mantener durante la transición
     engraving?: {
         id: string;
         imageUrl: string;

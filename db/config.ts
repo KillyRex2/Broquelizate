@@ -34,7 +34,16 @@ const Product = defineTable({
     piercing_name: column.text({ optional: true }),
     cost: column.number({ optional: true }),
     hasVariants: column.boolean({ default: false }),
+
+    // ✅ NUEVO: Campos de personalización configurables (JSON array)
+    // Reemplaza a allowsEngraving — soporta texto, imagen y select
+    customizationFields: column.text({ default: '[]' }),
+
+    // ⚠️ DEPRECADO: Mantener temporalmente hasta migrar todo el código
+    // Eliminar cuando admin + storefront + actions usen customizationFields
     allowsEngraving: column.boolean({ default: false }),
+    coverImageId: column.text({ optional: true }),
+
     user: column.text({ references: () => User.columns.id })
   }
 })
@@ -45,6 +54,10 @@ const ProductImage = defineTable({
     productId: column.text({ references: () => Product.columns.id }),
     variantId: column.text({
       references: () => ProductVariant.columns.id,
+      optional: true
+    }),
+    combinationId: column.text({
+      references: () => ProductVariantCombination.columns.id,
       optional: true
     }),
     image: column.text(),
@@ -128,6 +141,13 @@ const order_items = defineTable({
       optional: true
     }),
     variantDescription: column.text({ optional: true }),
+
+    // ✅ NUEVO: Guarda todas las personalizaciones del cliente (JSON array)
+    // Ejemplo: [{"fieldId":"frente","label":"Texto frente","type":"text","value":"Te amo"},
+    //           {"fieldId":"tipografia","label":"Tipografía","type":"select","value":"Cursiva"}]
+    customizationData: column.text({ optional: true }),
+
+    // ⚠️ DEPRECADO: Mantener temporalmente hasta migrar todo el código
     engraving: column.text({ optional: true }),
   }
 });

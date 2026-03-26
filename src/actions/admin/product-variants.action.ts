@@ -114,11 +114,27 @@ export const getGroupedProductVariants = defineAction({
       if (!product) throw new Error('Producto no encontrado');
 
       if (!product.hasVariants) {
-        return { hasVariants: false, groupedVariants: {}, combinations: [] };
+        return { hasVariants: false, groupedVariants: {}, combinations: [], combinationImages: {} };
       }
 
       const variants = await db.select().from(ProductVariant).where(eq(ProductVariant.productId, productId));
       const combinations = await db.select().from(ProductVariantCombination).where(and(eq(ProductVariantCombination.productId, productId), eq(ProductVariantCombination.isActive, true)));
+
+      // ✅ NUEVO: Obtener imágenes de combinaciones
+      const allImages = await db.select().from(ProductImage).where(eq(ProductImage.productId, productId));
+      
+      const combinationImages: Record<string, { id: string; image: string }> = {};
+      allImages.forEach(img => {
+        const comboId = img.combinationId;
+        if (comboId) {
+          combinationImages[comboId] = {
+            id: img.id,
+            image: img.image
+          };
+        }
+      });
+      
+      console.log('Combination images found:', Object.keys(combinationImages).length, combinationImages);
 
       const groupedVariants: GroupedVariants = {};
       variants.forEach(variant => {
@@ -129,14 +145,14 @@ export const getGroupedProductVariants = defineAction({
           id: variant.id,
           value: variant.variantValue,
           priceAdjustment: variant.priceAdjustment,
-          cost: variant.cost ?? null, // ✅ NUEVO: Incluir costo
+          cost: variant.cost ?? null,
           stock: variant.stock,
           isDefault: variant.isDefault,
           isActive: variant.isActive
         });
       });
 
-      return { hasVariants: true, groupedVariants, combinations };
+      return { hasVariants: true, groupedVariants, combinations, combinationImages };
     } catch (error: any) {
       console.error('Error getting grouped variants:', error);
       throw new Error('Error al obtener las variantes agrupadas');
@@ -499,4 +515,189 @@ export const updateCombinationStock = defineAction({
     await db.update(ProductVariantCombination).set({ stock: newStock } as any).where(eq(ProductVariantCombination.id, combinationId));
     return { success: true, message: 'Stock actualizado' };
   }
+});
+
+// ===== ACTUALIZAR GRUPO COMPLETO DE VARIANTES =====
+export const updateVariantGroup = defineAction({
+  accept: 'json',
+  input: z.object({
+    productId: z.string(),
+    originalVariantName: z.string(),
+    newVariantName: z.string(),
+    variants: z.array(z.object({
+      id: z.string().optional(),
+      variantValue: z.string(),
+      priceAdjustment: z.number(),
+      cost: z.number().nullable().optional(),
+      stock: z.number(),
+      sku: z.string().nullable().optional(),
+    })),
+    deletedVariantIds: z.array(z.string()).optional(),
+  }),
+  handler: async (input, { request }) => {
+    const session = await getSession(request);
+    if (!session?.user) throw new Error('No autorizado');
+
+    const { productId, originalVariantName, newVariantName, variants, deletedVariantIds } = input;
+
+    try {
+      // 1. Eliminar variantes marcadas para borrar
+      if (deletedVariantIds && deletedVariantIds.length > 0) {
+        await db.batch([
+          db.update(ProductImage)
+            .set({ variantId: null } as any)
+            .where(inArray(ProductImage.variantId, deletedVariantIds)),
+          db.delete(ProductVariant)
+            .where(inArray(ProductVariant.id, deletedVariantIds)),
+        ]);
+      }
+
+      // 2. Actualizar existentes y crear nuevas
+      for (const variant of variants) {
+        if (variant.id) {
+          // Actualizar variante existente
+          await db.update(ProductVariant).set({
+            variantName: newVariantName,
+            variantValue: variant.variantValue,
+            priceAdjustment: variant.priceAdjustment,
+            cost: variant.cost ?? null,
+            stock: variant.stock,
+            sku: variant.sku ?? null,
+          } as any).where(eq(ProductVariant.id, variant.id));
+        } else {
+          // Crear nueva variante
+          await db.insert(ProductVariant).values({
+            id: UUID(),
+            productId,
+            variantName: newVariantName,
+            variantValue: variant.variantValue,
+            priceAdjustment: variant.priceAdjustment,
+            cost: variant.cost ?? null,
+            stock: variant.stock,
+            sku: variant.sku ?? null,
+            isDefault: false,
+            isActive: true,
+            createdAt: new Date(),
+          } as any);
+        }
+      }
+
+      // 3. Eliminar combinaciones viejas (se deben regenerar)
+      await db.delete(ProductVariantCombination)
+        .where(eq(ProductVariantCombination.productId, productId));
+
+      return { 
+        success: true, 
+        message: `Grupo "${newVariantName}" actualizado correctamente`,
+        shouldRegenerateCombinations: true
+      };
+    } catch (error: any) {
+      console.error('Error actualizando grupo de variantes:', error);
+      throw new Error(`Error al actualizar el grupo: ${error.message}`);
+    }
+  }
+});
+
+// ===== SUBIR IMAGEN DE COMBINACIÓN =====
+export const uploadCombinationImage = defineAction({
+    accept: 'form',
+    input: z.object({
+        combinationId: z.string().min(1, "ID de combinación requerido"),
+        productId: z.string().min(1, "ID de producto requerido"),
+        imageFile: z.instanceof(File).optional(),
+    }),
+    handler: async (form, { request }) => {
+        const session = await getSession(request);
+        if (!session?.user) throw new Error('No autorizado');
+
+        try {
+            const [combination] = await db
+                .select()
+                .from(ProductVariantCombination)
+                .where(eq(ProductVariantCombination.id, form.combinationId));
+
+            if (!combination) throw new Error('Combinación no encontrada');
+
+            const imageFile = form.imageFile;
+            if (!imageFile || imageFile.size === 0) throw new Error('No se proporcionó ninguna imagen');
+            if (!imageFile.type.startsWith('image/')) throw new Error('El archivo debe ser una imagen');
+            if (imageFile.size > 5 * 1024 * 1024) throw new Error('La imagen no debe superar 5MB');
+
+            console.log(`Subiendo imagen para combinación ${form.combinationId}...`);
+
+            // Verificar si ya existe una imagen para esta combinación
+            const existingImages = await db
+                .select()
+                .from(ProductImage)
+                .where(eq(ProductImage.productId, form.productId));
+            
+            const existingImage = existingImages.find((img: any) => img.combinationId === form.combinationId);
+
+            if (existingImage) {
+                console.log('Eliminando imagen anterior...');
+                const { ImageUpload } = await import('@/utils/image-upload');
+                await ImageUpload.delete(existingImage.image);
+                await db.delete(ProductImage).where(eq(ProductImage.id, existingImage.id));
+            }
+
+            const { ImageUpload } = await import('@/utils/image-upload');
+            const imageUrl = await ImageUpload.upload(imageFile);
+            console.log(`Imagen subida: ${imageUrl}`);
+
+            const imageRecord = {
+                id: UUID(),
+                productId: form.productId,
+                variantId: null,
+                combinationId: form.combinationId,
+                image: imageUrl,
+            };
+
+            await db.insert(ProductImage).values(imageRecord as any);
+
+            return {
+                success: true,
+                imageUrl,
+                message: 'Imagen de combinación subida correctamente'
+            };
+
+        } catch (error: any) {
+            console.error('Error subiendo imagen de combinación:', error);
+            throw new Error(`Error: ${error.message}`);
+        }
+    }
+});
+
+// ===== ELIMINAR IMAGEN DE COMBINACIÓN =====
+export const deleteCombinationImage = defineAction({
+    accept: 'json',
+    input: z.string().min(1, "ID de combinación requerido"),
+    handler: async (combinationId, { request }) => {
+        const session = await getSession(request);
+        if (!session?.user) throw new Error('No autorizado');
+
+        try {
+            const allImages = await db
+                .select()
+                .from(ProductImage);
+            
+            const comboImage = allImages.find((img: any) => img.combinationId === combinationId);
+
+            if (!comboImage) throw new Error('No hay imagen asociada a esta combinación');
+
+            console.log(`Eliminando imagen de combinación ${combinationId}...`);
+
+            const { ImageUpload } = await import('@/utils/image-upload');
+            await ImageUpload.delete(comboImage.image);
+            await db.delete(ProductImage).where(eq(ProductImage.id, comboImage.id));
+
+            return {
+                success: true,
+                message: 'Imagen de combinación eliminada'
+            };
+
+        } catch (error: any) {
+            console.error('Error eliminando imagen de combinación:', error);
+            throw new Error(`Error: ${error.message}`);
+        }
+    }
 });

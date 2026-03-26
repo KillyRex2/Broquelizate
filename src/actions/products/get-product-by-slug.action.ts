@@ -65,7 +65,8 @@ export const getProductBySlug = defineAction({
                 piercing_name: Product.piercing_name,
                 cost: Product.cost,
                 hasVariants: Product.hasVariants,
-                allowsEngraving: Product.allowsEngraving, 
+                allowsEngraving: Product.allowsEngraving,
+                coverImageId: Product.coverImageId,
                 user: Product.user
             })
             .from(Product)
