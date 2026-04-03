@@ -86,7 +86,7 @@ export const crateUpdateProduct = defineAction({
             });
 
             if (isEditing) {
-                await db.update(Product).set(productData).where(eq(Product.id, productId));
+                await db.update(Product).set(productData as any).where(eq(Product.id, productId));
                 console.log(`Producto ${productId} actualizado`);
             } else {
                 await db.insert(Product).values({ id: productId, ...productData } as any);

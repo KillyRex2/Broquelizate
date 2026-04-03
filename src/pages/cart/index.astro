@@ -8,7 +8,7 @@ import { Formatter } from '@/utils';
 
 // ✅ Leer cookies del servidor (funciona en Netlify SSR)
 const cartCookie = Astro.cookies.get('cart');
-let cartItems: Array<{ productId: string; quantity: number; variantId?: string; combinationId?: string, engraving?: { id: string; imageUrl: string; notes: string } }> = [];
+let cartItems: Array<{ productId: string; quantity: number; variantId?: string; combinationId?: string; customizationValues?: Array<{ fieldId: string; label: string; type: string; value: string }>; engraving?: { id: string; imageUrl: string; notes: string } }> = [];
 
 try {
   if (cartCookie?.value) {
@@ -32,6 +32,7 @@ if (cartItems.length > 0) {
       );
       return {
         ...product,
+        customizationValues: cartItem?.customizationValues || [],
         engraving: cartItem?.engraving || null,
       };
     });
@@ -157,21 +158,57 @@ const ORIGIN_POSTAL_CODE = "35000";
                             <span>{product.variantCombination}</span>
                           </div>
                         )}
-                                                {product.engraving && (
-                          <div class="engraving-badge">
-                            <div class="engraving-badge-row">
-                              <img src={product.engraving.imageUrl} alt="Grabado" class="engraving-thumb" />
-                              <div class="engraving-badge-info">
-                                <span class="engraving-badge-label">
-                                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                                  </svg>
-                                  Grabado láser personalizado
-                                </span>
-                                {product.engraving.notes && (
-                                  <span class="engraving-badge-notes">"{product.engraving.notes}"</span>
-                                )}
+                                                {product.customizationValues && product.customizationValues.length > 0 && (
+                          <div class="customization-badge">
+                            <div class="customization-badge-header">
+                              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                              </svg>
+                              <span>Personalización ({product.customizationValues.length})</span>
+                            </div>
+                            <div class="customization-badge-items">
+                              {product.customizationValues.map((cv: any) => (
+                                <div class="customization-badge-item">
+                                  {cv.type === 'image' ? (
+                                    <div class="cust-item-image-row">
+                                      <img src={cv.value} alt={cv.label} class="cust-item-thumb" />
+                                      <span class="cust-item-label">{cv.label}</span>
+                                    </div>
+                                  ) : (
+                                    <div class="cust-item-text-row">
+                                      <span class="cust-item-label">{cv.label}:</span>
+                                      <span class="cust-item-value">{cv.value}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Backward compat: mostrar engraving viejo si no hay customizationValues */}
+                        {(!product.customizationValues || product.customizationValues.length === 0) && product.engraving && (
+                          <div class="customization-badge">
+                            <div class="customization-badge-header">
+                              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                              </svg>
+                              <span>Grabado láser</span>
+                            </div>
+                            <div class="customization-badge-items">
+                              <div class="customization-badge-item">
+                                <div class="cust-item-image-row">
+                                  <img src={product.engraving.imageUrl} alt="Grabado" class="cust-item-thumb" />
+                                  <span class="cust-item-label">Imagen para grabado</span>
+                                </div>
                               </div>
+                              {product.engraving.notes && (
+                                <div class="customization-badge-item">
+                                  <div class="cust-item-text-row">
+                                    <span class="cust-item-label">Notas:</span>
+                                    <span class="cust-item-value">{product.engraving.notes}</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -455,12 +492,15 @@ const ORIGIN_POSTAL_CODE = "35000";
   .trust-text { display: flex; flex-direction: column; gap: 2px; }
   .trust-title { font-size: 0.85rem; font-weight: 600; color: #fff; }
   .trust-desc { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); }
-  .engraving-badge { padding: 10px 14px; background: rgba(234, 179, 8, 0.06); border: 1px solid rgba(234, 179, 8, 0.15); border-radius: 10px; margin-top: 4px; }
-  .engraving-badge-row { display: flex; align-items: center; gap: 12px; }
-  .engraving-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.3); flex-shrink: 0; }
-  .engraving-badge-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .engraving-badge-label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: #eab308; }
-  .engraving-badge-notes { font-size: 0.72rem; color: rgba(255, 255, 255, 0.45); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .customization-badge { padding: 10px 14px; background: rgba(234, 179, 8, 0.06); border: 1px solid rgba(234, 179, 8, 0.15); border-radius: 10px; margin-top: 4px; }
+  .customization-badge-header { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: #eab308; margin-bottom: 8px; }
+  .customization-badge-items { display: flex; flex-direction: column; gap: 6px; }
+  .customization-badge-item { }
+  .cust-item-image-row { display: flex; align-items: center; gap: 10px; }
+  .cust-item-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.3); flex-shrink: 0; }
+  .cust-item-text-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .cust-item-label { font-size: 0.75rem; font-weight: 500; color: rgba(255, 255, 255, 0.5); }
+  .cust-item-value { font-size: 0.78rem; font-weight: 600; color: rgba(255, 255, 255, 0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }

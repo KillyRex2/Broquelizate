@@ -1,7 +1,7 @@
 ---
 // src/pages/products/[...slug].astro
 import ProductSlideshow from "@/components/products/ProductSlideshow.astro";
-import LaserEngraving from "@/components/products/LaserEngraving.astro";
+import ProductCustomization from "@/pages/products/ProductCustomization.astro";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
 import { Formatter } from "@/utils";
@@ -337,12 +337,11 @@ const processedVariants = processVariants(variantsData);
           </div>
 
           <!-- ✅ GRABADO LÁSER (solo si el producto lo permite) -->
-          {product.allowsEngraving && (
-            <LaserEngraving 
-              productId={product.id} 
-              productName={product.name} 
-            />
-          )}
+          <ProductCustomization 
+            productId={product.id} 
+            productName={product.name}
+            customizationFieldsRaw={(rawProduct as any).customizationFields || '[]'}
+          />
 
           <!-- Cart Section -->
           <div class="cart-section">
@@ -901,18 +900,27 @@ const processedVariants = processVariants(variantsData);
           }
         }
 
-        // ✅ NUEVO: Agregar datos de grabado láser si existe
-        const engravingUrl = (document.getElementById('engr-image-url') as HTMLInputElement)?.value;
-        const engravingId = (document.getElementById('engr-image-id') as HTMLInputElement)?.value;
-        const engravingNotes = (document.getElementById('engr-notes-input') as HTMLTextAreaElement)?.value;
-        const engravingToggle = (document.getElementById('engr-toggle-check') as HTMLInputElement)?.checked;
-
-        if (engravingToggle && engravingUrl) {
-          cartItem.engraving = {
-            id: engravingId,
-            imageUrl: engravingUrl,
-            notes: engravingNotes || '',
-          };
+        // ✅ Agregar datos de personalización si existen
+        const custToggle = (document.getElementById('cust-toggle-check') as HTMLInputElement)?.checked;
+        const custValuesJson = (document.getElementById('customization-values-json') as HTMLInputElement)?.value;
+        
+        if (custToggle && custValuesJson) {
+          try {
+            const custValues = JSON.parse(custValuesJson);
+            if (Array.isArray(custValues) && custValues.length > 0) {
+              cartItem.customizationValues = custValues;
+              
+              // Backward compat: si hay un campo de imagen, llenar engraving también
+              const imageValue = custValues.find((v: any) => v.type === 'image');
+              if (imageValue) {
+                cartItem.engraving = {
+                  id: imageValue.fieldId,
+                  imageUrl: imageValue.value,
+                  notes: custValues.filter((v: any) => v.type === 'text').map((v: any) => `${v.label}: ${v.value}`).join(', '),
+                };
+              }
+            }
+          } catch {}
         }
         
         // Añadir al carrito

@@ -468,6 +468,7 @@ function getSortIcon(column: string) {
           sortOrder: url.searchParams.get('sortOrder') || 'asc',
           minPrice: url.searchParams.get('minPrice') || '0',
           maxPrice: url.searchParams.get('maxPrice') || '99999',
+          limit: url.searchParams.get('limit') || '12',
           page: url.searchParams.get('page') || '1'
         };
         

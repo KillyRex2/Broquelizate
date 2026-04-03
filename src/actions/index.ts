@@ -2,7 +2,7 @@ import { loginUser, logout, registerUser } from "./auth";
 import { getProductBySlug } from "./products/get-product-by-slug.action";
 import { getInventoryStats, getProductsByPage } from "./products/get-products-by-page.action";
 import { loadProductsFromCart } from "./cart/load-products-from-cart.actions";
-import { crateUpdateProduct, uploadEngravingImage, deleteEngravingImage, setProductCoverImage} from "./admin/create-update-product.action";
+import { crateUpdateProduct, uploadEngravingImage, deleteEngravingImage, setProductCoverImage, deleteCustomizationImage, uploadCustomizationImage} from "./admin/create-update-product.action";
 import { deleteProductImage, uploadVariantImage, deleteVariantImage } from "./admin/create-update-product.action";
 import { deleteProduct } from "./admin/create-update-product.action";
 import { getClientById, updateClient, getAllClients, updateClientBalance } from './admin/update-client.action'
@@ -40,6 +40,8 @@ export const server = {
     uploadEngravingImage,
     deleteEngravingImage,
     setProductCoverImage,
+    deleteCustomizationImage,
+    uploadCustomizationImage,
 
     // Admin Client
     updateClient,

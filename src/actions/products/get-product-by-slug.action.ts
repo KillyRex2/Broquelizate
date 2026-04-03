@@ -66,6 +66,7 @@ export const getProductBySlug = defineAction({
                 cost: Product.cost,
                 hasVariants: Product.hasVariants,
                 allowsEngraving: Product.allowsEngraving,
+                customizationFields: Product.customizationFields,
                 coverImageId: Product.coverImageId,
                 user: Product.user
             })
