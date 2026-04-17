@@ -1,0 +1,105 @@
+---
+// src/components/admin/ActivityFeed.astro
+import { db, orders, order_items } from 'astro:db';
+import { desc, eq } from 'drizzle-orm';
+
+const recentOrders = await db.select({
+  id: orders.id,
+  createdAt: orders.createdAt,
+  total: orders.total,
+  customerEmail: orders.customerEmail,
+  status: orders.status
+})
+.from(orders)
+.orderBy(desc(orders.createdAt))
+.limit(5)
+.all();
+
+const ordersWithItems = await Promise.all(
+  recentOrders.map(async order => {
+    const items = await db.select().from(order_items).where(eq(order_items.orderId, order.id)).all();
+    return { ...order, items: items.map(i => i.productName) };
+  })
+);
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+
+const getTimeAgo = (date: Date) => {
+  const diff = new Date().getTime() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `Hace ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `Hace ${days}d`;
+};
+
+const getInitials = (email: string) =>
+  email.split('@')[0].replace(/[._]/g, ' ').split(' ').slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('');
+
+const getName = (email: string) =>
+  email.split('@')[0].replace(/[._]/g, ' ').split(' ').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+---
+
+<div class="af-list">
+  {ordersWithItems.length > 0 ? (
+    ordersWithItems.map(order => (
+      <div class="af-item">
+        <div class="af-avatar">{getInitials(order.customerEmail)}</div>
+        <div class="af-content">
+          <div class="af-top">
+            <span class="af-name">{getName(order.customerEmail)}</span>
+            <span class="af-time">{getTimeAgo(order.createdAt)}</span>
+          </div>
+          <div class="af-bottom">
+            <span class="af-total">{formatCurrency(order.total)}</span>
+            {order.items.length > 0 && (
+              <span class="af-products">
+                {order.items.slice(0, 2).join(', ')}{order.items.length > 2 ? ` +${order.items.length - 2}` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    ))
+  ) : (
+    <p class="af-empty">No hay actividad reciente</p>
+  )}
+</div>
+
+<style>
+  .af-list { display: flex; flex-direction: column; gap: 8px; }
+  .af-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 12px;
+    transition: background 0.2s;
+  }
+  .af-item:hover { background: rgba(255,255,255,0.04); }
+  .af-avatar {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(234,179,8,0.1);
+    color: #eab308;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .af-content { flex: 1; min-width: 0; }
+  .af-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .af-name { font-size: 0.85rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .af-time { font-size: 0.7rem; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+  .af-bottom { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .af-total { font-size: 0.8rem; font-weight: 700; color: #eab308; }
+  .af-products { font-size: 0.7rem; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .af-empty { text-align: center; padding: 24px; color: rgba(255,255,255,0.35); font-size: 0.85rem; }
+</style>

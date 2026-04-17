@@ -507,7 +507,7 @@ const stockOptions = [
 
   // Inicializar
   document.addEventListener('astro:page-load', initFilterBar);
-  if (document.readyState === 'complete') {
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
     initFilterBar();
   }
 </script>

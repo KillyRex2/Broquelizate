@@ -43,6 +43,8 @@ const Product = defineTable({
     // Eliminar cuando admin + storefront + actions usen customizationFields
     allowsEngraving: column.boolean({ default: false }),
     coverImageId: column.text({ optional: true }),
+    isFeatured: column.boolean({ default: false }),
+    isDeleted: column.boolean({ default: false }),
 
     user: column.text({ references: () => User.columns.id })
   }

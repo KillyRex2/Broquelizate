@@ -133,7 +133,7 @@ const displayProducts = products.length > 0 ? products : [
                 src={product.image} 
                 alt={product.name}
                 loading={i < 2 ? "eager" : "lazy"}
-                onerror="this.src='/assets/placeholder.jpg'"
+                onerror="this.src='https://placehold.co/400x400/1a1a1a/eab308?text=Sin+Imagen'"
               />
               <div class="card-hover">
                 <span class="quick-view">Ver producto</span>

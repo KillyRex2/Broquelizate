@@ -1,37 +1,46 @@
-// src/pages/api/delete-client.action.ts
 import { db, Client, eq } from 'astro:db';
 import type { APIRoute } from 'astro';
+import { getSession } from 'auth-astro/server';
 
 export const DELETE: APIRoute = async ({ request }) => {
   try {
-    // Obtener el ID del cliente a eliminar
+    const session = await getSession(request);
+    if (!session?.user) {
+      return new Response(JSON.stringify({ error: 'No autorizado' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const formData = await request.formData();
     const id = formData.get('id');
-    
-    // Validar ID
+
     if (!id || isNaN(Number(id))) {
-      return new Response('ID de cliente inválido', { status: 400 });
+      return new Response(JSON.stringify({ error: 'ID inválido' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-    
+
     const clientId = Number(id);
-    
-    // Eliminar el cliente de la base de datos usando eq() para la comparación
     const result = await db.delete(Client).where(eq(Client.id, clientId));
-    
-    // Verificar si se eliminó algún registro
+
     if (result.rowsAffected === 0) {
-      return new Response('Cliente no encontrado', { status: 404 });
+      return new Response(JSON.stringify({ error: 'Cliente no encontrado' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
-    
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error: any) {
-    console.error('Error eliminando cliente:', error);
-    return new Response('Error interno del servidor', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Error interno' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };

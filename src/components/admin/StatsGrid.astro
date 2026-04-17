@@ -3,269 +3,217 @@
 import { db, orders, Client, order_items } from 'astro:db';
 import { sql, and, gte, lte, eq } from 'drizzle-orm';
 
-// Obtener la fecha actual y calcular rangos
 const now = new Date();
 const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 const endOfPreviousMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-// Función para formatear moneda
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('es-MX', { 
-    style: 'currency', 
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value);
-};
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
-// Consulta 1: Ingresos totales (todos los pedidos)
-const totalRevenueResult = await db.select({
-  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
-}).from(orders);
-
+// Ingresos totales
+const totalRevenueResult = await db.select({ total: sql<number>`SUM(${orders.total})`.mapWith(Number) }).from(orders);
 const totalRevenue = totalRevenueResult[0]?.total || 0;
 
-// Consulta 2: Ingresos del mes actual
-const currentMonthRevenueResult = await db.select({
-  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
-}).from(orders)
-.where(and(
-  gte(orders.createdAt, startOfCurrentMonth),
-  lte(orders.createdAt, now)
-));
-
+// Ingresos mes actual
+const currentMonthRevenueResult = await db.select({ total: sql<number>`SUM(${orders.total})`.mapWith(Number) }).from(orders).where(and(gte(orders.createdAt, startOfCurrentMonth), lte(orders.createdAt, now)));
 const currentMonthRevenue = currentMonthRevenueResult[0]?.total || 0;
 
-// Consulta 3: Ingresos del mes pasado
-const previousMonthRevenueResult = await db.select({
-  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
-}).from(orders)
-.where(and(
-  gte(orders.createdAt, startOfPreviousMonth),
-  lte(orders.createdAt, endOfPreviousMonth)
-));
-
+// Ingresos mes anterior
+const previousMonthRevenueResult = await db.select({ total: sql<number>`SUM(${orders.total})`.mapWith(Number) }).from(orders).where(and(gte(orders.createdAt, startOfPreviousMonth), lte(orders.createdAt, endOfPreviousMonth)));
 const previousMonthRevenue = previousMonthRevenueResult[0]?.total || 0;
 
-// Calcular cambio porcentual para ingresos
-const revenueChange = previousMonthRevenue > 0 
-  ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 
-  : currentMonthRevenue > 0 ? 100 : 0;
+const revenueChange = previousMonthRevenue > 0 ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 : currentMonthRevenue > 0 ? 100 : 0;
 
-// Consulta 4: Total de pedidos
-const totalOrdersResult = await db.select({
-  count: sql<number>`COUNT(*)`.mapWith(Number)
-}).from(orders);
-
+// Total pedidos
+const totalOrdersResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(orders);
 const totalOrders = totalOrdersResult[0]?.count || 0;
 
-// Consulta 5: Pedidos del mes actual
-const currentMonthOrdersResult = await db.select({
-  count: sql<number>`COUNT(*)`.mapWith(Number)
-}).from(orders)
-.where(and(
-  gte(orders.createdAt, startOfCurrentMonth),
-  lte(orders.createdAt, now)
-));
-
+const currentMonthOrdersResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(orders).where(and(gte(orders.createdAt, startOfCurrentMonth), lte(orders.createdAt, now)));
 const currentMonthOrders = currentMonthOrdersResult[0]?.count || 0;
 
-// Consulta 6: Pedidos del mes pasado
-const previousMonthOrdersResult = await db.select({
-  count: sql<number>`COUNT(*)`.mapWith(Number)
-}).from(orders)
-.where(and(
-  gte(orders.createdAt, startOfPreviousMonth),
-  lte(orders.createdAt, endOfPreviousMonth)
-));
-
+const previousMonthOrdersResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(orders).where(and(gte(orders.createdAt, startOfPreviousMonth), lte(orders.createdAt, endOfPreviousMonth)));
 const previousMonthOrders = previousMonthOrdersResult[0]?.count || 0;
 
-// Calcular cambio porcentual para pedidos
-const ordersChange = previousMonthOrders > 0 
-  ? ((currentMonthOrders - previousMonthOrders) / previousMonthOrders) * 100 
-  : currentMonthOrders > 0 ? 100 : 0;
+const ordersChange = previousMonthOrders > 0 ? ((currentMonthOrders - previousMonthOrders) / previousMonthOrders) * 100 : currentMonthOrders > 0 ? 100 : 0;
 
-// --- NUEVAS CONSULTAS PARA CLIENTES ---
-// Consulta 7: Total de clientes
-const totalClientsResult = await db.select({
-  count: sql<number>`COUNT(*)`.mapWith(Number)
-}).from(Client);
-
+// Clientes
+const totalClientsResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(Client);
 const totalClients = totalClientsResult[0]?.count || 0;
 
-// Consulta 8: Clientes del mes actual
-const currentMonthClientsResult = await db.select({
-  count: sql<number>`COUNT(*)`.mapWith(Number)
-}).from(Client)
-.where(and(
-  gte(Client.createdAt, startOfCurrentMonth),
-  lte(Client.createdAt, now)
-));
-
+const currentMonthClientsResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(Client).where(and(gte(Client.createdAt, startOfCurrentMonth), lte(Client.createdAt, now)));
 const currentMonthClients = currentMonthClientsResult[0]?.count || 0;
 
-// Consulta 9: Clientes del mes pasado
-const previousMonthClientsResult = await db.select({
-  count: sql<number>`COUNT(*)`.mapWith(Number)
-}).from(Client)
-.where(and(
-  gte(Client.createdAt, startOfPreviousMonth),
-  lte(Client.createdAt, endOfPreviousMonth)
-));
-
+const previousMonthClientsResult = await db.select({ count: sql<number>`COUNT(*)`.mapWith(Number) }).from(Client).where(and(gte(Client.createdAt, startOfPreviousMonth), lte(Client.createdAt, endOfPreviousMonth)));
 const previousMonthClients = previousMonthClientsResult[0]?.count || 0;
 
-// Calcular cambio porcentual para clientes
-const clientsChange = previousMonthClients > 0 
-  ? ((currentMonthClients - previousMonthClients) / previousMonthClients) * 100 
-  : currentMonthClients > 0 ? 100 : 0;
+const clientsChange = previousMonthClients > 0 ? ((currentMonthClients - previousMonthClients) / previousMonthClients) * 100 : currentMonthClients > 0 ? 100 : 0;
 
-// Formatear valores para mostrar
-const formattedTotalRevenue = formatCurrency(totalRevenue);
-const formattedCurrentMonthRevenue = formatCurrency(currentMonthRevenue);
-const formattedTotalOrders = totalOrders.toLocaleString('es-MX');
-const formattedCurrentMonthOrders = currentMonthOrders.toLocaleString('es-MX');
-const formattedTotalClients = totalClients.toLocaleString('es-MX');
-const formattedCurrentMonthClients = currentMonthClients.toLocaleString('es-MX');
-
-// --- NUEVAS CONSULTAS PARA ARTÍCULOS POR PEDIDO ---
-// Consulta 1: Total de artículos vendidos y total de pedidos
+// Artículos por pedido
 const globalItemsResult = await db.select({
   totalItems: sql<number>`SUM(${order_items.quantity})`.mapWith(Number),
   totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`.mapWith(Number)
-}).from(order_items)
-.leftJoin(orders, eq(order_items.orderId, orders.id));
-
+}).from(order_items).leftJoin(orders, eq(order_items.orderId, orders.id));
 const globalItems = globalItemsResult[0]?.totalItems || 0;
-const globalOrdersForAvg = globalItemsResult[0]?.totalOrders || 1; // Evitar división por cero
+const globalOrdersForAvg = globalItemsResult[0]?.totalOrders || 1;
 
-// Consulta 2: Artículos y pedidos del mes actual
 const currentMonthItemsResult = await db.select({
   totalItems: sql<number>`SUM(${order_items.quantity})`.mapWith(Number),
   totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`.mapWith(Number)
-}).from(order_items)
-.leftJoin(orders, eq(order_items.orderId, orders.id))
-.where(and(
-  gte(orders.createdAt, startOfCurrentMonth),
-  lte(orders.createdAt, now)
-));
-
+}).from(order_items).leftJoin(orders, eq(order_items.orderId, orders.id)).where(and(gte(orders.createdAt, startOfCurrentMonth), lte(orders.createdAt, now)));
 const currentMonthItems = currentMonthItemsResult[0]?.totalItems || 0;
 const currentMonthOrdersForAvg = currentMonthItemsResult[0]?.totalOrders || 1;
 
-// Consulta 3: Artículos y pedidos del mes anterior
 const previousMonthItemsResult = await db.select({
   totalItems: sql<number>`SUM(${order_items.quantity})`.mapWith(Number),
   totalOrders: sql<number>`COUNT(DISTINCT ${orders.id})`.mapWith(Number)
-}).from(order_items)
-.leftJoin(orders, eq(order_items.orderId, orders.id))
-.where(and(
-  gte(orders.createdAt, startOfPreviousMonth),
-  lte(orders.createdAt, endOfPreviousMonth)
-));
-
+}).from(order_items).leftJoin(orders, eq(order_items.orderId, orders.id)).where(and(gte(orders.createdAt, startOfPreviousMonth), lte(orders.createdAt, endOfPreviousMonth)));
 const previousMonthItems = previousMonthItemsResult[0]?.totalItems || 0;
 const previousMonthOrdersForAvg = previousMonthItemsResult[0]?.totalOrders || 1;
 
-// Calcular promedios
 const globalAvgItems = globalItems / globalOrdersForAvg;
 const currentMonthAvgItems = currentMonthItems / currentMonthOrdersForAvg;
 const previousMonthAvgItems = previousMonthItems / previousMonthOrdersForAvg;
+const avgItemsChange = previousMonthAvgItems > 0 ? ((currentMonthAvgItems - previousMonthAvgItems) / previousMonthAvgItems) * 100 : currentMonthAvgItems > 0 ? 100 : 0;
 
-// Calcular cambio porcentual
-const avgItemsChange = previousMonthAvgItems > 0 
-  ? ((currentMonthAvgItems - previousMonthAvgItems) / previousMonthAvgItems) * 100 
-  : currentMonthAvgItems > 0 ? 100 : 0;
+interface StatCard {
+  label: string;
+  value: string;
+  change: number;
+  monthValue: string;
+  iconColor: string;
+  iconBg: string;
+  icon: string;
+}
 
-// Formatear valores para mostrar
-const formattedGlobalAvg = globalAvgItems.toFixed(1);
-const formattedCurrentMonthAvg = currentMonthAvgItems.toFixed(1);
+const stats: StatCard[] = [
+  {
+    label: 'Ingresos Totales',
+    value: formatCurrency(totalRevenue),
+    change: revenueChange,
+    monthValue: formatCurrency(currentMonthRevenue),
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/10',
+    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+  },
+  {
+    label: 'Pedidos',
+    value: totalOrders.toLocaleString('es-MX'),
+    change: ordersChange,
+    monthValue: currentMonthOrders.toLocaleString('es-MX'),
+    iconColor: 'text-blue-400',
+    iconBg: 'bg-blue-500/10',
+    icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'
+  },
+  {
+    label: 'Clientes',
+    value: totalClients.toLocaleString('es-MX'),
+    change: clientsChange,
+    monthValue: currentMonthClients.toLocaleString('es-MX'),
+    iconColor: 'text-purple-400',
+    iconBg: 'bg-purple-500/10',
+    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'
+  },
+  {
+    label: 'Artículos / Pedido',
+    value: globalAvgItems.toFixed(1),
+    change: avgItemsChange,
+    monthValue: currentMonthAvgItems.toFixed(1),
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-500/10',
+    icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+  }
+];
 ---
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-  <!-- Cuadro de Ingresos Totales -->
-  <div class="bg-white rounded-xl shadow-sm p-6">
-    <div class="flex justify-between">
-      <div>
-        <p class="text-sm text-gray-500">Ingresos Totales</p>
-        <p class="text-2xl font-bold mt-1 text-black">{formattedTotalRevenue}</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+  {stats.map((stat, i) => (
+    <div class="stat-card" style={`animation-delay: ${i * 0.05}s;`}>
+      <div class="flex items-start justify-between">
+        <div class="flex-1 min-w-0">
+          <p class="stat-label">{stat.label}</p>
+          <p class="stat-value">{stat.value}</p>
+        </div>
+        <div class={`stat-icon ${stat.iconBg}`}>
+          <svg class={`w-5 h-5 ${stat.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={stat.icon}/>
+          </svg>
+        </div>
       </div>
-      <div class="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </div>
-    </div>
-    <p class="text-sm mt-2">
-      <span class={revenueChange >= 0 ? 'text-green-500' : 'text-red-500'}>
-        {revenueChange >= 0 ? '↑' : '↓'} {Math.abs(revenueChange).toFixed(1)}%
-      </span>
-      <span class="text-gray-500"> este mes: {formattedCurrentMonthRevenue}</span>
-    </p>
-  </div>
-  
-  <!-- Cuadro de Pedidos -->
-  <div class="bg-white rounded-xl shadow-sm p-6">
-    <div class="flex justify-between">
-      <div>
-        <p class="text-sm text-gray-500">Pedidos</p>
-        <p class="text-2xl font-bold mt-1 text-black">{formattedTotalOrders}</p>
-      </div>
-      <div class="bg-green-100 rounded-full w-12 h-12 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-        </svg>
+      <div class="stat-footer">
+        <span class={`stat-change ${stat.change >= 0 ? 'positive' : 'negative'}`}>
+          {stat.change >= 0 ? '↑' : '↓'} {Math.abs(stat.change).toFixed(1)}%
+        </span>
+        <span class="stat-month">este mes: {stat.monthValue}</span>
       </div>
     </div>
-    <p class="text-sm mt-2">
-      <span class={ordersChange >= 0 ? 'text-green-500' : 'text-red-500'}>
-        {ordersChange >= 0 ? '↑' : '↓'} {Math.abs(ordersChange).toFixed(1)}%
-      </span>
-      <span class="text-gray-500"> este mes: {formattedCurrentMonthOrders}</span>
-    </p>
-  </div>
-  
-  <!-- Cuadro de Clientes (ACTUALIZADO) -->
-  <div class="bg-white rounded-xl shadow-sm p-6">
-    <div class="flex justify-between">
-      <div>
-        <p class="text-sm text-gray-500">Clientes</p>
-        <p class="text-2xl font-bold mt-1 text-black">{formattedTotalClients}</p>
-      </div>
-      <div class="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-      </div>
-    </div>
-    <p class="text-sm mt-2">
-      <span class={clientsChange >= 0 ? 'text-green-500' : 'text-red-500'}>
-        {clientsChange >= 0 ? '↑' : '↓'} {Math.abs(clientsChange).toFixed(1)}%
-      </span>
-      <span class="text-gray-500"> este mes: {formattedCurrentMonthClients}</span>
-    </p>
-  </div>
-  
-  <!-- Cuadro de Tasa de Conversión (a implementar más adelante) -->
-<div class="bg-white rounded-xl shadow-sm p-6">
-    <div class="flex justify-between">
-      <div>
-        <p class="text-sm text-gray-500">Articulo por Pedido</p>
-        <p class="text-2xl font-bold mt-1 text-black">{formattedGlobalAvg}</p>
-      </div>
-      <div class="bg-yellow-100 rounded-full w-12 h-12 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      </div>
-    </div>
-    <p class="text-sm mt-2">
-      <span class={avgItemsChange >= 0 ? 'text-green-500' : 'text-red-500'}>
-        {avgItemsChange >= 0 ? '↑' : '↓'} {Math.abs(avgItemsChange).toFixed(1)}%
-      </span>
-      <span class="text-gray-500"> este mes: {formattedCurrentMonthAvg}</span>
-    </p>
-  </div>
+  ))}
 </div>
+
+<style>
+  .stat-card {
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 18px;
+    transition: all 0.3s ease;
+    animation: statFadeIn 0.4s ease-out both;
+  }
+  .stat-card:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    margin-top: 6px;
+    letter-spacing: -0.02em;
+  }
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+  .stat-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+  .stat-change {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .stat-change.positive {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+  }
+  .stat-change.negative {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+  }
+  .stat-month {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.35);
+  }
+  @keyframes statFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

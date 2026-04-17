@@ -1,0 +1,258 @@
+---
+// src/components/ShippingCalculator.astro
+interface Props {
+  subtotal: number;
+  totalItems: number;
+  originPostalCode?: string;
+}
+
+const { subtotal, totalItems, originPostalCode = "35000" } = Astro.props;
+const estimatedWeight = Math.max(0.5, totalItems * 0.05);
+---
+
+<div class="shipping-calc-card">
+  <div class="calc-header">
+    <div class="calc-icon">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+      </svg>
+    </div>
+    <div>
+      <h3 class="calc-title">Método de envío</h3>
+      <p class="calc-subtitle">Calcula tu envío según tu código postal</p>
+    </div>
+  </div>
+
+  <div class="calc-body">
+    <div class="calc-input-row">
+      <div class="calc-input-wrapper">
+        <input
+          type="text"
+          id="shipping-calc-postal"
+          placeholder="Código postal (5 dígitos)"
+          maxlength="5"
+          pattern="[0-9]{5}"
+          class="calc-input"
+        />
+        <div id="calc-postal-ok" class="calc-validation hidden">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+      <button id="calc-shipping-btn" type="button" class="calc-btn">
+        <span id="calc-btn-text">Cotizar</span>
+        <svg id="calc-btn-spinner" class="hidden calc-spinner" width="18" height="18" fill="none" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"></circle>
+          <path fill="currentColor" opacity="0.75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div id="calc-error" class="calc-error hidden">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      </svg>
+      <span id="calc-error-text">Error al cotizar</span>
+    </div>
+
+    <div id="calc-results" class="calc-results hidden">
+      <div class="calc-results-header">
+        <span class="calc-results-title">Opciones disponibles</span>
+        <button id="calc-clear-btn" type="button" class="calc-change-btn">Cambiar CP</button>
+      </div>
+      <div id="calc-options" class="calc-options"></div>
+    </div>
+  </div>
+
+  <input type="hidden" id="calc-origin-cp" value={originPostalCode} />
+  <input type="hidden" id="calc-weight" value={estimatedWeight} />
+  <input type="hidden" id="calc-items-count" value={totalItems} />
+  <input type="hidden" id="calc-subtotal" value={subtotal} />
+</div>
+
+<style>
+  .shipping-calc-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 20px; margin-bottom: 24px; }
+  .calc-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .calc-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); border-radius: 12px; color: #eab308; flex-shrink: 0; }
+  .calc-title { font-size: 1rem; font-weight: 700; color: #fff; }
+  .calc-subtitle { font-size: 0.82rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .calc-body { display: flex; flex-direction: column; gap: 14px; }
+  .calc-input-row { display: flex; gap: 10px; }
+  .calc-input-wrapper { flex: 1; position: relative; }
+  .calc-input { width: 100%; padding: 12px 40px 12px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.95rem; transition: all 0.2s; }
+  .calc-input::placeholder { color: rgba(255,255,255,0.3); }
+  .calc-input:focus { outline: none; border-color: #eab308; background: rgba(255,255,255,0.08); }
+  .calc-validation { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #22c55e; }
+  .calc-validation.hidden { display: none; }
+  .calc-btn { display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: linear-gradient(135deg, #eab308, #f59e0b); border: none; border-radius: 10px; color: #000; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .calc-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(234,179,8,0.3); }
+  .calc-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+  .calc-spinner { animation: calc-spin 1s linear infinite; }
+  .calc-error { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; color: #f87171; font-size: 0.82rem; }
+  .calc-error.hidden { display: none; }
+  .calc-results.hidden { display: none; }
+  .calc-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .calc-results-title { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.7); }
+  .calc-change-btn { background: none; border: none; color: #eab308; font-size: 0.78rem; font-weight: 500; cursor: pointer; }
+  .calc-change-btn:hover { color: #fbbf24; }
+  .calc-options { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 6px; }
+  .calc-options::-webkit-scrollbar { width: 4px; }
+  .calc-options::-webkit-scrollbar-thumb { background: rgba(234,179,8,0.4); border-radius: 2px; }
+  @keyframes calc-spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
+
+  function initShippingCalculator() {
+    const _postalInput = document.getElementById('shipping-calc-postal') as HTMLInputElement | null;
+    if (!_postalInput) return;
+    const postalInput = _postalInput;
+    
+
+    const btn = document.getElementById('calc-shipping-btn') as HTMLButtonElement;
+    const btnText = document.getElementById('calc-btn-text');
+    const btnSpinner = document.getElementById('calc-btn-spinner');
+    const postalOk = document.getElementById('calc-postal-ok');
+    const errBox = document.getElementById('calc-error');
+    const errText = document.getElementById('calc-error-text');
+    const resultsBox = document.getElementById('calc-results');
+    const optionsBox = document.getElementById('calc-options');
+    const clearBtn = document.getElementById('calc-clear-btn');
+    const originCp = (document.getElementById('calc-origin-cp') as HTMLInputElement)?.value || '35000';
+    const weight = parseFloat((document.getElementById('calc-weight') as HTMLInputElement)?.value || '0.5');
+    const itemsCount = parseInt((document.getElementById('calc-items-count') as HTMLInputElement)?.value || '0');
+
+    // Input de CP del formulario de dirección (lo auto-sincroniza si existe)
+    const addressCpInput = document.getElementById('postal-code') as HTMLInputElement | null;
+
+    const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+    const validCp = (cp: string) => /^\d{5}$/.test(cp);
+    const emoji = (c: string) => (({ fedex:'🚚', dhl:'📦', estafeta:'📫', redpack:'🔴', ups:'🟤', paquetexpress:'📬', '99minutos':'⚡', sendex:'✉️' } as Record<string,string>)[c.toLowerCase()] || '📦');
+
+    function setLoading(v: boolean) {
+      if (btn) btn.disabled = v;
+      if (btnText) btnText.textContent = v ? 'Cotizando...' : 'Cotizar';
+      btnSpinner?.classList.toggle('hidden', !v);
+    }
+    function showErr(msg: string) { if (errBox && errText) { errText.textContent = msg; errBox.classList.remove('hidden'); } resultsBox?.classList.add('hidden'); }
+    function hideErr() { errBox?.classList.add('hidden'); }
+
+    function selectRate(r: ShippingRate, cp: string) {
+      const selected = { carrier: r.carrier, service: r.service, price: r.totalPrice, deliveryDays: r.deliveryDays, postalCode: cp };
+      try { localStorage.setItem('selectedShipping', JSON.stringify(selected)); } catch {}
+      // Notifica al CheckoutForm para que actualice totales y UI
+      window.dispatchEvent(new CustomEvent('shipping:selected', { detail: selected }));
+    }
+
+    function render(rates: ShippingRate[], cp: string) {
+      if (!optionsBox) return;
+      const sorted = [...rates].sort((a, b) => a.totalPrice - b.totalPrice);
+      const minDays = Math.min(...sorted.map(x => x.deliveryDays));
+
+      optionsBox.innerHTML = sorted.map((r, i) => {
+        const best = i === 0;
+        const fast = r.deliveryDays === minDays && !best;
+        return `<label data-idx="${i}" style="display:flex;gap:10px;padding:12px;border-radius:10px;cursor:pointer;border:2px solid ${best?'#eab308':'rgba(255,255,255,0.1)'};background:${best?'rgba(234,179,8,0.1)':'rgba(255,255,255,0.02)'};">
+          <input type="radio" name="calc-rate" value="${i}" ${best?'checked':''} style="display:none;" />
+          <span style="font-size:1.4rem;">${emoji(r.carrier)}</span>
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-weight:700;color:#fff;font-size:0.88rem;">${r.carrier}</span>
+              ${best?'<span style="font-size:0.62rem;background:#eab308;color:#000;padding:2px 6px;border-radius:4px;font-weight:700;">MEJOR PRECIO</span>':''}
+              ${fast?'<span style="font-size:0.62rem;background:#22c55e;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">MÁS RÁPIDO</span>':''}
+            </div>
+            <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:2px;">${r.service}</p>
+            <p style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:2px;">${r.deliveryDays} día${r.deliveryDays!==1?'s':''} hábil${r.deliveryDays!==1?'es':''}</p>
+          </div>
+          <span style="font-size:1rem;font-weight:800;color:${best?'#eab308':'#fff'};">${fmt(r.totalPrice)}</span>
+        </label>`;
+      }).join('');
+
+      optionsBox.querySelectorAll('input[name="calc-rate"]').forEach(inp => {
+        inp.addEventListener('change', (e) => {
+          const idx = parseInt((e.target as HTMLInputElement).value);
+          selectRate(sorted[idx], cp);
+          optionsBox.querySelectorAll('label').forEach((l, i) => {
+            (l as HTMLElement).style.borderColor = i === idx ? '#eab308' : 'rgba(255,255,255,0.1)';
+            (l as HTMLElement).style.background = i === idx ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)';
+          });
+        });
+      });
+
+      if (sorted.length > 0) selectRate(sorted[0], cp);
+    }
+
+    async function calculate() {
+      const cp = postalInput.value.trim();
+      if (!validCp(cp)) { showErr('Ingresa un código postal válido de 5 dígitos'); return; }
+      hideErr(); setLoading(true);
+      try {
+        const result = await actions.getShippingRates({
+          originPostalCode: originCp,
+          destinationPostalCode: cp,
+          weight: Math.max(1, weight),
+          length: Math.min(15 + (itemsCount * 2), 50),
+          width: 15,
+          height: 10,
+        });
+        if (result.error) { showErr('No pudimos obtener las tarifas. Intenta de nuevo.'); return; }
+        const data = result.data;
+        if (!data?.success || !data?.rates?.length) { showErr(data?.error || 'No hay opciones para ese código postal.'); return; }
+
+        postalOk?.classList.remove('hidden');
+        resultsBox?.classList.remove('hidden');
+        render(data.rates, cp);
+
+        // Auto-rellena el CP en el formulario de dirección si está vacío
+        if (addressCpInput && !addressCpInput.value) addressCpInput.value = cp;
+      } catch {
+        showErr('Error de conexión. Verifica tu internet e intenta de nuevo.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function clearAll() {
+      postalInput.value = '';
+      postalOk?.classList.add('hidden');
+      resultsBox?.classList.add('hidden');
+      try { localStorage.removeItem('selectedShipping'); } catch {}
+      window.dispatchEvent(new CustomEvent('shipping:cleared'));
+    }
+
+    postalInput.addEventListener('input', (e) => {
+      const t = e.target as HTMLInputElement;
+      t.value = t.value.replace(/\D/g, '').slice(0, 5);
+      postalOk?.classList.add('hidden');
+      hideErr();
+    });
+    postalInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); calculate(); } });
+    btn?.addEventListener('click', calculate);
+    clearBtn?.addEventListener('click', clearAll);
+
+    // Sincronización: si el usuario escribe el CP en la dirección, pre-llenar aquí
+    addressCpInput?.addEventListener('blur', () => {
+      if (!postalInput.value && validCp(addressCpInput.value.trim())) {
+        postalInput.value = addressCpInput.value.trim();
+      }
+    });
+
+    // Restaurar selección previa
+    try {
+      const saved = localStorage.getItem('selectedShipping');
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.postalCode && validCp(s.postalCode)) {
+          postalInput.value = s.postalCode;
+          setTimeout(calculate, 300);
+        }
+      }
+    } catch {}
+  }
+
+  document.addEventListener('astro:page-load', () => setTimeout(initShippingCalculator, 100));
+</script>

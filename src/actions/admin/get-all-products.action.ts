@@ -1,6 +1,6 @@
 // src/actions/getAllProductsWithImages.ts
 import { defineAction } from 'astro:actions';
-import { db, Product, ProductImage, ProductVariant, ProductVariantCombination, VariantCombinationItem } from 'astro:db';
+import { db, Product, ProductImage, ProductVariant, ProductVariantCombination, VariantCombinationItem, sql } from 'astro:db';
 import type { ProductWithVariants, ProductForPOS } from '@/interfaces';
 import { convertToProductForPOS } from '@/interfaces';
 
@@ -19,7 +19,7 @@ export const getAllProductsWithImages = defineAction({
         allCombinationItems,
         allImages
       ] = await Promise.all([
-        db.select().from(Product),
+        db.select().from(Product).where(sql`(${Product.isDeleted} = 0 OR ${Product.isDeleted} IS NULL)`),
         db.select().from(ProductVariant),
         db.select().from(ProductVariantCombination),
         db.select().from(VariantCombinationItem),

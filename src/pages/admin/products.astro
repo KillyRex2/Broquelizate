@@ -49,6 +49,12 @@ if (pageError || statsError) {
 }
 
 const { products, totalPages, totalItems } = pageData;
+// Obtener IDs de productos destacados
+const featuredIds = new Set(
+  allProductsForCategories
+    .filter((p: any) => p.isFeatured)
+    .map((p: any) => p.id)
+);
 
 // Función para generar URL de ordenamiento
 function getSortUrl(column: string) {
@@ -316,26 +322,39 @@ function getSortIcon(column: string) {
                   style={`animation: fadeIn 0.3s ease ${index * 0.05}s both;`}
                 >
                   <td class="px-6 py-4">
-                    {product.images && product.images.length > 0 && product.images[0] !== 'no-image.png' ? (
-                      <div class="relative">
-                        <ProductImage 
-                          src={product.images[0]} 
-                          alt={product.name} 
-                          className="h-16 w-16 object-contain rounded-xl shadow-sm border border-gray-100 bg-white p-1 group-hover:shadow-md transition-shadow" 
-                        />
-                        {product.images.length > 1 && (
-                          <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-700 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                            +{product.images.length - 1}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <div class="flex items-center justify-center h-16 w-16 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-6-6h.01" />
+                    <div class="flex items-center gap-2">
+                      <button 
+                        type="button"
+                        class={`featured-btn flex-shrink-0 p-1.5 rounded-lg transition-all duration-200 ${featuredIds.has(product.id) ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-gray-50'}`}
+                        data-product-id={product.id}
+                        data-is-featured={featuredIds.has(product.id) ? 'true' : 'false'}
+                        title={featuredIds.has(product.id) ? 'Quitar de destacados' : 'Marcar como destacado'}
+                      >
+                        <svg class="w-5 h-5" fill={featuredIds.has(product.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
                         </svg>
-                      </div>
-                    )}
+                      </button>
+                      {product.images && product.images.length > 0 && product.images[0] !== 'no-image.png' ? (
+                        <div class="relative">
+                          <ProductImage 
+                            src={product.images[0]} 
+                            alt={product.name} 
+                            className="h-16 w-16 object-contain rounded-xl shadow-sm border border-gray-100 bg-white p-1 group-hover:shadow-md transition-shadow" 
+                          />
+                          {product.images.length > 1 && (
+                            <span class="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-700 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                              +{product.images.length - 1}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div class="flex items-center justify-center h-16 w-16 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-6-6h.01" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td class="px-6 py-4">
                     <a 
@@ -544,10 +563,66 @@ function getSortIcon(column: string) {
       });
     }
 
+    function initFeaturedButtons() {
+      const featuredButtons = document.querySelectorAll('.featured-btn');
+
+      featuredButtons.forEach(btn => {
+        if (btn.hasAttribute('data-featured-listener')) return;
+        btn.setAttribute('data-featured-listener', 'true');
+
+        btn.addEventListener('click', async (e) => {
+          const button = e.currentTarget as HTMLButtonElement;
+          const productId = button.dataset.productId;
+          if (!productId) return;
+
+          const currentlyFeatured = button.dataset.isFeatured === 'true';
+          const newState = !currentlyFeatured;
+
+          const loadingId = Toast.loading(newState ? 'Marcando como destacado...' : 'Quitando de destacados...');
+
+          try {
+            const { error } = await actions.toggleFeaturedProduct({ productId, isFeatured: newState });
+            
+            Toast.dismiss(loadingId);
+
+            if (error) {
+              await Alert.error('Error', error.message || 'No se pudo actualizar');
+              return;
+            }
+
+            // Actualizar UI
+            button.dataset.isFeatured = newState.toString();
+            const svg = button.querySelector('svg');
+            
+            if (newState) {
+              button.classList.remove('text-gray-300', 'hover:text-yellow-400', 'hover:bg-gray-50');
+              button.classList.add('text-yellow-500', 'bg-yellow-50', 'hover:bg-yellow-100');
+              if (svg) svg.setAttribute('fill', 'currentColor');
+              button.title = 'Quitar de destacados';
+              Toast.success('¡Producto destacado!');
+            } else {
+              button.classList.add('text-gray-300', 'hover:text-yellow-400', 'hover:bg-gray-50');
+              button.classList.remove('text-yellow-500', 'bg-yellow-50', 'hover:bg-yellow-100');
+              if (svg) svg.setAttribute('fill', 'none');
+              button.title = 'Marcar como destacado';
+              Toast.success('Producto quitado de destacados');
+            }
+          } catch (err: any) {
+            Toast.dismiss(loadingId);
+            await Alert.error('Error', err.message);
+          }
+        });
+      });
+    }
+
     // Inicializar
-    document.addEventListener('astro:page-load', initDeleteButtons);
+    document.addEventListener('astro:page-load', () => {
+      initDeleteButtons();
+      initFeaturedButtons();
+    });
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
       initDeleteButtons();
+      initFeaturedButtons();
     }
   </script>
 

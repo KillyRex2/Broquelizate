@@ -7,13 +7,47 @@ import Services from "@/components/Services.astro";
 import Testimonials from "@/components/Testimonials.astro";
 import BroquelizateSection from "@/components/BroquelizateSection.astro";
 import Newsletter from "@/components/Newsletter.astro";
+import { db, eq, inArray, Product, ProductImage } from 'astro:db';
 
+// Obtener productos destacados
+const featuredProducts = await db
+  .select({
+    id: Product.id,
+    name: Product.name,
+    price: Product.price,
+    slug: Product.slug,
+    coverImageId: Product.coverImageId,
+  })
+  .from(Product)
+  .where(eq(Product.isFeatured, true))
+  .limit(4);
 
+const featuredIds = featuredProducts.map(p => p.id);
+let featuredImages: Array<{ id: string; productId: string; image: string }> = [];
+if (featuredIds.length > 0) {
+  featuredImages = await db
+    .select({ id: ProductImage.id, productId: ProductImage.productId, image: ProductImage.image })
+    .from(ProductImage)
+    .where(inArray(ProductImage.productId, featuredIds));
+}
+
+const heroProducts = featuredProducts.map(p => {
+  const coverImg = (p as any).coverImageId
+    ? featuredImages.find(i => i.id === (p as any).coverImageId)
+    : null;
+  const firstImg = coverImg || featuredImages.find(i => i.productId === p.id);
+  return {
+    name: p.name,
+    price: p.price,
+    image: firstImg?.image || 'https://placehold.co/400x400/1a1a1a/eab308?text=Sin+Imagen',
+    slug: p.slug,
+  };
+});
 ---
 
 <MainLayout title="Broquelizate Web">
   <main class="w-full">
-    <HeroSection/>
+    <HeroSection products={heroProducts} />
     <Categories/>
     <FeaturedProducts/>
     <Services/>
@@ -21,7 +55,4 @@ import Newsletter from "@/components/Newsletter.astro";
     <BroquelizateSection/>
     <Newsletter/>
   </main>
-  
 </MainLayout>
-
-

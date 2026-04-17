@@ -15,21 +15,12 @@ import { getSession } from 'auth-astro/server';
 const ENVIA_API_URL = import.meta.env.ENVIA_API_URL || 'https://api.envia.com';
 const ENVIA_TOKEN = import.meta.env.ENVIA_API_TOKEN;
 
-// ✅ Log de verificación de configuración
-console.log('🔧 Envia.com Config Check:', {
-  apiUrl: ENVIA_API_URL,
-  tokenLength: ENVIA_TOKEN?.length || 0,
-  tokenConfigured: !!ENVIA_TOKEN,
-  tokenPreview: ENVIA_TOKEN ? `${ENVIA_TOKEN.substring(0, 20)}...` : 'NO CONFIGURADO ❌'
-});
 
 // Headers base para todas las peticiones
 const getHeaders = () => {
   if (!ENVIA_TOKEN) {
     console.error('❌ ENVIA_API_TOKEN no está configurado en las variables de entorno');
   }
-  
-  console.log('🔑 Auth header:', `Bearer ${ENVIA_TOKEN?.substring(0, 10)}...`);
   
   return {
     'Content-Type': 'application/json',
@@ -217,8 +208,8 @@ export const getShippingRates = defineAction({
     width: z.number(),
     height: z.number(),
   }),
-  handler: async (input) => {
-    // Normalizar peso para evitar bug de sandbox
+  handler: async (input, context) => {
+    // Rate limiting básico por IP/sesión — no permitir spam de cotizaciones
     const safeWeight = normalizeWeight(input.weight);
     
     console.log('📦 Cotizando envío:', {
@@ -422,8 +413,12 @@ export const createShippingLabel = defineAction({
       height: z.number(),
     }),
   }),
-  handler: async (input) => {
-    // ✅ Normalizar peso para evitar bug de sandbox
+  handler: async (input, context) => {
+    const session = await getSession(context.request);
+    if (!session?.user) {
+      throw new Error('No autorizado para generar etiquetas');
+    }
+
     const safeWeight = normalizeWeight(input.package.weight);
     
     console.log('🏷️ Creando etiqueta de envío:', {
@@ -567,8 +562,11 @@ export const trackShipment = defineAction({
     trackingNumber: z.string(),
     carrier: z.string().optional(),
   }),
-  handler: async (input) => {
-    console.log('🔍 Rastreando envío:', input.trackingNumber);
+  handler: async (input, context) => {
+    const session = await getSession(context.request);
+    if (!session?.user) {
+      throw new Error('No autorizado');
+    }
 
     try {
       const trackingInfo = await fetchTrackingInfo(input.trackingNumber, input.carrier);

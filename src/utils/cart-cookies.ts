@@ -170,9 +170,11 @@ export class CartCookiesClient {
     }
 
     private static setCart(cart: CartItem[]): void {
+        const isProduction = window.location.protocol === 'https:';
         Cookies.set('cart', JSON.stringify(cart), {
-            expires: 30, // 30 días de expiración
+            expires: 30,
             sameSite: 'strict',
+            secure: isProduction,
             path: '/'
         });
     }

@@ -1,14 +1,20 @@
 import { db, Client } from 'astro:db';
 import type { APIRoute } from 'astro';
+import { getSession } from 'auth-astro/server';
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
-    // Obtener todos los clientes de la base de datos
+    const session = await getSession(request);
+    if (!session?.user) {
+      return new Response(JSON.stringify({ error: 'No autorizado' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const clients = await db.select().from(Client);
-    
-    // Ordenar por nombre
     const sortedClients = clients.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    
+
     return new Response(JSON.stringify(sortedClients), {
       status: 200,
       headers: {
@@ -18,7 +24,9 @@ export const GET: APIRoute = async () => {
     });
 
   } catch (error: any) {
-    console.error('Error obteniendo clientes:', error);
-    return new Response('Error interno del servidor', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Error interno' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };

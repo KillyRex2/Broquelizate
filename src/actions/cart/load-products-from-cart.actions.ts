@@ -15,11 +15,25 @@ import {
 export const loadProductsFromCart = defineAction({
     input: z.any().optional(),
     handler: async(input, {cookies}): Promise<CartProductItem[]> => {
-        const cart = JSON.parse(cookies.get('cart')?.value ?? '[]') as CartItem[];
+        let cart: CartItem[] = [];
+        try {
+            const raw = JSON.parse(cookies.get('cart')?.value ?? '[]');
+            if (!Array.isArray(raw)) return [];
+            // Sanitizar: solo permitir campos esperados con tipos correctos
+            cart = raw.filter((item: any) => 
+                item && 
+                typeof item.productId === 'string' && 
+                typeof item.quantity === 'number' && 
+                item.quantity > 0 && 
+                item.quantity <= 100 &&
+                item.productId.length <= 50
+            ).slice(0, 50); // Máximo 50 items
+        } catch {
+            return [];
+        }
         
         if (cart.length === 0) return [];
         
-        console.log("🛒 Cart items desde cookies:", cart);
 
         const productIds = [...new Set(cart.map(item => item.productId))];
         const combinationIds = cart
@@ -27,18 +41,16 @@ export const loadProductsFromCart = defineAction({
             .map(item => item.combinationId as string);
 
         // ✅ OBTENER PRODUCTOS
-        const dbProducts = await db
-            .select()
-            .from(Product)
-            .where(inArray(Product.id, productIds));
-
-        // ✅ OBTENER TODAS LAS IMÁGENES (generales + variantes)
         const allImages = await db
             .select()
             .from(ProductImage)
             .where(inArray(ProductImage.productId, productIds));
 
-        console.log("📸 Total de imágenes encontradas:", allImages.length);
+        // ✅ OBTENER PRODUCTOS
+        const dbProducts = await db
+            .select()
+            .from(Product)
+            .where(inArray(Product.id, productIds));
 
         // ✅ OBTENER COMBINACIONES DE VARIANTES
         let variantCombinations: any[] = [];
@@ -56,8 +68,6 @@ export const loadProductsFromCart = defineAction({
                 .from(VariantCombinationItem)
                 .where(inArray(VariantCombinationItem.combinationId, combinationIds));
 
-            console.log("🎨 Combinaciones encontradas:", variantCombinations.length);
-            console.log("🔗 Items de combinación:", variantCombinationItems.length);
         }
 
         // ✅ PROCESAR CADA ITEM DEL CARRITO
@@ -72,9 +82,13 @@ export const loadProductsFromCart = defineAction({
             // ✅ OBTENER IMÁGENES DE ESTE PRODUCTO
             const productImages = allImages.filter(img => img.productId === item.productId);
             
-            // Imagen general (sin variantId)
-            const generalImage = productImages.find(img => !img.variantId);
-            const baseImageUrl = generalImage?.image || '/placeholder.jpg';
+            // Imagen general: priorizar cover image, luego primera sin variantId
+            const coverImageId = (dbProduct as any).coverImageId;
+            const coverImage = coverImageId 
+                ? productImages.find(img => img.id === coverImageId)
+                : null;
+            const generalImage = coverImage || productImages.find(img => !img.variantId);
+            const baseImageUrl = generalImage?.image || 'https://placehold.co/400x400/1a1a1a/eab308?text=Sin+Imagen';
 
             // ✅ BUSCAR IMAGEN ESPECÍFICA DE VARIANTE
             let variantImageUrl: string | undefined;
@@ -85,7 +99,6 @@ export const loadProductsFromCart = defineAction({
                     .filter(vci => vci.combinationId === item.combinationId)
                     .map(vci => vci.variantId);
 
-                console.log(`🔍 Buscando imagen para combinación ${item.combinationId}, variantIds:`, combinationVariantIds);
 
                 // Buscar si alguna de las variantes de esta combinación tiene imagen específica
                 const variantImage = productImages.find(img => 
@@ -94,9 +107,9 @@ export const loadProductsFromCart = defineAction({
 
                 if (variantImage) {
                     variantImageUrl = variantImage.image;
-                    console.log(`✅ Imagen de variante encontrada:`, variantImageUrl);
+                    
                 } else {
-                    console.log(`ℹ️ No hay imagen específica, usando imagen general`);
+                    
                 }
             }
 
@@ -122,7 +135,6 @@ export const loadProductsFromCart = defineAction({
             // PRIORIDAD 1: Si tiene combinationId, buscar en la BD
             if (item.combinationId) {
                 const combination = variantCombinations.find(c => c.id === item.combinationId);
-                console.log(`💰 Buscando precio para combinación ${item.combinationId}:`, combination);
                 
                 if (combination) {
                     finalPrice = combination.price;
@@ -137,26 +149,22 @@ export const loadProductsFromCart = defineAction({
                         variantCombination = combination.combinationName;
                     }
                     
-                    console.log(`✅ Precio de combinación: ${variantPrice}`);
                 } 
                 // Fallback: Si la combinación no se encuentra pero tenemos variantPrice en cookies
                 else if (item.variantPrice !== undefined) {
                     variantPrice = item.variantPrice;
                     finalPrice = item.variantPrice;
-                    console.log(`⚠️ Usando variantPrice de cookies: ${variantPrice}`);
                 }
             } 
             // PRIORIDAD 2: Si tiene variantPrice directo en cookies (sin combinationId)
             else if (item.variantPrice !== undefined) {
                 variantPrice = item.variantPrice;
                 finalPrice = item.variantPrice;
-                console.log(`💵 Precio de cookies: ${variantPrice}`);
             }
             // PRIORIDAD 3: Si tiene ajuste de precio de variante simple
             else if (item.variantPriceAdjustment !== undefined) {
                 finalPrice = basePrice + item.variantPriceAdjustment;
                 variantPrice = finalPrice;
-                console.log(`🔢 Precio con ajuste: ${basePrice} + ${item.variantPriceAdjustment} = ${variantPrice}`);
             }
 
             // ✅ RETORNAR OBJETO COMPLETO CON IMAGEN DE VARIANTE
@@ -186,14 +194,6 @@ export const loadProductsFromCart = defineAction({
                 hasVariant: !!(item.combinationId || item.variantId)
             };
         });
-
-        console.log("✅ Productos procesados:", productsWithDetails.map(p => ({
-            name: p.name,
-            basePrice: p.price,
-            variantPrice: p.variantPrice,
-            combinationId: p.combinationId,
-            hasVariantImage: !!p.variantImage
-        })));
         
         return productsWithDetails;
     },

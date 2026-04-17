@@ -75,6 +75,7 @@ export const handler = async ({
     
     // Construir condiciones de filtro
     const filters = [];
+    filters.push(sql`(${Product.isDeleted} = 0 OR ${Product.isDeleted} IS NULL)`);
     let filteredCategory = category;
     
     // Validar categoría

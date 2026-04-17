@@ -1,6 +1,7 @@
 ---
 // src/pages/cart/index.astro
-// ✅ ACTUALIZADO: Sin Swal, usa sistema de alertas compatible con View Transitions
+// ✅ ACTUALIZADO: Sin shipping calculator (movido a checkout)
+// ✅ Sistema de alertas compatible con View Transitions
 
 import { actions } from 'astro:actions';
 import ProductsLayout from '@/layouts/ProductsLayout.astro';
@@ -45,8 +46,6 @@ const subtotal = products.reduce((sum, p) => {
 }, 0);
 
 const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
-const estimatedWeight = Math.max(0.5, totalItems * 0.05);
-const ORIGIN_POSTAL_CODE = "35000";
 ---
 
 <ProductsLayout title="Tu Carrito - Broquelizate">
@@ -158,7 +157,7 @@ const ORIGIN_POSTAL_CODE = "35000";
                             <span>{product.variantCombination}</span>
                           </div>
                         )}
-                                                {product.customizationValues && product.customizationValues.length > 0 && (
+                        {product.customizationValues && product.customizationValues.length > 0 && (
                           <div class="customization-badge">
                             <div class="customization-badge-header">
                               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,7 +217,7 @@ const ORIGIN_POSTAL_CODE = "35000";
                         <div class="quantity-wrapper">
                           <label class="quantity-label">Cantidad</label>
                           <select data-product-id={product.productId} data-variant-id={product.variantId || ''} data-combination-id={product.combinationId || ''} class="quantity-select qty-selector">
-                            {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                            {Array.from({ length: Math.min(product.stock || 1, 99) }, (_, i) => i + 1).map((n) => (
                               <option value={n} selected={n === product.quantity}>{n}</option>
                             ))}
                           </select>
@@ -243,47 +242,6 @@ const ORIGIN_POSTAL_CODE = "35000";
           </div>
 
           <div class="summary-column">
-            <div class="summary-card shipping-card">
-              <div class="card-header shipping-header">
-                <div class="header-icon-small">
-                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-                </div>
-                <div>
-                  <h3 class="card-title">Calcular envío</h3>
-                  <p class="card-subtitle">Ingresa tu código postal</p>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="input-row">
-                  <div class="input-wrapper">
-                    <input type="text" id="shipping-postal-code" placeholder="Ej: 06600" maxlength="5" pattern="[0-9]{5}" class="postal-input" />
-                    <div id="postal-code-validation" class="input-validation hidden">
-                      <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                    </div>
-                  </div>
-                  <button id="calculate-shipping-btn" class="calculate-btn">
-                    <span id="shipping-btn-text">Cotizar</span>
-                    <svg id="shipping-btn-spinner" class="hidden spinner" width="18" height="18" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  </button>
-                </div>
-                <div id="shipping-error" class="error-box hidden">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
-                  <span id="shipping-error-text">Error al cotizar</span>
-                </div>
-                <div id="shipping-results" class="shipping-results hidden">
-                  <div class="results-header">
-                    <span class="results-title">Opciones disponibles</span>
-                    <button id="clear-shipping" class="change-cp-btn">Cambiar CP</button>
-                  </div>
-                  <div id="shipping-options" class="shipping-options"></div>
-                </div>
-                <div class="shipping-info">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                  <span>Envíos asegurados con número de rastreo</span>
-                </div>
-              </div>
-            </div>
-
             <div class="summary-card order-summary">
               <div class="card-header">
                 <h3 class="card-title">Resumen de compra</h3>
@@ -315,23 +273,15 @@ const ORIGIN_POSTAL_CODE = "35000";
                 })()}
                 <div class="summary-row">
                   <span class="row-label">Envío</span>
-                  <span id="shipping-cost-display" class="row-value muted">Por calcular</span>
+                  <span class="row-value muted">Se calcula en checkout</span>
                 </div>
-                <div id="selected-shipping-info" class="selected-shipping hidden">
-                  <div class="shipping-selected-content">
-                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/></svg>
-                    <div class="shipping-selected-info">
-                      <span id="selected-carrier-name" class="carrier-name">-</span>
-                      <span id="selected-delivery-days" class="delivery-days">-</span>
-                    </div>
-                    <span id="selected-shipping-price" class="shipping-price">-</span>
-                  </div>
-                </div>
+
                 <div class="summary-divider"></div>
                 <div class="summary-row total">
                   <span class="row-label">Total</span>
-                  <span id="total-price" class="row-value">{Formatter.currency(subtotal)}</span>
+                  <span class="row-value">{Formatter.currency(subtotal)}</span>
                 </div>
+                <p class="shipping-note">Cotiza tu envío en el siguiente paso</p>
                 <button id="checkout-btn" class="checkout-btn">
                   <span>Proceder al pago</span>
                   <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
@@ -361,11 +311,6 @@ const ORIGIN_POSTAL_CODE = "35000";
         </div>
       )}
     </div>
-
-    <input type="hidden" id="origin-postal-code" value={ORIGIN_POSTAL_CODE} />
-    <input type="hidden" id="subtotal-value" value={subtotal} />
-    <input type="hidden" id="estimated-weight" value={estimatedWeight} />
-    <input type="hidden" id="total-items" value={totalItems} />
   </div>
 </ProductsLayout>
 
@@ -418,7 +363,24 @@ const ORIGIN_POSTAL_CODE = "35000";
   .product-actions { display: flex; align-items: center; gap: 20px; margin-top: 16px; }
   .quantity-wrapper { display: flex; flex-direction: column; gap: 6px; }
   .quantity-label { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); font-weight: 500; }
-  .quantity-select { padding: 10px 36px 10px 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+  .quantity-select {
+    padding: 10px 36px 10px 14px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+    color-scheme: dark;
+  }
+  .quantity-select option { background: #1a1a2e; color: #fff; }
   .quantity-select:hover { border-color: rgba(234, 179, 8, 0.3); }
   .quantity-select:focus { outline: none; border-color: #eab308; }
   .price-wrapper { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; }
@@ -431,35 +393,8 @@ const ORIGIN_POSTAL_CODE = "35000";
   .summary-column { display: flex; flex-direction: column; gap: 24px; position: sticky; top: 24px; }
   .summary-card { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 20px; overflow: hidden; animation: fadeInRight 0.6s ease-out; }
   .card-header { display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-  .shipping-header { background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(234, 179, 8, 0.05)); }
-  .header-icon-small { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(234, 179, 8, 0.15); border-radius: 12px; color: #eab308; flex-shrink: 0; }
   .card-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
-  .card-subtitle { font-size: 0.85rem; color: rgba(255, 255, 255, 0.5); margin-top: 2px; }
   .card-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-  .input-row { display: flex; gap: 12px; }
-  .input-wrapper { flex: 1; position: relative; }
-  .postal-input { width: 100%; padding: 14px 44px 14px 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #fff; font-size: 1rem; transition: all 0.2s; }
-  .postal-input::placeholder { color: rgba(255, 255, 255, 0.3); }
-  .postal-input:focus { outline: none; border-color: #eab308; background: rgba(255, 255, 255, 0.08); }
-  .input-validation { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #22c55e; }
-  .input-validation.hidden { display: none; }
-  .calculate-btn { display: flex; align-items: center; gap: 8px; padding: 14px 24px; background: linear-gradient(135deg, #eab308, #f59e0b); border: none; border-radius: 12px; color: #000; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-  .calculate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(234, 179, 8, 0.3); }
-  .calculate-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-  .spinner { animation: spin 1s linear infinite; }
-  .error-box { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; color: #f87171; font-size: 0.85rem; }
-  .error-box.hidden { display: none; }
-  .shipping-results.hidden { display: none; }
-  .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .results-title { font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); }
-  .change-cp-btn { background: none; border: none; color: #eab308; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: color 0.2s; }
-  .change-cp-btn:hover { color: #fbbf24; }
-  .shipping-options { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 8px; }
-  .shipping-options::-webkit-scrollbar { width: 6px; }
-  .shipping-options::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 3px; }
-  .shipping-options::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.4); border-radius: 3px; }
-  .shipping-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: rgba(255, 255, 255, 0.4); }
-  .shipping-info svg { color: #22c55e; flex-shrink: 0; }
   .summary-row { display: flex; justify-content: space-between; align-items: center; }
   .row-label { display: flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; }
   .row-value { font-weight: 600; color: #fff; font-size: 0.95rem; }
@@ -469,14 +404,7 @@ const ORIGIN_POSTAL_CODE = "35000";
   .summary-row.total .row-label { font-size: 1.1rem; font-weight: 700; color: #fff; }
   .summary-row.total .row-value { font-size: 1.75rem; font-weight: 900; background: linear-gradient(135deg, #eab308, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .summary-divider { height: 1px; background: rgba(255, 255, 255, 0.08); margin: 8px 0; }
-  .selected-shipping { padding: 14px; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 12px; }
-  .selected-shipping.hidden { display: none; }
-  .shipping-selected-content { display: flex; align-items: center; gap: 12px; }
-  .shipping-selected-content svg { color: #eab308; flex-shrink: 0; }
-  .shipping-selected-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .carrier-name { font-size: 0.9rem; font-weight: 600; color: #fff; }
-  .delivery-days { font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); }
-  .shipping-price { font-size: 1.1rem; font-weight: 800; color: #eab308; }
+  .shipping-note { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); text-align: center; margin-top: -4px; }
   .checkout-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 32px; background: linear-gradient(135deg, #eab308 0%, #f59e0b 100%); border: none; border-radius: 16px; color: #000; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 20px rgba(234, 179, 8, 0.3); margin-top: 8px; }
   .checkout-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(234, 179, 8, 0.4); }
   .checkout-btn:disabled { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.4); cursor: not-allowed; box-shadow: none; }
@@ -495,7 +423,6 @@ const ORIGIN_POSTAL_CODE = "35000";
   .customization-badge { padding: 10px 14px; background: rgba(234, 179, 8, 0.06); border: 1px solid rgba(234, 179, 8, 0.15); border-radius: 10px; margin-top: 4px; }
   .customization-badge-header { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: #eab308; margin-bottom: 8px; }
   .customization-badge-items { display: flex; flex-direction: column; gap: 6px; }
-  .customization-badge-item { }
   .cust-item-image-row { display: flex; align-items: center; gap: 10px; }
   .cust-item-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.3); flex-shrink: 0; }
   .cust-item-text-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -504,267 +431,83 @@ const ORIGIN_POSTAL_CODE = "35000";
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @media (max-width: 1024px) { .cart-content { grid-template-columns: 1fr; } .summary-column { position: static; } }
   @media (max-width: 768px) { .cart-page { padding: 16px 0 60px; } .cart-container { padding: 0 16px; } .cart-header { flex-direction: column; align-items: flex-start; } .header-title { font-size: 1.5rem; } .product-card { flex-direction: column; gap: 16px; padding: 16px; } .product-image-wrapper { width: 100%; height: 180px; } .product-actions { flex-wrap: wrap; gap: 12px; } .price-wrapper { margin-left: 0; flex: 1; } .trust-badges { grid-template-columns: 1fr; } }
-  @media (max-width: 480px) { .breadcrumb { padding: 10px 14px; gap: 6px; font-size: 0.8rem; } .header-icon { width: 48px; height: 48px; } .card-body { padding: 16px; } .input-row { flex-direction: column; } .calculate-btn { width: 100%; justify-content: center; } .empty-features { flex-direction: column; gap: 16px; } }
+  @media (max-width: 480px) { .breadcrumb { padding: 10px 14px; gap: 6px; font-size: 0.8rem; } .header-icon { width: 48px; height: 48px; } .card-body { padding: 16px; } .empty-features { flex-direction: column; gap: 16px; } }
 </style>
 
 <script>
-  // ✅ NUEVO: Sistema de alertas compatible con View Transitions
   import { CartCookiesClient } from '../../utils/cart-cookies';
-  import { Confirm, Alert, Toast } from '../../utils/alerts';
+  import { Confirm, Toast } from '../../utils/alerts';
   import { navigate } from 'astro:transitions/client';
   import { itemsInCart } from '@/store';
-  import { actions } from 'astro:actions';
-
-  interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
-  interface SelectedShipping { carrier: string; service: string; price: number; deliveryDays: number; postalCode: string; }
 
   function initializeCart() {
-    const shippingPostalCodeInput = document.getElementById('shipping-postal-code') as HTMLInputElement;
-    const calculateShippingBtn = document.getElementById('calculate-shipping-btn') as HTMLButtonElement;
-    const shippingBtnText = document.getElementById('shipping-btn-text') as HTMLElement;
-    const shippingBtnSpinner = document.getElementById('shipping-btn-spinner') as HTMLElement;
-    const postalCodeValidation = document.getElementById('postal-code-validation') as HTMLElement;
-    const shippingError = document.getElementById('shipping-error') as HTMLElement;
-    const shippingErrorText = document.getElementById('shipping-error-text') as HTMLElement;
-    const shippingResults = document.getElementById('shipping-results') as HTMLElement;
-    const shippingOptions = document.getElementById('shipping-options') as HTMLElement;
-    const clearShippingBtn = document.getElementById('clear-shipping') as HTMLElement;
-    const shippingCostDisplay = document.getElementById('shipping-cost-display') as HTMLElement;
-    const selectedShippingInfo = document.getElementById('selected-shipping-info') as HTMLElement;
-    const selectedCarrierName = document.getElementById('selected-carrier-name') as HTMLElement;
-    const selectedDeliveryDays = document.getElementById('selected-delivery-days') as HTMLElement;
-    const selectedShippingPrice = document.getElementById('selected-shipping-price') as HTMLElement;
-    const totalPriceElement = document.getElementById('total-price') as HTMLElement;
-    const checkoutBtn = document.getElementById('checkout-btn') as HTMLButtonElement;
-    const originPostalCode = (document.getElementById('origin-postal-code') as HTMLInputElement)?.value || '35000';
-    const subtotal = parseFloat((document.getElementById('subtotal-value') as HTMLInputElement)?.value || '0');
-    const estimatedWeight = parseFloat((document.getElementById('estimated-weight') as HTMLInputElement)?.value || '0.5');
-    const totalItems = parseInt((document.getElementById('total-items') as HTMLInputElement)?.value || '0');
-
-    let selectedShipping: SelectedShipping | null = null;
-    let shippingRates: ShippingRate[] = [];
-
-    const formatCurrency = (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
-    const validatePostalCode = (cp: string) => /^\d{5}$/.test(cp);
-
-    function setShippingLoading(loading: boolean) {
-      if (calculateShippingBtn) calculateShippingBtn.disabled = loading;
-      if (shippingBtnText) shippingBtnText.textContent = loading ? 'Cotizando...' : 'Cotizar';
-      if (shippingBtnSpinner) shippingBtnSpinner.classList.toggle('hidden', !loading);
+    // Solo inicializa si estamos en la página del carrito
+    if (!document.getElementById('checkout-btn') && !document.querySelector('.remove-item')) {
+      return;
     }
 
-    function showShippingError(msg: string) { 
-      if (shippingError && shippingErrorText) { 
-        shippingErrorText.textContent = msg; 
-        shippingError.classList.remove('hidden'); 
-      } 
-      if (shippingResults) shippingResults.classList.add('hidden'); 
-    }
-    
-    function hideShippingError() { 
-      if (shippingError) shippingError.classList.add('hidden'); 
-    }
+    const checkoutBtn = document.getElementById('checkout-btn') as HTMLButtonElement | null;
 
-    function updateTotal() {
-      const shippingPrice = selectedShipping?.price || 0;
-      if (totalPriceElement) totalPriceElement.textContent = formatCurrency(subtotal + shippingPrice);
-      if (shippingCostDisplay) { 
-        shippingCostDisplay.textContent = selectedShipping ? formatCurrency(shippingPrice) : 'Por calcular'; 
-        shippingCostDisplay.className = selectedShipping ? 'row-value' : 'row-value muted'; 
-      }
-    }
-
-    function getCarrierEmoji(c: string): string { 
-      const e: Record<string, string> = { 'fedex': '🚚', 'dhl': '📦', 'estafeta': '📫', 'redpack': '🔴', 'ups': '🟤', 'paquetexpress': '📬', '99minutos': '⚡', 'sendex': '✉️' }; 
-      return e[c.toLowerCase()] || '📦'; 
-    }
-
-    function renderShippingOptions(rates: ShippingRate[]) {
-      if (!shippingOptions) return;
-      const sorted = [...rates].sort((a, b) => a.totalPrice - b.totalPrice);
-      shippingOptions.innerHTML = sorted.map((r, i) => {
-        const best = i === 0, fast = r.deliveryDays === Math.min(...sorted.map(x => x.deliveryDays)) && !best;
-        return `<label style="display:flex;gap:12px;padding:14px;border-radius:12px;cursor:pointer;transition:all 0.2s;border:2px solid ${best ? '#eab308' : 'rgba(255,255,255,0.1)'};background:${best ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)'};">
-          <input type="radio" name="shipping-rate" value="${i}" ${best ? 'checked' : ''} style="display:none;" />
-          <span style="font-size:1.5rem;">${getCarrierEmoji(r.carrier)}</span>
-          <div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-weight:700;color:#fff;font-size:0.9rem;">${r.carrier}</span>${best ? '<span style="font-size:0.65rem;background:#eab308;color:#000;padding:2px 6px;border-radius:4px;font-weight:700;">MEJOR PRECIO</span>' : ''}${fast ? '<span style="font-size:0.65rem;background:#22c55e;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">MÁS RÁPIDO</span>' : ''}</div><p style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:2px;">${r.service}</p><p style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:4px;">${r.deliveryDays} día${r.deliveryDays !== 1 ? 's' : ''} hábil${r.deliveryDays !== 1 ? 'es' : ''}</p></div>
-          <span style="font-size:1.1rem;font-weight:800;color:${best ? '#eab308' : '#fff'};">${formatCurrency(r.totalPrice)}</span>
-        </label>`;
-      }).join('');
-      
-      shippingOptions.querySelectorAll('input[name="shipping-rate"]').forEach(inp => { 
-        inp.addEventListener('change', (e) => { 
-          const idx = parseInt((e.target as HTMLInputElement).value); 
-          selectShippingRate(sorted[idx]); 
-          shippingOptions.querySelectorAll('label').forEach((l, i) => { 
-            (l as HTMLElement).style.borderColor = i === idx ? '#eab308' : 'rgba(255,255,255,0.1)'; 
-            (l as HTMLElement).style.background = i === idx ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)'; 
-          }); 
-        }); 
-      });
-      
-      if (sorted.length > 0) selectShippingRate(sorted[0]);
-    }
-
-    function selectShippingRate(r: ShippingRate) {
-      const cp = shippingPostalCodeInput?.value || '';
-      selectedShipping = { carrier: r.carrier, service: r.service, price: r.totalPrice, deliveryDays: r.deliveryDays, postalCode: cp };
-      
-      if (selectedShippingInfo) { 
-        selectedShippingInfo.classList.remove('hidden'); 
-        if (selectedCarrierName) selectedCarrierName.textContent = `${r.carrier} - ${r.service}`; 
-        if (selectedDeliveryDays) selectedDeliveryDays.textContent = `Entrega en ${r.deliveryDays} día${r.deliveryDays !== 1 ? 's' : ''} hábil${r.deliveryDays !== 1 ? 'es' : ''}`; 
-        if (selectedShippingPrice) selectedShippingPrice.textContent = formatCurrency(r.totalPrice); 
-      }
-      
-      localStorage.setItem('selectedShipping', JSON.stringify(selectedShipping));
-      updateTotal();
-    }
-
-    async function calculateShippingRates() {
-      const cp = shippingPostalCodeInput?.value?.trim() || '';
-      if (!validatePostalCode(cp)) { 
-        showShippingError('Ingresa un código postal válido de 5 dígitos'); 
-        return; 
-      }
-      
-      hideShippingError(); 
-      setShippingLoading(true);
-      
-      try {
-        const result = await actions.getShippingRates({ 
-          originPostalCode, 
-          destinationPostalCode: cp, 
-          weight: Math.max(1, estimatedWeight), 
-          length: Math.min(15 + (totalItems * 2), 50), 
-          width: 15, 
-          height: 10 
-        });
-        
-        if (result.error) { 
-          showShippingError('No pudimos obtener las tarifas. Intenta de nuevo.'); 
-          return; 
-        }
-        
-        const data = result.data;
-        if (!data?.success || !data?.rates || data.rates.length === 0) { 
-          showShippingError(data?.error || 'No hay opciones de envío disponibles para ese código postal.'); 
-          return; 
-        }
-        
-        shippingRates = data.rates;
-        if (postalCodeValidation) postalCodeValidation.classList.remove('hidden');
-        if (shippingResults) shippingResults.classList.remove('hidden');
-        renderShippingOptions(shippingRates);
-      } catch { 
-        showShippingError('Error de conexión. Verifica tu internet e intenta de nuevo.'); 
-      } finally { 
-        setShippingLoading(false); 
-      }
-    }
-
-    function clearShipping() { 
-      selectedShipping = null; 
-      shippingRates = []; 
-      if (shippingPostalCodeInput) shippingPostalCodeInput.value = ''; 
-      if (postalCodeValidation) postalCodeValidation.classList.add('hidden'); 
-      if (shippingResults) shippingResults.classList.add('hidden'); 
-      if (selectedShippingInfo) selectedShippingInfo.classList.add('hidden'); 
-      localStorage.removeItem('selectedShipping'); 
-      updateTotal(); 
-    }
-
-    // Event listeners
-    shippingPostalCodeInput?.addEventListener('input', (e) => { 
-      const t = e.target as HTMLInputElement; 
-      t.value = t.value.replace(/\D/g, '').slice(0, 5); 
-      if (postalCodeValidation) postalCodeValidation.classList.add('hidden'); 
-      hideShippingError(); 
-    });
-    
-    shippingPostalCodeInput?.addEventListener('keypress', (e) => { 
-      if (e.key === 'Enter') { 
-        e.preventDefault(); 
-        calculateShippingRates(); 
-      } 
-    });
-    
-    calculateShippingBtn?.addEventListener('click', calculateShippingRates);
-    clearShippingBtn?.addEventListener('click', clearShipping);
-
-    // ✅ NUEVO: Usar Confirm en lugar de Swal
-    document.querySelectorAll('.remove-item').forEach(btn => { 
-      btn.addEventListener('click', async (e) => { 
-        const t = e.currentTarget as HTMLButtonElement; 
+    // Eliminar producto individual
+    document.querySelectorAll('.remove-item').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const t = e.currentTarget as HTMLButtonElement;
         const productId = t.dataset.id || '';
         const variantId = t.dataset.variantId || undefined;
         const combinationId = t.dataset.combinationId || undefined;
-        
+
         const confirmed = await Confirm.delete('este producto del carrito');
-        
-        if (confirmed) { 
-          const cart = CartCookiesClient.removeItem(productId, variantId, combinationId); 
-          itemsInCart.set(cart.reduce((s, i) => s + i.quantity, 0));
-          Toast.success('Producto eliminado');
-          navigate('/cart'); 
-        } 
-      }); 
+        if (!confirmed) return;
+
+        const cart = CartCookiesClient.removeItem(productId, variantId, combinationId);
+        itemsInCart.set(cart.reduce((s, i) => s + i.quantity, 0));
+        Toast.success('Producto eliminado');
+        navigate('/cart');
+      });
     });
-    
-    document.querySelectorAll('.qty-selector').forEach(sel => { 
-      sel.addEventListener('change', (e) => { 
-        const t = e.currentTarget as HTMLSelectElement; 
+
+    // Cambiar cantidad
+    document.querySelectorAll('.qty-selector').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const t = e.currentTarget as HTMLSelectElement;
         const productId = t.dataset.productId || '';
         const variantId = t.dataset.variantId || undefined;
         const combinationId = t.dataset.combinationId || undefined;
-        const qty = parseInt(t.value); 
-        
-        if (productId && qty > 0) { 
-          const cart = CartCookiesClient.updateItemQuantity(productId, qty, variantId, combinationId); 
-          itemsInCart.set(cart.reduce((s, i) => s + i.quantity, 0)); 
-          navigate('/cart'); 
-        } 
-      }); 
-    });
-    
-    // ✅ NUEVO: Usar Confirm para vaciar carrito
-    document.getElementById('clear-cart-btn')?.addEventListener('click', async () => { 
-      const confirmed = await Confirm.clear('todos los productos del carrito');
-      
-      if (confirmed) { 
-        CartCookiesClient.clearCart(); 
-        itemsInCart.set(0); 
-        localStorage.removeItem('selectedShipping'); 
-        Toast.success('¡Carrito vaciado!');
-        navigate('/cart'); 
-      } 
-    });
-    
-    // ✅ NUEVO: Usar Alert para mensaje de envío
-    checkoutBtn?.addEventListener('click', () => { 
-      if (!selectedShipping) { 
-        Alert.info('Selecciona un método de envío', 'Por favor calcula el costo de envío antes de continuar');
-        shippingPostalCodeInput?.focus(); 
-        return; 
-      } 
-      navigate('/checkout'); 
+        const qty = parseInt(t.value);
+
+        if (productId && qty > 0) {
+          const cart = CartCookiesClient.updateItemQuantity(productId, qty, variantId, combinationId);
+          itemsInCart.set(cart.reduce((s, i) => s + i.quantity, 0));
+          navigate('/cart');
+        }
+      });
     });
 
-    // Cargar envío guardado
-    const saved = localStorage.getItem('selectedShipping');
-    if (saved && shippingPostalCodeInput) { 
-      try { 
-        const s = JSON.parse(saved); 
-        if (s.postalCode) { 
-          shippingPostalCodeInput.value = s.postalCode; 
-          setTimeout(() => calculateShippingRates(), 300); 
-        } 
-      } catch {} 
-    }
+    // Vaciar carrito completo
+    document.getElementById('clear-cart-btn')?.addEventListener('click', async () => {
+      const confirmed = await Confirm.clear('todos los productos del carrito');
+      if (!confirmed) return;
+
+      CartCookiesClient.clearCart();
+      itemsInCart.set(0);
+      localStorage.removeItem('selectedShipping');
+      Toast.success('¡Carrito vaciado!');
+      navigate('/cart');
+    });
+
+    // ✅ Navegar al checkout (el shipping se calcula ahí)
+    checkoutBtn?.addEventListener('click', () => {
+      navigate('/checkout');
+    });
   }
 
-  document.addEventListener('astro:page-load', () => setTimeout(() => initializeCart(), 100));
+  // ✅ Cubrir carga directa (sin ViewTransitions) y navegación SPA
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeCart);
+  } else {
+    initializeCart();
+  }
+  document.addEventListener('astro:page-load', initializeCart);
 </script>

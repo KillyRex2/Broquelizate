@@ -3,6 +3,7 @@
 import { Formatter } from '../utils';
 import { actions } from 'astro:actions';
 import { getSession } from 'auth-astro/server';
+import ShippingCalculator from '@/components/ShippingCalculator.astro';
 
 const session = await getSession(Astro.request);
 const userEmail = session?.user?.email || '';
@@ -85,12 +86,15 @@ const productsData = products.map(p => {
 
     <!-- Shipping Warning -->
     <div id="shipping-warning" class="shipping-warning hidden">
-      <div class="warning-icon"><svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg></div>
+      <div class="warning-icon">...</div>
       <div class="warning-content">
-        <span class="warning-title">No has seleccionado método de envío</span>
-        <span class="warning-subtitle"><a href="/cart" class="warning-link">Regresa al carrito</a> y calcula el costo de envío antes de continuar.</span>
+        <span class="warning-title">Calcula tu envío</span>
+        <span class="warning-subtitle">Ingresa tu código postal abajo para ver opciones de envío antes de pagar.</span>
       </div>
     </div>
+
+    <!-- Shipping Calculator (componente reutilizable) -->
+    <ShippingCalculator subtotal={subtotal} totalItems={totalItems} />
 
     <div class="checkout-grid">
       <!-- Main Form Column -->
@@ -383,22 +387,63 @@ const productsData = products.map(p => {
   let stripe: Stripe | null = null, cardElement: StripeCardElement | null = null, selectedShipping: SelectedShipping | null = null, subtotalValue = 0;
   let isProcessing = false;
 
-  function loadShippingInfo() {
-    let saved: string | null = null;
-    try { saved = localStorage.getItem('selectedShipping'); } catch {}
-    const warn = document.getElementById('shipping-warning'), infoDisp = document.getElementById('shipping-info-display'), summaryDet = document.getElementById('shipping-summary-details');
-    if (!saved) { if (warn) warn.classList.remove('hidden'); if (infoDisp) infoDisp.classList.add('hidden'); if (summaryDet) summaryDet.classList.add('hidden'); selectedShipping = null; updateTotals(); return; }
-    try {
-      const p: SelectedShipping = JSON.parse(saved);
-      if (!p || typeof p.price !== 'number' || !p.carrier) { if (warn) warn.classList.remove('hidden'); selectedShipping = null; updateTotals(); return; }
-      selectedShipping = { carrier: p.carrier, service: p.service, price: p.price, deliveryDays: p.deliveryDays, postalCode: p.postalCode };
-      if (warn) warn.classList.add('hidden');
-      if (infoDisp && selectedShipping) { infoDisp.classList.remove('hidden'); const s = selectedShipping; const dc = document.getElementById('display-carrier'), dd = document.getElementById('display-delivery'), dp = document.getElementById('display-shipping-price'); if (dc) dc.textContent = `${s.carrier} - ${s.service}`; if (dd) dd.textContent = `Entrega en ${s.deliveryDays} día${s.deliveryDays !== 1 ? 's' : ''} hábil${s.deliveryDays !== 1 ? 'es' : ''}`; if (dp) dp.textContent = Formatter.currency(s.price); }
-      if (summaryDet && selectedShipping) { summaryDet.classList.remove('hidden'); const s = selectedShipping; const sci = document.getElementById('summary-carrier-icon'), scn = document.getElementById('summary-carrier-name'), sdd = document.getElementById('summary-delivery-days'); if (sci) sci.textContent = getCarrierIcon(s.carrier); if (scn) scn.textContent = s.carrier; if (sdd) sdd.textContent = `${s.deliveryDays} día${s.deliveryDays !== 1 ? 's' : ''}`; }
-      if (selectedShipping) { const s = selectedShipping; const pci = document.getElementById('postal-code') as HTMLInputElement; if (pci && s.postalCode && !pci.value) pci.value = s.postalCode; }
-      updateTotals();
-    } catch { if (warn) warn.classList.remove('hidden'); selectedShipping = null; updateTotals(); }
+function loadShippingInfo() {
+  let saved: string | null = null;
+  try { saved = localStorage.getItem('selectedShipping'); } catch {}
+  const warn = document.getElementById('shipping-warning');
+  const infoDisp = document.getElementById('shipping-info-display');
+  const summaryDet = document.getElementById('shipping-summary-details');
+
+  if (!saved) {
+    warn?.classList.remove('hidden');
+    infoDisp?.classList.add('hidden');
+    summaryDet?.classList.add('hidden');
+    selectedShipping = null;
+    updateTotals();
+    return;
   }
+
+  try {
+    const p: SelectedShipping = JSON.parse(saved);
+    if (!p || typeof p.price !== 'number' || !p.carrier) {
+      warn?.classList.remove('hidden');
+      selectedShipping = null;
+      updateTotals();
+      return;
+    }
+    selectedShipping = { ...p };
+    warn?.classList.add('hidden');
+
+    if (infoDisp) {
+      infoDisp.classList.remove('hidden');
+      const dc = document.getElementById('display-carrier');
+      const dd = document.getElementById('display-delivery');
+      const dp = document.getElementById('display-shipping-price');
+      if (dc) dc.textContent = `${p.carrier} - ${p.service}`;
+      if (dd) dd.textContent = `Entrega en ${p.deliveryDays} día${p.deliveryDays !== 1 ? 's' : ''} hábil${p.deliveryDays !== 1 ? 'es' : ''}`;
+      if (dp) dp.textContent = Formatter.currency(p.price);
+    }
+    if (summaryDet) {
+      summaryDet.classList.remove('hidden');
+      const sci = document.getElementById('summary-carrier-icon');
+      const scn = document.getElementById('summary-carrier-name');
+      const sdd = document.getElementById('summary-delivery-days');
+      if (sci) sci.textContent = getCarrierIcon(p.carrier);
+      if (scn) scn.textContent = p.carrier;
+      if (sdd) sdd.textContent = `${p.deliveryDays} día${p.deliveryDays !== 1 ? 's' : ''}`;
+    }
+
+    // Auto-completa el CP en el form de dirección
+    const pci = document.getElementById('postal-code') as HTMLInputElement;
+    if (pci && p.postalCode && !pci.value) pci.value = p.postalCode;
+
+    updateTotals();
+  } catch {
+    warn?.classList.remove('hidden');
+    selectedShipping = null;
+    updateTotals();
+  }
+}
 
   function updateTotals() {
     subtotalValue = parseFloat(document.getElementById('subtotal-data')?.textContent || '0');
@@ -606,10 +651,15 @@ const productsData = products.map(p => {
 
   function init() {
     if (!document.getElementById('products-data')) return;
-    loadShippingInfo(); setupFormValidation();
+    loadShippingInfo();
+    setupFormValidation();
     document.querySelectorAll('input[name="payment-method"]').forEach(r => r.addEventListener('change', updatePaymentVis));
     document.getElementById('submit-card-payment')?.addEventListener('click', e => { e.preventDefault(); processCard(); });
     updatePaymentVis();
+
+    // ✅ Escucha eventos del ShippingCalculator
+    window.addEventListener('shipping:selected', () => loadShippingInfo());
+    window.addEventListener('shipping:cleared', () => loadShippingInfo());
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
