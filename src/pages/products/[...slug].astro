@@ -482,6 +482,11 @@ const processedVariants = processVariants(variantsData);
     <input type="hidden" id="variant-image-map" value={JSON.stringify(Object.fromEntries(variantImageMap))} />
     <input type="hidden" id="general-images" value={JSON.stringify(fullGeneralImages)} />
     <input type="hidden" id="combination-image-map" value={JSON.stringify(Object.fromEntries(combinationImageMap))} />
+    <input type="hidden" id="combinations-data" value={JSON.stringify(
+      (variantsData?.combinations || []).map((c: any) => ({
+        id: c.id, name: c.combinationName, price: c.price, stock: c.stock, sku: c.sku
+      }))
+    )} />
   </div>
 </ProductsLayout>
 
@@ -665,7 +670,8 @@ const processedVariants = processVariants(variantsData);
     const variantImageMap = variantImageMapInput ? JSON.parse(variantImageMapInput.value) : {};
     const generalImages = generalImagesInput ? JSON.parse(generalImagesInput.value) : [];
     const combinationImageMapData = combinationImageMapInput ? JSON.parse(combinationImageMapInput.value) : {};
-    
+    const combinationsDataInput = document.getElementById("combinations-data") as HTMLInputElement;
+    const combinationsData = combinationsDataInput ? JSON.parse(combinationsDataInput.value) : [];
     const priceElement = document.getElementById("product-price");
     const stockBadge = document.getElementById("stock-badge");
     const variantInfo = document.getElementById("variant-info");
@@ -718,96 +724,82 @@ const processedVariants = processVariants(variantsData);
       updateSliderFn('product-main-slider', variantImage ? [variantImage] : generalImages);
     }
 
-    async function updateCombination(): Promise<void> {
+    function updateCombination(): void {
       if (!hasVariants) return;
-      
+
       const variantGroups = document.querySelectorAll('.variant-group');
-      
+
       if (Object.keys(selectedVariants).length < variantGroups.length) {
         addBtn.disabled = true;
         showMessage('Por favor, selecciona una opción para cada variante.', 'info');
         return;
       }
 
-      try {
-        const { data, error } = await actions.getVariantCombination({
-          productId: productIdInput.value,
-          selectedVariants
-        });
-        
-        if (error || !data) {
-          showMessage('Esta combinación no está disponible.', 'error');
-          addBtn.disabled = true;
-          currentCombination = null;
-          return;
-        }
+      // Botones seleccionados → construir nombre de combinación (mismo criterio que el servidor)
+      const selectedButtons = Object.values(selectedVariants).map(
+        (variantId) => document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement
+      );
+      const combinationName = selectedButtons
+        .map((b) => b?.dataset.variantValue || '')
+        .sort()
+        .join(' - ');
 
-        currentCombination = data;
-        
-        if (!currentCombination.combinationName) {
-          currentCombination.combinationName = Object.entries(selectedVariants)
-            .map(([variantName, variantId]) => {
-              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
-              return button ? `${variantName}: ${button.dataset.variantValue}` : '';
-            })
-            .filter(Boolean)
-            .join(' / ');
-        }
-        
-        if (priceElement) {
-          priceElement.textContent = formatCurrency(data.price);
-        }
-        
-        if (stockBadge) {
-          const isInStock = data.stock > 0;
-          stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`;
-          stockBadge.textContent = isInStock ? `${data.stock} en stock` : 'Agotado';
-        }
-        
-        if (variantInfo && selectedCombination && combinationSku) {
-          selectedCombination.textContent = Object.values(selectedVariants)
-            .map(variantId => {
-              const button = document.querySelector(`[data-variant-id="${variantId}"]`) as HTMLElement;
-              return button ? button.dataset.variantValue : '';
-            })
-            .join(' / ');
-          combinationSku.textContent = data.sku || '-';
-          variantInfo.classList.remove('hidden');
-        }
+      // Buscar localmente (sin llamada al servidor)
+      let combo = combinationsData.find((c: any) => c.name === combinationName);
 
-        const isOutOfStock = data.stock <= 0;
-        addBtn.disabled = isOutOfStock;
-        
-        if (isOutOfStock) {
-          addBtn.innerHTML = '<span>Sin stock disponible</span>';
-        } else {
-          addBtn.innerHTML = `
-            <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
-            </svg>
-            <span>Añadir al carrito</span>
-          `;
-        }
-        
-        qtyInput.max = data.stock.toString();
-        if (parseInt(qtyInput.value) > data.stock) {
-          qtyInput.value = Math.max(1, data.stock).toString();
-        }
+      if (!combo) {
+        // Fallback: precio = base + suma de ajustes (igual que getVariantCombination)
+        const totalAdjustment = selectedButtons.reduce(
+          (sum, b) => sum + (parseFloat(b?.dataset.priceAdjustment || '0') || 0), 0
+        );
+        const stock = Math.min(...selectedButtons.map((b) => parseInt(b?.dataset.stock || '0') || 0));
+        combo = { id: 'calculated', name: combinationName, price: basePrice + totalAdjustment, stock, sku: null };
+      }
 
-        // Actualizar imagen con la de la combinación si existe
-        const comboImage = combinationImageMapData[data.id];
-        const updateSliderFn = (window as any).updateSliderImages;
-        if (typeof updateSliderFn === 'function') {
-          if (comboImage) {
-            updateSliderFn('product-main-slider', [comboImage]);
-          } else {
-            updateSliderFn('product-main-slider', generalImages);
-          }
-        }
-        
-      } catch (e) {
-        console.error('Error al consultar combinación:', e);
-        showMessage('Error al consultar el producto.', 'error');
+      currentCombination = {
+        id: combo.id,
+        combinationName: combo.name,
+        price: combo.price,
+        stock: combo.stock,
+        sku: combo.sku,
+      };
+
+      if (priceElement) priceElement.textContent = formatCurrency(combo.price);
+
+      if (stockBadge) {
+        const isInStock = combo.stock > 0;
+        stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`;
+        stockBadge.textContent = isInStock ? `${combo.stock} en stock` : 'Agotado';
+      }
+
+      if (variantInfo && selectedCombination && combinationSku) {
+        selectedCombination.textContent = selectedButtons
+          .map((b) => b?.dataset.variantValue || '')
+          .join(' / ');
+        combinationSku.textContent = combo.sku || '-';
+        variantInfo.classList.remove('hidden');
+      }
+
+      const isOutOfStock = combo.stock <= 0;
+      addBtn.disabled = isOutOfStock;
+      addBtn.innerHTML = isOutOfStock
+        ? '<span>Sin stock disponible</span>'
+        : `
+          <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+          </svg>
+          <span>Añadir al carrito</span>`;
+
+      qtyInput.max = combo.stock.toString();
+      if (parseInt(qtyInput.value) > combo.stock) {
+        qtyInput.value = Math.max(1, combo.stock).toString();
+      }
+
+      // Imagen de la combinación si existe
+      const comboImage = combinationImageMapData[combo.id];
+      const updateSliderFn = (window as any).updateSliderImages;
+      if (typeof updateSliderFn === 'function') {
+        updateSliderFn('product-main-slider', comboImage ? [comboImage] : generalImages);
       }
     }
     
