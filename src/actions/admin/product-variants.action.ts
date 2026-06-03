@@ -7,6 +7,112 @@ import type {
   GroupedVariants 
 } from '@/interfaces/product-with-variants.interface';
 
+// ===== HELPER: sincronizar precios de combinaciones (conserva stock/SKU/imágenes) =====
+async function syncProductCombinations(productId: string) {
+  const [product] = await db.select().from(Product).where(eq(Product.id, productId));
+  if (!product) throw new Error('Producto no encontrado');
+
+  const variants = await db
+    .select()
+    .from(ProductVariant)
+    .where(and(eq(ProductVariant.productId, productId), eq(ProductVariant.isActive, true)));
+
+  const grouped: Record<string, any[]> = {};
+  for (const v of variants) {
+    (grouped[v.variantName] ||= []).push(v);
+  }
+  const names = Object.keys(grouped);
+
+  const existing = await db
+    .select()
+    .from(ProductVariantCombination)
+    .where(eq(ProductVariantCombination.productId, productId));
+
+  // Menos de 2 grupos: no hay combinaciones, limpiar todo.
+  if (names.length < 2) {
+    const ids = existing.map(c => c.id);
+    if (ids.length > 0) {
+      await db.batch([
+        db.update(ProductImage).set({ combinationId: null } as any)
+          .where(inArray(ProductImage.combinationId, ids)),
+        db.delete(ProductVariantCombination)
+          .where(eq(ProductVariantCombination.productId, productId)),
+      ] as any);
+    }
+    return { generated: 0, updated: 0, inserted: 0, removed: existing.length };
+  }
+
+  type Fresh = { combinationName: string; price: number; minStock: number };
+  const fresh: Fresh[] = [];
+  const build = (current: any[], idx: number) => {
+    if (idx >= names.length) {
+      const total = current.reduce((sum, v) => sum + v.priceAdjustment, 0);
+      fresh.push({
+        combinationName: current.map(v => v.variantValue).sort().join(' - '),
+        price: product.price + total,
+        minStock: Math.min(...current.map(v => v.stock)),
+      });
+      return;
+    }
+    for (const v of grouped[names[idx]]) {
+      current.push(v);
+      build(current, idx + 1);
+      current.pop();
+    }
+  };
+  build([], 0);
+
+  const existingByName = new Map(existing.map(c => [c.combinationName, c]));
+  const freshNames = new Set(fresh.map(f => f.combinationName));
+
+  const obsoleteIds = existing
+    .filter(c => !freshNames.has(c.combinationName!))
+    .map(c => c.id);
+
+  const toInsert: any[] = [];
+  const priceUpdates: { id: string; price: number }[] = [];
+
+  for (const f of fresh) {
+    const prev = existingByName.get(f.combinationName);
+    if (prev) {
+      if (prev.price !== f.price) priceUpdates.push({ id: prev.id, price: f.price });
+    } else {
+      toInsert.push({
+        id: UUID(),
+        productId,
+        combinationName: f.combinationName,
+        price: f.price,
+        stock: f.minStock,
+        sku: null,
+        isActive: f.minStock > 0,
+        createdAt: new Date(),
+      });
+    }
+  }
+
+  const ops: any[] = [];
+  if (obsoleteIds.length > 0) {
+    ops.push(
+      db.update(ProductImage).set({ combinationId: null } as any)
+        .where(inArray(ProductImage.combinationId, obsoleteIds)),
+      db.delete(ProductVariantCombination).where(inArray(ProductVariantCombination.id, obsoleteIds)),
+    );
+  }
+  if (toInsert.length > 0) {
+    ops.push(db.insert(ProductVariantCombination).values(toInsert));
+  }
+  for (const u of priceUpdates) {
+    ops.push(
+      db.update(ProductVariantCombination).set({ price: u.price } as any)
+        .where(eq(ProductVariantCombination.id, u.id)),
+    );
+  }
+
+  if (ops.length > 0) await db.batch(ops as any);
+
+  return { generated: fresh.length, updated: priceUpdates.length, inserted: toInsert.length, removed: obsoleteIds.length };
+}
+
 // --- Interfaz explícita para el tipo de retorno ---
 interface VariantCombinationResult {
   id: string;
@@ -255,8 +361,8 @@ export const updateVariant = defineAction({
 
       console.log(`Variante ${variantId} actualizada:`, dataToUpdate);
 
-      if (updateData.stock !== undefined || updateData.priceAdjustment !== undefined) {
-        console.log('Considera regenerar las combinaciones para reflejar los cambios');
+      if (updateData.priceAdjustment !== undefined || updateData.stock !== undefined) {
+        await syncProductCombinations(variant.productId);
       }
 
       return { 
@@ -457,47 +563,8 @@ export const generateVariantCombinations = defineAction({
       return { success: false, message: 'Se necesitan al menos 2 tipos de variantes para generar combinaciones' };
     }
 
-    const generateCombinations = (groups: Record<string, any[]>, names: string[]): any[] => {
-      const combinations: any[] = [];
-      const generate = (current: any[], index: number) => {
-        if (index >= names.length) {
-          const totalPriceAdjustment = current.reduce((sum, v) => sum + v.priceAdjustment, 0);
-          const finalPrice = product.price + totalPriceAdjustment;
-          const minStock = Math.min(...current.map(v => v.stock));
-          const combinationName = current.map(v => v.variantValue).sort().join(' - ');
-          combinations.push({ 
-            id: UUID(), 
-            productId, 
-            combinationName, 
-            price: finalPrice, 
-            stock: minStock, 
-            sku: null, 
-            isActive: minStock > 0, 
-            createdAt: new Date() 
-          } as any);
-          return;
-        }
-        const currentName = names[index];
-        groups[currentName].forEach(variant => {
-          current.push(variant);
-          generate(current, index + 1);
-          current.pop();
-        });
-      };
-      generate([], 0);
-      return combinations;
-    };
-
-    const combinations = generateCombinations(groupedVariants, variantNames);
-    
-    await db.batch([
-      db.delete(ProductVariantCombination).where(eq(ProductVariantCombination.productId, productId)),
-      ...(combinations.length > 0 
-        ? [db.insert(ProductVariantCombination).values(combinations)]
-        : [])
-    ]);
-
-    return { success: true, message: `${combinations.length} combinaciones generadas` };
+    const result = await syncProductCombinations(productId);
+    return { success: true, message: `${result.generated} combinaciones generadas` };
   }
 });
 
@@ -582,14 +649,13 @@ export const updateVariantGroup = defineAction({
         }
       }
 
-      // 3. Eliminar combinaciones viejas (se deben regenerar)
-      await db.delete(ProductVariantCombination)
-        .where(eq(ProductVariantCombination.productId, productId));
+      // 3. Sincronizar combinaciones automáticamente (conserva stock/imágenes)
+      await syncProductCombinations(productId);
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: `Grupo "${newVariantName}" actualizado correctamente`,
-        shouldRegenerateCombinations: true
+        shouldRegenerateCombinations: false,
       };
     } catch (error: any) {
       console.error('Error actualizando grupo de variantes:', error);
