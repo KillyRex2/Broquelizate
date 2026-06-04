@@ -97,26 +97,40 @@ interface ProcessedVariantGroup {
 const processVariants = (variantsData: any): ProcessedVariantGroup[] | null => {
   if (!variantsData?.hasVariants) return null;
 
+  // Con 2+ grupos el stock se administra por combinación, no por opción.
+  const groupCount = Object.keys(variantsData.groupedVariants || {}).length;
+  const multiGroup = groupCount >= 2;
+
   return Object.entries(variantsData.groupedVariants).map(([variantName, group]: [string, any]) => {
-    const processedOptions = group.options.map((option: VariantOption) => {
-      const isOutOfStock = option.stock <= 0;
-      const hasImage = variantImageMap.has(option.id);
+    const processedOptions = group.options.map((option: VariantOption) => ({
+      ...option,
+      isOutOfStock: multiGroup ? false : option.stock <= 0,
+      hasImage: variantImageMap.has(option.id),
+    }));
 
-      return {
-        ...option,
-        isOutOfStock,
-        hasImage
-      };
-    });
-
-    return {
-      variantName,
-      options: processedOptions
-    };
+    return { variantName, options: processedOptions };
   });
 };
 
 const processedVariants = processVariants(variantsData);
+
+const isMultiGroup = variantsData ? Object.keys(variantsData.groupedVariants || {}).length >= 2 : false;
+// Disponibilidad real: si hay variantes, el stock vive en las variantes/combinaciones,
+// no en el stock base. Esto evita tener que llenar el stock base.
+let displayStock = product.stock;
+let hasStock = product.stock > 0;
+
+if (product.hasVariants && variantsData) {
+  const combos = variantsData.combinations || [];
+  if (combos.length > 0) {
+    displayStock = combos.reduce((sum: number, c: any) => sum + (c.stock || 0), 0);
+  } else {
+    displayStock = Object.values(variantsData.groupedVariants || {})
+      .flatMap((g: any) => g.options || [])
+      .reduce((sum: number, o: any) => sum + (o.stock || 0), 0);
+  }
+  hasStock = displayStock > 0;
+}
 ---
 
 <ProductsLayout 
@@ -219,8 +233,8 @@ const processedVariants = processVariants(variantsData);
               {product.category}
             </span>
             <span class="badge badge-type">{product.type}</span>
-            <span id="stock-badge" class={`badge ${product.stock > 0 ? 'badge-stock' : 'badge-out'}`}>
-              {product.stock > 0 ? `${product.stock} en stock` : 'Agotado'}
+            <span id="stock-badge" class={`badge ${hasStock ? 'badge-stock' : 'badge-out'}`}>
+              {hasStock ? `${displayStock} en stock` : 'Agotado'}
             </span>
           </div>
 
@@ -273,7 +287,9 @@ const processedVariants = processVariants(variantsData);
                             </span>
                           )}
                         </div>
-                        <span class="variant-stock">{option.isOutOfStock ? 'Agotado' : `${option.stock} disp.`}</span>
+                        {!isMultiGroup && (
+                          <span class="variant-stock">{option.isOutOfStock ? 'Agotado' : `${option.stock} disp.`}</span>
+                        )}
                         <div class="select-dot"></div>
                       </button>
                     ))}

@@ -84,7 +84,7 @@ async function syncProductCombinations(productId: string) {
         price: f.price,
         stock: f.minStock,
         sku: null,
-        isActive: f.minStock > 0,
+        isActive: true,
         createdAt: new Date(),
       });
     }

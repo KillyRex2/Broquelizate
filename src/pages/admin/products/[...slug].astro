@@ -487,7 +487,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
               <input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
               <div class="grid grid-cols-3 gap-2">
                 <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
-                <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required />
+                <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock"/>
                 <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
               </div>
               <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>
@@ -513,7 +513,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           <div><label class="form-label">Tipo</label><input type="text" id="edit-variant-name" class="form-input bg-slate-100 text-sm md:text-base" readonly /></div>
           <div><label class="form-label">Valor</label><input type="text" id="edit-variant-value" class="form-input text-sm md:text-base" required /></div>
           <div><label class="form-label">Ajuste de Precio</label><input type="number" id="edit-price-adjustment" step="0.01" class="form-input text-sm md:text-base" /></div>
-          <div><label class="form-label">Stock</label><input type="number" id="edit-stock" class="form-input text-sm md:text-base" required /></div>
+          <div><label class="form-label">Stock</label><input type="number" id="edit-stock" class="form-input text-sm md:text-base" /></div>
           <div><label class="form-label">SKU (opcional)</label><input type="text" id="edit-sku" class="form-input text-sm md:text-base" /></div>
           <div class="flex flex-col sm:flex-row gap-3 mt-6">
             <button type="button" id="cancel-edit-variant" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">Cancelar</button>
@@ -1217,7 +1217,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
       addOptionBtn.addEventListener('click', () => {
         const newRow = document.createElement('div');
         newRow.className = 'variant-option-row space-y-2 border-t border-slate-200 pt-3 mt-3';
-        newRow.innerHTML = `<input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required /><div class="grid grid-cols-3 gap-2"><input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" /><input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" required /><input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" /></div><button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>`;
+        newRow.innerHTML = `<input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required /><div class="grid grid-cols-3 gap-2"><input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" /><input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" /><input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" /></div><button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>`;
         variantOptions.appendChild(newRow);
       });
     }
@@ -1244,7 +1244,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
           </div>
           <div>
             <label class="text-xs text-slate-500">Stock</label>
-            <input type="number" placeholder="0" value="${option?.stock || 0}" class="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg group-option-stock" required />
+            <input type="number" placeholder="0" value="${option?.stock || 0}" class="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg group-option-stock" />
           </div>
           <div>
             <label class="text-xs text-slate-500">SKU</label>
