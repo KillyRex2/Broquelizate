@@ -1,6 +1,6 @@
 import type { ProductWithImages } from "@/interfaces";
 import { defineAction } from "astro:actions";
-import { and, count, db, eq, gt, inArray, lte, Product, ProductImage, sql, asc, desc } from "astro:db";
+import { and, count, db, eq, gt, inArray, lte, Product, ProductImage, ProductVariant, ProductVariantCombination, sql, asc, desc } from "astro:db";
 import { z } from "astro:schema";
 
 // Lista de categorías válidas
@@ -190,7 +190,9 @@ export const handler = async ({
         piercing_name: Product.piercing_name,
         cost: Product.cost,
         coverImageId: Product.coverImageId,
-        user: Product.user
+        user: Product.user,
+        hasVariants: Product.hasVariants,
+        allowsEngraving: Product.allowsEngraving,
       })
       .from(Product)
       .orderBy(orderFn(sortColumn))
@@ -202,6 +204,44 @@ export const handler = async ({
     }
     
     const products = await baseProductsQuery;
+
+    // Stock real para productos con variantes: el inventario vive en las
+    // variantes/combinaciones, no en Product.stock (que queda desincronizado
+    // tras ventas en el POS). Así la card nunca muestra "disponible" algo agotado.
+    const variantProductIds = products.filter(p => p.hasVariants).map(p => p.id);
+    const realStockMap = new Map<string, number>();
+
+    if (variantProductIds.length > 0) {
+      const [pageVariants, pageCombos] = await Promise.all([
+        db.select().from(ProductVariant).where(inArray(ProductVariant.productId, variantProductIds)),
+        db.select().from(ProductVariantCombination).where(inArray(ProductVariantCombination.productId, variantProductIds)),
+      ]);
+
+      const combosByProduct = new Map<string, typeof pageCombos>();
+      for (const c of pageCombos) {
+        if (!combosByProduct.has(c.productId)) combosByProduct.set(c.productId, []);
+        combosByProduct.get(c.productId)!.push(c);
+      }
+      const varsByProduct = new Map<string, typeof pageVariants>();
+      for (const v of pageVariants) {
+        if (!varsByProduct.has(v.productId)) varsByProduct.set(v.productId, []);
+        varsByProduct.get(v.productId)!.push(v);
+      }
+
+      for (const pid of variantProductIds) {
+        const combos = combosByProduct.get(pid) || [];
+        const vars = varsByProduct.get(pid) || [];
+        let total: number;
+        if (combos.length > 0) {
+          total = combos.filter(c => c.isActive).reduce((sum, c) => sum + (c.stock || 0), 0);
+        } else if (vars.length > 0) {
+          total = vars.reduce((sum, v) => sum + (v.stock || 0), 0);
+        } else {
+          total = 0;
+        }
+        realStockMap.set(pid, total);
+      }
+    }
     
     // Obtener IDs de productos para buscar imágenes
     const productIds = products.map(p => p.id);
@@ -261,6 +301,7 @@ export const handler = async ({
       
       return {
         ...product,
+        stock: realStockMap.has(product.id) ? realStockMap.get(product.id)! : product.stock,
         images
       };
     });
