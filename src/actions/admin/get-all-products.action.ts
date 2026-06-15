@@ -59,12 +59,10 @@ export const getAllProductsWithImages = defineAction({
         itemsByCombination.get(item.combinationId)!.push(item);
       }
 
-      // Imágenes por producto y por variante
+      // Imágenes por producto, por variante y por combinación
       const imagesByProduct = new Map<string, string[]>();
       const imagesByVariant = new Map<string, string[]>();
-      
-      // TODO: Implementar imágenes por combinación cuando se agregue combinationId a ProductImage
-      // const imagesByCombination = new Map<string, string[]>();
+      const imagesByCombination = new Map<string, string[]>();
       
       // Mapa de coverImageId por producto
       const coverImageByProduct = new Map<string, string>();
@@ -82,13 +80,14 @@ export const getAllProductsWithImages = defineAction({
           imagesByProduct.get(image.productId)!.push(image.image);
         }
         
-        // TODO: Agregar lógica para imágenes por combinación cuando esté disponible
-        // if (image.combinationId) {
-        //   if (!imagesByCombination.has(image.combinationId)) {
-        //     imagesByCombination.set(image.combinationId, []);
-        //   }
-        //   imagesByCombination.get(image.combinationId)!.push(image.image);
-        // }
+        // Imágenes por combinación
+        if ((image as any).combinationId) {
+          const cid = (image as any).combinationId;
+          if (!imagesByCombination.has(cid)) {
+            imagesByCombination.set(cid, []);
+          }
+          imagesByCombination.get(cid)!.push(image.image);
+        }
         
         // Imágenes por variante (si tu esquema lo soporta)
         if (image.variantId) {
@@ -195,7 +194,8 @@ export const getAllProductsWithImages = defineAction({
             return {
               ...combo,
               combinationName,
-            }as any;
+              images: imagesByCombination.get(combo.id) || [],
+            } as any;
           });
         }
 
