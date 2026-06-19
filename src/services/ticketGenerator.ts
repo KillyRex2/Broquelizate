@@ -50,7 +50,9 @@ export const generateAndPrintTicket = async (
   storeInfo: StoreInfo,
   discount?: number,
   addedMount?: number,
-  observations?: string
+  observations?: string,
+  amountReceived?: number,
+  change?: number
 ): Promise<void> => {
   try {
     const logoUrl = '/assets/Broquelizate-logos/logo-relleno-negro.png';
@@ -96,6 +98,20 @@ export const generateAndPrintTicket = async (
       [{ text: 'Total:', style: 'finalTotalLabel', alignment: 'right' }, { text: `$${total.toFixed(2)}`, style: 'finalTotalAmount', alignment: 'right' }],
       [{ text: `${paymentMethod}:`, style: 'paymentMethodLabel', alignment: 'right' }, { text: `$${total.toFixed(2)}`, style: 'paymentMethodAmount', alignment: 'right' }]
     );
+
+    // Recibido y Feria (cambio) — solo si aplica
+    if (typeof amountReceived === 'number' && amountReceived > 0) {
+      totalsBody.push([
+        { text: 'Recibido:', style: 'paymentMethodLabel', alignment: 'right' },
+        { text: `$${amountReceived.toFixed(2)}`, style: 'paymentMethodAmount', alignment: 'right' }
+      ]);
+    }
+    if (typeof change === 'number' && change > 0) {
+      totalsBody.push([
+        { text: 'Feria:', style: 'finalTotalLabel', alignment: 'right' },
+        { text: `$${change.toFixed(2)}`, style: 'finalTotalAmount', alignment: 'right' }
+      ]);
+    }
 
     const content: Content[] = [
       { image: logoBase64, width: 70, alignment: 'center', margin: [0, 0, 0, 8] },
