@@ -108,7 +108,7 @@ export const generateAndPrintTicket = async (
     }
     if (typeof change === 'number' && change > 0) {
       totalsBody.push([
-        { text: 'Feria:', style: 'finalTotalLabel', alignment: 'right' },
+        { text: 'Vuelto:', style: 'finalTotalLabel', alignment: 'right' },
         { text: `$${change.toFixed(2)}`, style: 'finalTotalAmount', alignment: 'right' }
       ]);
     }
