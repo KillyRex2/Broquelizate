@@ -379,13 +379,22 @@ function initializePOS() {
     }
   }
 
+  // Quita acentos y pasa a minúsculas para comparar sin importar tildes ni #
+  function normalizeText(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD')               // separa la letra de su acento
+      .replace(/[\u0300-\u036f]/g, '') // elimina los acentos
+      .trim();
+  }
+
   function filterProducts(): ProductForPOS[] {
-    const searchLower = POSState.searchTerm.toLowerCase().trim();
+    const searchNorm = normalizeText(POSState.searchTerm);
     
     return allProducts.filter(p => {
-      const matchesSearch = !searchLower || 
-        p.name.toLowerCase().includes(searchLower) || 
-        (p.variantOptions?.some(v => v.sku && v.sku.toLowerCase().includes(searchLower)));
+      const matchesSearch = !searchNorm || 
+        normalizeText(p.name).includes(searchNorm) || 
+        (p.variantOptions?.some(v => v.sku && normalizeText(v.sku).includes(searchNorm)));
       
       const matchesCategory = POSState.category === 'all' || p.category === POSState.category;
       
