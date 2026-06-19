@@ -154,7 +154,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <div>
               <label for="category" class="form-label">Material</label>
               <select id="category" name="category" required class="form-input">
-                {['Titanio','Acero Quirúrgico','Oro 10k','Oro 14k','Oro 18k','Chapa de Oro 14K','Chapa de Oro 18K','Acero Inoxidable','Plástico','Plata','Rodio'].map(c => (
+                {['Titanio','Acero Quirúrgico','Oro 10k','Oro 14k','Oro 18k','Chapa de Oro 14K','Chapa de Oro 18K','Acero Inoxidable','Plástico','Plata','Rodio','Otros'].map(c => (
                   <option value={c} selected={c === product.category}>{c}</option>
                 ))}
               </select>
@@ -162,7 +162,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <div>
               <label for="type" class="form-label">Tipo de Joya</label>
               <select id="type" name="type" required class="form-input">
-                {['Anillos','Broqueles','Pulseras','Cadenas'].map(t => (
+                {['Anillos','Broqueles','Pulseras','Cadenas','Otros'].map(t => (
                   <option value={t} selected={t === product.type}>{t}</option>
                 ))}
               </select>

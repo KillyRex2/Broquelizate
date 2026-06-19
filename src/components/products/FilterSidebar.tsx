@@ -2,7 +2,7 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { FaGem, FaRegCircle, FaSearch, FaUndo } from "react-icons/fa";
 import { AiFillGold } from "react-icons/ai";
-import { BsEar, BsEarFill } from "react-icons/bs";
+import { BsEar, BsEarFill, BsThreeDots} from "react-icons/bs";
 import { GiPlasticDuck, GiNoseFront, GiPearlEarring } from "react-icons/gi";
 import { MdTitle, MdFilterList } from "react-icons/md";
 import { FaRegRegistered, FaA, FaEarDeaf, FaEarListen } from "react-icons/fa6";
@@ -36,6 +36,7 @@ const categories = [
   { label: "Plástico", value: "Plástico", icon: <GiPlasticDuck /> },
   { label: "Plata", value: "Plata", icon: <FaRegCircle /> },
   { label: "Rodio", value: "Rodio", icon: <FaRegRegistered /> },
+  { label: "Otros", value: "Otros", icon: <BsThreeDots /> },
 ];
 
 const piercings = [

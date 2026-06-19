@@ -8,7 +8,7 @@ const validCategories = [
   "Titanio", "Acero Quirúrgico", "Oro 10k", "Oro 14k", "Oro 18k",
   "Chapa de Oro 14K", "Chapa de Oro 18K", "Acero Inoxidable",
   "Plástico", "Plata", "Rodio", "Oro 10k cadenas", "Oro 10k anillos",
-  "Oro 10k arracadas", "Plata .925"
+  "Oro 10k arracadas", "Plata .925", "Otros"
 ];
 
 const validPiercings = [
