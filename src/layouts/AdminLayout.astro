@@ -25,6 +25,24 @@ if (import.meta.env.SSR) {
   <title>{title} - Panel de Administración</title>
   <ClientRouter />
   <style>
+    /* Ancho del sidebar en desktop */
+    .sidebar-container {
+      width: 16rem; /* w-64 */
+    }
+
+    /* Colapsado en desktop */
+    @media (min-width: 768px) {
+      .sidebar-container.collapsed {
+        width: 0;
+      }
+    }
+
+    /* En móvil siempre tiene ancho completo del panel (se oculta con transform) */
+    @media (max-width: 767px) {
+      .sidebar-container {
+        width: 16rem;
+      }
+    }
     /* Paleta Broquelizate */
     :root {
       --bg-dark: #1E1E1E;
@@ -118,57 +136,44 @@ if (import.meta.env.SSR) {
 
   <!-- Toggle script mejorado para móvil -->
   <script>
-    function setupSidebarToggle() {
+function setupSidebarToggle() {
       const btn = document.getElementById('toggle-sidebar');
       const sidebar = document.getElementById('sidebar-container');
       const overlay = document.getElementById('sidebar-overlay');
-      
-      if (btn && sidebar && overlay) {
-        // Función para abrir/cerrar sidebar
-        const toggleSidebar = () => {
-          const isMobile = window.innerWidth < 768;
-          
-          if (isMobile) {
-            // En móvil: usar overlay
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
-          } else {
-            // En desktop: colapsar
-            const isCollapsed = sidebar.classList.contains('w-0');
-            if (isCollapsed) {
-              sidebar.classList.remove('w-0', 'p-0', 'opacity-0');
-              sidebar.classList.add('w-64');
-            } else {
-              sidebar.classList.remove('w-64');
-              sidebar.classList.add('w-0', 'p-0', 'opacity-0');
-            }
-          }
-        };
 
-        // Click en el botón toggle
-        btn.addEventListener('click', toggleSidebar);
-        
-        // Click en overlay para cerrar (solo móvil)
-        overlay.addEventListener('click', () => {
+      if (!btn || !sidebar || !overlay) return;
+
+      const toggleSidebar = () => {
+        const isMobile = window.innerWidth < 768;
+
+        if (isMobile) {
+          // En móvil: deslizar con overlay
+          sidebar.classList.toggle('open');
+          overlay.classList.toggle('open');
+        } else {
+          // En desktop: colapsar/expandir por ancho
+          sidebar.classList.toggle('collapsed');
+        }
+      };
+
+      btn.addEventListener('click', toggleSidebar);
+
+      overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+        if (btn instanceof HTMLInputElement) btn.checked = false;
+      });
+
+      document.addEventListener('astro:after-swap', () => {
+        if (window.innerWidth < 768) {
           sidebar.classList.remove('open');
           overlay.classList.remove('open');
-          if (btn instanceof HTMLInputElement) {
-            btn.checked = false;
-          }
-        });
-
-        // Cerrar sidebar al cambiar de página en móvil
-        document.addEventListener('astro:after-swap', () => {
-          if (window.innerWidth < 768) {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('open');
-            if (btn instanceof HTMLInputElement) {
-              btn.checked = false;
-            }
-          }
-        });
-      }
+          if (btn instanceof HTMLInputElement) btn.checked = false;
+        }
+      });
     }
+
+    document.addEventListener('astro:page-load', setupSidebarToggle);
 
     document.addEventListener('astro:page-load', setupSidebarToggle);
   </script>

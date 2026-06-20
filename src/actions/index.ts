@@ -11,7 +11,9 @@ import { capturePaypalOrder, createPaypalOrder } from "./admin/paypal";
 import { subscribeToNewsletter } from "./newsletter/newsletter.action";
 import { createBatchVariants, generateVariantCombinations, updateCombinationStock, getGroupedProductVariants, deleteVariant, deleteVariantGroup, updateVariant, getVariantCombination, updateVariantGroup, uploadCombinationImage, deleteCombinationImage } from "./admin/product-variants.action";
 import {createShippingLabel, trackShipment, getUserShipments, getShippingRates, updateOrderStatus, updateOrderShippingAddress, updateShippingAddress, getUserProfile, updateUserProfile, getUserProfileByEmail} from './envia/envia.action';
+import { getSalesStats } from "./admin/get-sales-stats.action";
 import type { set } from "date-fns";
+
 
 export const server = {
     // server actions
@@ -43,6 +45,7 @@ export const server = {
     deleteCustomizationImage,
     uploadCustomizationImage,
     toggleFeaturedProduct,
+    getSalesStats,
 
     // Admin Client
     updateClient,

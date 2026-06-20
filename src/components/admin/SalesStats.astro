@@ -1,0 +1,610 @@
+---
+// src/components/admin/SalesStats.astro
+---
+<div class="stats-page">
+  <!-- Header -->
+  <header class="stats-header">
+    <div>
+      <p class="eyebrow">Panel de ventas</p>
+      <h1>Estadísticas</h1>
+    </div>
+    <div class="period-switch">
+      <button class="period-nav" id="period-prev" aria-label="Periodo anterior">‹</button>
+      <button class="period-label" id="period-label">Hoy</button>
+      <button class="period-nav" id="period-next" aria-label="Periodo siguiente">›</button>
+    </div>
+  </header>
+
+  <!-- Atajos de periodo + rango personalizado -->
+  <div class="period-bar">
+    <div class="period-chips" id="period-chips">
+      <button class="chip active" data-range="today">Hoy</button>
+      <button class="chip" data-range="yesterday">Ayer</button>
+      <button class="chip" data-range="week">Esta semana</button>
+      <button class="chip" data-range="month">Este mes</button>
+      <button class="chip" data-range="year">Este año</button>
+    </div>
+    <div class="custom-range">
+      <input type="date" id="date-start" class="date-input" aria-label="Fecha inicial" />
+      <span class="range-sep">→</span>
+      <input type="date" id="date-end" class="date-input" aria-label="Fecha final" />
+      <button class="apply-range" id="apply-range">Aplicar</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <!-- Columna de KPIs -->
+    <aside class="kpi-column">
+      <article class="kpi-card kpi-revenue">
+        <span class="kpi-tag">Facturación</span>
+        <span class="kpi-value" id="kpi-revenue">$0.00</span>
+        <span class="kpi-best" id="kpi-revenue-best">—</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-tag">Ventas</span>
+        <span class="kpi-value" id="kpi-sales">0</span>
+        <span class="kpi-best" id="kpi-sales-best">—</span>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-tag">Ticket medio</span>
+        <span class="kpi-value" id="kpi-ticket">$0.00</span>
+        <span class="kpi-best" id="kpi-ticket-best">—</span>
+      </article>
+      <article class="kpi-card kpi-profit">
+        <span class="kpi-tag">Ganancia estimada</span>
+        <span class="kpi-value" id="kpi-profit">$0.00</span>
+        <span class="kpi-best">Precio de venta menos costo actual</span>
+      </article>
+    </aside>
+
+    <!-- Panel principal: gráfica -->
+    <section class="chart-panel">
+      <div class="chart-head">
+        <h2>Facturación</h2>
+        <div class="chart-tabs" id="chart-tabs">
+          <button class="tab active" data-view="byHour">Hora</button>
+          <button class="tab" data-view="byDay">Día</button>
+          <button class="tab" data-view="byWeekday">Día de la semana</button>
+          <button class="tab" data-view="byMonth">Mes</button>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="sales-chart"></canvas>
+        <div class="chart-empty" id="chart-empty" hidden>
+          <p>Sin ventas en este periodo.</p>
+          <span>Elige otro rango o registra una venta para ver el movimiento aquí.</span>
+        </div>
+      </div>
+
+      <div class="chart-legend">
+        <span class="legend-item best"><i></i> Mejor hora: <strong id="best-hour">—</strong></span>
+        <span class="legend-item worst"><i></i> Peor hora: <strong id="worst-hour">—</strong></span>
+      </div>
+    </section>
+  </div>
+
+  <!-- Fila inferior: productos y métodos de pago -->
+  <div class="bottom-grid">
+    <section class="table-card">
+      <div class="table-head">
+        <h2>Productos más vendidos</h2>
+        <span class="muted">Por unidades en el periodo</span>
+      </div>
+      <ul class="rank-list" id="top-products">
+        <li class="empty-row">Sin datos en este periodo.</li>
+      </ul>
+    </section>
+
+    <section class="table-card">
+      <div class="table-head">
+        <h2>Métodos de pago</h2>
+        <span class="muted">Facturación por método</span>
+      </div>
+      <div class="pay-layout">
+        <div class="donut-wrap">
+          <canvas id="payment-donut"></canvas>
+          <div class="donut-center">
+            <span class="donut-total" id="donut-total">$0</span>
+            <span class="donut-label">Total</span>
+          </div>
+        </div>
+        <ul class="pay-list" id="payment-methods">
+          <li class="empty-row">Sin datos en este periodo.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</div>
+
+<style is:global>
+  .stats-page {
+    --bg: #0b0b0d;
+    --panel: #141417;
+    --panel-2: #1b1b1f;
+    --line: rgba(255,255,255,0.07);
+    --line-strong: rgba(255,255,255,0.12);
+    --gold: #eab308;
+    --gold-soft: #fbbf24;
+    --txt: #f5f5f4;
+    --txt-dim: rgba(245,245,244,0.55);
+    --txt-faint: rgba(245,245,244,0.35);
+    --green: #34d399;
+    --red: #f87171;
+
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 28px 28px 60px;
+    border-radius: 20px;
+    box-sizing: border-box;
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(234,179,8,0.07), transparent 70%),
+      var(--bg);
+    color: var(--txt);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Header */
+  .stats-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+  .eyebrow { font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); font-weight: 600; margin-bottom: 6px; }
+  .stats-header h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+
+  .period-switch { display: flex; align-items: center; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 4px; }
+  .period-nav { width: 38px; height: 38px; border: none; background: transparent; color: var(--txt-dim); font-size: 1.4rem; cursor: pointer; border-radius: 10px; transition: all 0.18s; }
+  .period-nav:hover { background: var(--panel-2); color: var(--txt); }
+  .period-label { min-width: 150px; height: 38px; border: none; background: transparent; color: var(--txt); font-weight: 600; font-size: 0.95rem; cursor: default; border-radius: 10px; }
+
+  /* Period bar */
+  .period-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .period-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--txt-dim); font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: all 0.18s; }
+  .chip:hover { border-color: var(--line-strong); color: var(--txt); }
+  .chip.active { background: linear-gradient(135deg, var(--gold), var(--gold-soft)); border-color: transparent; color: #1a1205; font-weight: 700; }
+
+  .custom-range { display: flex; align-items: center; gap: 8px; }
+  .date-input { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--txt); padding: 7px 10px; font-size: 0.8rem; font-family: inherit; color-scheme: dark; cursor: pointer; transition: border-color 0.18s; }
+  .date-input:hover, .date-input:focus { border-color: var(--gold); outline: none; }
+  .range-sep { color: var(--txt-faint); font-size: 0.85rem; }
+  .apply-range { padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--gold-soft); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+  .apply-range:hover { background: var(--gold); color: #1a1205; border-color: transparent; }
+
+  /* Main grid */
+  .stats-grid { display: grid; grid-template-columns: 300px 1fr; gap: 18px; margin-bottom: 18px; }
+
+  /* KPI column */
+  .kpi-column { display: flex; flex-direction: column; gap: 12px; }
+  .kpi-card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; overflow: hidden; transition: border-color 0.2s; }
+  .kpi-card:hover { border-color: var(--line-strong); }
+  .kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--line-strong); }
+  .kpi-revenue::before { background: linear-gradient(var(--gold), var(--gold-soft)); }
+  .kpi-profit::before { background: linear-gradient(var(--green), #10b981); }
+  .kpi-tag { display: block; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--txt-dim); font-weight: 600; margin-bottom: 10px; }
+  .kpi-value { display: block; font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .kpi-revenue .kpi-value { background: linear-gradient(135deg, var(--gold), var(--gold-soft)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .kpi-profit .kpi-value { color: var(--green); }
+  .kpi-best { display: block; margin-top: 8px; font-size: 0.75rem; color: var(--txt-faint); }
+
+  /* Chart panel */
+  .chart-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; min-height: 420px; min-width: 0; }
+  .chart-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .chart-head h2 { font-size: 1.1rem; font-weight: 700; }
+  .chart-tabs { display: flex; gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+  .tab { padding: 7px 14px; border: none; background: transparent; color: var(--txt-dim); font-size: 0.8rem; font-weight: 600; cursor: pointer; border-radius: 9px; transition: all 0.18s; }
+  .tab:hover { color: var(--txt); }
+  .tab.active { background: var(--panel-2); color: var(--gold); }
+
+  .chart-wrap { position: relative; flex: 1; min-height: 300px; width: 100%; min-width: 0; }
+  .chart-wrap canvas { max-width: 100%; }
+  .chart-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+  .chart-empty[hidden] { display: none !important; }
+  .chart-empty p { font-weight: 600; color: var(--txt); }
+  .chart-empty span { font-size: 0.85rem; color: var(--txt-faint); max-width: 320px; }
+
+  .chart-legend { display: flex; gap: 20px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .legend-item { display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--txt-dim); }
+  .legend-item strong { color: var(--txt); font-weight: 700; }
+  .legend-item i { width: 9px; height: 9px; border-radius: 50%; }
+  .legend-item.best i { background: var(--gold); }
+  .legend-item.worst i { background: var(--red); }
+
+  /* Bottom grid */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .table-card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+  .table-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .table-head h2 { font-size: 1.05rem; font-weight: 700; }
+  .muted { font-size: 0.76rem; color: var(--txt-faint); }
+
+  .rank-list, .pay-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .empty-row { color: var(--txt-faint); font-size: 0.85rem; padding: 14px 0; text-align: center; }
+
+  /* Productos más vendidos */
+  .rank-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); transition: all 0.18s; }
+  .rank-row:hover { border-color: var(--line-strong); transform: translateX(2px); }
+  .rank-num { width: 26px; flex-shrink: 0; text-align: center; color: var(--txt-faint); font-size: 0.9rem; font-weight: 800; }
+  .rank-row:nth-child(1) .rank-num { color: var(--gold); }
+  .rank-photo { width: 48px !important; height: 48px !important; min-width: 48px; max-width: 48px; min-height: 48px; max-height: 48px; flex-shrink: 0; border-radius: 12px; object-fit: cover; display: block; background: var(--panel-2); border: 1px solid var(--line); }
+  .rank-photo-ph { width: 48px !important; height: 48px !important; min-width: 48px; flex-shrink: 0; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--txt-faint); }
+  .rank-info { flex: 1; min-width: 0; }
+  .rank-name { font-size: 0.92rem; font-weight: 600; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-sub { font-size: 0.76rem; color: var(--txt-faint); margin-top: 2px; }
+  .rank-right { text-align: right; flex-shrink: 0; }
+  .rank-val { font-weight: 700; font-size: 0.95rem; color: var(--gold-soft); }
+  .rank-units { display: inline-block; margin-top: 3px; font-size: 0.7rem; font-weight: 700; color: var(--txt-dim); background: var(--panel-2); padding: 2px 8px; border-radius: 999px; }
+
+  /* Métodos de pago */
+  .pay-layout { display: flex; flex-direction: column; gap: 22px; }
+  .donut-wrap { position: relative; width: 200px; height: 200px; margin: 0 auto; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .donut-total { font-size: 1.4rem; font-weight: 800; color: var(--gold-soft); line-height: 1; }
+  .donut-label { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--txt-faint); margin-top: 5px; }
+
+  .pay-row { display: flex; align-items: center; gap: 13px; padding: 11px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); transition: all 0.18s; }
+  .pay-row:hover { border-color: var(--line-strong); }
+  .pay-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .pay-info { flex: 1; min-width: 0; }
+  .pay-method { font-size: 0.92rem; font-weight: 600; color: var(--txt); text-transform: capitalize; }
+  .pay-count { font-size: 0.74rem; color: var(--txt-faint); margin-top: 2px; }
+  .pay-right { text-align: right; flex-shrink: 0; }
+  .pay-amount { font-weight: 700; font-size: 0.92rem; color: var(--gold-soft); }
+  .pay-pct { display: inline-block; margin-top: 3px; font-size: 0.7rem; font-weight: 700; color: var(--txt-dim); background: var(--panel-2); padding: 2px 8px; border-radius: 999px; }
+
+  @media (max-width: 1024px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .kpi-column { display: grid; grid-template-columns: repeat(2, 1fr); }
+    .bottom-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .stats-header { align-items: flex-start; }
+    .period-bar { flex-direction: column; align-items: stretch; }
+    .custom-range { flex-wrap: wrap; }
+    .date-input { flex: 1; min-width: 0; }
+    .chart-tabs { width: 100%; }
+    .tab { flex: 1; text-align: center; }
+  }
+  @media (max-width: 640px) {
+    .stats-page { padding: 18px 14px 44px; }
+    .stats-header h1 { font-size: 1.7rem; }
+    .period-switch { width: 100%; justify-content: center; }
+    .period-label { flex: 1; }
+    .kpi-column { grid-template-columns: 1fr; }
+    .chart-head { flex-direction: column; align-items: stretch; }
+    .pay-row, .rank-row { padding: 10px 12px; }
+    .custom-range { justify-content: space-between; }
+    .apply-range { flex: 1; }
+  }
+</style>
+
+<script>
+  import { actions } from 'astro:actions';
+  import * as Chart from 'chart.js';
+
+  Chart.Chart.register(...Chart.registerables);
+
+  type RangeKey = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'custom';
+
+  function pad(n: number) { return String(n).padStart(2, '0'); }
+  function iso(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+  const fmtMoney = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+  const MONTH_NAMES_LONG = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  let customStart = '';
+  let customEnd = '';
+
+  function rangeFor(key: RangeKey): { start: string; end: string; label: string } {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (key) {
+      case 'yesterday': {
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        return { start: iso(y), end: iso(y), label: `Ayer, ${y.getDate()} ${MONTH_NAMES_LONG[y.getMonth()]}` };
+      }
+      case 'week': {
+        const day = today.getDay();
+        const monday = new Date(today); monday.setDate(today.getDate() - ((day + 6) % 7));
+        return { start: iso(monday), end: iso(today), label: 'Esta semana' };
+      }
+      case 'month': {
+        const first = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { start: iso(first), end: iso(today), label: `${MONTH_NAMES_LONG[now.getMonth()]} ${now.getFullYear()}` };
+      }
+      case 'year': {
+        const first = new Date(now.getFullYear(), 0, 1);
+        return { start: iso(first), end: iso(today), label: `${now.getFullYear()}` };
+      }
+      case 'custom': {
+        const s = new Date(customStart + 'T00:00:00');
+        const e = new Date(customEnd + 'T00:00:00');
+        const label = customStart === customEnd
+          ? `${s.getDate()} ${MONTH_NAMES_LONG[s.getMonth()]}`
+          : `${s.getDate()} ${MONTH_NAMES_LONG[s.getMonth()]} → ${e.getDate()} ${MONTH_NAMES_LONG[e.getMonth()]}`;
+        return { start: customStart, end: customEnd, label };
+      }
+      default:
+        return { start: iso(today), end: iso(today), label: `Hoy, ${today.getDate()} ${MONTH_NAMES_LONG[today.getMonth()]}` };
+    }
+  }
+
+  let chart: any = null;
+  let donutChart: any = null;
+  let currentData: any = null;
+  let currentView: 'byHour' | 'byDay' | 'byWeekday' | 'byMonth' = 'byHour';
+  let currentRange: RangeKey = 'today';
+
+  const PAY_COLORS = ['#eab308', '#34d399', '#60a5fa', '#f472b6', '#fb923c', '#a78bfa', '#2dd4bf', '#facc15'];
+
+  function setupStatsPage() {
+    const canvas = document.getElementById('sales-chart') as HTMLCanvasElement | null;
+    if (!canvas) return;
+
+    const chartEmpty = document.getElementById('chart-empty');
+    const periodLabel = document.getElementById('period-label');
+
+    async function load() {
+      try {
+        const { start, end, label } = rangeFor(currentRange);
+        if (periodLabel) periodLabel.textContent = label;
+        const { data, error } = await actions.getSalesStats({ startDate: start, endDate: end, paymentMethod: 'all' });
+        if (error) throw new Error(error.message);
+        currentData = data;
+        renderKpis();
+        renderChart();
+        renderTopProducts();
+        renderPayments();
+        renderLegend();
+      } catch (e) {
+        console.error('Error cargando estadísticas:', e);
+      }
+    }
+
+    function renderKpis() {
+      const k = currentData.kpis;
+      (document.getElementById('kpi-revenue') as HTMLElement).textContent = fmtMoney(k.revenue);
+      (document.getElementById('kpi-sales') as HTMLElement).textContent = String(k.salesCount);
+      (document.getElementById('kpi-ticket') as HTMLElement).textContent = fmtMoney(k.avgTicket);
+      (document.getElementById('kpi-profit') as HTMLElement).textContent = fmtMoney(k.profit);
+      const bestTxt = k.bestMonthRevenue > 0 ? `Mejor mes: ${k.bestMonthLabel} · ${fmtMoney(k.bestMonthRevenue)}` : 'Sin ventas aún este año';
+      (document.getElementById('kpi-revenue-best') as HTMLElement).textContent = bestTxt;
+      (document.getElementById('kpi-sales-best') as HTMLElement).textContent = bestTxt;
+      (document.getElementById('kpi-ticket-best') as HTMLElement).textContent = bestTxt;
+    }
+
+    function renderChart() {
+      const series = currentData[currentView] as Array<{ label: string; revenue: number; sales: number; profit: number }>;
+      const hasData = series.some((p) => p.revenue > 0);
+      if (chartEmpty) {
+        if (hasData) {
+          chartEmpty.setAttribute('hidden', '');
+          (chartEmpty as HTMLElement).style.display = 'none';
+        } else {
+          chartEmpty.removeAttribute('hidden');
+          (chartEmpty as HTMLElement).style.display = 'flex';
+        }
+      }
+
+      const labels = series.map((p) => p.label);
+      const values = series.map((p) => p.revenue);
+
+      const ctx = canvas!.getContext('2d')!;
+      const grad = ctx.createLinearGradient(0, 0, 0, 320);
+      grad.addColorStop(0, 'rgba(234,179,8,0.35)');
+      grad.addColorStop(1, 'rgba(234,179,8,0.01)');
+
+      if (chart) chart.destroy();
+      chart = new Chart.Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Facturación',
+            data: values,
+            borderColor: '#eab308',
+            backgroundColor: grad,
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+            pointBackgroundColor: '#fbbf24',
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: '#eab308',
+            pointHoverBorderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1b1b1f',
+              borderColor: 'rgba(255,255,255,0.12)',
+              borderWidth: 1,
+              titleColor: '#f5f5f4',
+              bodyColor: '#f5f5f4',
+              padding: 14,
+              displayColors: false,
+              titleFont: { size: 13, weight: 'bold' },
+              bodySpacing: 6,
+              callbacks: {
+                title: (items: any) => items[0].label,
+                label: (c: any) => {
+                  const p = series[c.dataIndex];
+                  return [
+                    `Facturación: ${fmtMoney(p.revenue)}`,
+                    `Ventas: ${p.sales}`,
+                    `Ganancia: ${fmtMoney(p.profit)}`,
+                  ];
+                },
+              },
+            },
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(245,245,244,0.45)', maxRotation: 0, autoSkip: true } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(245,245,244,0.45)', callback: (v: any) => '$' + v } },
+          },
+        },
+      });
+    }
+
+    function renderTopProducts() {
+      const list = document.getElementById('top-products') as HTMLElement;
+      const items = currentData.topProducts as Array<{ name: string; quantity: number; revenue: number; image: string | null }>;
+      if (!items.length) { list.innerHTML = '<li class="empty-row">Sin datos en este periodo.</li>'; return; }
+      const phIcon = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 6h16v12H4z"/></svg>';
+      list.innerHTML = items.map((p, i) => `
+        <li class="rank-row">
+          <span class="rank-num">${i + 1}</span>
+          ${p.image
+            ? `<img class="rank-photo" src="${p.image}" alt="${p.name}" loading="lazy" />`
+            : `<span class="rank-photo-ph">${phIcon}</span>`}
+          <div class="rank-info">
+            <div class="rank-name">${p.name}</div>
+            <div class="rank-sub">${fmtMoney(p.revenue / p.quantity)} c/u</div>
+          </div>
+          <div class="rank-right">
+            <div class="rank-val">${fmtMoney(p.revenue)}</div>
+            <span class="rank-units">${p.quantity} ${p.quantity === 1 ? 'pza' : 'pzas'}</span>
+          </div>
+        </li>`).join('');
+    }
+
+    function renderPayments() {
+      const list = document.getElementById('payment-methods') as HTMLElement;
+      const items = currentData.paymentMethods as Array<{ method: string; sales: number; revenue: number }>;
+      const donutCanvas = document.getElementById('payment-donut') as HTMLCanvasElement | null;
+      const donutTotalEl = document.getElementById('donut-total');
+
+      if (!items.length) {
+        list.innerHTML = '<li class="empty-row">Sin datos en este periodo.</li>';
+        if (donutChart) { donutChart.destroy(); donutChart = null; }
+        if (donutTotalEl) donutTotalEl.textContent = '$0';
+        return;
+      }
+
+      const total = items.reduce((s, m) => s + m.revenue, 0);
+      if (donutTotalEl) donutTotalEl.textContent = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(total);
+
+      list.innerHTML = items.map((m, i) => {
+        const pct = total > 0 ? Math.round((m.revenue / total) * 100) : 0;
+        return `
+        <li class="pay-row">
+          <span class="pay-dot" style="background:${PAY_COLORS[i % PAY_COLORS.length]}"></span>
+          <div class="pay-info">
+            <div class="pay-method">${m.method}</div>
+            <div class="pay-count">${m.sales} ${m.sales === 1 ? 'venta' : 'ventas'}</div>
+          </div>
+          <div class="pay-right">
+            <div class="pay-amount">${fmtMoney(m.revenue)}</div>
+            <span class="pay-pct">${pct}%</span>
+          </div>
+        </li>`;
+      }).join('');
+
+      if (donutCanvas) {
+        if (donutChart) donutChart.destroy();
+        donutChart = new Chart.Chart(donutCanvas.getContext('2d')!, {
+          type: 'doughnut',
+          data: {
+            labels: items.map((m) => m.method),
+            datasets: [{
+              data: items.map((m) => m.revenue),
+              backgroundColor: items.map((_, i) => PAY_COLORS[i % PAY_COLORS.length]),
+              borderColor: '#141417',
+              borderWidth: 3,
+              hoverOffset: 8,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#1b1b1f',
+                borderColor: 'rgba(255,255,255,0.12)',
+                borderWidth: 1,
+                titleColor: '#f5f5f4',
+                bodyColor: '#eab308',
+                padding: 12,
+                displayColors: false,
+                callbacks: {
+                  label: (c: any) => {
+                    const pct = total > 0 ? Math.round((c.parsed / total) * 100) : 0;
+                    return `${c.label}: ${fmtMoney(c.parsed)} (${pct}%)`;
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+    }
+
+    function renderLegend() {
+      const bh = currentData.bestHour;
+      const wh = currentData.worstHour;
+      (document.getElementById('best-hour') as HTMLElement).textContent = bh ? `${bh.label} · ${fmtMoney(bh.revenue)}` : '—';
+      (document.getElementById('worst-hour') as HTMLElement).textContent = wh ? `${wh.label} · ${fmtMoney(wh.revenue)}` : '—';
+    }
+
+    // Tabs de la gráfica
+    document.getElementById('chart-tabs')?.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#chart-tabs .tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentView = (tab as HTMLElement).dataset.view as any;
+        if (currentData) renderChart();
+      });
+    });
+
+    // Chips de periodo
+    document.getElementById('period-chips')?.querySelectorAll('.chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#period-chips .chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentRange = (chip as HTMLElement).dataset.range as RangeKey;
+        if ((currentRange === 'month' || currentRange === 'year') && currentView === 'byHour') {
+          currentView = currentRange === 'year' ? 'byMonth' : 'byDay';
+          document.querySelectorAll('#chart-tabs .tab').forEach((t) => {
+            t.classList.toggle('active', (t as HTMLElement).dataset.view === currentView);
+          });
+        }
+        load();
+      });
+    });
+
+    // Rango personalizado
+    const startInput = document.getElementById('date-start') as HTMLInputElement | null;
+    const endInput = document.getElementById('date-end') as HTMLInputElement | null;
+    document.getElementById('apply-range')?.addEventListener('click', () => {
+      if (!startInput?.value || !endInput?.value) return;
+      customStart = startInput.value;
+      customEnd = endInput.value;
+      if (customStart > customEnd) { [customStart, customEnd] = [customEnd, customStart]; }
+      currentRange = 'custom';
+      document.querySelectorAll('#period-chips .chip').forEach((c) => c.classList.remove('active'));
+      // Rango largo: usa día como vista por defecto
+      if (currentView === 'byHour' && customStart !== customEnd) {
+        currentView = 'byDay';
+        document.querySelectorAll('#chart-tabs .tab').forEach((t) => {
+          t.classList.toggle('active', (t as HTMLElement).dataset.view === 'byDay');
+        });
+      }
+      load();
+    });
+
+    load();
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    if (!document.getElementById('sales-chart')) return;
+    setupStatsPage();
+  });
+</script>
