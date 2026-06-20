@@ -1,4 +1,4 @@
-import { db, orders, order_items, Product, ProductVariantCombination, eq, inArray } from 'astro:db';
+import { db, orders, order_items, Product, ProductVariantCombination, ProductVariant, eq, inArray } from 'astro:db';
 import { v4 as uuidv4 } from 'uuid';
 import type { APIRoute } from 'astro';
 import { getSession } from 'auth-astro/server';
@@ -52,24 +52,35 @@ export const POST: APIRoute = async ({ request }) => {
 
     const dbProductMap = new Map(dbProducts.map(p => [p.id, p]));
 
-    // Obtener precios de combinaciones si hay
-    const combinationIds: string[] = data.products
-      .filter((p: any) => p.combinationId)
-      .map((p: any) => String(p.combinationId));
+    // El carrito manda `variantId`, que en productos de 2+ grupos es en realidad
+    // el id de una COMBINACIÓN, y en productos de 1 grupo es el id de una VARIANTE.
+    const variantOrComboIds: string[] = Array.from(new Set(
+      data.products
+        .map((p: any) => p.combinationId || p.variantId)
+        .filter((id: any) => id && id !== 'undefined' && id !== 'null')
+        .map((id: any) => String(id))
+    ));
 
     let dbCombinationMap = new Map<string, number>();
-    if (combinationIds.length > 0) {
+    let dbVariantMap = new Map<string, { priceAdjustment: number; productId: string }>();
+
+    if (variantOrComboIds.length > 0) {
       const dbCombinations = await db
         .select({ id: ProductVariantCombination.id, price: ProductVariantCombination.price })
         .from(ProductVariantCombination)
-        .where(inArray(ProductVariantCombination.id, combinationIds));
-      
+        .where(inArray(ProductVariantCombination.id, variantOrComboIds));
       dbCombinationMap = new Map(dbCombinations.map(c => [c.id, c.price]));
+
+      const dbVariants = await db
+        .select({ id: ProductVariant.id, priceAdjustment: ProductVariant.priceAdjustment, productId: ProductVariant.productId })
+        .from(ProductVariant)
+        .where(inArray(ProductVariant.id, variantOrComboIds));
+      dbVariantMap = new Map(dbVariants.map(v => [v.id, { priceAdjustment: v.priceAdjustment ?? 0, productId: v.productId }]));
     }
 
     // Recalcular subtotal con precios de la BD
     let serverSubtotal = 0;
-    const validatedItems: Array<{ id: string; name: string; price: number; quantity: number; engraving?: string }> = [];
+    const validatedItems: Array<{ id: string; name: string; price: number; quantity: number; variantCombinationId?: string | null; variantDescription?: string | null; engraving?: string }> = [];
 
     for (const item of data.products) {
       const quantity = Math.max(1, Math.min(99, Math.floor(Number(item.quantity) || 1)));
@@ -82,10 +93,17 @@ export const POST: APIRoute = async ({ request }) => {
         });
       }
 
-      // Precio: usar combinación si existe, sino precio base
+      // Resolver precio real:
+      // 1) Si el id es de una COMBINACIÓN -> precio de la combinación (precio absoluto).
+      // 2) Si el id es de una VARIANTE suelta -> precio base + ajuste de la variante.
+      // 3) Si no hay variante/combinación -> precio base del producto.
+      const variantOrCombo = item.combinationId || item.variantId;
       let realPrice = dbProduct.price;
-      if (item.combinationId && dbCombinationMap.has(item.combinationId)) {
-        realPrice = dbCombinationMap.get(item.combinationId)!;
+
+      if (variantOrCombo && dbCombinationMap.has(variantOrCombo)) {
+        realPrice = dbCombinationMap.get(variantOrCombo)!;
+      } else if (variantOrCombo && dbVariantMap.has(variantOrCombo)) {
+        realPrice = dbProduct.price + dbVariantMap.get(variantOrCombo)!.priceAdjustment;
       }
 
       serverSubtotal += realPrice * quantity;
@@ -95,6 +113,8 @@ export const POST: APIRoute = async ({ request }) => {
         name: item.name || dbProduct.name,
         price: realPrice,
         quantity,
+        variantCombinationId: (variantOrCombo && dbCombinationMap.has(variantOrCombo)) ? variantOrCombo : null,
+        variantDescription: item.variantName || null,
         engraving: item.engraving ? JSON.stringify(item.engraving) : null as any,
       });
     }
@@ -145,6 +165,8 @@ export const POST: APIRoute = async ({ request }) => {
       quantity: item.quantity,
       price: item.price,
       subtotal: item.price * item.quantity,
+      variantCombinationId: (item as any).variantCombinationId || null,
+      variantDescription: (item as any).variantDescription || null,
       engraving: item.engraving || null,
     }));
 

@@ -5,7 +5,6 @@ import { db, orders, order_items } from 'astro:db';
 import { eq } from 'drizzle-orm';
 import { actions } from 'astro:actions';
 
-// Definir el tipo para la dirección de envío
 interface ShippingAddress {
   streetAddress: string;
   city: string;
@@ -22,13 +21,12 @@ if (!order) return Astro.redirect('/404');
 
 const rawItems = await db.select().from(order_items).where(eq(order_items.orderId, order.id)).all();
 
-// Parsear engraving de JSON string a objeto
 const items = rawItems.map(item => {
   let engravingData = null;
   if ((item as any).engraving) {
     try {
-      engravingData = typeof (item as any).engraving === 'string' 
-        ? JSON.parse((item as any).engraving) 
+      engravingData = typeof (item as any).engraving === 'string'
+        ? JSON.parse((item as any).engraving)
         : (item as any).engraving;
     } catch (e) { console.warn('Error parseando engraving:', e); }
   }
@@ -42,7 +40,7 @@ if (order.clientId) {
   try {
     const { data: client } = await Astro.callAction(actions.getClientById, order.clientId.toString());
     if (client) {
-      clientName = client.nombre; 
+      clientName = client.nombre;
     } else {
       clientName = `Cliente no encontrado (ID: ${order.clientId})`;
     }
@@ -55,24 +53,18 @@ if (order.clientId) {
 const formatCurrency = (value: number | null) => value == null ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 const formatDate = (date: Date | null) => date ? new Date(date).toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
-// Tipar correctamente shippingAddress
-let shippingAddress: ShippingAddress = { 
-  streetAddress: 'N/A', 
-  city: 'N/A', 
-  state: 'N/A', 
-  zip: 'N/A', 
-  country: 'N/A' 
+let shippingAddress: ShippingAddress = {
+  streetAddress: 'N/A', city: 'N/A', state: 'N/A', zip: 'N/A', country: 'N/A'
 };
 
 if (order.shippingAddress) {
-  try { 
-    shippingAddress = { ...shippingAddress, ...JSON.parse(order.shippingAddress) } 
+  try {
+    shippingAddress = { ...shippingAddress, ...JSON.parse(order.shippingAddress) }
   } catch (error) {
     console.error('Error parsing shipping address:', error);
-  } 
+  }
 }
 
-// Configuración de origen para envíos
 const ORIGIN_ADDRESS = {
   name: "Broquelizate",
   street: "Calle Escobedo esquina con Bravo",
@@ -85,18 +77,20 @@ const ORIGIN_ADDRESS = {
   email: "contacto@broquelizate.com"
 };
 
-// --- Lógica para Descuentos y Cargos Adicionales ---
 const netAdjustment = (order.total ?? 0) - (order.subtotal ?? 0) - (order.tax ?? 0);
 const additionalCharges = netAdjustment > 0 ? netAdjustment : 0;
 const discount = netAdjustment < 0 ? Math.abs(netAdjustment) : 0;
 
-// Verificar si tiene etiqueta generada
 const hasShippingLabel = !!(order.trackingNumber && order.labelUrl);
 const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
+
+const statusLabels: Record<string, string> = {
+  pending: 'Pendiente', processing: 'Procesando', shipped: 'Enviado', completed: 'Completado', cancelled: 'Cancelado'
+};
 ---
 
 <AdminLayout title={`Orden #${order.orderNumber || order.id.slice(0,8)}`}>
-  
+
   {/* --- Datos ocultos para el script de impresión --- */}
   <div id="products-data" style="display:none;">
     {JSON.stringify(items.map(i => ({ name: i.productName, price: i.price, quantity: i.quantity || 1 })))}
@@ -108,7 +102,7 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
   <div id="additional-charges-data" style="display:none;">{additionalCharges}</div>
 
   {/* Datos para gestión de envíos */}
-  <div id="order-data" style="display:none;" 
+  <div id="order-data" style="display:none;"
     data-order-id={order.id}
     data-tracking-number={order.trackingNumber}
     data-carrier={order.carrier}
@@ -120,414 +114,305 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
     data-shipping-address={JSON.stringify(shippingAddress)}
   ></div>
 
-  <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-    <div class="bg-gradient-to-r from-amber-500 to-yellow-400 p-6 flex justify-between items-center flex-wrap gap-4">
-      <h1 class="text-2xl md:text-3xl font-semibold text-white">
-        Orden <span class="font-mono text-white">#{order.orderNumber || order.id.slice(0,8)}</span>
-      </h1>
-      <div class="flex items-center gap-3">
-        <button
-          id="print-ticket-btn"
-          class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-4 py-2 rounded-lg shadow transition-transform hover:scale-105"
-        >
-          📄 Imprimir Ticket
+  <div class="order-page">
+    {/* Header */}
+    <header class="order-header">
+      <div class="oh-left">
+        <p class="eyebrow">Detalle de venta</p>
+        <h1>Orden <span class="ord-num">#{order.orderNumber || order.id.slice(0,8)}</span></h1>
+      </div>
+      <div class="oh-actions">
+        <button id="print-ticket-btn" class="btn btn-gold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Imprimir Ticket
         </button>
-        <a href="/admin/orders" class="flex items-center text-white hover:opacity-80 transition-opacity">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
+        <a href="/admin/orders" class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Volver
         </a>
       </div>
-    </div>
+    </header>
 
-    <div class="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Columna Principal */}
-      <div class="lg:col-span-2 space-y-8">
-        {/* Items del Pedido */}
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h2 class="text-xl font-semibold text-gray-800 border-b pb-4 mb-4">
-            Artículos del Pedido ({items.length})
-          </h2>
-          <ul class="divide-y divide-gray-200">
+    <div class="order-grid">
+      {/* Columna principal */}
+      <div class="col-main">
+        {/* Artículos */}
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Artículos del pedido</h2>
+            <span class="count-badge">{items.length}</span>
+          </div>
+          <ul class="items-list">
             {items.map(item => (
-            <li class="py-4 hover:bg-amber-50 transition-colors rounded-lg px-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="font-semibold text-gray-900">{item.productName}</p>
-                  <p class="text-sm text-gray-500">Cantidad: {item.quantity}</p>
-                </div>
-                <div class="text-right">
-                  <p class="font-medium text-gray-800">{formatCurrency(item.price * (item.quantity ?? 1))}</p>
-                  <p class="text-sm text-gray-500">{formatCurrency(item.price)} c/u</p>
-                </div>
-              </div>
-              {item.engraving && (
-                <div class="mt-3 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 animate-fade-in">
-                  <img src={item.engraving.imageUrl} alt="Grabado láser" class="w-14 h-14 object-cover rounded-lg border-2 border-amber-300 shadow-sm" />
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1.5">
-                      <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                      <span class="text-sm font-bold text-amber-800">Grabado láser personalizado</span>
-                    </div>
-                    {item.engraving.notes && <p class="text-xs text-amber-700 mt-1 italic truncate">"{item.engraving.notes}"</p>}
+              <li class="item-row">
+                <div class="item-top">
+                  <div class="item-info">
+                    <p class="item-name">{item.productName}</p>
+                    <p class="item-qty">Cantidad: {item.quantity}</p>
                   </div>
-                  <a href={item.engraving.imageUrl} target="_blank" class="flex-shrink-0 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors shadow-sm">
-                    Ver imagen
-                  </a>
+                  <div class="item-prices">
+                    <p class="item-total">{formatCurrency(item.price * (item.quantity ?? 1))}</p>
+                    <p class="item-unit">{formatCurrency(item.price)} c/u</p>
+                  </div>
                 </div>
-              )}
-            </li>
+                {item.engraving && (
+                  <div class="engrave-chip">
+                    <img src={item.engraving.imageUrl} alt="Grabado láser" class="engrave-thumb" />
+                    <div class="engrave-info">
+                      <div class="engrave-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        <span>Grabado láser personalizado</span>
+                      </div>
+                      {item.engraving.notes && <p class="engrave-notes">"{item.engraving.notes}"</p>}
+                    </div>
+                    <a href={item.engraving.imageUrl} target="_blank" class="engrave-link">Ver imagen</a>
+                  </div>
+                )}
+              </li>
             ))}
           </ul>
-        </div>
+        </section>
 
         {/* Totales */}
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div class="space-y-3 text-lg">
-            <div class="flex justify-between">
-              <span class="text-gray-600">Subtotal:</span>
-              <span class="font-medium">{formatCurrency(order.subtotal)}</span>
+        <section class="panel">
+          <div class="totals">
+            <div class="t-row">
+              <span>Subtotal</span>
+              <span class="t-val">{formatCurrency(order.subtotal)}</span>
             </div>
-    
             {additionalCharges > 0 && (
-              <div class="flex justify-between">
-                <span class="text-gray-600">Monto adicional:</span>
-                <span class="font-medium">{formatCurrency(additionalCharges)}</span>
+              <div class="t-row">
+                <span>Monto adicional</span>
+                <span class="t-val">{formatCurrency(additionalCharges)}</span>
               </div>
             )}
-    
             {discount > 0 && (
-              <div class="flex justify-between">
-                <span class="text-gray-600">Descuento:</span>
-                <span class="font-medium text-red-600">-{formatCurrency(discount)}</span>
+              <div class="t-row">
+                <span>Descuento</span>
+                <span class="t-val t-discount">-{formatCurrency(discount)}</span>
               </div>
             )}
-    
-            <div class="border-t pt-3 mt-3 flex justify-between text-2xl font-bold">
-              <span class="text-gray-900">Total:</span>
-              <span class="text-amber-600">{formatCurrency(order.total)}</span>
+            <div class="t-row t-grand">
+              <span>Total</span>
+              <span class="t-grand-val">{formatCurrency(order.total)}</span>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* ============================================ */}
-        {/* SECCIÓN DE GRABADO LÁSER PARA PRODUCCIÓN */}
-        {/* ============================================ */}
+        {/* GRABADO LÁSER PARA PRODUCCIÓN */}
         {engravingItems.length > 0 && (
-          <div class="bg-gradient-to-br from-amber-50 to-yellow-50 p-6 rounded-2xl shadow-lg border-2 border-amber-200 relative overflow-hidden">
-            <div class="absolute top-0 right-0 bg-amber-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
-              🔥 GRABADO LÁSER
-            </div>
-            
-            <h2 class="text-xl font-semibold text-amber-900 mb-6 flex items-center gap-3">
-              <div class="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                </svg>
+          <section class="panel panel-accent">
+            <div class="corner-badge corner-gold">🔥 GRABADO LÁSER</div>
+            <div class="panel-head">
+              <div class="head-icon head-icon-gold">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
               </div>
-              Archivos de Grabado para Producción
-            </h2>
-
-            <p class="text-sm text-amber-800 mb-4">
+              <h2>Archivos de grabado para producción</h2>
+            </div>
+            <p class="panel-sub">
               {engravingItems.length === 1 ? 'Este pedido incluye 1 producto con grabado láser personalizado.' : `Este pedido incluye ${engravingItems.length} productos con grabado láser personalizado.`}
               Descarga las imágenes en alta resolución para producción.
             </p>
-
-            <div class="space-y-4">
+            <div class="engrave-prod-list">
               {engravingItems.map((item, idx) => (
-                <div class="bg-white rounded-xl border border-amber-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                  <div class="flex items-stretch">
-                    <div class="w-32 sm:w-40 bg-gray-100 flex-shrink-0">
-                      <img 
-                        src={item.engraving.imageUrl} 
-                        alt={`Grabado para ${item.productName}`}
-                        class="w-full h-full object-contain p-2 min-h-[120px]"
-                      />
+                <div class="engrave-prod">
+                  <div class="engrave-prod-img">
+                    <img src={item.engraving.imageUrl} alt={`Grabado para ${item.productName}`} />
+                  </div>
+                  <div class="engrave-prod-body">
+                    <div class="engrave-prod-head">
+                      <div>
+                        <p class="engrave-prod-name">{item.productName}</p>
+                        <p class="engrave-prod-qty">Cantidad a grabar: {item.quantity}</p>
+                        {item.engraving.notes && (
+                          <div class="engrave-prod-note">
+                            <p class="note-label">Notas del cliente:</p>
+                            <p class="note-text">"{item.engraving.notes}"</p>
+                          </div>
+                        )}
+                      </div>
+                      <span class="prod-num">#{idx + 1}</span>
                     </div>
-                    <div class="flex-1 p-4">
-                      <div class="flex items-start justify-between gap-3">
-                        <div>
-                          <p class="font-bold text-gray-900 text-lg">{item.productName}</p>
-                          <p class="text-sm text-gray-500 mt-1">Cantidad a grabar: {item.quantity}</p>
-                          {item.engraving.notes && (
-                            <div class="mt-2 bg-amber-50 border-l-4 border-amber-400 p-2 rounded-r">
-                              <p class="text-xs text-gray-500 font-semibold">Notas del cliente:</p>
-                              <p class="text-sm text-gray-800 font-medium">"{item.engraving.notes}"</p>
-                            </div>
-                          )}
-                        </div>
-                        <span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold flex-shrink-0">
-                          #{idx + 1}
-                        </span>
-                      </div>
-                      <div class="mt-4 flex flex-wrap gap-2">
-                        <a 
-                          href={item.engraving.imageUrl} 
-                          target="_blank"
-                          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                          Ver Original
-                        </a>
-                        <a 
-                          href={item.engraving.imageUrl} 
-                          download={`grabado-${item.productName?.replace(/\s+/g, '-').toLowerCase()}-${idx + 1}.png`}
-                          class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
-                        >
-                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                          Descargar HD
-                        </a>
-                      </div>
+                    <div class="engrave-prod-actions">
+                      <a href={item.engraving.imageUrl} target="_blank" class="btn btn-blue btn-sm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        Ver Original
+                      </a>
+                      <a href={item.engraving.imageUrl} download={`grabado-${item.productName?.replace(/\s+/g, '-').toLowerCase()}-${idx + 1}.png`} class="btn btn-green btn-sm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Descargar HD
+                      </a>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-
-            <div class="mt-4 bg-white/60 border border-amber-200 rounded-lg p-3">
-              <p class="text-xs text-amber-700 flex items-center gap-2">
-                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
-                Las imágenes están almacenadas en Cloudinary. Formatos soportados: JPG, PNG, WEBP, GIF. Máximo 10MB.
-              </p>
+            <div class="info-note">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+              Las imágenes están almacenadas en Cloudinary. Formatos: JPG, PNG, WEBP, GIF. Máximo 10MB.
             </div>
-          </div>
+          </section>
         )}
 
-        {/* ============================================ */}
-        {/* SECCIÓN DE ETIQUETA DE ENVÍO GENERADA */}
-        {/* ============================================ */}
+        {/* ETIQUETA DE ENVÍO GENERADA */}
         {hasShippingLabel && (
-          <div class="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-2xl shadow-lg border-2 border-emerald-200 relative overflow-hidden">
-            {/* Badge de éxito */}
-            <div class="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
-              ✓ GUÍA GENERADA
+          <section class="panel panel-accent">
+            <div class="corner-badge corner-green">✓ GUÍA GENERADA</div>
+            <div class="panel-head">
+              <div class="head-icon head-icon-green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <h2>Etiqueta de Envío</h2>
             </div>
-            
-            <h2 class="text-xl font-semibold text-emerald-900 mb-6 flex items-center gap-3">
-              <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center">
-                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
+
+            <div class="ship-grid">
+              <div class="mini-card">
+                <p class="mini-label">Paquetería</p>
+                <p class="mini-value-lg">{order.carrier}</p>
               </div>
-              Etiqueta de Envío
-            </h2>
-            
-            {/* Info de la etiqueta */}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div class="bg-white p-4 rounded-xl shadow-sm">
-                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Paquetería</p>
-                <p class="text-2xl font-black text-gray-900 uppercase">{order.carrier}</p>
-              </div>
-              <div class="bg-white p-4 rounded-xl shadow-sm">
-                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Servicio</p>
-                <p class="text-lg font-semibold text-gray-800">{order.shippingService || 'Estándar'}</p>
+              <div class="mini-card">
+                <p class="mini-label">Servicio</p>
+                <p class="mini-value">{order.shippingService || 'Estándar'}</p>
               </div>
             </div>
 
-            {/* Número de Tracking */}
-            <div class="bg-white p-5 rounded-xl shadow-sm mb-6">
-              <p class="text-xs text-gray-500 uppercase tracking-wide mb-2">Número de Rastreo</p>
-              <div class="flex items-center justify-between gap-4 flex-wrap">
-                <p class="font-mono text-2xl font-bold text-blue-600 tracking-wider">{order.trackingNumber}</p>
-                <button 
-                  id="copy-tracking-btn"
-                  class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors flex items-center gap-2"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
-                  </svg>
+            <div class="track-box">
+              <p class="mini-label">Número de Rastreo</p>
+              <div class="track-row">
+                <p class="track-number">{order.trackingNumber}</p>
+                <button id="copy-tracking-btn" class="btn btn-soft btn-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
                   Copiar
                 </button>
               </div>
             </div>
 
-            {/* Costo de envío si existe */}
             {order.shippingCost && (
-              <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6">
-                <div class="flex justify-between items-center">
-                  <span class="text-amber-800 font-medium">Costo del Envío:</span>
-                  <span class="text-2xl font-bold text-amber-600">{formatCurrency(order.shippingCost)}</span>
-                </div>
+              <div class="cost-box">
+                <span>Costo del Envío</span>
+                <span class="cost-val">{formatCurrency(order.shippingCost)}</span>
               </div>
             )}
 
-            {/* Fecha de envío */}
             {order.shippedAt && (
-              <p class="text-sm text-gray-600 mb-6">
-                📅 Enviado el: <span class="font-medium">{formatDate(order.shippedAt)}</span>
-              </p>
+              <p class="ship-date">📅 Enviado el: <strong>{formatDate(order.shippedAt)}</strong></p>
             )}
 
-            {/* Botones de acción */}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <a 
-                href={order.labelUrl} 
-                target="_blank"
-                class="flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl"
-              >
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
+            <div class="ship-actions">
+              <a href={order.labelUrl} target="_blank" class="btn btn-blue btn-lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Descargar PDF
               </a>
-              <button 
-                id="print-label-btn"
-                class="flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl"
-              >
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                </svg>
+              <button id="print-label-btn" class="btn btn-green btn-lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                 Imprimir Etiqueta
               </button>
             </div>
 
-            {/* Botón de rastreo */}
-            <button 
-              id="track-shipment-btn"
-              class="w-full mt-4 px-6 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-900 font-semibold transition-colors flex items-center justify-center gap-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
+            <button id="track-shipment-btn" class="btn btn-dark btn-block">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               Ver Rastreo en Tiempo Real
             </button>
-          </div>
+          </section>
         )}
 
-        {/* Información de Envío (solo tracking sin label) */}
+        {/* Tracking sin label */}
         {hasTrackingOnly && (
-          <div class="bg-blue-50 p-6 rounded-2xl shadow-lg border border-blue-200">
-            <h2 class="text-xl font-semibold text-blue-900 mb-4">📦 Información de Envío</h2>
-            <div class="space-y-3">
-              <div class="bg-white p-4 rounded-lg">
-                <p class="text-sm text-gray-600">Número de Rastreo</p>
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                  <p class="font-mono font-bold text-lg text-blue-600">{order.trackingNumber}</p>
-                  <button 
-                    id="copy-tracking-btn"
-                    class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm text-gray-700 flex items-center gap-1"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                    </svg>
-                    Copiar
-                  </button>
-                </div>
+          <section class="panel">
+            <div class="panel-head"><h2>📦 Información de Envío</h2></div>
+            <div class="track-box">
+              <p class="mini-label">Número de Rastreo</p>
+              <div class="track-row">
+                <p class="track-number">{order.trackingNumber}</p>
+                <button id="copy-tracking-btn" class="btn btn-soft btn-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                  Copiar
+                </button>
               </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-lg">
-                  <p class="text-sm text-gray-600">Paquetería</p>
-                  <p class="font-semibold text-gray-900 uppercase">{order.carrier}</p>
-                </div>
-                {order.shippingService && (
-                  <div class="bg-white p-4 rounded-lg">
-                    <p class="text-sm text-gray-600">Servicio</p>
-                    <p class="font-semibold text-gray-900">{order.shippingService}</p>
-                  </div>
-                )}
+            </div>
+            <div class="ship-grid" style="margin-top:14px;">
+              <div class="mini-card">
+                <p class="mini-label">Paquetería</p>
+                <p class="mini-value">{order.carrier}</p>
               </div>
-              {order.shippingCost && (
-                <div class="bg-white p-4 rounded-lg">
-                  <p class="text-sm text-gray-600">Costo de Envío</p>
-                  <p class="font-bold text-lg text-amber-600">{formatCurrency(order.shippingCost)}</p>
+              {order.shippingService && (
+                <div class="mini-card">
+                  <p class="mini-label">Servicio</p>
+                  <p class="mini-value">{order.shippingService}</p>
                 </div>
               )}
-              <button 
-                id="track-shipment-btn"
-                class="w-full px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-                Ver Rastreo
-              </button>
             </div>
-          </div>
+            {order.shippingCost && (
+              <div class="cost-box" style="margin-top:14px;">
+                <span>Costo de Envío</span>
+                <span class="cost-val">{formatCurrency(order.shippingCost)}</span>
+              </div>
+            )}
+            <button id="track-shipment-btn" class="btn btn-dark btn-block" style="margin-top:14px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              Ver Rastreo
+            </button>
+          </section>
         )}
       </div>
 
-      {/* Columna Lateral - Información y Acciones */}
-      <div class="space-y-8">
-        {/* Detalles de la Orden */}
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h2 class="text-xl font-semibold text-gray-800 mb-4">Detalles de la Orden</h2>
-          <div class="space-y-3 text-gray-700">
-            <p><strong>Fecha:</strong> {formatDate(order.createdAt)}</p>
-            <p><strong>Cliente:</strong> {clientName}</p>
-            <p>
-              <strong>Estado:</strong> 
-              <span class={`ml-2 px-3 py-1 rounded-full uppercase text-xs font-bold
-                ${order.status === 'completed' ? 'bg-green-100 text-green-800' : ''}
-                ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                ${order.status === 'shipped' ? 'bg-blue-100 text-blue-800' : ''}
-                ${order.status === 'cancelled' ? 'bg-red-100 text-red-800' : ''}
-                ${order.status === 'processing' ? 'bg-purple-100 text-purple-800' : ''}
-              `}>
-                {order.status}
-              </span>
-            </p>
-            <p><strong>Método de pago:</strong> <span class="font-semibold">{order.paymentMethod || 'No especificado'}</span></p>
+      {/* Columna lateral */}
+      <div class="col-side">
+        {/* Detalles */}
+        <section class="panel">
+          <div class="panel-head"><h2>Detalles de la orden</h2></div>
+          <div class="detail-list">
+            <div class="detail-row"><span class="detail-key">Fecha</span><span class="detail-val">{formatDate(order.createdAt)}</span></div>
+            <div class="detail-row"><span class="detail-key">Cliente</span><span class="detail-val">{clientName}</span></div>
+            <div class="detail-row">
+              <span class="detail-key">Estado</span>
+              <span class={`status-pill status-${order.status}`}>{statusLabels[order.status] || order.status}</span>
+            </div>
+            <div class="detail-row"><span class="detail-key">Método de pago</span><span class="detail-val">{order.paymentMethod || 'No especificado'}</span></div>
           </div>
-        </div>
+        </section>
 
-        {/* Cambiar Estado */}
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h2 class="text-xl font-semibold text-gray-800 mb-4">⚙️ Cambiar Estado</h2>
-          <div class="space-y-3">
-            <select 
-              id="status-select" 
-              class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
-            >
+        {/* Cambiar estado */}
+        <section class="panel">
+          <div class="panel-head"><h2>⚙️ Cambiar estado</h2></div>
+          <div class="status-control">
+            <select id="status-select" class="dark-select">
               <option value="pending" selected={order.status === 'pending'}>Pendiente</option>
               <option value="processing" selected={order.status === 'processing'}>Procesando</option>
               <option value="shipped" selected={order.status === 'shipped'}>Enviado</option>
               <option value="completed" selected={order.status === 'completed'}>Completado</option>
               <option value="cancelled" selected={order.status === 'cancelled'}>Cancelado</option>
             </select>
-            
-            <button 
-              id="update-status-btn"
-              class="w-full px-4 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-semibold transition-colors shadow-md hover:shadow-lg"
-            >
-              Actualizar Estado
-            </button>
-          </div>
-        </div>
-
-        {/* Información del Cliente */}
-        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-800">👤 Información del Cliente</h2>
-            <button 
-              id="edit-shipping-btn"
-              class="text-amber-600 hover:text-amber-700 font-medium text-sm"
-            >
-              ✏️ Editar
-            </button>
-          </div>
-          <div class="space-y-3 text-gray-700">
-            {order.customerName && (
-              <div>
-                <p class="text-sm text-gray-500">Nombre</p>
-                <p class="font-medium">{order.customerName}</p>
-              </div>
+            <button id="update-status-btn" class="btn btn-gold btn-block">Actualizar Estado</button>
+            {order.status !== 'cancelled' && (
+              <button id="cancel-order-btn" class="btn btn-danger btn-block">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                Cancelar Orden
+              </button>
             )}
-            <div>
-              <p class="text-sm text-gray-500">Email</p>
-              <a href={`mailto:${order.customerEmail}`} class="text-amber-600 hover:underline font-medium">
-                {order.customerEmail}
-              </a>
+          </div>
+        </section>
+
+        {/* Cliente */}
+        <section class="panel">
+          <div class="panel-head between">
+            <h2>👤 Información del cliente</h2>
+            <button id="edit-shipping-btn" class="link-edit">✏️ Editar</button>
+          </div>
+          <div class="detail-list">
+            {order.customerName && (
+              <div class="kv"><p class="kv-key">Nombre</p><p class="kv-val">{order.customerName}</p></div>
+            )}
+            <div class="kv">
+              <p class="kv-key">Email</p>
+              <a href={`mailto:${order.customerEmail}`} class="kv-link">{order.customerEmail}</a>
             </div>
             {order.customerPhone && (
-              <div>
-                <p class="text-sm text-gray-500">Teléfono</p>
-                <p class="font-medium">{order.customerPhone}</p>
-              </div>
+              <div class="kv"><p class="kv-key">Teléfono</p><p class="kv-val">{order.customerPhone}</p></div>
             )}
-            <div class="border-t pt-3 mt-3">
-              <h3 class="font-semibold text-gray-800 mb-2">📍 Dirección de Envío</h3>
-              <div class="text-sm space-y-1">
+            <div class="addr-block">
+              <h3>📍 Dirección de envío</h3>
+              <div class="addr-lines">
                 <p>{shippingAddress.streetAddress}</p>
                 <p>{shippingAddress.city}, {shippingAddress.state}</p>
                 <p>CP: {shippingAddress.zip}</p>
@@ -535,806 +420,767 @@ const hasTrackingOnly = !!(order.trackingNumber && !order.labelUrl);
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* ============================================ */}
-        {/* GESTIONAR ENVÍO (si no tiene tracking) */}
-        {/* ============================================ */}
+        {/* Gestionar envío */}
         {!order.trackingNumber && order.status !== 'cancelled' && (
-          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-lg border-2 border-blue-200">
-            <h2 class="text-xl font-semibold text-blue-900 mb-4 flex items-center gap-2">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
-              </svg>
-              Gestionar Envío
-            </h2>
-            
-            {/* Dimensiones del Paquete */}
-            <div class="space-y-3 mb-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
-                <input 
-                  type="number" 
-                  id="weight" 
-                  step="0.1"
-                  value="0.5"
-                  class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+          <section class="panel panel-accent">
+            <div class="panel-head">
+              <div class="head-icon head-icon-blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
               </div>
-              <div class="grid grid-cols-3 gap-2">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Largo (cm)</label>
-                  <input type="number" id="length" value="20" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Ancho (cm)</label>
-                  <input type="number" id="width" value="15" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Alto (cm)</label>
-                  <input type="number" id="height" value="10" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                </div>
+              <h2>Gestionar envío</h2>
+            </div>
+
+            <div class="ship-form">
+              <div class="field">
+                <label>Peso (kg)</label>
+                <input type="number" id="weight" step="0.1" value="0.5" class="dark-input" />
+              </div>
+              <div class="field-grid">
+                <div class="field"><label>Largo (cm)</label><input type="number" id="length" value="20" class="dark-input" /></div>
+                <div class="field"><label>Ancho (cm)</label><input type="number" id="width" value="15" class="dark-input" /></div>
+                <div class="field"><label>Alto (cm)</label><input type="number" id="height" value="10" class="dark-input" /></div>
               </div>
             </div>
 
-            <button 
-              id="quote-shipping-btn"
-              class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-              </svg>
+            <button id="quote-shipping-btn" class="btn btn-blue btn-block">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
               Cotizar Envío
             </button>
 
-            {/* Resultados de Cotización */}
-            <div id="shipping-rates" class="hidden mt-4">
-              <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Opciones Disponibles:
-              </h3>
-              <div id="rates-container" class="space-y-2 max-h-80 overflow-y-auto"></div>
+            <div id="shipping-rates" class="hidden rates-wrap">
+              <h3 class="rates-title">Opciones disponibles:</h3>
+              <div id="rates-container" class="rates-container"></div>
             </div>
 
-            {/* Loading State */}
-            <div id="loading-rates" class="hidden mt-4 text-center py-6">
-              <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-200 border-t-blue-600"></div>
-              <p class="text-sm text-gray-600 mt-3">Buscando las mejores opciones de envío...</p>
+            <div id="loading-rates" class="hidden loading-block">
+              <div class="spinner-blue"></div>
+              <p>Buscando las mejores opciones de envío...</p>
             </div>
 
-            {/* Error State */}
-            <div id="error-rates" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p class="text-red-700 font-medium flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span id="error-message"></span>
-              </p>
+            <div id="error-rates" class="hidden error-block">
+              <p><span id="error-message"></span></p>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Resumen de envío cuando ya tiene etiqueta */}
+        {/* Resumen de envío con etiqueta */}
         {hasShippingLabel && (
-          <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 Resumen de Envío</h2>
-            <div class="space-y-3 text-sm">
-              <div class="flex justify-between py-2 border-b">
-                <span class="text-gray-600">Paquetería</span>
-                <span class="font-semibold uppercase">{order.carrier}</span>
-              </div>
-              <div class="flex justify-between py-2 border-b">
-                <span class="text-gray-600">Servicio</span>
-                <span class="font-semibold">{order.shippingService || 'Estándar'}</span>
-              </div>
+          <section class="panel">
+            <div class="panel-head"><h2>📊 Resumen de envío</h2></div>
+            <div class="detail-list">
+              <div class="detail-row"><span class="detail-key">Paquetería</span><span class="detail-val">{order.carrier}</span></div>
+              <div class="detail-row"><span class="detail-key">Servicio</span><span class="detail-val">{order.shippingService || 'Estándar'}</span></div>
               {order.shippingCost && (
-                <div class="flex justify-between py-2 border-b">
-                  <span class="text-gray-600">Costo</span>
-                  <span class="font-bold text-amber-600">{formatCurrency(order.shippingCost)}</span>
-                </div>
+                <div class="detail-row"><span class="detail-key">Costo</span><span class="detail-val t-gold">{formatCurrency(order.shippingCost)}</span></div>
               )}
-              <div class="flex justify-between py-2">
-                <span class="text-gray-600">Estado</span>
-                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">
-                  ETIQUETA GENERADA
-                </span>
-              </div>
+              <div class="detail-row"><span class="detail-key">Estado</span><span class="status-pill status-completed">Etiqueta generada</span></div>
             </div>
-          </div>
+          </section>
         )}
       </div>
     </div>
   </div>
 
   {/* Modal de Tracking */}
-  <div id="tracking-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-      <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex justify-between items-center">
-        <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-          </svg>
+  <div id="tracking-modal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
           Rastreo de Envío
         </h2>
-        <button id="close-modal" class="text-white hover:text-gray-200 text-3xl font-bold leading-none hover:rotate-90 transition-transform">×</button>
+        <button id="close-modal" class="modal-close">×</button>
       </div>
-      <div id="tracking-content" class="p-6"></div>
+      <div id="tracking-content" class="modal-body"></div>
     </div>
   </div>
-  <style>
-  @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  .animate-fade-in { animation: fade-in 0.3s ease-out; }
-</style>
-</AdminLayout>
 
-<script>
-  import { generateAndPrintTicket } from '@/services/ticketGenerator';
-  import { actions } from 'astro:actions';
-  import Swal from 'sweetalert2';
+  <style is:global>
+    .order-page {
+      --bg: #0b0b0d; --panel: #141417; --panel-2: #1b1b1f;
+      --line: rgba(255,255,255,0.07); --line-strong: rgba(255,255,255,0.12);
+      --gold: #eab308; --gold-soft: #fbbf24; --txt: #f5f5f4;
+      --txt-dim: rgba(245,245,244,0.55); --txt-faint: rgba(245,245,244,0.35);
+      --green: #34d399; --blue: #60a5fa; --red: #f87171;
+      position: relative; min-height: 100vh; width: 100%; max-width: 100%; overflow-x: hidden;
+      box-sizing: border-box; padding: 28px 28px 60px; border-radius: 20px;
+      background: radial-gradient(900px 500px at 85% -10%, rgba(234,179,8,0.07), transparent 70%), var(--bg);
+      color: var(--txt); font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .order-page * { box-sizing: border-box; }
 
-  interface ShippingAddress {
-    streetAddress: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-  }
+    .order-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .order-header .eyebrow { font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); font-weight: 600; margin: 0 0 6px; }
+    .order-header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1; margin: 0; }
+    .order-header .ord-num { background: linear-gradient(135deg, var(--gold), var(--gold-soft)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-family: ui-monospace, monospace; }
+    .oh-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
-  function initializeOrderPage() {
-    // ============================================
-    // 1. IMPRESIÓN DE TICKETS
-    // ============================================
-    const productsDataEl = document.getElementById('products-data');
-    const totalDataEl = document.getElementById('total-data');
-    const orderNumberDataEl = document.getElementById('order-number-data');
-    const paymentMethodDataEl = document.getElementById('payment-method-data');
-    const discountDataEl = document.getElementById('discount-data');
-    const additionalChargesDataEl = document.getElementById('additional-charges-data');
+    /* Botones */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: all 0.18s; text-decoration: none; }
+    .btn svg { width: 18px; height: 18px; }
+    .btn-sm { padding: 7px 13px; font-size: 0.78rem; }
+    .btn-sm svg { width: 15px; height: 15px; }
+    .btn-lg { padding: 14px 20px; font-size: 0.9rem; }
+    .btn-block { width: 100%; }
+    .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-soft)); color: #1a1205; }
+    .btn-gold:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-ghost { background: var(--panel); color: var(--txt); border-color: var(--line); }
+    .btn-ghost:hover { border-color: var(--line-strong); }
+    .btn-blue { background: var(--blue); color: #07203f; }
+    .btn-blue:hover { filter: brightness(1.08); }
+    .btn-green { background: var(--green); color: #053826; }
+    .btn-green:hover { filter: brightness(1.08); }
+    .btn-dark { background: var(--panel-2); color: var(--txt); border-color: var(--line); }
+    .btn-dark:hover { border-color: var(--line-strong); }
+    .btn-soft { background: var(--panel-2); color: var(--txt-dim); border-color: var(--line); }
+    .btn-soft:hover { color: var(--txt); }
+    .btn-danger { background: rgba(248,113,113,0.12); color: var(--red); border-color: rgba(248,113,113,0.3); }
+    .btn-danger:hover { background: rgba(248,113,113,0.2); }
 
-    const products = productsDataEl ? JSON.parse(productsDataEl.textContent || '[]') : [];
-    const total = totalDataEl ? parseFloat(totalDataEl.textContent || '0') : 0;
-    const orderNumber = orderNumberDataEl ? orderNumberDataEl.textContent || '' : 'N/A';
-    const paymentMethod = paymentMethodDataEl ? paymentMethodDataEl.textContent || 'Desconocido' : 'Desconocido';
-    const discountValue = discountDataEl ? parseFloat(discountDataEl.textContent || '0') : 0;
-    const additionalChargesValue = additionalChargesDataEl ? parseFloat(additionalChargesDataEl.textContent || '0') : 0;
+    /* Grid */
+    .order-grid { display: grid; grid-template-columns: 1fr 360px; gap: 18px; align-items: start; }
+    .col-main, .col-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 
-    const printBtn = document.getElementById('print-ticket-btn');
-    printBtn?.addEventListener('click', () => {
-      const storeInfo = {
-        name: 'Broquelizate',
-        address: 'esquina con, Calle Escobedo, Bravo 222, Colonia Centro, 35000 Gómez Palacio, Dgo.',
-        phone: '+528714617696',
-      };
+    /* Panel */
+    .panel { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px; overflow: hidden; }
+    .panel-accent { background: linear-gradient(160deg, var(--panel) 0%, var(--panel-2) 100%); }
+    .panel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .panel-head.between { justify-content: space-between; }
+    .panel-head h2 { font-size: 1.05rem; font-weight: 700; margin: 0; }
+    .panel-sub { font-size: 0.85rem; color: var(--txt-dim); margin: 0 0 16px; line-height: 1.5; }
+    .count-badge { margin-left: auto; background: var(--panel-2); color: var(--gold-soft); font-size: 0.8rem; font-weight: 700; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--line); }
+    .head-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .head-icon svg { width: 22px; height: 22px; }
+    .head-icon-gold { background: linear-gradient(135deg, var(--gold), var(--gold-soft)); color: #1a1205; }
+    .head-icon-green { background: var(--green); color: #053826; }
+    .head-icon-blue { background: var(--blue); color: #07203f; }
 
-      generateAndPrintTicket(
-        products, 
-        total, 
-        orderNumber, 
-        paymentMethod, 
-        storeInfo,
-        discountValue,
-        additionalChargesValue
-      );
-    });
+    .corner-badge { position: absolute; top: 0; right: 0; padding: 5px 14px; border-bottom-left-radius: 12px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; }
+    .corner-gold { background: linear-gradient(135deg, var(--gold), var(--gold-soft)); color: #1a1205; }
+    .corner-green { background: var(--green); color: #053826; }
 
-    // ============================================
-    // 2. GESTIÓN DE ENVÍOS
-    // ============================================
-    const orderDataEl = document.getElementById('order-data');
-    if (!orderDataEl) return;
+    /* Items */
+    .items-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+    .item-row { padding: 14px; border-radius: 12px; transition: background 0.15s; }
+    .item-row:hover { background: var(--panel-2); }
+    .item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .item-name { font-weight: 600; color: var(--txt); margin: 0; }
+    .item-qty { font-size: 0.8rem; color: var(--txt-faint); margin: 4px 0 0; }
+    .item-prices { text-align: right; flex-shrink: 0; }
+    .item-total { font-weight: 700; color: var(--txt); margin: 0; }
+    .item-unit { font-size: 0.8rem; color: var(--txt-faint); margin: 2px 0 0; }
 
-    const orderId = orderDataEl.dataset.orderId;
-    const trackingNumber = orderDataEl.dataset.trackingNumber;
-    const carrier = orderDataEl.dataset.carrier;
-    const labelUrl = orderDataEl.dataset.labelUrl;
-    const customerEmail = orderDataEl.dataset.customerEmail;
-    const customerPhone = orderDataEl.dataset.customerPhone;
-    const customerName = orderDataEl.dataset.customerName;
-    let shippingAddress: ShippingAddress;
-    try {
-      shippingAddress = JSON.parse(orderDataEl.dataset.shippingAddress || '{}') as ShippingAddress;
-    } catch {
-      shippingAddress = {
-        streetAddress: 'N/A',
-        city: 'N/A',
-        state: 'N/A',
-        zip: 'N/A',
-        country: 'N/A'
-      };
+    .engrave-chip { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px; border-radius: 12px; background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.18); }
+    .engrave-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234,179,8,0.3); flex-shrink: 0; }
+    .engrave-info { flex: 1; min-width: 0; }
+    .engrave-title { display: flex; align-items: center; gap: 6px; color: var(--gold-soft); font-size: 0.85rem; font-weight: 700; }
+    .engrave-title svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .engrave-notes { font-size: 0.78rem; color: var(--txt-dim); font-style: italic; margin: 4px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .engrave-link { flex-shrink: 0; padding: 7px 13px; background: linear-gradient(135deg, var(--gold), var(--gold-soft)); color: #1a1205; font-size: 0.76rem; font-weight: 700; border-radius: 9px; text-decoration: none; }
+
+    /* Totales */
+    .totals { display: flex; flex-direction: column; gap: 12px; }
+    .t-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; color: var(--txt-dim); }
+    .t-val { font-weight: 600; color: var(--txt); }
+    .t-discount { color: var(--red); }
+    .t-grand { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 4px; }
+    .t-grand span:first-child { font-size: 1.1rem; font-weight: 700; color: var(--txt); }
+    .t-grand-val { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-soft)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .t-gold { color: var(--gold-soft); }
+
+    /* Grabado producción */
+    .engrave-prod-list { display: flex; flex-direction: column; gap: 14px; }
+    .engrave-prod { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .engrave-prod-img { width: 130px; flex-shrink: 0; background: var(--panel-2); display: flex; align-items: center; justify-content: center; padding: 8px; }
+    .engrave-prod-img img { width: 100%; height: 100%; object-fit: contain; min-height: 110px; }
+    .engrave-prod-body { flex: 1; padding: 16px; min-width: 0; }
+    .engrave-prod-head { display: flex; justify-content: space-between; gap: 12px; }
+    .engrave-prod-name { font-weight: 700; font-size: 1.05rem; color: var(--txt); margin: 0; }
+    .engrave-prod-qty { font-size: 0.8rem; color: var(--txt-faint); margin: 4px 0 0; }
+    .engrave-prod-note { margin-top: 10px; padding: 8px 12px; background: rgba(234,179,8,0.06); border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; }
+    .note-label { font-size: 0.72rem; color: var(--txt-faint); font-weight: 700; margin: 0; }
+    .note-text { font-size: 0.85rem; color: var(--txt); margin: 2px 0 0; }
+    .prod-num { background: rgba(234,179,8,0.15); color: var(--gold-soft); font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; height: fit-content; flex-shrink: 0; }
+    .engrave-prod-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+    .info-note { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 0.76rem; color: var(--txt-faint); }
+    .info-note svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* Envío */
+    .ship-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .mini-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .mini-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--txt-faint); margin: 0 0 6px; font-weight: 600; }
+    .mini-value { font-size: 1rem; font-weight: 600; color: var(--txt); margin: 0; }
+    .mini-value-lg { font-size: 1.4rem; font-weight: 800; color: var(--txt); margin: 0; text-transform: uppercase; }
+    .track-box { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .track-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .track-number { font-family: ui-monospace, monospace; font-size: 1.3rem; font-weight: 700; color: var(--blue); letter-spacing: 0.05em; margin: 0; word-break: break-all; }
+    .cost-box { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.18); border-radius: 12px; margin-bottom: 16px; color: var(--txt-dim); font-weight: 600; }
+    .cost-val { font-size: 1.3rem; font-weight: 800; color: var(--gold-soft); }
+    .ship-date { font-size: 0.85rem; color: var(--txt-dim); margin: 0 0 16px; }
+    .ship-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+
+    /* Detalles laterales */
+    .detail-list { display: flex; flex-direction: column; gap: 14px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .detail-key { font-size: 0.85rem; color: var(--txt-dim); flex-shrink: 0; }
+    .detail-val { font-size: 0.88rem; font-weight: 600; color: var(--txt); text-align: right; }
+    .kv-key { font-size: 0.72rem; color: var(--txt-faint); margin: 0 0 3px; }
+    .kv-val { font-weight: 600; color: var(--txt); margin: 0; }
+    .kv-link { color: var(--gold-soft); font-weight: 600; text-decoration: none; word-break: break-all; }
+    .kv-link:hover { text-decoration: underline; }
+    .addr-block { border-top: 1px solid var(--line); padding-top: 14px; }
+    .addr-block h3 { font-size: 0.9rem; font-weight: 700; color: var(--txt); margin: 0 0 8px; }
+    .addr-lines { font-size: 0.82rem; color: var(--txt-dim); line-height: 1.6; }
+    .addr-lines p { margin: 0; }
+    .link-edit { background: none; border: none; color: var(--gold-soft); font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+
+    /* Status pill */
+    .status-pill { padding: 4px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+    .status-completed { background: rgba(52,211,153,0.15); color: var(--green); }
+    .status-pending { background: rgba(234,179,8,0.15); color: var(--gold-soft); }
+    .status-shipped { background: rgba(96,165,250,0.15); color: var(--blue); }
+    .status-cancelled { background: rgba(248,113,113,0.15); color: var(--red); }
+    .status-processing { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+    /* Controles */
+    .status-control { display: flex; flex-direction: column; gap: 12px; }
+    .dark-select, .dark-input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; color: var(--txt); padding: 12px 14px; font-size: 0.9rem; font-family: inherit; color-scheme: dark; transition: border-color 0.18s; }
+    .dark-select:focus, .dark-input:focus { outline: none; border-color: var(--gold); }
+    .ship-form { margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .field label { display: block; font-size: 0.78rem; color: var(--txt-dim); margin-bottom: 6px; font-weight: 600; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    /* Rates */
+    .rates-wrap { margin-top: 16px; }
+    .rates-title { font-size: 0.9rem; font-weight: 700; color: var(--txt); margin: 0 0 12px; }
+    .rates-container { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+    .loading-block { margin-top: 16px; text-align: center; padding: 24px; }
+    .loading-block p { font-size: 0.85rem; color: var(--txt-dim); margin: 12px 0 0; }
+    .spinner-blue { width: 38px; height: 38px; border: 3px solid var(--line-strong); border-top-color: var(--blue); border-radius: 50%; animation: ospin 0.7s linear infinite; display: inline-block; }
+    @keyframes ospin { to { transform: rotate(360deg); } }
+    .error-block { margin-top: 16px; padding: 14px; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); border-radius: 12px; color: var(--red); font-size: 0.85rem; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(3px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal-card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-head { position: sticky; top: 0; background: linear-gradient(135deg, #1b1b1f, #141417); border-bottom: 1px solid var(--line); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .modal-head h2 { display: flex; align-items: center; gap: 12px; font-size: 1.2rem; font-weight: 700; color: var(--txt); margin: 0; }
+    .modal-head svg { width: 24px; height: 24px; color: var(--gold-soft); }
+    .modal-close { background: none; border: none; color: var(--txt-dim); font-size: 1.8rem; line-height: 1; cursor: pointer; transition: all 0.2s; }
+    .modal-close:hover { color: var(--txt); transform: rotate(90deg); }
+    .modal-body { padding: 24px; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1024px) {
+      .order-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .order-page { padding: 18px 14px 44px; }
+      .order-header h1 { font-size: 1.6rem; }
+      .ship-grid, .ship-actions, .field-grid { grid-template-columns: 1fr; }
+      .engrave-prod { flex-direction: column; }
+      .engrave-prod-img { width: 100%; }
+    }
+  </style>
+
+  <script>
+    import { generateAndPrintTicket } from '@/services/ticketGenerator';
+    import { actions } from 'astro:actions';
+    import Swal from 'sweetalert2';
+
+    interface ShippingAddress {
+      streetAddress: string;
+      city: string;
+      state: string;
+      zip: string;
+      country: string;
     }
 
-    const ORIGIN_ADDRESS = {
-      name: "Broquelizate",
-      street: "Calle Escobedo esquina con Bravo",
-      number: "222",
-      district: "Colonia Centro",
-      city: "Gómez Palacio",
-      state: "Durango",
-      postalCode: "35000",
-      phone: "8714617696",
-      email: "contacto@broquelizate.com"
-    };
+    function initializeOrderPage() {
+      // 1. IMPRESIÓN DE TICKETS
+      const productsDataEl = document.getElementById('products-data');
+      const totalDataEl = document.getElementById('total-data');
+      const orderNumberDataEl = document.getElementById('order-number-data');
+      const paymentMethodDataEl = document.getElementById('payment-method-data');
+      const discountDataEl = document.getElementById('discount-data');
+      const additionalChargesDataEl = document.getElementById('additional-charges-data');
 
-    // ============================================
-    // 3. COPIAR NÚMERO DE TRACKING
-    // ============================================
-    const copyTrackingBtn = document.getElementById('copy-tracking-btn');
-    copyTrackingBtn?.addEventListener('click', async () => {
-      if (!trackingNumber) return;
-      
+      const products = productsDataEl ? JSON.parse(productsDataEl.textContent || '[]') : [];
+      const total = totalDataEl ? parseFloat(totalDataEl.textContent || '0') : 0;
+      const orderNumber = orderNumberDataEl ? orderNumberDataEl.textContent || '' : 'N/A';
+      const paymentMethod = paymentMethodDataEl ? paymentMethodDataEl.textContent || 'Desconocido' : 'Desconocido';
+      const discountValue = discountDataEl ? parseFloat(discountDataEl.textContent || '0') : 0;
+      const additionalChargesValue = additionalChargesDataEl ? parseFloat(additionalChargesDataEl.textContent || '0') : 0;
+
+      const printBtn = document.getElementById('print-ticket-btn');
+      printBtn?.addEventListener('click', () => {
+        const storeInfo = {
+          name: 'Broquelizate',
+          address: 'Calle Escobedo esquina con Calle Bravo (segundo piso), Colonia Centro, Gómez Palacio, Durango.',
+          phone: '528 714 617696',
+        };
+
+        generateAndPrintTicket(
+          products,
+          total,
+          orderNumber,
+          paymentMethod,
+          storeInfo,
+          discountValue,
+          additionalChargesValue
+        );
+      });
+
+      // 2. GESTIÓN DE ENVÍOS
+      const orderDataEl = document.getElementById('order-data');
+      if (!orderDataEl) return;
+
+      const orderId = orderDataEl.dataset.orderId;
+      const trackingNumber = orderDataEl.dataset.trackingNumber;
+      const carrier = orderDataEl.dataset.carrier;
+      const labelUrl = orderDataEl.dataset.labelUrl;
+      const customerEmail = orderDataEl.dataset.customerEmail;
+      const customerPhone = orderDataEl.dataset.customerPhone;
+      const customerName = orderDataEl.dataset.customerName;
+      let shippingAddress: ShippingAddress;
       try {
-        await navigator.clipboard.writeText(trackingNumber);
-        
-        // Feedback visual
-        const originalHTML = copyTrackingBtn.innerHTML;
-        copyTrackingBtn.innerHTML = `
-          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          ¡Copiado!
-        `;
-        copyTrackingBtn.classList.add('bg-green-100');
-        
-        setTimeout(() => {
-          copyTrackingBtn.innerHTML = originalHTML;
-          copyTrackingBtn.classList.remove('bg-green-100');
-        }, 2000);
-      } catch (err) {
-        console.error('Error al copiar:', err);
-      }
-    });
-
-    // ============================================
-    // 4. IMPRIMIR ETIQUETA
-    // ============================================
-    const printLabelBtn = document.getElementById('print-label-btn');
-    printLabelBtn?.addEventListener('click', () => {
-      if (!labelUrl) return;
-      
-      // Abrir PDF en nueva ventana e imprimir
-      const printWindow = window.open(labelUrl, '_blank');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          setTimeout(() => {
-            printWindow.print();
-          }, 500);
-        });
-      }
-    });
-
-    // ============================================
-    // 5. CARGAR DIRECCIÓN DEL USUARIO AUTOMÁTICAMENTE
-    // ============================================
-    async function loadUserShippingAddress() {
-      if (!customerEmail) {
-        console.log('No customer email available');
-        return null;
+        shippingAddress = JSON.parse(orderDataEl.dataset.shippingAddress || '{}') as ShippingAddress;
+      } catch {
+        shippingAddress = { streetAddress: 'N/A', city: 'N/A', state: 'N/A', zip: 'N/A', country: 'N/A' };
       }
 
-      try {
-        const { data, error } = await actions.getUserProfileByEmail({ email: customerEmail });
-        
-        if (error || !data || !data.user) {
-          console.log('User not found or no shipping address');
+      const ORIGIN_ADDRESS = {
+        name: "Broquelizate",
+        street: "Calle Escobedo esquina con Bravo",
+        number: "222",
+        district: "Colonia Centro",
+        city: "Gómez Palacio",
+        state: "Durango",
+        postalCode: "35000",
+        phone: "8714617696",
+        email: "contacto@broquelizate.com"
+      };
+
+      // 3. COPIAR TRACKING
+      const copyTrackingBtn = document.getElementById('copy-tracking-btn');
+      copyTrackingBtn?.addEventListener('click', async () => {
+        if (!trackingNumber) return;
+        try {
+          await navigator.clipboard.writeText(trackingNumber);
+          const originalHTML = copyTrackingBtn.innerHTML;
+          copyTrackingBtn.innerHTML = '✓ ¡Copiado!';
+          setTimeout(() => { copyTrackingBtn.innerHTML = originalHTML; }, 2000);
+        } catch (err) {
+          console.error('Error al copiar:', err);
+        }
+      });
+
+      // 4. IMPRIMIR ETIQUETA
+      const printLabelBtn = document.getElementById('print-label-btn');
+      printLabelBtn?.addEventListener('click', () => {
+        if (!labelUrl) return;
+        const printWindow = window.open(labelUrl, '_blank');
+        if (printWindow) {
+          printWindow.addEventListener('load', () => {
+            setTimeout(() => { printWindow.print(); }, 500);
+          });
+        }
+      });
+
+      // 5. CARGAR DIRECCIÓN DEL USUARIO
+      async function loadUserShippingAddress() {
+        if (!customerEmail) return null;
+        try {
+          const { data, error } = await actions.getUserProfileByEmail({ email: customerEmail });
+          if (error || !data || !data.user) return null;
+          return data.user.shippingAddress;
+        } catch (error) {
+          console.error('Error loading user shipping address:', error);
           return null;
         }
-
-        return data.user.shippingAddress;
-      } catch (error) {
-        console.error('Error loading user shipping address:', error);
-        return null;
       }
-    }
 
-    // ============================================
-    // 6. EDITAR DIRECCIÓN DE ENVÍO
-    // ============================================
-    const editShippingBtn = document.getElementById('edit-shipping-btn');
-    editShippingBtn?.addEventListener('click', async () => {
-      Swal.fire({
-        title: 'Cargando información...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      });
+      // 6. EDITAR DIRECCIÓN
+      const editShippingBtn = document.getElementById('edit-shipping-btn');
+      editShippingBtn?.addEventListener('click', async () => {
+        Swal.fire({ title: 'Cargando información...', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => { Swal.showLoading(); } });
 
-      const userAddress = await loadUserShippingAddress();
-      const addressToUse = userAddress && userAddress.streetAddress ? userAddress : shippingAddress;
+        const userAddress = await loadUserShippingAddress();
+        const addressToUse = userAddress && userAddress.streetAddress ? userAddress : shippingAddress;
 
-      Swal.close();
+        Swal.close();
 
-      const { value: formValues } = await Swal.fire({
-        title: '📍 Editar Dirección de Envío',
-        html: `
-          <div class="space-y-4 text-left p-4">
-            ${userAddress && userAddress.streetAddress ? 
-              '<div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4"><p class="text-sm text-green-800">✅ Dirección cargada desde el perfil del usuario</p></div>' : 
-              '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4"><p class="text-sm text-yellow-800">⚠️ Usuario sin dirección guardada, usando datos de la orden</p></div>'
-            }
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Dirección *</label>
-              <input id="swal-street" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="Calle y número" value="${addressToUse.streetAddress}">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
+        const { value: formValues } = await Swal.fire({
+          title: '📍 Editar Dirección de Envío',
+          html: `
+            <div class="space-y-4 text-left p-4">
+              ${userAddress && userAddress.streetAddress ?
+                '<div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4"><p class="text-sm text-green-800">✅ Dirección cargada desde el perfil del usuario</p></div>' :
+                '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4"><p class="text-sm text-yellow-800">⚠️ Usuario sin dirección guardada, usando datos de la orden</p></div>'
+              }
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Ciudad *</label>
-                <input id="swal-city" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="Ciudad" value="${addressToUse.city}">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Dirección *</label>
+                <input id="swal-street" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="Calle y número" value="${addressToUse.streetAddress}">
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Estado *</label>
-                <input id="swal-state" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="Estado" value="${addressToUse.state}">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1">Ciudad *</label>
+                  <input id="swal-city" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="Ciudad" value="${addressToUse.city}">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1">Estado *</label>
+                  <input id="swal-state" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="Estado" value="${addressToUse.state}">
+                </div>
               </div>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Código Postal *</label>
-                <input id="swal-zip" type="text" maxlength="5" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="CP (5 dígitos)" value="${addressToUse.zip}">
-              </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">País *</label>
-                <input id="swal-country" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="País" value="${addressToUse.country}">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1">Código Postal *</label>
+                  <input id="swal-zip" type="text" maxlength="5" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="CP (5 dígitos)" value="${addressToUse.zip}">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1">País *</label>
+                  <input id="swal-country" type="text" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" placeholder="País" value="${addressToUse.country}">
+                </div>
               </div>
             </div>
-          </div>
-        `,
-        width: '600px',
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: '💾 Guardar',
-        cancelButtonText: '❌ Cancelar',
-        confirmButtonColor: '#f59e0b',
-        cancelButtonColor: '#6b7280',
-        customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'px-6 py-3 rounded-lg font-semibold',
-          cancelButton: 'px-6 py-3 rounded-lg font-semibold'
-        },
-        preConfirm: () => {
-          const street = (document.getElementById('swal-street') as HTMLInputElement).value.trim();
-          const city = (document.getElementById('swal-city') as HTMLInputElement).value.trim();
-          const state = (document.getElementById('swal-state') as HTMLInputElement).value.trim();
-          const zip = (document.getElementById('swal-zip') as HTMLInputElement).value.trim();
-          const country = (document.getElementById('swal-country') as HTMLInputElement).value.trim();
-
-          if (!street) { Swal.showValidationMessage('La dirección es requerida'); return false; }
-          if (!city) { Swal.showValidationMessage('La ciudad es requerida'); return false; }
-          if (!state) { Swal.showValidationMessage('El estado es requerido'); return false; }
-          if (!zip || !/^\d{5}$/.test(zip)) { Swal.showValidationMessage('El código postal debe contener exactamente 5 dígitos'); return false; }
-          if (!country) { Swal.showValidationMessage('El país es requerido'); return false; }
-
-          return { streetAddress: street, city, state, zip, country };
-        }
-      });
-
-      if (formValues) {
-        Swal.fire({
-          title: 'Guardando dirección...',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          didOpen: () => { Swal.showLoading(); }
+          `,
+          width: '600px',
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonText: '💾 Guardar',
+          cancelButtonText: '❌ Cancelar',
+          confirmButtonColor: '#f59e0b',
+          cancelButtonColor: '#6b7280',
+          customClass: { popup: 'rounded-2xl', confirmButton: 'px-6 py-3 rounded-lg font-semibold', cancelButton: 'px-6 py-3 rounded-lg font-semibold' },
+          preConfirm: () => {
+            const street = (document.getElementById('swal-street') as HTMLInputElement).value.trim();
+            const city = (document.getElementById('swal-city') as HTMLInputElement).value.trim();
+            const state = (document.getElementById('swal-state') as HTMLInputElement).value.trim();
+            const zip = (document.getElementById('swal-zip') as HTMLInputElement).value.trim();
+            const country = (document.getElementById('swal-country') as HTMLInputElement).value.trim();
+            if (!street) { Swal.showValidationMessage('La dirección es requerida'); return false; }
+            if (!city) { Swal.showValidationMessage('La ciudad es requerida'); return false; }
+            if (!state) { Swal.showValidationMessage('El estado es requerido'); return false; }
+            if (!zip || !/^\d{5}$/.test(zip)) { Swal.showValidationMessage('El código postal debe contener exactamente 5 dígitos'); return false; }
+            if (!country) { Swal.showValidationMessage('El país es requerido'); return false; }
+            return { streetAddress: street, city, state, zip, country };
+          }
         });
 
-        try {
-          const { data, error } = await actions.updateOrderShippingAddress({
-            orderId: orderId!,
-            shippingAddress: formValues
-          });
-
-          if (error) {
-            await Swal.fire({ icon: 'error', title: 'Error al guardar', text: error, confirmButtonColor: '#f59e0b' });
-            return;
+        if (formValues) {
+          Swal.fire({ title: 'Guardando dirección...', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => { Swal.showLoading(); } });
+          try {
+            const { data, error } = await actions.updateOrderShippingAddress({ orderId: orderId!, shippingAddress: formValues });
+            if (error) { await Swal.fire({ icon: 'error', title: 'Error al guardar', text: error, confirmButtonColor: '#f59e0b' }); return; }
+            shippingAddress = formValues;
+            await Swal.fire({ icon: 'success', title: '¡Dirección actualizada!', confirmButtonColor: '#f59e0b', timer: 1500, timerProgressBar: true });
+            window.location.reload();
+          } catch (error) {
+            console.error('Error:', error);
+            await Swal.fire({ icon: 'error', title: 'Error inesperado', text: 'Ocurrió un error al guardar la dirección', confirmButtonColor: '#f59e0b' });
           }
+        }
+      });
 
-          shippingAddress = formValues;
-          
-          await Swal.fire({
-            icon: 'success',
-            title: '¡Dirección actualizada!',
-            confirmButtonColor: '#f59e0b',
-            timer: 1500,
-            timerProgressBar: true
-          });
-          
+      // 7. ACTUALIZAR ESTADO
+      const updateStatusBtn = document.getElementById('update-status-btn');
+      const statusSelect = document.getElementById('status-select') as HTMLSelectElement;
+
+      updateStatusBtn?.addEventListener('click', async () => {
+        const newStatus = statusSelect?.value;
+        if (!newStatus) return;
+
+        const result = await Swal.fire({
+          title: '¿Cambiar estado de la orden?',
+          html: `<p class="text-gray-700">El estado cambiará a <strong class="text-amber-600">"${newStatus}"</strong></p>`,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: '✅ Sí, cambiar',
+          cancelButtonText: '❌ Cancelar',
+          confirmButtonColor: '#f59e0b',
+          cancelButtonColor: '#6b7280'
+        });
+
+        if (!result.isConfirmed) return;
+
+        Swal.fire({ title: 'Actualizando estado...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+        try {
+          const { data, error } = await actions.updateOrderStatus({ orderId: orderId!, status: newStatus as any });
+          if (error) { await Swal.fire({ icon: 'error', title: 'Error', text: error, confirmButtonColor: '#f59e0b' }); return; }
+          await Swal.fire({ icon: 'success', title: '¡Estado actualizado!', confirmButtonColor: '#f59e0b', timer: 1500, timerProgressBar: true });
           window.location.reload();
         } catch (error) {
           console.error('Error:', error);
-          await Swal.fire({ icon: 'error', title: 'Error inesperado', text: 'Ocurrió un error al guardar la dirección', confirmButtonColor: '#f59e0b' });
+          await Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al actualizar el estado', confirmButtonColor: '#f59e0b' });
         }
-      }
-    });
-
-    // ============================================
-    // 7. ACTUALIZAR ESTADO
-    // ============================================
-    const updateStatusBtn = document.getElementById('update-status-btn');
-    const statusSelect = document.getElementById('status-select') as HTMLSelectElement;
-    
-    updateStatusBtn?.addEventListener('click', async () => {
-      const newStatus = statusSelect?.value;
-      if (!newStatus) return;
-
-      const result = await Swal.fire({
-        title: '¿Cambiar estado de la orden?',
-        html: `<p class="text-gray-700">El estado cambiará a <strong class="text-amber-600">"${newStatus}"</strong></p>`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '✅ Sí, cambiar',
-        cancelButtonText: '❌ Cancelar',
-        confirmButtonColor: '#f59e0b',
-        cancelButtonColor: '#6b7280'
       });
 
-      if (!result.isConfirmed) return;
-
-      Swal.fire({ title: 'Actualizando estado...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-
-      try {
-        const { data, error } = await actions.updateOrderStatus({ orderId: orderId!, status: newStatus as any });
-
-        if (error) {
-          await Swal.fire({ icon: 'error', title: 'Error', text: error, confirmButtonColor: '#f59e0b' });
-          return;
-        }
-
-        await Swal.fire({ icon: 'success', title: '¡Estado actualizado!', confirmButtonColor: '#f59e0b', timer: 1500, timerProgressBar: true });
-        window.location.reload();
-      } catch (error) {
-        console.error('Error:', error);
-        await Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al actualizar el estado', confirmButtonColor: '#f59e0b' });
-      }
-    });
-
-    // ============================================
-    // 8. COTIZAR ENVÍO
-    // ============================================
-    const quoteBtn = document.getElementById('quote-shipping-btn');
-    const loadingRates = document.getElementById('loading-rates');
-    const shippingRates = document.getElementById('shipping-rates');
-    const ratesContainer = document.getElementById('rates-container');
-    const errorRates = document.getElementById('error-rates');
-    const errorMessage = document.getElementById('error-message');
-
-    quoteBtn?.addEventListener('click', async () => {
-      const weight = parseFloat((document.getElementById('weight') as HTMLInputElement)?.value || '0.5');
-      const length = parseFloat((document.getElementById('length') as HTMLInputElement)?.value || '20');
-      const width = parseFloat((document.getElementById('width') as HTMLInputElement)?.value || '15');
-      const height = parseFloat((document.getElementById('height') as HTMLInputElement)?.value || '10');
-
-      const currentZip = shippingAddress.zip;
-      if (!currentZip || currentZip === 'N/A' || !/^\d{5}$/.test(currentZip)) {
-        await Swal.fire({
+      // 7b. CANCELAR ORDEN (botón directo)
+      const cancelOrderBtn = document.getElementById('cancel-order-btn');
+      cancelOrderBtn?.addEventListener('click', async () => {
+        const result = await Swal.fire({
+          title: '¿Cancelar esta orden?',
+          html: '<p class="text-gray-700">La orden quedará marcada como <strong class="text-red-600">cancelada</strong> y se excluirá de las estadísticas de venta.</p>',
           icon: 'warning',
-          title: 'Código postal inválido',
-          html: `<p class="text-gray-700">Por favor, edita la dirección de envío y asegúrate de incluir un código postal de 5 dígitos.</p>`,
-          confirmButtonColor: '#f59e0b'
-        });
-        return;
-      }
-
-      // Mostrar loading
-      loadingRates?.classList.remove('hidden');
-      shippingRates?.classList.add('hidden');
-      errorRates?.classList.add('hidden');
-      quoteBtn.disabled = true;
-      quoteBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span> Cotizando...';
-
-      try {
-        const { data, error } = await actions.getShippingRates({
-          originPostalCode: ORIGIN_ADDRESS.postalCode,
-          destinationPostalCode: currentZip,
-          destinationCity: shippingAddress.city,
-          destinationState: shippingAddress.state,
-          weight,
-          length,
-          width,
-          height
+          showCancelButton: true,
+          confirmButtonText: 'Sí, cancelar orden',
+          cancelButtonText: 'No, mantener',
+          confirmButtonColor: '#dc2626',
+          cancelButtonColor: '#6b7280'
         });
 
-        loadingRates?.classList.add('hidden');
+        if (!result.isConfirmed) return;
 
-        if (error || !data?.success) {
-          errorRates?.classList.remove('hidden');
-          if (errorMessage) errorMessage.textContent = data?.error || error || 'Error al cotizar';
-          return;
-        }
+        Swal.fire({ title: 'Cancelando orden...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
-        if (data.rates && data.rates.length > 0) {
-          if (ratesContainer) {
-            ratesContainer.innerHTML = data.rates.map((rate: any) => `
-              <button 
-                class="rate-option w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 text-left transition-all transform hover:scale-[1.01] hover:shadow-md"
-                data-carrier="${rate.carrier}"
-                data-service="${rate.service}"
-                data-price="${rate.totalPrice}"
-                data-weight="${weight}"
-                data-length="${length}"
-                data-width="${width}"
-                data-height="${height}"
-              >
-                <div class="flex justify-between items-center">
-                  <div>
-                    <p class="font-bold text-gray-900 text-lg uppercase">${rate.carrier}</p>
-                    <p class="text-sm text-gray-600">${rate.service}</p>
-                    <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      ${rate.deliveryDays} días estimados
-                    </p>
-                  </div>
-                  <div class="text-right">
-                    <p class="font-bold text-2xl text-blue-600">$${rate.totalPrice.toFixed(2)}</p>
-                    <p class="text-xs text-gray-500">${rate.currency}</p>
-                  </div>
-                </div>
-              </button>
-            `).join('');
-
-            document.querySelectorAll('.rate-option').forEach(btn => {
-              btn.addEventListener('click', async (e) => {
-                const target = e.currentTarget as HTMLElement;
-                await createLabel(
-                  target.dataset.carrier!,
-                  target.dataset.service!,
-                  parseFloat(target.dataset.weight!),
-                  parseFloat(target.dataset.length!),
-                  parseFloat(target.dataset.width!),
-                  parseFloat(target.dataset.height!)
-                );
-              });
-            });
-          }
-          
-          shippingRates?.classList.remove('hidden');
-        } else {
-          errorRates?.classList.remove('hidden');
-          if (errorMessage) errorMessage.textContent = 'No se encontraron opciones de envío para este destino';
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        loadingRates?.classList.add('hidden');
-        errorRates?.classList.remove('hidden');
-        if (errorMessage) errorMessage.textContent = 'Error de conexión al cotizar';
-      } finally {
-        quoteBtn.disabled = false;
-        quoteBtn.innerHTML = `
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-          </svg>
-          Cotizar Envío
-        `;
-      }
-    });
-
-    // ============================================
-    // 9. CREAR ETIQUETA DE ENVÍO
-    // ============================================
-    async function createLabel(carrier: string, service: string, weight: number, length: number, width: number, height: number) {
-      const result = await Swal.fire({
-        title: '¿Generar guía de envío?',
-        html: `
-          <div class="text-left bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
-                </svg>
-              </div>
-              <div>
-                <p class="font-bold text-xl text-gray-900 uppercase">${carrier}</p>
-                <p class="text-gray-600">${service}</p>
-              </div>
-            </div>
-            <div class="space-y-2 text-sm">
-              <p class="flex justify-between"><span class="text-gray-600">📍 Destino:</span> <span class="font-medium">${shippingAddress.city}, ${shippingAddress.state}</span></p>
-              <p class="flex justify-between"><span class="text-gray-600">📮 C.P.:</span> <span class="font-medium">${shippingAddress.zip}</span></p>
-              <p class="flex justify-between"><span class="text-gray-600">📦 Peso:</span> <span class="font-medium">${weight} kg</span></p>
-            </div>
-            <div class="mt-4 pt-4 border-t border-blue-200">
-              <p class="text-xs text-blue-700">Se generará la guía y el estado cambiará a "Enviado"</p>
-            </div>
-          </div>
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '✅ Generar Guía',
-        cancelButtonText: '❌ Cancelar',
-        confirmButtonColor: '#3b82f6',
-        cancelButtonColor: '#6b7280'
-      });
-
-      if (!result.isConfirmed) return;
-
-      Swal.fire({
-        title: 'Generando guía de envío...',
-        html: `
-          <div class="py-4">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
-            <p class="text-gray-600">Conectando con ${carrier.toUpperCase()}...</p>
-          </div>
-        `,
-        allowOutsideClick: false,
-        showConfirmButton: false
-      });
-
-      try {
-        const { data, error } = await actions.createShippingLabel({
-          orderId: orderId!,
-          carrier,
-          service,
-          origin: ORIGIN_ADDRESS,
-          destination: {
-            name: customerName || customerEmail?.split('@')[0] || 'Cliente',
-            street: shippingAddress.streetAddress || "Dirección del cliente",
-            number: "S/N",
-            district: shippingAddress.city || "Colonia",
-            city: shippingAddress.city || "Ciudad",
-            state: shippingAddress.state || "Estado",
-            postalCode: shippingAddress.zip || "00000",
-            phone: customerPhone || "0000000000",
-            email: customerEmail || "cliente@email.com"
-          },
-          package: { weight, length, width, height }
-        });
-
-        if (error || !data?.success) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Error al generar guía',
-            html: `
-              <div class="text-left">
-                <p class="text-gray-700 mb-3">${data?.error || error || 'Error desconocido'}</p>
-                <p class="text-sm text-gray-500">Verifica que la dirección de envío sea correcta y que el servicio esté disponible.</p>
-              </div>
-            `,
-            confirmButtonColor: '#f59e0b'
-          });
-          return;
-        }
-
-        if (data.label) {
-          await Swal.fire({
-            icon: 'success',
-            title: '¡Guía generada exitosamente!',
-            html: `
-              <div class="text-left">
-                <div class="bg-green-50 border border-green-200 p-4 rounded-xl mb-4">
-                  <p class="text-sm text-gray-600 mb-1">Número de rastreo:</p>
-                  <p class="font-mono font-bold text-2xl text-blue-600">${data.label.trackingNumber}</p>
-                </div>
-                <p class="text-sm text-gray-600">La etiqueta está lista para imprimir.</p>
-              </div>
-            `,
-            confirmButtonText: '🖨️ Ver Etiqueta',
-            confirmButtonColor: '#10b981'
-          });
-          
+        try {
+          const { data, error } = await actions.updateOrderStatus({ orderId: orderId!, status: 'cancelled' as any });
+          if (error) { await Swal.fire({ icon: 'error', title: 'Error', text: error, confirmButtonColor: '#f59e0b' }); return; }
+          await Swal.fire({ icon: 'success', title: 'Orden cancelada', confirmButtonColor: '#f59e0b', timer: 1500, timerProgressBar: true });
           window.location.reload();
+        } catch (error) {
+          console.error('Error:', error);
+          await Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al cancelar la orden', confirmButtonColor: '#f59e0b' });
         }
-      } catch (error) {
-        console.error('Error:', error);
-        await Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Ocurrió un error al crear la etiqueta de envío',
-          confirmButtonColor: '#f59e0b'
-        });
-      }
-    }
+      });
 
-    // ============================================
-    // 10. RASTREAR ENVÍO
-    // ============================================
-    const trackBtn = document.getElementById('track-shipment-btn');
-    const trackingModal = document.getElementById('tracking-modal');
-    const trackingContent = document.getElementById('tracking-content');
-    const closeModal = document.getElementById('close-modal');
+      // 8. COTIZAR ENVÍO
+      const quoteBtn = document.getElementById('quote-shipping-btn');
+      const loadingRates = document.getElementById('loading-rates');
+      const shippingRates = document.getElementById('shipping-rates');
+      const ratesContainer = document.getElementById('rates-container');
+      const errorRates = document.getElementById('error-rates');
+      const errorMessage = document.getElementById('error-message');
 
-    trackBtn?.addEventListener('click', async () => {
-      if (!trackingNumber) return;
+      quoteBtn?.addEventListener('click', async () => {
+        const weight = parseFloat((document.getElementById('weight') as HTMLInputElement)?.value || '0.5');
+        const length = parseFloat((document.getElementById('length') as HTMLInputElement)?.value || '20');
+        const width = parseFloat((document.getElementById('width') as HTMLInputElement)?.value || '15');
+        const height = parseFloat((document.getElementById('height') as HTMLInputElement)?.value || '10');
 
-      trackingContent!.innerHTML = `
-        <div class="text-center py-12">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
-          <p class="text-gray-600">Obteniendo información de rastreo...</p>
-        </div>
-      `;
-      trackingModal?.classList.remove('hidden');
-
-      try {
-        const { data, error } = await actions.trackShipment({ trackingNumber, carrier });
-
-        if (error || !data || !data.tracking) {
-          trackingContent!.innerHTML = `
-            <div class="text-center py-12">
-              <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </div>
-              <p class="text-red-600 text-lg font-semibold">Error al obtener tracking</p>
-              <p class="text-gray-500 mt-2">${error || 'No se pudo obtener información'}</p>
-            </div>
-          `;
+        const currentZip = shippingAddress.zip;
+        if (!currentZip || currentZip === 'N/A' || !/^\d{5}$/.test(currentZip)) {
+          await Swal.fire({ icon: 'warning', title: 'Código postal inválido', html: `<p class="text-gray-700">Por favor, edita la dirección de envío y asegúrate de incluir un código postal de 5 dígitos.</p>`, confirmButtonColor: '#f59e0b' });
           return;
         }
 
-        const tracking = data.tracking;
-        
-        trackingContent!.innerHTML = `
-          <div class="space-y-6">
-            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-2xl shadow-lg">
-              <div class="flex items-center gap-4 mb-3">
-                <div class="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
-                  </svg>
-                </div>
-                <div>
-                  <p class="text-2xl font-bold">${tracking.status}</p>
-                  <p class="text-blue-100">${tracking.currentLocation}</p>
-                </div>
-              </div>
-              ${tracking.estimatedDelivery ? `
-                <div class="bg-white/10 rounded-lg p-3 mt-4">
-                  <p class="text-sm text-blue-100">📅 Entrega estimada: <span class="font-semibold text-white">${tracking.estimatedDelivery}</span></p>
-                </div>
-              ` : ''}
-            </div>
-            
-            <div>
-              <h3 class="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Historial de Movimientos
-              </h3>
-              <div class="relative">
-                ${tracking.events && tracking.events.length > 0 ? tracking.events.map((event: any, idx: number) => `
-                  <div class="flex gap-4 pb-6 ${idx !== tracking.events.length - 1 ? 'border-l-2 border-blue-200 ml-2' : 'ml-2'}">
-                    <div class="absolute left-0 w-5 h-5 rounded-full ${idx === 0 ? 'bg-blue-600 ring-4 ring-blue-100' : 'bg-blue-300'} -translate-x-[6px]"></div>
-                    <div class="ml-6 bg-gray-50 p-4 rounded-xl flex-1 hover:bg-gray-100 transition-colors">
-                      <p class="font-semibold text-gray-900">${event.description}</p>
-                      <p class="text-sm text-gray-600 mt-1">📍 ${event.location}</p>
-                      <p class="text-xs text-gray-500 mt-2">🕐 ${event.date} ${event.time}</p>
+        loadingRates?.classList.remove('hidden');
+        shippingRates?.classList.add('hidden');
+        errorRates?.classList.add('hidden');
+        quoteBtn.disabled = true;
+
+        try {
+          const { data, error } = await actions.getShippingRates({
+            originPostalCode: ORIGIN_ADDRESS.postalCode,
+            destinationPostalCode: currentZip,
+            destinationCity: shippingAddress.city,
+            destinationState: shippingAddress.state,
+            weight, length, width, height
+          });
+
+          loadingRates?.classList.add('hidden');
+
+          if (error || !data?.success) {
+            errorRates?.classList.remove('hidden');
+            if (errorMessage) errorMessage.textContent = data?.error || error || 'Error al cotizar';
+            return;
+          }
+
+          if (data.rates && data.rates.length > 0) {
+            if (ratesContainer) {
+              ratesContainer.innerHTML = data.rates.map((rate: any) => `
+                <button class="rate-option" style="width:100%;padding:14px;border:1px solid rgba(255,255,255,0.07);border-radius:12px;background:#0b0b0d;color:#f5f5f4;text-align:left;cursor:pointer;transition:all .18s;"
+                  data-carrier="${rate.carrier}" data-service="${rate.service}" data-price="${rate.totalPrice}"
+                  data-weight="${weight}" data-length="${length}" data-width="${width}" data-height="${height}"
+                  onmouseover="this.style.borderColor='#60a5fa'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)'">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                      <p style="font-weight:700;font-size:1rem;text-transform:uppercase;margin:0;">${rate.carrier}</p>
+                      <p style="font-size:0.8rem;color:rgba(245,245,244,0.55);margin:2px 0 0;">${rate.service}</p>
+                      <p style="font-size:0.72rem;color:rgba(245,245,244,0.35);margin:4px 0 0;">${rate.deliveryDays} días estimados</p>
+                    </div>
+                    <div style="text-align:right;">
+                      <p style="font-weight:800;font-size:1.4rem;color:#60a5fa;margin:0;">$${rate.totalPrice.toFixed(2)}</p>
+                      <p style="font-size:0.7rem;color:rgba(245,245,244,0.35);margin:0;">${rate.currency}</p>
                     </div>
                   </div>
-                `).join('') : '<p class="text-gray-500 text-center py-4">No hay eventos de seguimiento disponibles</p>'}
+                </button>
+              `).join('');
+
+              document.querySelectorAll('.rate-option').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                  const target = e.currentTarget as HTMLElement;
+                  await createLabel(
+                    target.dataset.carrier!,
+                    target.dataset.service!,
+                    parseFloat(target.dataset.weight!),
+                    parseFloat(target.dataset.length!),
+                    parseFloat(target.dataset.width!),
+                    parseFloat(target.dataset.height!)
+                  );
+                });
+              });
+            }
+            shippingRates?.classList.remove('hidden');
+          } else {
+            errorRates?.classList.remove('hidden');
+            if (errorMessage) errorMessage.textContent = 'No se encontraron opciones de envío para este destino';
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          loadingRates?.classList.add('hidden');
+          errorRates?.classList.remove('hidden');
+          if (errorMessage) errorMessage.textContent = 'Error de conexión al cotizar';
+        } finally {
+          quoteBtn.disabled = false;
+        }
+      });
+
+      // 9. CREAR ETIQUETA
+      async function createLabel(carrier: string, service: string, weight: number, length: number, width: number, height: number) {
+        const result = await Swal.fire({
+          title: '¿Generar guía de envío?',
+          html: `
+            <div class="text-left bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                </div>
+                <div>
+                  <p class="font-bold text-xl text-gray-900 uppercase">${carrier}</p>
+                  <p class="text-gray-600">${service}</p>
+                </div>
+              </div>
+              <div class="space-y-2 text-sm">
+                <p class="flex justify-between"><span class="text-gray-600">📍 Destino:</span> <span class="font-medium">${shippingAddress.city}, ${shippingAddress.state}</span></p>
+                <p class="flex justify-between"><span class="text-gray-600">📮 C.P.:</span> <span class="font-medium">${shippingAddress.zip}</span></p>
+                <p class="flex justify-between"><span class="text-gray-600">📦 Peso:</span> <span class="font-medium">${weight} kg</span></p>
+              </div>
+              <div class="mt-4 pt-4 border-t border-blue-200">
+                <p class="text-xs text-blue-700">Se generará la guía y el estado cambiará a "Enviado"</p>
               </div>
             </div>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: '✅ Generar Guía',
+          cancelButtonText: '❌ Cancelar',
+          confirmButtonColor: '#3b82f6',
+          cancelButtonColor: '#6b7280'
+        });
 
-            <div class="bg-gray-100 p-4 rounded-xl text-sm space-y-2">
-              <p class="flex items-center gap-2">
-                <span class="text-gray-600">📦 Tracking:</span>
-                <span class="font-mono font-semibold">${trackingNumber}</span>
-              </p>
-              <p class="flex items-center gap-2">
-                <span class="text-gray-600">🚚 Paquetería:</span>
-                <span class="font-semibold uppercase">${carrier || 'N/A'}</span>
-              </p>
-            </div>
-          </div>
-        `;
-      } catch (error) {
-        console.error('Error:', error);
-        trackingContent!.innerHTML = `
-          <div class="text-center py-12 text-red-600">
-            <p class="text-lg font-semibold">❌ Error al obtener información de tracking</p>
-          </div>
-        `;
+        if (!result.isConfirmed) return;
+
+        Swal.fire({ title: 'Generando guía de envío...', html: `<div class="py-4"><div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div><p class="text-gray-600">Conectando con ${carrier.toUpperCase()}...</p></div>`, allowOutsideClick: false, showConfirmButton: false });
+
+        try {
+          const { data, error } = await actions.createShippingLabel({
+            orderId: orderId!,
+            carrier, service,
+            origin: ORIGIN_ADDRESS,
+            destination: {
+              name: customerName || customerEmail?.split('@')[0] || 'Cliente',
+              street: shippingAddress.streetAddress || "Dirección del cliente",
+              number: "S/N",
+              district: shippingAddress.city || "Colonia",
+              city: shippingAddress.city || "Ciudad",
+              state: shippingAddress.state || "Estado",
+              postalCode: shippingAddress.zip || "00000",
+              phone: customerPhone || "0000000000",
+              email: customerEmail || "cliente@email.com"
+            },
+            package: { weight, length, width, height }
+          });
+
+          if (error || !data?.success) {
+            await Swal.fire({ icon: 'error', title: 'Error al generar guía', html: `<div class="text-left"><p class="text-gray-700 mb-3">${data?.error || error || 'Error desconocido'}</p><p class="text-sm text-gray-500">Verifica que la dirección de envío sea correcta y que el servicio esté disponible.</p></div>`, confirmButtonColor: '#f59e0b' });
+            return;
+          }
+
+          if (data.label) {
+            await Swal.fire({ icon: 'success', title: '¡Guía generada exitosamente!', html: `<div class="text-left"><div class="bg-green-50 border border-green-200 p-4 rounded-xl mb-4"><p class="text-sm text-gray-600 mb-1">Número de rastreo:</p><p class="font-mono font-bold text-2xl text-blue-600">${data.label.trackingNumber}</p></div><p class="text-sm text-gray-600">La etiqueta está lista para imprimir.</p></div>`, confirmButtonText: '🖨️ Ver Etiqueta', confirmButtonColor: '#10b981' });
+            window.location.reload();
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          await Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al crear la etiqueta de envío', confirmButtonColor: '#f59e0b' });
+        }
       }
-    });
 
-    closeModal?.addEventListener('click', () => trackingModal?.classList.add('hidden'));
-    trackingModal?.addEventListener('click', (e) => {
-      if (e.target === trackingModal) trackingModal.classList.add('hidden');
-    });
-  }
+      // 10. RASTREAR ENVÍO
+      const trackBtn = document.getElementById('track-shipment-btn');
+      const trackingModal = document.getElementById('tracking-modal');
+      const trackingContent = document.getElementById('tracking-content');
+      const closeModal = document.getElementById('close-modal');
 
-  document.addEventListener('astro:page-load', initializeOrderPage);
-</script>
+      trackBtn?.addEventListener('click', async () => {
+        if (!trackingNumber) return;
 
+        trackingContent!.innerHTML = `<div style="text-align:center;padding:48px;"><div class="spinner-blue"></div><p style="color:rgba(245,245,244,0.55);margin-top:14px;">Obteniendo información de rastreo...</p></div>`;
+        trackingModal?.classList.remove('hidden');
+
+        try {
+          const { data, error } = await actions.trackShipment({ trackingNumber, carrier });
+
+          if (error || !data || !data.tracking) {
+            trackingContent!.innerHTML = `<div style="text-align:center;padding:48px;color:#f87171;"><p style="font-size:1.1rem;font-weight:700;">Error al obtener tracking</p><p style="color:rgba(245,245,244,0.35);margin-top:8px;">${error || 'No se pudo obtener información'}</p></div>`;
+            return;
+          }
+
+          const tracking = data.tracking;
+
+          trackingContent!.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:24px;">
+              <div style="background:linear-gradient(135deg,#1d4ed8,#4338ca);color:#fff;padding:24px;border-radius:16px;">
+                <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+                  <div style="width:56px;height:56px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <svg style="width:32px;height:32px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                  </div>
+                  <div>
+                    <p style="font-size:1.5rem;font-weight:800;margin:0;">${tracking.status}</p>
+                    <p style="color:#c7d2fe;margin:0;">${tracking.currentLocation}</p>
+                  </div>
+                </div>
+                ${tracking.estimatedDelivery ? `<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:12px;margin-top:14px;"><p style="font-size:0.85rem;color:#c7d2fe;margin:0;">📅 Entrega estimada: <strong style="color:#fff;">${tracking.estimatedDelivery}</strong></p></div>` : ''}
+              </div>
+              <div>
+                <h3 style="font-weight:700;font-size:1.05rem;color:#f5f5f4;margin:0 0 16px;">Historial de Movimientos</h3>
+                <div style="position:relative;">
+                  ${tracking.events && tracking.events.length > 0 ? tracking.events.map((event: any, idx: number) => `
+                    <div style="display:flex;gap:16px;padding-bottom:24px;${idx !== tracking.events.length - 1 ? 'border-left:2px solid rgba(96,165,250,0.3);margin-left:8px;' : 'margin-left:8px;'}">
+                      <div style="position:absolute;left:0;width:18px;height:18px;border-radius:50%;${idx === 0 ? 'background:#60a5fa;box-shadow:0 0 0 4px rgba(96,165,250,0.2);' : 'background:rgba(96,165,250,0.5);'}transform:translateX(-8px);"></div>
+                      <div style="margin-left:24px;background:#1b1b1f;padding:14px;border-radius:12px;flex:1;">
+                        <p style="font-weight:600;color:#f5f5f4;margin:0;">${event.description}</p>
+                        <p style="font-size:0.85rem;color:rgba(245,245,244,0.55);margin:4px 0 0;">📍 ${event.location}</p>
+                        <p style="font-size:0.78rem;color:rgba(245,245,244,0.35);margin:6px 0 0;">🕐 ${event.date} ${event.time}</p>
+                      </div>
+                    </div>
+                  `).join('') : '<p style="color:rgba(245,245,244,0.35);text-align:center;padding:16px;">No hay eventos de seguimiento disponibles</p>'}
+                </div>
+              </div>
+              <div style="background:#1b1b1f;padding:16px;border-radius:12px;font-size:0.85rem;display:flex;flex-direction:column;gap:8px;">
+                <p style="margin:0;"><span style="color:rgba(245,245,244,0.55);">📦 Tracking:</span> <span style="font-family:monospace;font-weight:600;">${trackingNumber}</span></p>
+                <p style="margin:0;"><span style="color:rgba(245,245,244,0.55);">🚚 Paquetería:</span> <span style="font-weight:600;text-transform:uppercase;">${carrier || 'N/A'}</span></p>
+              </div>
+            </div>
+          `;
+        } catch (error) {
+          console.error('Error:', error);
+          trackingContent!.innerHTML = `<div style="text-align:center;padding:48px;color:#f87171;"><p style="font-size:1.1rem;font-weight:700;">❌ Error al obtener información de tracking</p></div>`;
+        }
+      });
+
+      closeModal?.addEventListener('click', () => trackingModal?.classList.add('hidden'));
+      trackingModal?.addEventListener('click', (e) => {
+        if (e.target === trackingModal) trackingModal.classList.add('hidden');
+      });
+    }
+
+    document.addEventListener('astro:page-load', initializeOrderPage);
+  </script>
+</AdminLayout>
