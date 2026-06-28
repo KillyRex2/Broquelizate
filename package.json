@@ -26,6 +26,8 @@
     "astro": "^5.16.6",
     "astro-icon": "^1.1.5",
     "auth-astro": "^4.2.0",
+    "baseline-browser-mapping": "^2.10.38",
+    "caniuse-lite": "^1.0.30001799",
     "chart.js": "^4.5.0",
     "cloudinary": "^2.6.1",
     "date-fns": "^4.1.0",

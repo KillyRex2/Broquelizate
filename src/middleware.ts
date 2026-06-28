@@ -59,7 +59,7 @@ export const onRequest = defineMiddleware(
     }
 
     // Proteger rutas de admin
-    if (!locals.isAdmin && url.pathname.startsWith('/dashboard')) {
+    if (!locals.isAdmin && (url.pathname.startsWith('/dashboard') || url.pathname.startsWith('/admin'))) {
         return redirect('/');
     }
 

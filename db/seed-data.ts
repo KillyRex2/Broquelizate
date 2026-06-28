@@ -16,7 +16,7 @@ interface SeedProduct {
 }
 
 type ValidCategories = 'Titanio' | 'Acero Quirúrgico' | 'Oro 10k' | 'Oro 14k' | 'Oro 18k' | 'Chapa de Oro 14K' | 'Chapa de Oro 18k' | 'Acero Inoxidable' | 'Plástico' | 'Plata' | 'Rodio';
-type ValidTypes = 'Anillos' | 'Broqueles' | 'Pulseras' | 'Cadenas';
+type ValidTypes = 'Anillos' | 'Broqueles' | 'Pulseras' | 'Cadenas' | 'Otros';
 type ValidPiercings = 'Lóbulo' | 'Lóbulo Superior' | 'Hélix' | 'Antihelix' | 'Tragus' | 'Antitragus' | 'Rook' | 'Conch' | 'Daith' | 'Industrial' | 'Séptum' | 'Nóstril' | 'Navel';
 
 export const seedProducts: SeedProduct[] = [

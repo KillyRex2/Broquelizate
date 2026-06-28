@@ -1,7 +1,8 @@
 // src/actions/get-sales-stats.action.ts
 import { defineAction } from 'astro:actions';
-import { db, orders, order_items, Product, ProductImage } from 'astro:db';
+import { db, orders, order_items, Product, ProductImage, gte, inArray } from 'astro:db';
 import { z } from 'astro:schema';
+import { assertAdmin } from '../_guard';
 
 /**
  * Estadísticas de ventas para el dashboard del admin.
@@ -39,14 +40,31 @@ const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
 export const getSalesStats = defineAction({
   accept: 'json',
   input: inputSchema,
-  handler: async ({ startDate, endDate, paymentMethod }) => {
+  handler: async ({ startDate, endDate, paymentMethod }, context) => {
+    assertAdmin(context); // 🔒 Solo admin
     try {
       const now = new Date();
       const start = startDate ? new Date(startDate + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const end = endDate ? new Date(endDate + 'T23:59:59') : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-      const allOrders = (await db.select().from(orders)) as OrderRow[];
-      const allItems = await db.select().from(order_items);
+      // Para el desglose por MES necesitamos el año actual completo; para el resto,
+      // el rango pedido. Traemos desde la fecha más antigua de las dos en SQL.
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const fetchFrom = start < startOfYear ? start : startOfYear;
+
+      // 🚀 Filtramos en SQL: solo órdenes desde fetchFrom (no toda la tabla)
+      const allOrders = (await db
+        .select()
+        .from(orders)
+        .where(gte(orders.createdAt, fetchFrom))) as OrderRow[];
+
+      // 🚀 Solo los items de esas órdenes (no toda la tabla)
+      const orderIds = allOrders.map((o) => o.id);
+      const allItems = orderIds.length > 0
+        ? await db.select().from(order_items).where(inArray(order_items.orderId, orderIds))
+        : [];
+
+      // Productos e imágenes sí completos (se necesitan para costos y fotos)
       const allProducts = await db.select().from(Product);
       const allImages = await db.select().from(ProductImage);
 

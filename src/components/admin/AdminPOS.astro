@@ -533,7 +533,8 @@ function initializePOS() {
             <div class="relative flex-shrink-0">
               <img src="${variantImage}" 
                    alt="${variant.name}" 
-                   class="w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 object-contain rounded-lg shadow-sm bg-gray-50 p-1"
+                   class="w-full sm:w-28 md:w-36 h-44 sm:h-28 md:h-36 object-cover rounded-xl shadow-md bg-gray-50 cursor-zoom-in variant-zoom-img"
+                   data-full-image="${variantImage}"
                    onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
               ${hasDiscount ? `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">Oferta</span>` : ''}
               ${hasNoStock ? `<span class="absolute -bottom-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full shadow">Sin Stock</span>` : ''}
@@ -879,6 +880,24 @@ function initializePOS() {
     }
   };
 
+  const handleVariantZoom = (e: Event) => {
+    const img = (e.target as HTMLElement).closest('.variant-zoom-img') as HTMLImageElement;
+    if (!img) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const fullSrc = img.dataset.fullImage || img.src;
+    Swal.fire({
+      imageUrl: fullSrc,
+      imageAlt: 'Imagen de variante',
+      showConfirmButton: false,
+      showCloseButton: true,
+      background: '#fff',
+      width: 'auto',
+      padding: '1rem',
+      customClass: { image: 'rounded-xl max-h-[80vh] object-contain' }
+    });
+  };
+
   const handleCartClick = (e: Event) => {
     const button = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement;
     if (!button) return;
@@ -1016,6 +1035,7 @@ function initializePOS() {
   activeFiltersContainer?.addEventListener('click', handleRemoveFilter);
   productGrid?.addEventListener('click', handleProductClick);
   variantList?.addEventListener('click', handleVariantClick);
+  variantList?.addEventListener('click', handleVariantZoom);
   closeModalBtn?.addEventListener('click', handleCloseModal);
   variantModal?.addEventListener('click', handleModalBackdrop);
   cartItemsList?.addEventListener('click', handleCartClick);
@@ -1040,6 +1060,7 @@ function initializePOS() {
     activeFiltersContainer?.removeEventListener('click', handleRemoveFilter);
     productGrid?.removeEventListener('click', handleProductClick);
     variantList?.removeEventListener('click', handleVariantClick);
+    variantList?.removeEventListener('click', handleVariantZoom);
     closeModalBtn?.removeEventListener('click', handleCloseModal);
     variantModal?.removeEventListener('click', handleModalBackdrop);
     cartItemsList?.removeEventListener('click', handleCartClick);

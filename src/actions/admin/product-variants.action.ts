@@ -3,6 +3,7 @@ import { db, eq, and, Product, ProductVariant, ProductVariantCombination, inArra
 import { z } from 'astro:schema';
 import { v4 as UUID } from 'uuid';
 import { getSession } from 'auth-astro/server';
+import { assertAdmin } from '../_guard';
 import type { 
   GroupedVariants 
 } from '@/interfaces/product-with-variants.interface';
@@ -275,17 +276,14 @@ export const createBatchVariants = defineAction({
       variantName: z.string(),
       variantValue: z.string(),
       priceAdjustment: z.number(),
-      cost: z.number().optional(), // ✅ NUEVO
+      cost: z.number().optional(),
       stock: z.number(),
       sku: z.string().optional(),
       isDefault: z.boolean().optional().default(false)
     }))
   }),
-  handler: async (input, { request }) => {
-    const session = await getSession(request);
-    if (!session?.user) {
-      throw new Error('Unauthorized');
-    }
+  handler: async (input, context) => {
+    assertAdmin(context); // 🔒 Solo admin
 
     const { productId, variants } = input;
     const [product] = await db.select().from(Product).where(eq(Product.id, productId));
@@ -297,7 +295,7 @@ export const createBatchVariants = defineAction({
       variantName: variant.variantName,
       variantValue: variant.variantValue,
       priceAdjustment: variant.priceAdjustment,
-      cost: variant.cost ?? null, // ✅ NUEVO
+      cost: variant.cost ?? null,
       stock: variant.stock,
       sku: variant.sku,
       isDefault: variant.isDefault || false,
@@ -323,16 +321,13 @@ export const updateVariant = defineAction({
     variantId: z.string(),
     variantValue: z.string().optional(),
     priceAdjustment: z.number().optional(),
-    cost: z.number().nullable().optional(), // ✅ NUEVO
+    cost: z.number().nullable().optional(),
     stock: z.number().optional(),
     sku: z.string().nullable().optional(),
     isActive: z.boolean().optional()
   }),
-  handler: async (input, { request }) => {
-    const session = await getSession(request);
-    if (!session?.user) {
-      throw new Error('No autorizado');
-    }
+  handler: async (input, context) => {
+    assertAdmin(context); // 🔒 Solo admin
 
     const { variantId, ...updateData } = input;
     
@@ -349,7 +344,7 @@ export const updateVariant = defineAction({
       const dataToUpdate: any = {};
       if (updateData.variantValue !== undefined) dataToUpdate.variantValue = updateData.variantValue;
       if (updateData.priceAdjustment !== undefined) dataToUpdate.priceAdjustment = updateData.priceAdjustment;
-      if (updateData.cost !== undefined) dataToUpdate.cost = updateData.cost; // ✅ NUEVO
+      if (updateData.cost !== undefined) dataToUpdate.cost = updateData.cost;
       if (updateData.stock !== undefined) dataToUpdate.stock = updateData.stock;
       if (updateData.sku !== undefined) dataToUpdate.sku = updateData.sku;
       if (updateData.isActive !== undefined) dataToUpdate.isActive = updateData.isActive;
@@ -381,11 +376,8 @@ export const updateVariant = defineAction({
 export const deleteVariant = defineAction({
   accept: 'json',
   input: z.string(),
-  handler: async (variantId, { request }) => {
-    const session = await getSession(request);
-    if (!session?.user) {
-      throw new Error('No autorizado');
-    }
+  handler: async (variantId, context) => {
+    assertAdmin(context); // 🔒 Solo admin
 
     try {
       const [variant] = await db
@@ -601,9 +593,8 @@ export const updateVariantGroup = defineAction({
     })),
     deletedVariantIds: z.array(z.string()).optional(),
   }),
-  handler: async (input, { request }) => {
-    const session = await getSession(request);
-    if (!session?.user) throw new Error('No autorizado');
+  handler: async (input, context) => {
+    assertAdmin(context); // 🔒 Solo admin
 
     const { productId, originalVariantName, newVariantName, variants, deletedVariantIds } = input;
 
@@ -622,7 +613,6 @@ export const updateVariantGroup = defineAction({
       // 2. Actualizar existentes y crear nuevas
       for (const variant of variants) {
         if (variant.id) {
-          // Actualizar variante existente
           await db.update(ProductVariant).set({
             variantName: newVariantName,
             variantValue: variant.variantValue,
@@ -632,7 +622,6 @@ export const updateVariantGroup = defineAction({
             sku: variant.sku ?? null,
           } as any).where(eq(ProductVariant.id, variant.id));
         } else {
-          // Crear nueva variante
           await db.insert(ProductVariant).values({
             id: UUID(),
             productId,
@@ -649,7 +638,7 @@ export const updateVariantGroup = defineAction({
         }
       }
 
-      // 3. Sincronizar combinaciones automáticamente (conserva stock/imágenes)
+      // 3. Sincronizar combinaciones automáticamente
       await syncProductCombinations(productId);
 
       return {

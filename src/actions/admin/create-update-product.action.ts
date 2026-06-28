@@ -4,6 +4,7 @@ import { z } from 'astro:schema';
 import { db, eq, Product, ProductImage, ProductVariant, inArray, ProductVariantCombination, sql } from 'astro:db';
 import { getSession } from 'auth-astro/server';
 import { v4 as UUID } from 'uuid';
+import { assertAdmin } from '../_guard';
 
 // ===== ACCIÓN PRINCIPAL: CREAR/ACTUALIZAR PRODUCTO CON IMÁGENES =====
 export const crateUpdateProduct = defineAction({
@@ -38,6 +39,8 @@ export const crateUpdateProduct = defineAction({
         imageFiles: z.instanceof(File).array().optional(),
     }),
     handler: async (form, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
+
         const session = await getSession(context.request);
         const user = session?.user;
 
@@ -169,6 +172,7 @@ export const deleteProductImage = defineAction({
     accept: 'json',
     input: z.string().min(1, "El ID de la imagen es requerido"),
     handler: async (imageId, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) {
             throw new Error('No autorizado');
@@ -211,6 +215,7 @@ export const deleteProduct = defineAction({
         id: z.string().min(1, 'Se requiere el ID del producto.'),
     }),
     handler: async ({ id }, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) throw new Error('No autorizado');
 
@@ -238,6 +243,7 @@ export const uploadVariantImage = defineAction({
         imageFile: z.instanceof(File).optional(),
     }),
     handler: async (form, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) {
             throw new Error('No autorizado');
@@ -308,6 +314,7 @@ export const deleteVariantImage = defineAction({
     accept: 'json',
     input: z.string().min(1, "ID de variante requerido"),
     handler: async (variantId, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) {
             throw new Error('No autorizado');
@@ -350,6 +357,7 @@ export const uploadCustomizationImage = defineAction({
         imageFile: z.instanceof(File),
     }),
     handler: async (form, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) {
             throw new Error('No autorizado');
@@ -420,6 +428,7 @@ export const deleteCustomizationImage = defineAction({
         imageUrl: z.string().min(1, "URL de imagen requerida"),
     }),
     handler: async ({ imageUrl }, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) {
             throw new Error('No autorizado');
@@ -453,6 +462,7 @@ export const uploadEngravingImage = defineAction({
         imageFile: z.instanceof(File),
     }),
     handler: async (form, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) {
             throw new Error('No autorizado');
@@ -499,6 +509,7 @@ export const deleteEngravingImage = defineAction({
         imageUrl: z.string().min(1, "URL de imagen requerida"),
     }),
     handler: async ({ imageUrl }, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         try {
             const deleted = await ImageUpload.delete(imageUrl);
 
@@ -526,6 +537,7 @@ export const setProductCoverImage = defineAction({
         imageId: z.string().min(1),
     }),
     handler: async ({ productId, imageId }, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) throw new Error('No autorizado');
 
@@ -546,6 +558,7 @@ export const toggleFeaturedProduct = defineAction({
         isFeatured: z.boolean(),
     }),
     handler: async ({ productId, isFeatured }, context: ActionAPIContext) => {
+        assertAdmin(context); // 🔒 Solo admin
         const session = await getSession(context.request);
         if (!session?.user) throw new Error('No autorizado');
 

@@ -1,4 +1,4 @@
-import { db, Product, ProductVariant, ProductVariantCombination, eq } from 'astro:db';
+import { db, Product, ProductVariant, ProductVariantCombination, User, eq } from 'astro:db';
 import { sql } from 'drizzle-orm';
 import type { APIRoute } from 'astro';
 import { getSession } from 'auth-astro/server';
@@ -7,10 +7,15 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     // Validar autenticación
     const session = await getSession(request);
-    if (!session?.user) {
+    if (!session?.user?.email) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        status: 401, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const adminUser = await db.select().from(User).where(eq(User.email, session.user.email)).get();
+    if (!adminUser || adminUser.rol !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Acceso denegado' }), {
+        status: 403, headers: { 'Content-Type': 'application/json' }
       });
     }
 

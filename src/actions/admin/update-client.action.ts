@@ -2,12 +2,15 @@ import { db, Client, eq, sql } from 'astro:db';
 // Zod se importa desde 'astro:actions' para la validación
 import { defineAction} from 'astro:actions';
 import { z } from 'astro:schema'
+import { assertAdmin } from '../_guard';
 
 // --- ACCIÓN PARA OBTENER UN CLIENTE POR SU ID ---
 // Se define como una constante exportada para que puedas importarla individualmente.
 export const getClientById = defineAction({
   input: z.string(), // Recibe el ID del cliente como un string
-  handler: async (id) => {
+  handler: async (id, context) => {
+    assertAdmin(context); // 🔒 Solo admin
+
     // Buscamos el cliente en la base de datos
     const [client] = await db.select().from(Client).where(eq(Client.id, Number(id)));
 
@@ -30,7 +33,8 @@ export const updateClient = defineAction({
     observaciones: z.string().optional(),
     telefono: z.string().optional(),
   }),
-  handler: async ({ id, ...clientData }) => {
+  handler: async ({ id, ...clientData }, context) => {
+    assertAdmin(context);   // <-- candado
     try {
       // Usamos db.update para actualizar el registro existente
       const [updatedClient] = await db
@@ -54,7 +58,8 @@ export const updateClient = defineAction({
   },
 });
 export const getAllClients = defineAction({
-  handler: async () => {
+  handler: async (context) => {
+    assertAdmin(context); // 🔒 Solo admin
     try {
       // Obtener todos los clientes con sus direcciones
       const clients = await db.select({
@@ -80,21 +85,16 @@ export const updateClientBalance = defineAction({
     clientId: z.number(),
     amountToAdd: z.number(),
   }),
-  handler: async ({ clientId, amountToAdd }) => {
-    // Usando SQL directo con parámetros seguros
+  handler: async ({ clientId, amountToAdd }, context) => {
+    assertAdmin(context);   // <-- candado
+
     await db.run(sql`
       UPDATE client 
       SET saldo_actual = saldo_actual + ${amountToAdd}
       WHERE id = ${clientId}
     `);
-    
-    // Obtener nuevo saldo
     const [client] = await db.select().from(Client).where(eq(Client.id, clientId));
-    
-    return { 
-      success: true, 
-      newBalance: client?.saldo_actual || 0 
-    };
+    return { success: true, newBalance: client?.saldo_actual || 0 };
   },
 });
 
