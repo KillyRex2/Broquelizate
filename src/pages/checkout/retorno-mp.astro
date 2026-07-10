@@ -1,0 +1,142 @@
+---
+// src/pages/checkout/retorno-mp.astro
+// Página de retorno de Mercado Pago (Checkout Pro).
+// MP redirige aquí tras el pago con: payment_id, status, external_reference, etc.
+// Verificamos el pago en el servidor y creamos el pedido reusando tus endpoints.
+---
+
+<div class="mp-return">
+  <div class="mp-card">
+    <div class="spinner" id="mp-spinner"></div>
+    <h1 id="mp-title">Confirmando tu pago…</h1>
+    <p id="mp-msg">Estamos validando la transacción con Mercado Pago. No cierres esta ventana.</p>
+  </div>
+</div>
+
+<style>
+  .mp-return { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .mp-card { max-width: 460px; width: 100%; text-align: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 40px 28px; }
+  .mp-card h1 { font-size: 1.3rem; font-weight: 800; color: #fff; margin: 20px 0 8px; }
+  .mp-card p { font-size: 0.95rem; color: rgba(255,255,255,0.6); }
+  .spinner { width: 48px; height: 48px; margin: 0 auto; border: 4px solid rgba(255,255,255,0.1); border-top-color: #009ee3; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .spinner.success { border-top-color: #22c55e; animation: none; }
+  .spinner.error { border-top-color: #ef4444; animation: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+  import { CartCookiesClient } from '@/utils/cart-cookies';
+  import { navigate } from 'astro:transitions/client';
+
+  function setUI(title: string, msg: string, state?: 'success' | 'error') {
+    const t = document.getElementById('mp-title');
+    const m = document.getElementById('mp-msg');
+    const s = document.getElementById('mp-spinner');
+    if (t) t.textContent = title;
+    if (m) m.textContent = msg;
+    if (s && state) s.className = `spinner ${state}`;
+  }
+
+  async function handleReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get('payment_id') || params.get('collection_id');
+    const externalReference = params.get('external_reference') || '';
+
+    if (!paymentId) {
+      setUI('No se recibió el pago', 'Vuelve al checkout e intenta de nuevo.', 'error');
+      setTimeout(() => navigate('/checkout?mp=missing'), 2500);
+      return;
+    }
+
+    // 1) Verificar el pago del lado del servidor (fuente de verdad).
+    let verified: any;
+    try {
+      const res = await fetch(`/api/verify-mercadopago-payment?payment_id=${encodeURIComponent(paymentId)}`);
+      verified = await res.json();
+      if (!res.ok) throw new Error(verified?.error || 'Error verificando el pago');
+    } catch (e) {
+      setUI('No pudimos confirmar el pago', 'Si el cargo se realizó, contáctanos con tu comprobante.', 'error');
+      console.error(e);
+      return;
+    }
+
+    const status: string = verified.status;
+    const isApproved = status === 'approved' || status === 'authorized';
+    const isPending = status === 'pending' || status === 'in_process';
+
+    if (!isApproved && !isPending) {
+      setUI('Pago no completado', 'El pago fue rechazado o cancelado. Puedes intentar con otro método.', 'error');
+      setTimeout(() => navigate('/checkout?mp=rejected'), 2800);
+      return;
+    }
+
+    // 2) Recuperar el payload del pedido guardado antes de redirigir.
+    const raw = externalReference ? localStorage.getItem(`mp_order_${externalReference}`) : null;
+    if (!raw) {
+      // El pago existe pero no tenemos el detalle local (otra sesión / pestaña nueva).
+      // El webhook debe ser la red de seguridad para crear el pedido en este caso.
+      setUI('Pago recibido', 'Tu pago fue procesado. Estamos generando tu pedido; te llegará por correo.', 'success');
+      CartCookiesClient.clearCart();
+      setTimeout(() => navigate('/'), 3500);
+      return;
+    }
+
+    const orderPayload = JSON.parse(raw);
+    orderPayload.paymentMethod = 'mercadopago';
+    orderPayload.paymentIntentId = String(paymentId);
+    orderPayload.paymentStatus = isApproved ? 'approved' : 'pending';
+
+    try {
+      // 3) Descontar stock (solo si está aprobado; en pendiente puedes decidir esperar al webhook).
+      if (isApproved) {
+        const stockRes = await fetch('/api/update-stock-online', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            products: orderPayload.products.map((p: any) => ({ id: p.id, quantity: p.quantity })),
+          }),
+        });
+        if (!stockRes.ok) {
+          const err = await stockRes.json().catch(() => ({}));
+          throw new Error(err.error || 'Error actualizando stock');
+        }
+      }
+
+      // 4) Crear el pedido con tu endpoint existente.
+      const orderRes = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload),
+      });
+      if (!orderRes.ok) {
+        const err = await orderRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Error creando el pedido');
+      }
+      const order = await orderRes.json();
+
+      // 5) Limpiar carrito y datos temporales.
+      CartCookiesClient.clearCart();
+      localStorage.removeItem('selectedShipping');
+      localStorage.removeItem(`mp_order_${externalReference}`);
+
+      if (isApproved) {
+        setUI('¡Pago exitoso!', `Orden #${order.orderNumber ?? ''} confirmada. Redirigiendo…`, 'success');
+        setTimeout(() => navigate(`/order-success?order_id=${order.id}`), 1200);
+      } else {
+        setUI('Pago pendiente', 'Genera tu comprobante (OXXO/SPEI) y completa el pago. Te confirmaremos por correo.', 'success');
+        setTimeout(() => navigate(`/order-success?order_id=${order.id}&pending=1`), 1800);
+      }
+    } catch (e) {
+      console.error(e);
+      setUI('Pago recibido, error al registrar el pedido',
+        'Tu pago se procesó. Contáctanos con tu comprobante y resolvemos tu pedido enseguida.', 'error');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', handleReturn);
+  } else {
+    handleReturn();
+  }
+  document.addEventListener('astro:page-load', handleReturn);
+</script>

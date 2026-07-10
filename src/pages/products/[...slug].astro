@@ -6,6 +6,43 @@ import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
 import { Formatter } from "@/utils";
 
+// ⚙️ Configuración editable
+const FREE_SHIPPING_THRESHOLD = 999; // MXN — pon 0 para ocultar la banda y la fila de envío gratis
+const WHATSAPP_URL = "https://wa.me/52XXXXXXXXXX"; // ← pon tu número real
+
+// 🎨 Swatches: mapa de nombres de color → color CSS.
+// Si el grupo de variantes se llama "Color" (o contiene "color") y el valor
+// está en este mapa, se pinta un cuadrito de color como en la referencia.
+// Si no está en el mapa, se muestra como pill de texto normal.
+const COLOR_MAP: Record<string, string> = {
+  dorado: '#d4af37',
+  oro: '#d4af37',
+  'oro rosa': '#e7b9a4',
+  plateado: '#c9ccd1',
+  plata: '#c9ccd1',
+  negro: '#26262a',
+  blanco: '#f2f2f2',
+  gris: '#9ca3af',
+  rosa: '#f472b6',
+  rojo: '#ef4444',
+  azul: '#3b82f6',
+  'azul rey': '#1d4ed8',
+  'azul cielo': '#7dd3fc',
+  verde: '#22c55e',
+  morado: '#8b5cf6',
+  lila: '#c4b5fd',
+  amarillo: '#facc15',
+  café: '#92400e',
+  cafe: '#92400e',
+  tornasol: 'conic-gradient(from 0deg, #f87171, #facc15, #4ade80, #60a5fa, #c084fc, #f87171)',
+  multicolor: 'conic-gradient(from 0deg, #f87171, #facc15, #4ade80, #60a5fa, #c084fc, #f87171)',
+  arcoiris: 'conic-gradient(from 0deg, #f87171, #facc15, #4ade80, #60a5fa, #c084fc, #f87171)',
+};
+const getSwatch = (value: string): string | null =>
+  COLOR_MAP[value.trim().toLowerCase()] ?? null;
+const isColorGroup = (name: string): boolean =>
+  name.trim().toLowerCase().includes('color');
+
 const { slug } = Astro.params;
 const { data, error } = await Astro.callAction(
   actions.getProductBySlug,
@@ -131,6 +168,16 @@ if (product.hasVariants && variantsData) {
   }
   hasStock = displayStock > 0;
 }
+
+// 🔗 Productos relacionados (opcional): conecta tu action y la sección
+// "También te puede interesar" se renderiza sola si hay elementos.
+let relatedProducts: any[] = [];
+// try {
+//   const { data: rel } = await Astro.callAction(actions.getProductsByCategory, {
+//     category: product.category, excludeId: product.id, limit: 4,
+//   });
+//   relatedProducts = rel?.products ?? [];
+// } catch {}
 ---
 
 <ProductsLayout 
@@ -145,6 +192,16 @@ if (product.hasVariants && variantsData) {
       <div class="glow glow-2"></div>
       <div class="grid-pattern"></div>
     </div>
+
+    <!-- 📣 Announcement bar -->
+    {FREE_SHIPPING_THRESHOLD > 0 && (
+      <div class="announcement-bar">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
+        </svg>
+        <span>Envío nacional <strong>GRATIS</strong> en compras + ${FREE_SHIPPING_THRESHOLD} MXN</span>
+      </div>
+    )}
 
     <div class="product-container">
       <!-- Breadcrumb -->
@@ -169,133 +226,213 @@ if (product.hasVariants && variantsData) {
       <div class="product-grid">
         <!-- Images Column -->
         <div class="images-column">
-          <div class="main-image-wrapper">
-            {product.hasVariants && variantImageMap.size > 0 && (
-              <div class="variant-badge">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-                <span>Variantes con imagen</span>
+          <!-- 🖼️ Miniaturas verticales a la izquierda + imagen principal (como la referencia) -->
+          <div class={`media-wrap ${images.length > 1 ? 'has-thumbs' : ''}`}>
+            {images.length > 1 && (
+              <div class="thumbnails-col">
+                {images.slice(0, 6).map((imageObj, index) => {
+                  const imageSrc = imageObj.image.startsWith("http")
+                    ? imageObj.image
+                    : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
+                  return (
+                    <button class="thumb-btn" data-gallery-thumb data-index={index}>
+                      <img src={imageSrc} alt={`${product.name} - ${index + 1}`} loading="lazy" />
+                      {index === 5 && images.length > 6 && (
+                        <div class="thumb-more"><span>+{images.length - 6}</span></div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
-            <ProductSlideshow images={fullGeneralImages} sliderId="product-main-slider" />
-          </div>
-
-          {images.length > 1 && (
-            <div class="thumbnails-grid">
-              {images.slice(0, 5).map((imageObj, index) => {
-                const imageSrc = imageObj.image.startsWith("http")
-                  ? imageObj.image
-                  : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
-                return (
-                  <button class="thumb-btn" data-gallery-thumb data-index={index}>
-                    <img src={imageSrc} alt={`${product.name} - ${index + 1}`} loading="lazy" />
-                    {index === 4 && images.length > 5 && (
-                      <div class="thumb-more"><span>+{images.length - 5}</span></div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <!-- Mobile Trust Strip -->
-          <div class="mobile-trust">
-            <div class="trust-mini">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-              </svg>
-              <span>Compra segura</span>
-            </div>
-            <div class="trust-mini">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
-              </svg>
-              <span>Envío nacional</span>
-            </div>
-            <div class="trust-mini">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-              <span>Calidad garantizada</span>
+            <div class="main-image-wrapper">
+              {product.hasVariants && variantImageMap.size > 0 && (
+                <div class="variant-badge">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  <span>Variantes con imagen</span>
+                </div>
+              )}
+              <ProductSlideshow images={fullGeneralImages} sliderId="product-main-slider" />
             </div>
           </div>
-        </div>
 
-        <!-- Info Column -->
-        <div class="info-column">
-          <!-- Badges -->
-          <div class="product-badges">
-            <span class="badge badge-category">
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-              {product.category}
-            </span>
-            <span class="badge badge-type">{product.type}</span>
-            <span id="stock-badge" class={`badge ${hasStock ? 'badge-stock' : 'badge-out'}`}>
-              {hasStock ? `${displayStock} en stock` : 'Agotado'}
-            </span>
-          </div>
-
-          <!-- Title -->
-          <h1 class="product-title">{product.name}</h1>
-
-          <!-- Price -->
-          <div class="price-box">
-            <div class="price-main">
-              <span id="product-price" class="price-value">{Formatter.currency(product.price)}</span>
-              <span class="price-currency">MXN</span>
-            </div>
-            <p class="price-note">Precio final, impuestos incluidos</p>
-          </div>
-
-          <!-- Variants -->
-          {product.hasVariants && processedVariants && (
-            <div class="variants-section">
-              <div class="variants-header">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+          <!-- 📄 Detalles del producto (bajo la imagen, como la referencia) -->
+          <div class="details-block">
+            <details class="det" open>
+              <summary>
+                <h2 class="det-title">Detalles del producto</h2>
+                <svg class="det-chevron" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
-                <h3>Personaliza tu producto</h3>
+              </summary>
+              <div class="det-body">
+                <p class="product-desc">{product.description}</p>
               </div>
-              
-              {processedVariants.map((variantGroup) => (
-                <div class="variant-group" data-variant-name={variantGroup.variantName}>
-                  <label class="variant-label">{variantGroup.variantName}</label>
-                  <div class="variant-options">
-                    {variantGroup.options.map((option, index) => (
-                      <button
-                        type="button"
-                        data-variant-id={option.id}
-                        data-variant-name={variantGroup.variantName}
-                        data-variant-value={option.value}
-                        data-price-adjustment={option.priceAdjustment}
-                        data-stock={option.stock}
-                        data-has-image={option.hasImage}
-                        class={`variant-option ${option.isOutOfStock ? 'out-of-stock' : ''}`}
-                        disabled={option.isOutOfStock}
-                      >
-                        <div class="variant-main">
-                          <span class="variant-value">
-                            {option.value}
-                            {option.hasImage && <span class="has-img">📷</span>}
-                          </span>
-                          {option.priceAdjustment !== 0 && (
-                            <span class={`price-adj ${option.priceAdjustment > 0 ? 'pos' : 'neg'}`}>
-                              {option.priceAdjustment > 0 ? '+' : ''}{Formatter.currency(option.priceAdjustment)}
-                            </span>
-                          )}
-                        </div>
-                        {!isMultiGroup && (
-                          <span class="variant-stock">{option.isOutOfStock ? 'Agotado' : `${option.stock} disp.`}</span>
-                        )}
-                        <div class="select-dot"></div>
-                      </button>
+            </details>
+
+            {product.piercing_name.length > 0 && (
+              <details class="det">
+                <summary>
+                  <h2 class="det-title">Perforaciones compatibles</h2>
+                  <svg class="det-chevron" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </summary>
+                <div class="det-body">
+                  <div class="piercing-tags">
+                    {product.piercing_name.map(piercing => (
+                      <span class="piercing-tag">{piercing}</span>
                     ))}
                   </div>
                 </div>
-              ))}
+              </details>
+            )}
+
+            <details class="det">
+              <summary>
+                <h2 class="det-title">Envío y entrega</h2>
+                <svg class="det-chevron" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </summary>
+              <div class="det-body">
+                <p class="product-desc">
+                  Enviamos a todo México. El costo de envío se calcula en el carrito según tu código postal.
+                  {FREE_SHIPPING_THRESHOLD > 0 && ` Envío gratis en compras mayores a $${FREE_SHIPPING_THRESHOLD} MXN.`}
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Info Column (buy box, como la referencia) -->
+        <div class="info-column">
+          <!-- Badges discretos -->
+          <div class="product-badges">
+            <span class="badge badge-category">{product.category}</span>
+            <span class="badge badge-type">{product.type}</span>
+          </div>
+
+          <!-- Title (serif, como la referencia) -->
+          <h1 class="product-title">{product.name}</h1>
+
+          <!-- Price simple -->
+          <div class="price-box">
+            <span id="product-price" class="price-value">{Formatter.currency(product.price)}</span>
+            <span class="price-currency">MXN</span>
+          </div>
+
+          <!-- ⭐ Chips de beneficios (outline pequeños, como la referencia) -->
+          <ul class="benefit-chips" role="list">
+            <li class="chip">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
+              </svg>
+              <span>Envío a todo México</span>
+            </li>
+            <li class="chip">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              <span>Pago seguro</span>
+            </li>
+            <li class="chip">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+              <span>Calidad garantizada</span>
+            </li>
+            <li class="chip">
+              <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+              </svg>
+              <span>Garantía de satisfacción</span>
+            </li>
+          </ul>
+
+          <!-- 💳 Línea Mercado Pago (expandible con "Saber más") -->
+          <details class="mp-line">
+            <summary>
+              <span class="mp-dot" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <rect x="2" y="5" width="20" height="14" rx="3"/>
+                  <path d="M2 10h20"/>
+                </svg>
+              </span>
+              <span class="mp-text">Compra ahora, <strong>paga después</strong> con Mercado Pago.</span>
+              <span class="mp-more">Saber más</span>
+            </summary>
+            <ol class="mp-steps">
+              <li><span class="mp-step-num">1</span><p>Agrega tu producto al carrito y <strong>elige pagar con Mercado Pago</strong>.</p></li>
+              <li><span class="mp-step-num">2</span><p>En tu cuenta de Mercado Pago, <strong>elige la cantidad de meses</strong> y confirma.</p></li>
+              <li><span class="mp-step-num">3</span><p><strong>Paga mes a mes</strong> con saldo disponible, débito u otros medios.</p></li>
+            </ol>
+            <p class="mp-disclaimer">Crédito sujeto a aprobación de Mercado Pago.</p>
+          </details>
+
+          <!-- 🟢 Línea de stock con subrayado (como la referencia) -->
+          <div id="stock-badge" class={`stock-line ${hasStock ? 'in' : 'out'}`}>
+            {hasStock ? `En stock, listo para ser enviado (${displayStock} disp.)` : 'Agotado temporalmente'}
+          </div>
+
+          <!-- Variants: swatches de color + pills -->
+          {product.hasVariants && processedVariants && (
+            <div class="variants-section">
+              {processedVariants.map((variantGroup) => {
+                const colorGroup = isColorGroup(variantGroup.variantName);
+                return (
+                  <div class="variant-group" data-variant-name={variantGroup.variantName}>
+                    <label class="variant-label">
+                      {variantGroup.variantName}:
+                      <span class="variant-selected-value" data-selected-for={variantGroup.variantName}>Selecciona</span>
+                    </label>
+                    <div class="variant-options">
+                      {variantGroup.options.map((option) => {
+                        const swatch = colorGroup ? getSwatch(option.value) : null;
+                        return swatch ? (
+                          <button
+                            type="button"
+                            data-variant-id={option.id}
+                            data-variant-name={variantGroup.variantName}
+                            data-variant-value={option.value}
+                            data-price-adjustment={option.priceAdjustment}
+                            data-stock={option.stock}
+                            data-has-image={option.hasImage}
+                            class={`variant-option variant-swatch ${option.isOutOfStock ? 'out-of-stock' : ''}`}
+                            disabled={option.isOutOfStock}
+                            title={option.value}
+                            aria-label={option.value}
+                          >
+                            <span class="swatch-color" style={`background:${swatch}`}></span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            data-variant-id={option.id}
+                            data-variant-name={variantGroup.variantName}
+                            data-variant-value={option.value}
+                            data-price-adjustment={option.priceAdjustment}
+                            data-stock={option.stock}
+                            data-has-image={option.hasImage}
+                            class={`variant-option ${option.isOutOfStock ? 'out-of-stock' : ''}`}
+                            disabled={option.isOutOfStock}
+                            title={!isMultiGroup && !option.isOutOfStock ? `${option.stock} disponibles` : undefined}
+                          >
+                            <span class="variant-value">{option.value}</span>
+                            {option.priceAdjustment !== 0 && (
+                              <span class={`price-adj ${option.priceAdjustment > 0 ? 'pos' : 'neg'}`}>
+                                {option.priceAdjustment > 0 ? '+' : ''}{Formatter.currency(option.priceAdjustment)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
 
               <div id="variant-info" class="variant-info hidden">
                 <div class="info-row">
@@ -305,52 +442,6 @@ if (product.hasVariants && variantsData) {
               </div>
             </div>
           )}
-
-          <!-- Piercings -->
-          {product.piercing_name.length > 0 && (
-            <div class="piercing-section">
-              <h3 class="section-label">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-                Perforaciones compatibles
-              </h3>
-              <div class="piercing-tags">
-                {product.piercing_name.map(piercing => (
-                  <span class="piercing-tag">{piercing}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <!-- Description -->
-          <div class="desc-section">
-            <h3 class="section-label">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
-              </svg>
-              Descripción
-            </h3>
-            <p class="product-desc">{product.description}</p>
-          </div>
-
-          <!-- Shipping -->
-          <div class="shipping-card">
-            <div class="shipping-icon">
-              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-              </svg>
-            </div>
-            <div class="shipping-text">
-              <p class="shipping-title">Envío a todo México</p>
-              <p class="shipping-sub">Calcula el costo en el carrito</p>
-            </div>
-            <div class="shipping-check">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-              </svg>
-            </div>
-          </div>
 
           <!-- ✅ GRABADO LÁSER (solo si el producto lo permite) -->
           <ProductCustomization 
@@ -379,40 +470,40 @@ if (product.hasVariants && variantsData) {
             </div>
 
             <button id="add-to-cart" class="add-btn">
-              <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
               </svg>
               <span>Añadir al carrito</span>
             </button>
 
             <div id="variant-message" class="msg hidden"></div>
+
+            <p class="tax-note">
+              Impuesto incluido. <a href="/cart" class="tax-link">Envío</a> calculado en el momento de la compra.
+            </p>
           </div>
 
-          <!-- Trust Badges Desktop -->
-          <div class="trust-badges">
-            <div class="trust-item">
-              <div class="trust-icon">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                </svg>
-              </div>
-              <div class="trust-text"><span class="trust-title">Compra segura</span><span class="trust-desc">Pago protegido</span></div>
-            </div>
-            <div class="trust-item">
-              <div class="trust-icon">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                </svg>
-              </div>
-              <div class="trust-text"><span class="trust-title">Calidad premium</span><span class="trust-desc">100% garantizado</span></div>
-            </div>
-            <div class="trust-item">
-              <div class="trust-icon">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+          <!-- 📦 Caja de info apilada con divisores (como la referencia) -->
+          <div class="info-box">
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" class="info-box-row link">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              <span>¿Tienes dudas? <u>Contáctanos por WhatsApp</u></span>
+            </a>
+            {FREE_SHIPPING_THRESHOLD > 0 && (
+              <div class="info-box-row">
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
                 </svg>
+                <span>Envío gratis en compras + ${FREE_SHIPPING_THRESHOLD} MXN</span>
               </div>
-              <div class="trust-text"><span class="trust-title">Envío rápido</span><span class="trust-desc">A todo México</span></div>
+            )}
+            <div class="info-box-row">
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+              </svg>
+              <span>Pagos seguros</span>
             </div>
           </div>
         </div>
@@ -453,13 +544,28 @@ if (product.hasVariants && variantsData) {
               );
             })}
           </div>
+        </section>
+      )}
 
-          <p class="gallery-info">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
-            </svg>
-            <span>Mostrando <strong>{images.length}</strong> {images.length === 1 ? 'imagen' : 'imágenes'}</span>
-          </p>
+      <!-- 🛍️ También te puede interesar (se muestra solo si hay relacionados) -->
+      {relatedProducts.length > 0 && (
+        <section class="related-section">
+          <div class="gallery-header">
+            <div class="header-line"></div>
+            <h2 class="gallery-title">También te puede interesar</h2>
+            <div class="header-line"></div>
+          </div>
+          <div class="related-grid">
+            {relatedProducts.map((rp: any) => (
+              <a href={`/products/${rp.slug}`} class="related-card">
+                <div class="related-img">
+                  <img src={rp.image} alt={rp.name} loading="lazy" />
+                </div>
+                <p class="related-name">{rp.name}</p>
+                <p class="related-price">{Formatter.currency(rp.price)}</p>
+              </a>
+            ))}
+          </div>
         </section>
       )}
     </div>
@@ -507,107 +613,157 @@ if (product.hasVariants && variantsData) {
 </ProductsLayout>
 
 <style>
-  .product-detail-page { position: relative; min-height: 100vh; padding: 24px 0 80px; }
+  .product-detail-page { position: relative; min-height: 100vh; padding: 0 0 80px; }
   .bg-decoration { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
   .glow { position: absolute; border-radius: 50%; filter: blur(150px); }
   .glow-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(234, 179, 8, 0.06) 0%, transparent 70%); top: -100px; right: -100px; }
   .glow-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(234, 179, 8, 0.04) 0%, transparent 70%); bottom: 200px; left: -100px; }
   .grid-pattern { position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px); background-size: 60px 60px; }
+
+  /* 📣 Announcement bar */
+  .announcement-bar { position: relative; z-index: 10; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; margin-bottom: 24px; background: linear-gradient(90deg, rgba(234, 179, 8, 0.12), rgba(245, 158, 11, 0.08), rgba(234, 179, 8, 0.12)); border-bottom: 1px solid rgba(234, 179, 8, 0.2); color: rgba(255, 255, 255, 0.85); font-size: 0.85rem; text-align: center; }
+  .announcement-bar svg { color: #eab308; flex-shrink: 0; }
+  .announcement-bar strong { color: #eab308; }
+
   .product-container { position: relative; z-index: 10; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
   .breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; padding: 14px 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; animation: fadeIn 0.4s ease-out; }
   .breadcrumb-link { display: flex; align-items: center; gap: 6px; color: rgba(255, 255, 255, 0.5); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
   .breadcrumb-link:hover { color: #eab308; }
   .breadcrumb-sep { color: rgba(255, 255, 255, 0.2); }
   .breadcrumb-current { color: #fff; font-weight: 600; font-size: 0.9rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-bottom: 80px; }
-  .images-column { position: sticky; top: 24px; height: fit-content; animation: fadeInLeft 0.6s ease-out; }
-  .main-image-wrapper { position: relative; border-radius: 24px; overflow: hidden; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); }
+  .product-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; margin-bottom: 80px; }
+  .images-column { animation: fadeInLeft 0.6s ease-out; }
+
+  /* 🖼️ Media: miniaturas verticales + principal */
+  .media-wrap { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.media-wrap.has-thumbs { grid-template-columns: 84px 1fr; }
+  .thumbnails-col { display: flex; flex-direction: column; gap: 10px; max-height: 560px; overflow-y: auto; scrollbar-width: thin; }
+  .main-image-wrapper { position: relative; border-radius: 20px; overflow: hidden; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); height: fit-content; }
   .variant-badge { position: absolute; top: 16px; left: 16px; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 12px; color: #eab308; font-size: 0.8rem; font-weight: 500; }
-  .thumbnails-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 16px; }
-  .thumb-btn { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: all 0.3s ease; }
-  .thumb-btn:hover { border-color: rgba(234, 179, 8, 0.5); transform: translateY(-3px); }
+  .thumb-btn { position: relative; aspect-ratio: 1; width: 100%; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: all 0.25s ease; flex-shrink: 0; }
+  .thumb-btn:hover { border-color: rgba(234, 179, 8, 0.6); }
   .thumb-btn img { width: 100%; height: 100%; object-fit: cover; }
-  .thumb-more { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 1.1rem; }
-  .mobile-trust { display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
-  .trust-mini { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; text-align: center; }
-  .trust-mini svg { color: #eab308; }
-  .trust-mini span { font-size: 0.7rem; color: rgba(255, 255, 255, 0.6); font-weight: 500; }
+  .thumb-more { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.9rem; }
+
+  /* 📄 Detalles bajo la imagen (heading + línea, como la referencia) */
+  .details-block { margin-top: 40px; display: flex; flex-direction: column; gap: 8px; }
+  .det { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+  .det summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 4px; cursor: pointer; list-style: none; user-select: none; }
+  .det summary::-webkit-details-marker { display: none; }
+  .det-title { font-size: 1.15rem; font-weight: 800; color: #fff; }
+  .det-chevron { color: rgba(255, 255, 255, 0.4); transition: transform 0.25s ease; flex-shrink: 0; }
+  .det[open] .det-chevron { transform: rotate(180deg); }
+  .det-body { padding: 0 4px 22px; }
+  .piercing-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .piercing-tag { display: inline-flex; padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; color: #60a5fa; font-size: 0.85rem; font-weight: 500; }
+  .product-desc { font-size: 0.95rem; line-height: 1.8; color: rgba(255, 255, 255, 0.65); }
+
+  /* Info column */
   .info-column { animation: fadeInRight 0.6s ease-out; }
-  .product-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 10px; font-size: 0.8rem; font-weight: 600; }
-  .badge-category { background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.1)); border: 1px solid rgba(234, 179, 8, 0.3); color: #eab308; }
-  .badge-type { background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #a78bfa; }
-  .badge-stock { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #22c55e; }
-  .badge-out { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
-  .product-title { font-size: 2.25rem; font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 24px; letter-spacing: -0.02em; }
-  .price-box { margin-bottom: 28px; padding: 20px 24px; background: linear-gradient(135deg, rgba(234, 179, 8, 0.08), rgba(234, 179, 8, 0.04)); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 18px; }
-  .price-main { display: flex; align-items: baseline; gap: 10px; }
-  .price-value { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #eab308, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em; }
-  .price-currency { color: rgba(255, 255, 255, 0.4); font-size: 1rem; font-weight: 500; }
-  .price-note { margin-top: 6px; font-size: 0.8rem; color: rgba(255, 255, 255, 0.4); }
-  .variants-section { margin-bottom: 28px; padding: 24px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 20px; }
-  .variants-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-  .variants-header svg { color: #eab308; }
-  .variants-header h3 { font-size: 1.1rem; font-weight: 700; color: #fff; }
-  .variant-group { margin-bottom: 20px; }
+  .product-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .badge-category { background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.25); color: #eab308; }
+  .badge-type { background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); color: #a78bfa; }
+
+  /* Title serif, como la referencia */
+  .product-title { font-size: 2.25rem; font-weight: 900; color: #fff; line-height: 1.15; margin-bottom: 12px; letter-spacing: -0.02em; }
+
+  /* Price simple */
+  .price-box { display: flex; align-items: baseline; gap: 8px; margin-bottom: 18px; }
+  .price-value { font-size: 1.6rem; font-weight: 700; color: #eab308; letter-spacing: -0.01em; }
+  .price-currency { color: rgba(255, 255, 255, 0.35); font-size: 0.85rem; font-weight: 500; }
+
+  /* ⭐ Chips de beneficios (outline compactos) */
+  .benefit-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; padding: 0; list-style: none; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px; font-size: 0.76rem; font-weight: 500; color: rgba(255, 255, 255, 0.75); background: rgba(255, 255, 255, 0.02); }
+  .chip svg { color: #eab308; flex-shrink: 0; }
+
+  /* 💳 Línea Mercado Pago */
+  .mp-line { margin-bottom: 18px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; background: rgba(255, 255, 255, 0.02); }
+  .mp-line summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; user-select: none; }
+  .mp-line summary::-webkit-details-marker { display: none; }
+  .mp-dot { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: rgba(234, 179, 8, 0.15); border-radius: 50%; color: #eab308; flex-shrink: 0; }
+  .mp-text { flex: 1; font-size: 0.83rem; color: rgba(255, 255, 255, 0.7); }
+  .mp-text strong { color: #fff; }
+  .mp-more { font-size: 0.78rem; color: #eab308; text-decoration: underline; white-space: nowrap; }
+  .mp-steps { margin: 0; padding: 4px 14px 8px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .mp-steps li { display: flex; align-items: flex-start; gap: 10px; }
+  .mp-step-num { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 50%; color: #eab308; font-size: 0.7rem; font-weight: 800; flex-shrink: 0; }
+  .mp-steps p { font-size: 0.82rem; color: rgba(255, 255, 255, 0.6); line-height: 1.5; }
+  .mp-steps strong { color: rgba(255, 255, 255, 0.9); }
+  .mp-disclaimer { padding: 4px 14px 14px; font-size: 0.7rem; color: rgba(255, 255, 255, 0.35); }
+
+  /* 🟢 Línea de stock con subrayado */
+  .stock-line { display: inline-block; margin-bottom: 20px; padding-bottom: 8px; font-size: 0.88rem; font-weight: 600; }
+  .stock-line.in { color: #22c55e; border-bottom: 2px solid rgba(34, 197, 94, 0.6); }
+  .stock-line.out { color: #ef4444; border-bottom: 2px solid rgba(239, 68, 68, 0.6); }
+
+  /* Variants */
+  .variants-section { margin-bottom: 24px; }
+  .variant-group { margin-bottom: 18px; }
   .variant-group:last-of-type { margin-bottom: 0; }
-  .variant-label { display: block; font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-bottom: 12px; text-transform: capitalize; }
-  .variant-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .variant-option { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 2px solid rgba(255, 255, 255, 0.08); border-radius: 14px; color: #fff; text-align: left; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-  .variant-option:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); border-color: rgba(234, 179, 8, 0.4); transform: translateY(-2px); }
-  .variant-option.selected { background: rgba(234, 179, 8, 0.1); border-color: #eab308; }
-  .variant-option.out-of-stock { opacity: 0.4; cursor: not-allowed; }
-  .variant-main { display: flex; justify-content: space-between; align-items: center; }
-  .variant-value { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.95rem; }
-  .has-img { font-size: 0.85rem; }
-  .price-adj { font-size: 0.8rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .variant-label { display: block; font-size: 0.88rem; font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-bottom: 10px; text-transform: capitalize; }
+  .variant-selected-value { color: #fff; font-weight: 700; margin-left: 6px; }
+  .variant-options { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  /* Pills de texto */
+  .variant-option { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: rgba(255, 255, 255, 0.03); border: 1.5px solid rgba(255, 255, 255, 0.14); border-radius: 10px; color: #fff; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+  .variant-option:hover:not(:disabled) { border-color: rgba(234, 179, 8, 0.5); background: rgba(234, 179, 8, 0.06); }
+  .variant-option.selected { background: rgba(234, 179, 8, 0.12); border-color: #eab308; color: #fbbf24; }
+  .variant-option.out-of-stock { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+  .variant-option:focus-visible { outline: 2px solid #eab308; outline-offset: 2px; }
+
+  /* 🎨 Swatches de color (cuadritos, como la referencia) */
+  .variant-swatch { padding: 4px; width: 52px; height: 52px; border-radius: 10px; justify-content: center; text-decoration: none !important; }
+  .variant-swatch .swatch-color { display: block; width: 100%; height: 100%; border-radius: 7px; border: 1px solid rgba(0, 0, 0, 0.25); }
+  .variant-swatch.selected { border-color: #eab308; box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.25); }
+  .variant-swatch.out-of-stock { opacity: 0.3; }
+  .variant-swatch.out-of-stock::after { content: ''; position: absolute; inset: 6px; background: linear-gradient(to top right, transparent 46%, #ef4444 48%, #ef4444 52%, transparent 54%); border-radius: 7px; }
+
+  .price-adj { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
   .price-adj.pos { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
   .price-adj.neg { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-  .variant-stock { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); }
-  .select-dot { position: absolute; top: 12px; right: 12px; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%; transition: all 0.2s ease; }
-  .variant-option.selected .select-dot { border-color: #eab308; background: #eab308; }
-  .variant-option.selected .select-dot::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background: #000; border-radius: 50%; }
-  .variant-info { margin-top: 16px; padding: 16px; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 12px; }
+  .variant-info { margin-top: 16px; padding: 14px 16px; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 12px; }
   .variant-info.hidden { display: none; }
-  .info-row { display: flex; justify-content: space-between; align-items: center; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
   .info-row > div { display: flex; flex-direction: column; gap: 4px; }
   .info-label { font-size: 0.75rem; color: rgba(255, 255, 255, 0.5); }
   .info-val { font-weight: 700; color: #fff; }
   .info-sku { font-family: monospace; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
-  .piercing-section, .desc-section { margin-bottom: 24px; }
-  .section-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; color: rgba(255, 255, 255, 0.6); margin-bottom: 12px; }
-  .section-label svg { color: #eab308; }
-  .piercing-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-  .piercing-tag { display: inline-flex; padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; color: #60a5fa; font-size: 0.85rem; font-weight: 500; }
-  .product-desc { font-size: 1rem; line-height: 1.8; color: rgba(255, 255, 255, 0.7); }
-  .shipping-card { display: flex; align-items: center; gap: 16px; padding: 18px 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; margin-bottom: 28px; }
-  .shipping-icon { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: rgba(234, 179, 8, 0.15); border-radius: 14px; color: #eab308; flex-shrink: 0; }
-  .shipping-text { flex: 1; }
-  .shipping-title { font-weight: 700; color: #fff; font-size: 0.95rem; }
-  .shipping-sub { font-size: 0.8rem; color: rgba(255, 255, 255, 0.5); margin-top: 2px; }
-  .shipping-check { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); border-radius: 50%; color: #22c55e; flex-shrink: 0; }
-  .cart-section { padding: 24px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 20px; margin-bottom: 28px; }
-  .qty-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+  /* Cart */
+  .cart-section { padding: 22px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; margin-bottom: 18px; }
+  .qty-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
   .qty-label { font-size: 0.9rem; font-weight: 600; color: rgba(255, 255, 255, 0.7); }
   .qty-controls { display: flex; align-items: center; gap: 12px; }
-  .qty-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #fff; cursor: pointer; transition: all 0.2s ease; }
+  .qty-btn { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; cursor: pointer; transition: all 0.2s ease; }
   .qty-btn:hover { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); color: #eab308; }
-  .qty-input { width: 70px; height: 44px; text-align: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: #fff; font-size: 1.1rem; font-weight: 700; }
+  .qty-input { width: 66px; height: 42px; text-align: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: #fff; font-size: 1.05rem; font-weight: 700; }
   .qty-input:focus { outline: none; border-color: #eab308; }
-  .add-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 32px; background: linear-gradient(135deg, #eab308 0%, #f59e0b 100%); border: none; border-radius: 16px; color: #000; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 20px rgba(234, 179, 8, 0.3); }
-  .add-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(234, 179, 8, 0.4); }
+  /* Botón ancho, uppercase, como la referencia */
+  .add-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px 28px; background: linear-gradient(135deg, #eab308 0%, #f59e0b 100%); border: none; border-radius: 10px; color: #000; font-size: 0.95rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 20px rgba(234, 179, 8, 0.25); }
+  .add-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(234, 179, 8, 0.35); }
   .add-btn:disabled { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.4); cursor: not-allowed; box-shadow: none; }
-  .msg { margin-top: 16px; padding: 14px 18px; border-radius: 12px; font-size: 0.9rem; font-weight: 500; }
+  .msg { margin-top: 14px; padding: 13px 16px; border-radius: 12px; font-size: 0.88rem; font-weight: 500; }
   .msg.hidden { display: none; }
   .msg.info { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #60a5fa; }
   .msg.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; }
   .msg.success { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); color: #22c55e; }
-  .trust-badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .trust-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 14px; }
-  .trust-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(234, 179, 8, 0.1); border-radius: 10px; color: #eab308; flex-shrink: 0; }
-  .trust-text { display: flex; flex-direction: column; gap: 2px; }
-  .trust-title { font-size: 0.85rem; font-weight: 600; color: #fff; }
-  .trust-desc { font-size: 0.75rem; color: rgba(255, 255, 255, 0.4); }
+  .tax-note { margin-top: 14px; font-size: 0.8rem; color: rgba(255, 255, 255, 0.45); text-align: center; }
+  .tax-link { color: rgba(255, 255, 255, 0.6); text-decoration: underline; }
+  .tax-link:hover { color: #eab308; }
+
+  /* 📦 Caja de info apilada con divisores */
+  .info-box { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px; overflow: hidden; background: rgba(255, 255, 255, 0.02); }
+  .info-box-row { display: flex; align-items: center; gap: 12px; padding: 15px 18px; font-size: 0.85rem; color: rgba(255, 255, 255, 0.7); border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+  .info-box-row:last-child { border-bottom: none; }
+  .info-box-row svg { color: #eab308; flex-shrink: 0; }
+  .info-box-row.link { text-decoration: none; transition: background 0.2s ease; }
+  .info-box-row.link:hover { background: rgba(37, 211, 102, 0.06); }
+  .info-box-row.link svg { color: #25d366; }
+  .info-box-row.link u { color: rgba(255, 255, 255, 0.9); }
+
+  /* Gallery */
   .gallery-section { padding-top: 48px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
   .gallery-header { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; }
   .header-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); }
@@ -624,9 +780,19 @@ if (product.hasVariants && variantsData) {
   .overlay-text { color: #fff; font-size: 0.85rem; font-weight: 600; }
   .gallery-counter { position: absolute; top: 12px; right: 12px; padding: 6px 12px; background: rgba(0, 0, 0, 0.7); border-radius: 20px; color: #fff; font-size: 0.75rem; font-weight: 600; opacity: 0; transition: opacity 0.3s ease; }
   .gallery-item:hover .gallery-counter { opacity: 1; }
-  .gallery-info { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 28px; color: rgba(255, 255, 255, 0.5); font-size: 0.9rem; }
-  .gallery-info svg { color: #eab308; }
-  .gallery-info strong { color: #eab308; }
+
+  /* 🛍️ Relacionados */
+  .related-section { padding-top: 48px; margin-top: 48px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .related-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .related-card { display: block; text-decoration: none; border-radius: 16px; overflow: hidden; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); transition: all 0.3s ease; }
+  .related-card:hover { border-color: rgba(234, 179, 8, 0.4); transform: translateY(-4px); }
+  .related-img { aspect-ratio: 1; overflow: hidden; }
+  .related-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+  .related-card:hover .related-img img { transform: scale(1.06); }
+  .related-name { padding: 12px 14px 4px; color: #fff; font-size: 0.9rem; font-weight: 600; }
+  .related-price { padding: 0 14px 14px; color: #eab308; font-size: 0.95rem; font-weight: 800; }
+
+  /* Lightbox */
   .lightbox { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; }
   .lightbox.open { display: flex; }
   .lb-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); }
@@ -640,14 +806,43 @@ if (product.hasVariants && variantsData) {
   .lb-content { position: relative; }
   .lb-content img { width: 100%; max-height: 80vh; object-fit: contain; border-radius: 16px; }
   .lb-counter { position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%); padding: 8px 20px; background: rgba(255, 255, 255, 0.1); border-radius: 20px; color: #fff; font-size: 0.9rem; font-weight: 600; }
+
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
   @keyframes fadeInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
   .animate-spin { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  @media (max-width: 1024px) { .product-grid { grid-template-columns: 1fr; gap: 40px; } .images-column { position: static; } .mobile-trust { display: grid; } .trust-badges { display: none; } .gallery-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 768px) { .product-detail-page { padding: 16px 0 60px; } .product-title { font-size: 1.75rem; } .price-value { font-size: 2rem; } .variant-options { grid-template-columns: 1fr; } .thumbnails-grid { grid-template-columns: repeat(4, 1fr); } .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
-  @media (max-width: 480px) { .product-container { padding: 0 16px; } .breadcrumb { padding: 10px 14px; gap: 6px; font-size: 0.8rem; overflow-x: auto; } .breadcrumb-current { max-width: 120px; } .product-badges { gap: 8px; } .badge { padding: 6px 12px; font-size: 0.7rem; } .price-box { padding: 16px 20px; } .thumbnails-grid { grid-template-columns: repeat(3, 1fr); } .mobile-trust { gap: 8px; } .trust-mini { padding: 10px 6px; } .trust-mini span { font-size: 0.65rem; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .images-column, .info-column, .breadcrumb { animation: none; }
+    .gallery-item, .related-card, .add-btn, .thumb-btn { transition: none; }
+  }
+
+  @media (max-width: 1024px) {
+    .product-grid { grid-template-columns: 1fr; gap: 40px; }
+    .gallery-grid { grid-template-columns: repeat(3, 1fr); }
+    .related-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .product-detail-page { padding-bottom: 60px; }
+    .product-title { font-size: 1.9rem; }
+    /* Miniaturas horizontales abajo en móvil */
+    .media-wrap { grid-template-columns: 1fr; }
+    .thumbnails-col { flex-direction: row; order: 2; max-height: none; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+    .thumb-btn { width: 72px; }
+    .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  }
+  @media (max-width: 480px) {
+    .product-container { padding: 0 16px; }
+    .announcement-bar { font-size: 0.75rem; padding: 8px 12px; }
+    .breadcrumb { padding: 10px 14px; gap: 6px; font-size: 0.8rem; overflow-x: auto; }
+    .breadcrumb-current { max-width: 120px; }
+    .product-title { font-size: 1.65rem; }
+    .thumb-btn { width: 62px; }
+    .chip { padding: 6px 10px; font-size: 0.7rem; }
+    .variant-swatch { width: 46px; height: 46px; }
+    .related-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  }
 </style>
 
 <script>
@@ -689,7 +884,7 @@ if (product.hasVariants && variantsData) {
     const combinationsDataInput = document.getElementById("combinations-data") as HTMLInputElement;
     const combinationsData = combinationsDataInput ? JSON.parse(combinationsDataInput.value) : [];
     const priceElement = document.getElementById("product-price");
-    const stockBadge = document.getElementById("stock-badge");
+    const stockLine = document.getElementById("stock-badge");
     const variantInfo = document.getElementById("variant-info");
     const selectedCombination = document.getElementById("selected-combination");
     const combinationSku = document.getElementById("combination-sku");
@@ -782,10 +977,12 @@ if (product.hasVariants && variantsData) {
 
       if (priceElement) priceElement.textContent = formatCurrency(combo.price);
 
-      if (stockBadge) {
+      if (stockLine) {
         const isInStock = combo.stock > 0;
-        stockBadge.className = `badge ${isInStock ? 'badge-stock' : 'badge-out'}`;
-        stockBadge.textContent = isInStock ? `${combo.stock} en stock` : 'Agotado';
+        stockLine.className = `stock-line ${isInStock ? 'in' : 'out'}`;
+        stockLine.textContent = isInStock
+          ? `En stock, listo para ser enviado (${combo.stock} disp.)`
+          : 'Agotado temporalmente';
       }
 
       if (variantInfo && selectedCombination && combinationSku) {
@@ -801,7 +998,7 @@ if (product.hasVariants && variantsData) {
       addBtn.innerHTML = isOutOfStock
         ? '<span>Sin stock disponible</span>'
         : `
-          <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
             <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
           </svg>
           <span>Añadir al carrito</span>`;
@@ -822,6 +1019,7 @@ if (product.hasVariants && variantsData) {
     function selectVariantOption(button: HTMLElement): void {
       const variantName = button.dataset.variantName;
       const variantId = button.dataset.variantId;
+      const variantValue = button.dataset.variantValue;
       const hasImage = button.dataset.hasImage === 'true';
       const group = button.closest('.variant-group');
       
@@ -833,6 +1031,12 @@ if (product.hasVariants && variantsData) {
       
       button.classList.add('selected');
       selectedVariants[variantName] = variantId;
+
+      // ✅ Mostrar el valor seleccionado junto al label (estilo Shopify: "Color: Plateado")
+      const selectedValueEl = group.querySelector('.variant-selected-value');
+      if (selectedValueEl && variantValue) {
+        selectedValueEl.textContent = variantValue;
+      }
       
       // Solo actualizar imagen por variante individual si NO hay combinaciones
       // Si hay combinaciones, updateCombination se encarga de la imagen
@@ -872,7 +1076,7 @@ if (product.hasVariants && variantsData) {
       isAddingToCart = true;
       addBtn.disabled = true;
       addBtn.innerHTML = `
-        <svg class="animate-spin" width="22" height="22" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin" width="20" height="20" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
@@ -948,7 +1152,7 @@ if (product.hasVariants && variantsData) {
         isAddingToCart = false;
         addBtn.disabled = false;
         addBtn.innerHTML = `
-          <svg width="22" height="22" fill="currentColor" viewBox="0 0 20 20">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
             <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
           </svg>
           <span>Añadir al carrito</span>
@@ -1006,6 +1210,14 @@ if (product.hasVariants && variantsData) {
 
     galleryImages.forEach((item, index) => {
       item.addEventListener('click', () => openLightbox(index));
+    });
+
+    // Las miniaturas también abren el lightbox
+    document.querySelectorAll('[data-gallery-thumb]').forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const index = parseInt((thumb as HTMLElement).dataset.index || '0');
+        if (totalImages > 0) openLightbox(Math.min(index, totalImages - 1));
+      });
     });
     
     document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);

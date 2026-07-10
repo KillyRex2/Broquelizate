@@ -132,7 +132,12 @@ const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
               {products.map((product, index) => {
                 const displayPrice = product.variantPrice ?? product.price;
                 const hasVariant = product.variantCombination || product.variantId;
-                const productImage = product.variantImage || product.image;
+                const rawImage = product.variantImage || product.image;
+                const productImage = !rawImage
+                  ? '/images/products/no-image.png'
+                  : rawImage.startsWith('http') || rawImage.startsWith('/')
+                    ? rawImage
+                    : `${import.meta.env.PUBLIC_URL}/images/products/${rawImage}`;
                 const isVariantImage = !!product.variantImage;
                 
                 return (

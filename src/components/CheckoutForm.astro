@@ -152,6 +152,16 @@ const productsData = products.map(p => {
                 <div class="payment-check"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
               </div>
             </label>
+            <label class="payment-option">
+          <input id="mercadopago" type="radio" name="payment-method" class="payment-radio" />
+          <div class="payment-option-content">
+            <div class="payment-option-main">
+              <span class="mp-logo">Mercado Pago</span>
+              <span class="mp-badge">Tarjetas · OXXO · SPEI · MSI</span>
+            </div>
+            <div class="payment-check"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+          </div>
+      </label>
           </div>
 
           <div id="card-form" class="card-form hidden">
@@ -168,6 +178,13 @@ const productsData = products.map(p => {
           </div>
 
           <div id="paypal-container" class="paypal-container hidden"><div id="paypal-button-container" class="paypal-buttons"></div></div>
+          <div id="mercadopago-container" class="mercadopago-container hidden">
+          <p class="mp-helper">Serás redirigido a Mercado Pago para completar tu pago de forma segura. Puedes pagar con tarjeta, efectivo en OXXO, transferencia SPEI o a meses sin intereses.</p>
+          <button type="button" id="submit-mp-payment" class="mp-button">
+            <span>Pagar con Mercado Pago</span>
+            <span class="pay-button-amount" id="mp-button-amount">{Formatter.currency(total)}</span>
+          </button>
+        </div>
         </section>
 
         <div class="security-badges">
@@ -311,6 +328,13 @@ const productsData = products.map(p => {
   .pay-button-amount { padding: 4px 12px; background: rgba(0, 0, 0, 0.15); border-radius: 6px; font-size: 0.9rem; }
   .paypal-container { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
   .paypal-container.hidden { display: none; }
+  .mercadopago-container { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .mercadopago-container.hidden { display: none; }
+  .mp-logo { font-size: 0.95rem; font-weight: 600; color: #009ee3; }
+  .mp-badge { font-size: 0.7rem; color: rgba(255,255,255,0.5); padding: 3px 8px; background: rgba(0,158,227,0.12); border-radius: 20px; }
+  .mp-helper { font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-bottom: 16px; line-height: 1.5; }
+  .mp-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 32px; background: #009ee3; border: none; border-radius: 14px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 4px 20px rgba(0,158,227,0.3); }
+  .mp-button:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 12px 35px rgba(0,158,227,0.4); background: #00b1ea; }
   .paypal-buttons { min-height: 150px; }
   .security-badges { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; }
   .security-item { display: flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.4); font-size: 0.85rem; }
@@ -536,6 +560,78 @@ function loadShippingInfo() {
     }
   }
 
+  async function processMercadoPago(): Promise<void> {
+  if (isProcessing) return;
+
+  const v = validateForm();
+  if (!v.valid) { await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return; }
+
+  const d = getCheckoutData();
+  if (!d) { await Alert.error('Error', 'Sin datos del pedido'); return; }
+
+  const email = (document.getElementById('email') as HTMLInputElement)?.value.trim();
+  let userData: any = {};
+  try { userData = JSON.parse(document.getElementById('user-data')?.textContent || '{}'); } catch {}
+  const customerName = userData.name || email;
+
+  const sa = (document.getElementById('street-address') as HTMLInputElement)?.value.trim();
+  const nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim();
+  const ct = (document.getElementById('city') as HTMLInputElement)?.value.trim();
+  const st = (document.getElementById('state') as HTMLInputElement)?.value.trim();
+  const pc = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim();
+  const ph = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
+  const dn = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value || '';
+
+  const cs = selectedShipping;
+  const shippingInfo = cs ? { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
+
+  // Mismo shape que usa createOrder; se guarda para crear el pedido al volver de MP.
+  const orderPayload = {
+    customerEmail: email,
+    customerName,
+    shippingAddress: { streetAddress: sa, neighborhood: nb, city: ct, state: st, postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn },
+    shippingInfo,
+    products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null })),
+    subtotal: d.totalValue - d.shippingValue,
+    shippingCost: d.shippingValue,
+    tax: d.taxValue,
+    total: d.totalValue,
+    paymentMethod: 'mercadopago',
+    paymentIntentId: null,
+    clientId: null,
+  };
+
+  isProcessing = true;
+  const loadingId = Toast.loading('Redirigiendo a Mercado Pago...');
+  try {
+    const res = await fetch('/api/create-mercadopago-preference', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        products: orderPayload.products,
+        subtotal: orderPayload.subtotal,
+        shippingCost: orderPayload.shippingCost,
+        total: orderPayload.total,
+        customerEmail: email,
+        customerName,
+        phone: ph,
+        shippingInfo,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.initPoint) throw new Error(data.error || 'No se pudo iniciar Mercado Pago');
+
+    localStorage.setItem(`mp_order_${data.externalReference}`, JSON.stringify(orderPayload));
+    Toast.dismiss(loadingId);
+    window.location.href = data.initPoint; // redirige a Checkout Pro
+  } catch (e) {
+    Toast.dismiss(loadingId);
+    isProcessing = false;
+    await Alert.error('Error', e instanceof Error ? e.message : 'Error al iniciar Mercado Pago');
+  }
+}
+
+
   function getCheckoutData() {
     const pd = document.getElementById('products-data'), pi = document.getElementById('products-images'), txd = document.getElementById('tax-data'), td = document.getElementById('total-data');
     if (!pd || !txd || !td) return null;
@@ -560,13 +656,18 @@ function loadShippingInfo() {
     }); 
   }
 
-  function updatePaymentVis() {
-    const sm = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement; if (!sm) return;
-    const cf = document.getElementById('card-form'), pc = document.getElementById('paypal-container');
-    if (cf) cf.classList.add('hidden'); if (pc) pc.classList.add('hidden');
-    if (sm.id === 'card') { if (cf) cf.classList.remove('hidden'); initStripe(); }
-    else if (sm.id === 'paypal') { if (pc) pc.classList.remove('hidden'); initPayPal(); }
-  }
+function updatePaymentVis() {
+  const sm = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement; if (!sm) return;
+  const cf = document.getElementById('card-form'),
+        pc = document.getElementById('paypal-container'),
+        mp = document.getElementById('mercadopago-container');
+  if (cf) cf.classList.add('hidden');
+  if (pc) pc.classList.add('hidden');
+  if (mp) mp.classList.add('hidden');
+  if (sm.id === 'card') { if (cf) cf.classList.remove('hidden'); initStripe(); }
+  else if (sm.id === 'paypal') { if (pc) pc.classList.remove('hidden'); initPayPal(); }
+  else if (sm.id === 'mercadopago') { if (mp) mp.classList.remove('hidden'); }
+}
 
   async function createOrder(pm: string, piid?: string) {
     const em = (document.getElementById('email') as HTMLInputElement)?.value, chn = (document.getElementById('card-holder-name') as HTMLInputElement)?.value, sa = (document.getElementById('street-address') as HTMLInputElement)?.value, nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value, ct = (document.getElementById('city') as HTMLInputElement)?.value, st = (document.getElementById('state') as HTMLInputElement)?.value, pc = (document.getElementById('postal-code') as HTMLInputElement)?.value, ph = (document.getElementById('phone') as HTMLInputElement)?.value, dn = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value || '';
@@ -655,6 +756,7 @@ function loadShippingInfo() {
     setupFormValidation();
     document.querySelectorAll('input[name="payment-method"]').forEach(r => r.addEventListener('change', updatePaymentVis));
     document.getElementById('submit-card-payment')?.addEventListener('click', e => { e.preventDefault(); processCard(); });
+    document.getElementById('submit-mp-payment')?.addEventListener('click', e => { e.preventDefault(); processMercadoPago(); });
     updatePaymentVis();
 
     // ✅ Escucha eventos del ShippingCalculator

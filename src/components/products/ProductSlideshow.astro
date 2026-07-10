@@ -12,9 +12,11 @@ const fullImages = images.map(image => {
         ? image
         : `/images/products/${image}`;
 });
+
+const isSingle = fullImages.length <= 1;
 ---
 
-<div class="product-slider" data-slider-id={sliderId} data-images={JSON.stringify(fullImages)}>
+<div class="product-slider" data-slider-id={sliderId} data-images={JSON.stringify(fullImages)} tabindex="0" aria-label="Galería del producto">
     <div class="slider-container">
         <div class="slider-wrapper">
             {fullImages.map((image, index) => (
@@ -24,27 +26,27 @@ const fullImages = images.map(image => {
                         alt={`Producto ${index + 1}`}
                         loading={index === 0 ? "eager" : "lazy"}
                         class="slide-image"
+                        draggable="false"
                     />
                 </div>
             ))}
         </div>
         
-        <!-- Flechas de navegación -->
-        {fullImages.length > 1 && (
-            <button class="nav-arrow nav-prev" data-nav="prev" aria-label="Anterior">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                </svg>
-            </button>
-            <button class="nav-arrow nav-next" data-nav="next" aria-label="Siguiente">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-            </button>
-        )}
+        <!-- Flechas de navegación (siempre en el DOM; se ocultan con .single
+             para que sigan existiendo si una variante cambia el nº de imágenes) -->
+        <button class={`nav-arrow nav-prev ${isSingle ? 'single' : ''}`} data-nav="prev" aria-label="Anterior">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <button class={`nav-arrow nav-next ${isSingle ? 'single' : ''}`} data-nav="next" aria-label="Siguiente">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </button>
 
         <!-- Indicadores -->
-        <div class="indicators">
+        <div class={`indicators ${isSingle ? 'single' : ''}`}>
             {fullImages.map((_, index) => (
                 <button 
                     class={`indicator ${index === 0 ? 'active' : ''}`} 
@@ -57,7 +59,7 @@ const fullImages = images.map(image => {
         </div>
         
         <!-- Contador -->
-        <div class="counter">
+        <div class={`counter ${isSingle ? 'single' : ''}`}>
             <span class="current">1</span> / <span class="total">{fullImages.length}</span>
         </div>
     </div>
@@ -68,14 +70,27 @@ const fullImages = images.map(image => {
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
+        outline: none;
+    }
+
+    .product-slider:focus-visible .slider-container {
+        border-color: rgba(234, 179, 8, 0.5);
     }
     
+    /* ========================================
+       CONTENEDOR: altura adaptativa (cuadrado),
+       la foto ocupa casi todo el espacio
+       ======================================== */
     .slider-container {
         position: relative;
         width: 100%;
-        height: 450px;
-        background: #1a1a1a;
-        border-radius: 16px;
+        aspect-ratio: 1 / 1;
+        max-height: 600px;
+        background:
+            radial-gradient(circle at 30% 20%, rgba(234, 179, 8, 0.05), transparent 55%),
+            #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 20px;
         overflow: hidden;
     }
     
@@ -90,19 +105,16 @@ const fullImages = images.map(image => {
        ======================================== */
     .slide {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        inset: 0;
         display: flex;
         justify-content: center;
         align-items: center;
+        padding: 14px;
         opacity: 0;
         visibility: hidden;
         transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
                     visibility 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 1;
-        background: transparent;
     }
     
     .slide.active {
@@ -112,33 +124,27 @@ const fullImages = images.map(image => {
     }
     
     .slide img {
-        max-width: 90%;
-        max-height: 90%;
-        width: auto;
-        height: auto;
+        width: 100%;
+        height: 100%;
         object-fit: contain;
         display: block;
-        border: 1.5px solid rgba(234, 179, 8, 0.15);
         border-radius: 12px;
-        padding: 8px;
-        background: rgba(30, 30, 30, 0.5);
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3),
-                    0 0 0 1px rgba(255, 255, 255, 0.03);
+        user-select: none;
         transform: scale(1);
-        transition: transform 8s cubic-bezier(0.25, 0.1, 0.25, 1),
-                    border-color 0.4s ease,
-                    box-shadow 0.4s ease;
+        transition: transform 8s cubic-bezier(0.25, 0.1, 0.25, 1);
     }
 
     /* Ken Burns sutil — zoom lento mientras el slide está activo */
     .slide.active img {
         transform: scale(1.03);
     }
-    
-    .slide img:hover {
-        border-color: rgba(234, 179, 8, 0.35);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
-                    0 0 0 1px rgba(234, 179, 8, 0.1);
+
+    /* Zoom suave al pasar el mouse (desktop) */
+    @media (hover: hover) {
+        .slider-container:hover .slide.active img {
+            transform: scale(1.07);
+            transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
     }
 
     /* ========================================
@@ -149,16 +155,16 @@ const fullImages = images.map(image => {
         top: 50%;
         transform: translateY(-50%);
         z-index: 10;
-        width: 40px;
-        height: 40px;
+        width: 42px;
+        height: 42px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.55);
         backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 50%;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(255, 255, 255, 0.75);
         cursor: pointer;
         opacity: 0;
         transition: opacity 0.3s ease, 
@@ -167,7 +173,9 @@ const fullImages = images.map(image => {
                     transform 0.3s ease;
     }
 
-    .slider-container:hover .nav-arrow {
+    .nav-arrow.single { display: none; }
+
+    .slider-container:hover .nav-arrow:not(.single) {
         opacity: 1;
     }
 
@@ -189,9 +197,10 @@ const fullImages = images.map(image => {
        ======================================== */
     .indicators {
         position: absolute;
-        bottom: 20px;
+        bottom: 18px;
         left: 50%;
         transform: translateX(-50%);
+        z-index: 10;
         display: flex;
         gap: 6px;
         background: rgba(0, 0, 0, 0.6);
@@ -200,6 +209,8 @@ const fullImages = images.map(image => {
         border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.06);
     }
+
+    .indicators.single { display: none; }
     
     .indicator {
         position: relative;
@@ -246,6 +257,7 @@ const fullImages = images.map(image => {
         position: absolute;
         top: 16px;
         right: 16px;
+        z-index: 10;
         background: rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(12px);
         color: rgba(255, 255, 255, 0.7);
@@ -259,7 +271,9 @@ const fullImages = images.map(image => {
         transition: opacity 0.3s ease;
     }
 
-    .slider-container:hover .counter {
+    .counter.single { display: none; }
+
+    .slider-container:hover .counter:not(.single) {
         opacity: 1;
     }
     
@@ -267,19 +281,28 @@ const fullImages = images.map(image => {
         color: #eab308;
         font-weight: 700;
     }
+
+    @media (prefers-reduced-motion: reduce) {
+        .slide img,
+        .slide.active img,
+        .slider-container:hover .slide.active img {
+            transform: none;
+            transition: none;
+        }
+    }
     
     /* ========================================
        RESPONSIVE
        ======================================== */
     @media (max-width: 768px) {
         .slider-container {
-            height: 350px;
+            max-height: 480px;
         }
         
-        .nav-arrow {
+        .nav-arrow:not(.single) {
             opacity: 1;
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
         }
 
         .nav-prev { left: 10px; }
@@ -290,7 +313,7 @@ const fullImages = images.map(image => {
             padding: 6px 12px;
         }
         
-        .counter {
+        .counter:not(.single) {
             opacity: 1;
             top: 12px;
             right: 12px;
@@ -301,13 +324,15 @@ const fullImages = images.map(image => {
     
     @media (max-width: 480px) {
         .slider-container {
-            height: 300px;
-            border-radius: 12px;
+            max-height: 400px;
+            border-radius: 14px;
         }
 
-        .nav-arrow {
-            width: 32px;
-            height: 32px;
+        .slide { padding: 10px; }
+
+        .nav-arrow:not(.single) {
+            width: 34px;
+            height: 34px;
         }
 
         .nav-arrow svg {
@@ -320,91 +345,81 @@ const fullImages = images.map(image => {
 <script>
     const slidersInitialized = new Set<string>();
 
-    function updateSliderImages(sliderId: string, newImages: string[]): void {
-        const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
-        if (!slider) return;
+    // Muestra u oculta flechas / indicadores / contador según el nº de imágenes
+    function toggleControls(slider: Element, count: number): void {
+        const single = count <= 1;
+        slider.querySelectorAll('.nav-arrow').forEach(el => el.classList.toggle('single', single));
+        slider.querySelector('.indicators')?.classList.toggle('single', single);
+        slider.querySelector('.counter')?.classList.toggle('single', single);
+    }
 
+    function buildSlides(slider: Element, newImages: string[], sliderId: string): void {
         const wrapper = slider.querySelector('.slider-wrapper');
         const indicators = slider.querySelector('.indicators');
         const totalSpan = slider.querySelector('.counter .total');
         const currentSpan = slider.querySelector('.counter .current');
-        
         if (!wrapper || !indicators) return;
 
-        // Obtener el slide activo actual para hacer crossfade
+        wrapper.innerHTML = '';
+        indicators.innerHTML = '';
+
+        newImages.forEach((image, index) => {
+            const slide = document.createElement('div');
+            slide.className = `slide ${index === 0 ? 'active' : ''}`;
+            slide.dataset.index = index.toString();
+            slide.innerHTML = `<img src="${image}" alt="Producto ${index + 1}" loading="${index === 0 ? 'eager' : 'lazy'}" class="slide-image" draggable="false" />`;
+            wrapper.appendChild(slide);
+
+            const indicator = document.createElement('button');
+            indicator.className = `indicator ${index === 0 ? 'active' : ''}`;
+            indicator.dataset.index = index.toString();
+            indicator.setAttribute('aria-label', `Ir a imagen ${index + 1}`);
+            indicator.innerHTML = '<span class="indicator-fill"></span>';
+            indicator.addEventListener('click', () => showSlide(sliderId, index));
+            indicators.appendChild(indicator);
+        });
+
+        if (totalSpan) totalSpan.textContent = newImages.length.toString();
+        if (currentSpan) currentSpan.textContent = '1';
+        slider.setAttribute('data-images', JSON.stringify(newImages));
+        toggleControls(slider, newImages.length);
+    }
+
+    function updateSliderImages(sliderId: string, newImages: string[]): void {
+        const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
+        if (!slider || !newImages?.length) return;
+
+        const wrapper = slider.querySelector('.slider-wrapper');
+        if (!wrapper) return;
+
+        // Evitar trabajo si son exactamente las mismas imágenes
+        const currentImages = slider.getAttribute('data-images');
+        if (currentImages === JSON.stringify(newImages)) return;
+
         const currentActive = wrapper.querySelector('.slide.active') as HTMLElement;
 
-        // Si hay un slide activo, hacer crossfade
         if (currentActive) {
-            // Crear el nuevo slide encima con opacity 0
+            // Crossfade: nuevo slide encima con opacity 0 → 1
             const newSlide = document.createElement('div');
             newSlide.className = 'slide';
             newSlide.dataset.index = '0';
             newSlide.style.opacity = '0';
             newSlide.style.visibility = 'visible';
             newSlide.style.zIndex = '3';
-            newSlide.innerHTML = `<img src="${newImages[0]}" alt="Producto 1" loading="eager" class="slide-image" />`;
+            newSlide.innerHTML = `<img src="${newImages[0]}" alt="Producto 1" loading="eager" class="slide-image" draggable="false" />`;
             wrapper.appendChild(newSlide);
 
             // Forzar reflow para que la transición funcione
             newSlide.offsetHeight;
 
-            // Fade out del viejo, fade in del nuevo
             currentActive.style.transition = 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
             currentActive.style.opacity = '0';
             newSlide.style.transition = 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
             newSlide.style.opacity = '1';
 
-            // Después de la transición, limpiar y reconstruir
-            setTimeout(() => {
-                wrapper.innerHTML = '';
-                indicators.innerHTML = '';
-
-                newImages.forEach((image, index) => {
-                    const slide = document.createElement('div');
-                    slide.className = `slide ${index === 0 ? 'active' : ''}`;
-                    slide.dataset.index = index.toString();
-                    slide.innerHTML = `<img src="${image}" alt="Producto ${index + 1}" loading="${index === 0 ? 'eager' : 'lazy'}" class="slide-image" />`;
-                    wrapper.appendChild(slide);
-
-                    const indicator = document.createElement('button');
-                    indicator.className = `indicator ${index === 0 ? 'active' : ''}`;
-                    indicator.dataset.index = index.toString();
-                    indicator.setAttribute('aria-label', `Ir a imagen ${index + 1}`);
-                    indicator.innerHTML = '<span class="indicator-fill"></span>';
-                    indicator.addEventListener('click', () => showSlide(sliderId, index));
-                    indicators.appendChild(indicator);
-                });
-
-                if (totalSpan) totalSpan.textContent = newImages.length.toString();
-                if (currentSpan) currentSpan.textContent = '1';
-                slider.setAttribute('data-images', JSON.stringify(newImages));
-            }, 520);
-
+            setTimeout(() => buildSlides(slider, newImages, sliderId), 520);
         } else {
-            // No hay slide activo, insertar directo (primera carga)
-            wrapper.innerHTML = '';
-            indicators.innerHTML = '';
-
-            newImages.forEach((image, index) => {
-                const slide = document.createElement('div');
-                slide.className = `slide ${index === 0 ? 'active' : ''}`;
-                slide.dataset.index = index.toString();
-                slide.innerHTML = `<img src="${image}" alt="Producto ${index + 1}" loading="${index === 0 ? 'eager' : 'lazy'}" class="slide-image" />`;
-                wrapper.appendChild(slide);
-
-                const indicator = document.createElement('button');
-                indicator.className = `indicator ${index === 0 ? 'active' : ''}`;
-                indicator.dataset.index = index.toString();
-                indicator.setAttribute('aria-label', `Ir a imagen ${index + 1}`);
-                indicator.innerHTML = '<span class="indicator-fill"></span>';
-                indicator.addEventListener('click', () => showSlide(sliderId, index));
-                indicators.appendChild(indicator);
-            });
-
-            if (totalSpan) totalSpan.textContent = newImages.length.toString();
-            if (currentSpan) currentSpan.textContent = '1';
-            slider.setAttribute('data-images', JSON.stringify(newImages));
+            buildSlides(slider, newImages, sliderId);
         }
     }
 
@@ -416,22 +431,16 @@ const fullImages = images.map(image => {
         const indicators = slider.querySelectorAll('.indicator');
         const currentSpan = slider.querySelector('.counter .current');
 
-        slides.forEach((slide) => {
-            slide.classList.remove('active');
-        });
-
+        slides.forEach((slide) => slide.classList.remove('active'));
         indicators.forEach(ind => ind.classList.remove('active'));
 
-        if (slides[index]) {
-            slides[index].classList.add('active');
-        }
-        if (indicators[index]) {
-            indicators[index].classList.add('active');
-        }
+        if (slides[index]) slides[index].classList.add('active');
+        if (indicators[index]) indicators[index].classList.add('active');
+        if (currentSpan) currentSpan.textContent = (index + 1).toString();
 
-        if (currentSpan) {
-            currentSpan.textContent = (index + 1).toString();
-        }
+        // Precargar la siguiente imagen para que el cambio sea instantáneo
+        const nextImg = slides[(index + 1) % slides.length]?.querySelector('img') as HTMLImageElement;
+        if (nextImg?.loading === 'lazy') nextImg.loading = 'eager';
     }
 
     function getActiveIndex(slider: Element): number {
@@ -441,6 +450,18 @@ const fullImages = images.map(image => {
 
     function getTotalSlides(slider: Element): number {
         return slider.querySelectorAll('.slide').length;
+    }
+
+    function goNext(slider: Element, sliderId: string): void {
+        const total = getTotalSlides(slider);
+        if (total <= 1) return;
+        showSlide(sliderId, (getActiveIndex(slider) + 1) % total);
+    }
+
+    function goPrev(slider: Element, sliderId: string): void {
+        const total = getTotalSlides(slider);
+        if (total <= 1) return;
+        showSlide(sliderId, (getActiveIndex(slider) - 1 + total) % total);
     }
 
     function initializeSliders(): void {
@@ -458,19 +479,14 @@ const fullImages = images.map(image => {
             });
 
             // Flechas
-            const prevBtn = slider.querySelector('.nav-prev');
-            const nextBtn = slider.querySelector('.nav-next');
+            slider.querySelector('.nav-prev')?.addEventListener('click', () => goPrev(slider, sliderId));
+            slider.querySelector('.nav-next')?.addEventListener('click', () => goNext(slider, sliderId));
 
-            prevBtn?.addEventListener('click', () => {
-                const current = getActiveIndex(slider);
-                const total = getTotalSlides(slider);
-                showSlide(sliderId, (current - 1 + total) % total);
-            });
-
-            nextBtn?.addEventListener('click', () => {
-                const current = getActiveIndex(slider);
-                const total = getTotalSlides(slider);
-                showSlide(sliderId, (current + 1) % total);
+            // Teclado (cuando el carrusel tiene foco)
+            slider.addEventListener('keydown', (e) => {
+                const key = (e as KeyboardEvent).key;
+                if (key === 'ArrowRight') { e.preventDefault(); goNext(slider, sliderId); }
+                if (key === 'ArrowLeft') { e.preventDefault(); goPrev(slider, sliderId); }
             });
             
             // Touch/Swipe
@@ -496,15 +512,12 @@ const fullImages = images.map(image => {
                 // Solo swipe horizontal (no vertical scroll)
                 if (Math.abs(deltaX) < 50 || Math.abs(deltaY) > Math.abs(deltaX)) return;
 
-                const current = getActiveIndex(slider);
-                const total = getTotalSlides(slider);
-                
-                if (deltaX < 0) {
-                    showSlide(sliderId, (current + 1) % total);
-                } else {
-                    showSlide(sliderId, (current - 1 + total) % total);
-                }
+                if (deltaX < 0) goNext(slider, sliderId);
+                else goPrev(slider, sliderId);
             }, { passive: true });
+
+            // Estado inicial de controles
+            toggleControls(slider, getTotalSlides(slider));
         });
     }
 

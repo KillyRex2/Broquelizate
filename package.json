@@ -32,6 +32,7 @@
     "cloudinary": "^2.6.1",
     "date-fns": "^4.1.0",
     "js-cookie": "^3.0.5",
+    "mercadopago": "^3.1.0",
     "nanostores": "^1.0.1",
     "pdfmake": "^0.2.20",
     "react": "^19.1.0",
