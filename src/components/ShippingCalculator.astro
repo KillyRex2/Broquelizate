@@ -32,6 +32,7 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
           placeholder="Código postal (5 dígitos)"
           maxlength="5"
           pattern="[0-9]{5}"
+          inputmode="numeric"
           class="calc-input"
         />
         <div id="calc-postal-ok" class="calc-validation hidden">
@@ -72,34 +73,162 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
 </div>
 
 <style>
-  .shipping-calc-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 20px; margin-bottom: 24px; }
-  .calc-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .calc-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); border-radius: 12px; color: #eab308; flex-shrink: 0; }
-  .calc-title { font-size: 1rem; font-weight: 700; color: #fff; }
-  .calc-subtitle { font-size: 0.82rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .shipping-calc-card {
+    --lg-tint: rgba(255, 255, 255, 0.34);
+    --lg-blur: blur(6px) saturate(200%) brightness(1.04);
+    --lg-thickness:
+      inset 1.5px 1.5px 0 -0.5px rgba(255, 255, 255, 1),
+      inset -1.5px -1.5px 0 -0.5px rgba(255, 255, 255, 0.7),
+      inset 0 0 16px -4px rgba(255, 255, 255, 0.75),
+      inset 0 -14px 24px -18px rgba(0, 0, 0, 0.16),
+      0 0 0 0.5px rgba(0, 0, 0, 0.05);
+    --lg-drop: 0 6px 16px -8px rgba(0, 0, 0, 0.16), 0 20px 46px -22px rgba(0, 0, 0, 0.22);
+
+    --txt: #1c1c1e;
+    --txt-2: #55555c;
+    --txt-3: #85858c;
+    --gold: #eab308;
+    --gold-2: #f59e0b;
+    --gold-deep: #a16207;
+
+    position: relative;
+    isolation: isolate;
+    padding: 22px;
+    margin-bottom: 24px;
+    border: none;
+    border-radius: 28px;
+    background: var(--lg-tint);
+    backdrop-filter: var(--lg-blur);
+    -webkit-backdrop-filter: var(--lg-blur);
+    box-shadow: var(--lg-thickness), var(--lg-drop);
+  }
+
+  /* Anillo de refraccion */
+  .shipping-calc-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 9px;
+    backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* Reflejo especular */
+  .shipping-calc-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: linear-gradient(140deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 26%, transparent 52%, rgba(255,255,255,0.18) 100%);
+    pointer-events: none;
+  }
+  .shipping-calc-card > * { position: relative; z-index: 3; }
+
+  @supports (corner-shape: squircle) {
+    .shipping-calc-card { corner-shape: squircle; }
+  }
+
+  .calc-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.6); }
+  .calc-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); border-radius: 16px; color: var(--gold-deep); flex-shrink: 0; }
+  .calc-title { font-size: 1rem; font-weight: 700; color: var(--txt); }
+  .calc-subtitle { font-size: 0.82rem; color: var(--txt-2); margin-top: 2px; }
+
   .calc-body { display: flex; flex-direction: column; gap: 14px; }
   .calc-input-row { display: flex; gap: 10px; }
-  .calc-input-wrapper { flex: 1; position: relative; }
-  .calc-input { width: 100%; padding: 12px 40px 12px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.95rem; transition: all 0.2s; }
-  .calc-input::placeholder { color: rgba(255,255,255,0.3); }
-  .calc-input:focus { outline: none; border-color: #eab308; background: rgba(255,255,255,0.08); }
-  .calc-validation { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #22c55e; }
+  .calc-input-wrapper { flex: 1; position: relative; min-width: 0; }
+  .calc-input { width: 100%; padding: 13px 42px 13px 18px; background: rgba(255, 255, 255, 0.7); border: none; box-shadow: var(--lg-thickness); border-radius: 999px; color: var(--txt); font-size: 0.95rem; transition: all 0.2s; }
+  .calc-input::placeholder { color: var(--txt-3); }
+  .calc-input:focus { outline: 2px solid rgba(234, 179, 8, 0.6); outline-offset: 1px; background: rgba(255, 255, 255, 0.9); }
+  .calc-validation { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #15803d; }
   .calc-validation.hidden { display: none; }
-  .calc-btn { display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: linear-gradient(135deg, #eab308, #f59e0b); border: none; border-radius: 10px; color: #000; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-  .calc-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(234,179,8,0.3); }
-  .calc-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .calc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 24px; background: linear-gradient(140deg, rgba(255,255,255,0.5), transparent 45%), linear-gradient(135deg, var(--gold), var(--gold-2)); border: none; border-radius: 999px; color: #2a1f04; font-size: 0.9rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.25s cubic-bezier(0.34, 1.4, 0.64, 1); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.85), 0 8px 20px -10px rgba(234, 179, 8, 0.95); }
+  .calc-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.01); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.85), 0 14px 26px -12px rgba(234, 179, 8, 1); }
+  .calc-btn:active:not(:disabled) { transform: scale(0.97); }
+  .calc-btn:disabled { opacity: 0.65; cursor: not-allowed; }
   .calc-spinner { animation: calc-spin 1s linear infinite; }
-  .calc-error { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; color: #f87171; font-size: 0.82rem; }
+  .calc-spinner.hidden { display: none; }
+
+  .calc-error { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(239, 68, 68, 0.12); box-shadow: var(--lg-thickness); border-radius: 16px; color: #b91c1c; font-size: 0.82rem; }
   .calc-error.hidden { display: none; }
+  .calc-error svg { flex-shrink: 0; }
+
   .calc-results.hidden { display: none; }
-  .calc-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .calc-results-title { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.7); }
-  .calc-change-btn { background: none; border: none; color: #eab308; font-size: 0.78rem; font-weight: 500; cursor: pointer; }
-  .calc-change-btn:hover { color: #fbbf24; }
-  .calc-options { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 6px; }
+  .calc-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+  .calc-results-title { font-size: 0.82rem; font-weight: 600; color: var(--txt-2); }
+  .calc-change-btn { background: none; border: none; color: var(--gold-deep); font-size: 0.78rem; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 4px; }
+  .calc-change-btn:hover { color: var(--gold-2); }
+
+  .calc-options { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; padding-right: 6px; }
   .calc-options::-webkit-scrollbar { width: 4px; }
-  .calc-options::-webkit-scrollbar-thumb { background: rgba(234,179,8,0.4); border-radius: 2px; }
+  .calc-options::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.04); border-radius: 2px; }
+  .calc-options::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.5); border-radius: 2px; }
+
+  /* ── Opciones de tarifa ──
+     Se inyectan por innerHTML desde el <script>, asi que NO reciben el
+     atributo de scope de Astro. Por eso van con :global(). */
+  .calc-options :global(.rate-opt) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border: none;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: var(--lg-thickness);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+  .calc-options :global(.rate-opt:hover) { background: rgba(255, 255, 255, 0.78); transform: translateY(-1px); }
+  .calc-options :global(.rate-opt.selected) { background: rgba(234, 179, 8, 0.18); box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.55); }
+  .calc-options :global(.rate-opt input) { display: none; }
+  .calc-options :global(.rate-emoji) { font-size: 1.4rem; line-height: 1; flex-shrink: 0; }
+  .calc-options :global(.rate-info) { flex: 1; min-width: 0; }
+  .calc-options :global(.rate-top) { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .calc-options :global(.rate-carrier) { font-weight: 700; font-size: 0.88rem; color: #1c1c1e; text-transform: capitalize; }
+  .calc-options :global(.rate-badge) { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.02em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .calc-options :global(.rate-badge.best) { background: linear-gradient(135deg, #eab308, #f59e0b); color: #2a1f04; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5); }
+  .calc-options :global(.rate-badge.fast) { background: rgba(34, 197, 94, 0.9); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
+  .calc-options :global(.rate-service) { font-size: 0.78rem; color: #55555c; margin-top: 3px; }
+  .calc-options :global(.rate-days) { font-size: 0.72rem; color: #85858c; margin-top: 1px; }
+  .calc-options :global(.rate-price) { font-size: 1rem; font-weight: 800; color: #1c1c1e; white-space: nowrap; }
+  .calc-options :global(.rate-opt.selected .rate-price) { color: #a16207; }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .shipping-calc-card { background: rgba(255, 255, 255, 0.93); }
+  }
+
   @keyframes calc-spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .calc-btn, .calc-options :global(.rate-opt) { transition: none; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .shipping-calc-card { padding: 16px; border-radius: 22px; }
+    .calc-header { gap: 12px; margin-bottom: 14px; padding-bottom: 14px; }
+    .calc-icon { width: 38px; height: 38px; border-radius: 13px; }
+    .calc-title { font-size: 0.95rem; }
+    .calc-subtitle { font-size: 0.78rem; }
+    .calc-input-row { flex-direction: column; }
+    .calc-btn { width: 100%; padding: 14px 24px; }
+    .calc-options { max-height: none; }
+    .calc-options :global(.rate-opt) { padding: 12px; gap: 10px; border-radius: 16px; flex-wrap: wrap; }
+    .calc-options :global(.rate-price) { font-size: 0.95rem; }
+  }
+  @media (max-width: 400px) {
+    .calc-options :global(.rate-emoji) { font-size: 1.2rem; }
+    .calc-options :global(.rate-carrier) { font-size: 0.84rem; }
+    .calc-options :global(.rate-badge) { font-size: 0.58rem; padding: 2px 6px; }
+  }
 </style>
 
 <script>
@@ -111,7 +240,6 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     const _postalInput = document.getElementById('shipping-calc-postal') as HTMLInputElement | null;
     if (!_postalInput) return;
     const postalInput = _postalInput;
-    
 
     const btn = document.getElementById('calc-shipping-btn') as HTMLButtonElement;
     const btnText = document.getElementById('calc-btn-text');
@@ -153,22 +281,24 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
       const sorted = [...rates].sort((a, b) => a.totalPrice - b.totalPrice);
       const minDays = Math.min(...sorted.map(x => x.deliveryDays));
 
+      // Sin estilos inline: todo por clases, para que el CSS del componente mande.
       optionsBox.innerHTML = sorted.map((r, i) => {
         const best = i === 0;
         const fast = r.deliveryDays === minDays && !best;
-        return `<label data-idx="${i}" style="display:flex;gap:10px;padding:12px;border-radius:10px;cursor:pointer;border:2px solid ${best?'#eab308':'rgba(255,255,255,0.1)'};background:${best?'rgba(234,179,8,0.1)':'rgba(255,255,255,0.02)'};">
-          <input type="radio" name="calc-rate" value="${i}" ${best?'checked':''} style="display:none;" />
-          <span style="font-size:1.4rem;">${emoji(r.carrier)}</span>
-          <div style="flex:1;">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <span style="font-weight:700;color:#fff;font-size:0.88rem;">${r.carrier}</span>
-              ${best?'<span style="font-size:0.62rem;background:#eab308;color:#000;padding:2px 6px;border-radius:4px;font-weight:700;">MEJOR PRECIO</span>':''}
-              ${fast?'<span style="font-size:0.62rem;background:#22c55e;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">MÁS RÁPIDO</span>':''}
+        const days = `${r.deliveryDays} día${r.deliveryDays !== 1 ? 's' : ''} hábil${r.deliveryDays !== 1 ? 'es' : ''}`;
+        return `<label class="rate-opt${best ? ' selected' : ''}" data-idx="${i}">
+          <input type="radio" name="calc-rate" value="${i}" ${best ? 'checked' : ''} />
+          <span class="rate-emoji">${emoji(r.carrier)}</span>
+          <div class="rate-info">
+            <div class="rate-top">
+              <span class="rate-carrier">${r.carrier}</span>
+              ${best ? '<span class="rate-badge best">MEJOR PRECIO</span>' : ''}
+              ${fast ? '<span class="rate-badge fast">MÁS RÁPIDO</span>' : ''}
             </div>
-            <p style="font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:2px;">${r.service}</p>
-            <p style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:2px;">${r.deliveryDays} día${r.deliveryDays!==1?'s':''} hábil${r.deliveryDays!==1?'es':''}</p>
+            <p class="rate-service">${r.service}</p>
+            <p class="rate-days">${days}</p>
           </div>
-          <span style="font-size:1rem;font-weight:800;color:${best?'#eab308':'#fff'};">${fmt(r.totalPrice)}</span>
+          <span class="rate-price">${fmt(r.totalPrice)}</span>
         </label>`;
       }).join('');
 
@@ -176,9 +306,8 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
         inp.addEventListener('change', (e) => {
           const idx = parseInt((e.target as HTMLInputElement).value);
           selectRate(sorted[idx], cp);
-          optionsBox.querySelectorAll('label').forEach((l, i) => {
-            (l as HTMLElement).style.borderColor = i === idx ? '#eab308' : 'rgba(255,255,255,0.1)';
-            (l as HTMLElement).style.background = i === idx ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.02)';
+          optionsBox.querySelectorAll('.rate-opt').forEach((l, i) => {
+            l.classList.toggle('selected', i === idx);
           });
         });
       });

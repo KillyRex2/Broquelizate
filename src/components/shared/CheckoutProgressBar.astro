@@ -1,0 +1,258 @@
+---
+// src/components/shared/CheckoutProgress.astro
+//
+// Barra de progreso del flujo de compra, compartida por todas las paginas.
+//
+// Uso minimo (detecta el paso solo, por la URL):
+//   <CheckoutProgress />
+//
+// Uso con nombre de producto (recomendado en la pagina de detalle):
+//   <CheckoutProgress productName={product.name} productSlug={product.slug} />
+//
+// Uso forzando el paso (util en /order-success):
+//   <CheckoutProgress current="completado" />
+
+type StepId = 'inicio' | 'producto' | 'carrito' | 'checkout' | 'completado';
+
+interface Props {
+  current?: StepId;
+  productName?: string;
+  productSlug?: string;
+  /** Numero de articulos en el carrito, para el badge del paso "Carrito" */
+  cartCount?: number;
+}
+
+const { current, productName, productSlug, cartCount = 0 } = Astro.props;
+
+// ── Deteccion automatica del paso por la ruta ──
+const path = Astro.url.pathname;
+const detect = (): StepId => {
+  if (path.startsWith('/order-success') || path.startsWith('/order/')) return 'completado';
+  if (path.startsWith('/checkout')) return 'checkout';
+  if (path.startsWith('/cart')) return 'carrito';
+  if (path.startsWith('/products/')) return 'producto';
+  if (path.startsWith('/products')) return 'producto';
+  return 'inicio';
+};
+const active: StepId = current ?? detect();
+
+// Truncado del nombre de producto para que no rompa la barra
+const shortName = productName && productName.length > 26
+  ? productName.slice(0, 24).trimEnd() + '…'
+  : productName;
+
+const steps: Array<{ id: StepId; label: string; href: string | null }> = [
+  { id: 'inicio', label: 'Inicio', href: '/' },
+  { id: 'producto', label: shortName || 'Producto', href: productSlug ? `/products/${productSlug}` : '/products' },
+  { id: 'carrito', label: 'Carrito', href: '/cart' },
+  { id: 'checkout', label: 'Pago', href: '/checkout' },
+  { id: 'completado', label: 'Listo', href: null },
+];
+
+const activeIndex = steps.findIndex(s => s.id === active);
+const stateOf = (i: number) => (i < activeIndex ? 'done' : i === activeIndex ? 'active' : 'todo');
+---
+
+<nav class="flow-bar" aria-label="Progreso de compra">
+  <ol class="flow-list">
+    {steps.map((step, i) => {
+      const state = stateOf(i);
+      // Los pasos ya recorridos son navegables; el actual y los futuros no.
+      const clickable = state === 'done' && step.href;
+      const Tag = clickable ? 'a' : 'span';
+
+      return (
+        <>
+          <li class={`flow-step ${state}`}>
+            <Tag
+              {...(clickable ? { href: step.href } : {})}
+              class="flow-link"
+              aria-current={state === 'active' ? 'step' : undefined}
+            >
+              <span class="flow-dot">
+                {state === 'done' ? (
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                  </svg>
+                ) : step.id === 'inicio' ? (
+                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                  </svg>
+                ) : step.id === 'producto' ? (
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                  </svg>
+                ) : step.id === 'carrito' ? (
+                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                  </svg>
+                ) : step.id === 'checkout' ? (
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                  </svg>
+                )}
+              </span>
+              <span class="flow-label">{step.label}</span>
+              {step.id === 'carrito' && cartCount > 0 && (
+                <span class="flow-count">{cartCount}</span>
+              )}
+            </Tag>
+          </li>
+          {i < steps.length - 1 && <li class={`flow-sep ${i < activeIndex ? 'done' : ''}`} aria-hidden="true"></li>}
+        </>
+      );
+    })}
+  </ol>
+</nav>
+
+<style>
+  .flow-bar {
+    --lg-tint: rgba(255, 255, 255, 0.34);
+    --lg-blur: blur(6px) saturate(200%) brightness(1.04);
+    --lg-thickness:
+      inset 1.5px 1.5px 0 -0.5px rgba(255, 255, 255, 1),
+      inset -1.5px -1.5px 0 -0.5px rgba(255, 255, 255, 0.7),
+      inset 0 0 16px -4px rgba(255, 255, 255, 0.75),
+      inset 0 -14px 24px -18px rgba(0, 0, 0, 0.16),
+      0 0 0 0.5px rgba(0, 0, 0, 0.05);
+    --lg-drop: 0 6px 16px -8px rgba(0, 0, 0, 0.16), 0 20px 46px -22px rgba(0, 0, 0, 0.22);
+
+    --txt: #1c1c1e;
+    --txt-2: #55555c;
+    --txt-3: #9a9aa1;
+    --gold: #eab308;
+    --gold-2: #f59e0b;
+    --gold-deep: #a16207;
+
+    position: relative;
+    isolation: isolate;
+    z-index: 10;
+    margin-bottom: 32px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: var(--lg-tint);
+    backdrop-filter: var(--lg-blur);
+    -webkit-backdrop-filter: var(--lg-blur);
+    box-shadow: var(--lg-thickness), var(--lg-drop);
+    animation: flowIn 0.4s ease-out;
+  }
+
+  .flow-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 8px;
+    backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .flow-list {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .flow-list::-webkit-scrollbar { display: none; }
+
+  .flow-step { flex-shrink: 0; }
+
+  .flow-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px 7px 8px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+
+  .flow-dot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.25s ease;
+  }
+
+  /* Pasos ya recorridos: navegables */
+  .flow-step.done .flow-link { color: var(--txt-2); }
+  .flow-step.done .flow-dot { background: rgba(234, 179, 8, 0.22); color: var(--gold-deep); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7); }
+  .flow-step.done .flow-link:hover { background: rgba(255, 255, 255, 0.5); color: var(--txt); }
+  .flow-step.done .flow-link:active { transform: scale(0.97); }
+
+  /* Paso actual */
+  .flow-step.active .flow-link { background: rgba(234, 179, 8, 0.16); color: #6b3f02; box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 0 0 1px rgba(234, 179, 8, 0.35); }
+  .flow-step.active .flow-dot { background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #2a1f04; box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6), 0 4px 10px -4px rgba(234, 179, 8, 0.8); }
+
+  /* Pasos futuros */
+  .flow-step.todo .flow-link { color: var(--txt-3); cursor: default; }
+  .flow-step.todo .flow-dot { background: rgba(255, 255, 255, 0.45); color: var(--txt-3); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+
+  .flow-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(234, 179, 8, 0.28);
+    color: #6b3f02;
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+
+  .flow-sep {
+    flex: 1;
+    min-width: 14px;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.08);
+    transition: background 0.3s ease;
+  }
+  .flow-sep.done { background: rgba(234, 179, 8, 0.45); }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .flow-bar { background: rgba(255, 255, 255, 0.93); }
+  }
+
+  @keyframes flowIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flow-bar { animation: none; }
+    .flow-link, .flow-dot, .flow-sep { transition: none; }
+  }
+
+  /* En movil: solo el paso actual muestra texto, el resto queda como puntos */
+  @media (max-width: 720px) {
+    .flow-bar { padding: 8px 10px; border-radius: 22px; }
+    .flow-link { padding: 6px; gap: 0; }
+    .flow-step:not(.active) .flow-label { display: none; }
+    .flow-step.active .flow-link { padding: 6px 12px 6px 6px; gap: 7px; }
+    .flow-label { font-size: 0.8rem; }
+    .flow-sep { min-width: 8px; }
+  }
+</style>

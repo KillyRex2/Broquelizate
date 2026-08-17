@@ -43,17 +43,18 @@ if (!result.data) {
 
 const { products, totalPages } = result.data;
 
-// Transformación de productos con corrección de tipado (incluyendo hasVariants)
+// Transformación de productos con corrección de tipado
 const transformedProducts: ProductWithImages[] = products.map(product => ({
   ...product,
   images: product.images?.length ? product.images : ['no-image.png'],
   piercing_name: typeof product.piercing_name === 'string' 
-    ? product.piercing_name.split(',').map(p => p.trim()) 
+    ? product.piercing_name.split(',').map((p: string) => p.trim()) 
     : product.piercing_name || [],
-  cost: product.cost || 0,
-  description: product.description || '',
-  category: product.category || 'uncategorized',
+  cost: product.cost ?? 0,
+  description: product.description ?? '',
+  category: product.category ?? 'uncategorized',
   hasVariants: product.hasVariants ?? false,
+  allowsEngraving: product.allowsEngraving ?? false,
 }));
 
 // ✅ Ya no necesitamos filtrar localmente - el backend ya filtra por stock > 0
@@ -267,7 +268,8 @@ const activeFilters = [
   /* Estado Vacío */
   .empty-state { text-align: center; padding: 80px 24px; background: #fff; border-radius: 24px; border: 1px dashed #ddd; }
   .empty-icon { color: #b45309; margin-bottom: 24px; }
-  .empty-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
+  .empty-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; color: #111; }
+  .empty-description { color: #666; font-size: 0.95rem; }
   .empty-btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111; color: #fff; border-radius: 12px; text-decoration: none; font-weight: 600; transition: 0.2s; }
   .empty-btn:hover { background: #eab308; color: #000; }
 

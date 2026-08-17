@@ -40,7 +40,7 @@ export const loadProductsFromCart = defineAction({
             .filter(item => item.combinationId)
             .map(item => item.combinationId as string);
 
-        // ✅ OBTENER PRODUCTOS
+        // ✅ OBTENER IMÁGENES
         const allImages = await db
             .select()
             .from(ProductImage)
@@ -82,47 +82,59 @@ export const loadProductsFromCart = defineAction({
             // ✅ OBTENER IMÁGENES DE ESTE PRODUCTO
             const productImages = allImages.filter(img => img.productId === item.productId);
             
-            // Imagen general: priorizar cover image, luego primera sin variantId
+            // Imagen general: cover image → primera sin variantId → cualquier imagen del producto.
+            // El último fallback cubre productos cuyas imágenes están todas ligadas a variantes.
             const coverImageId = (dbProduct as any).coverImageId;
             const coverImage = coverImageId 
                 ? productImages.find(img => img.id === coverImageId)
                 : null;
-            const generalImage = coverImage || productImages.find(img => !img.variantId);
+            const generalImage = coverImage
+                || productImages.find(img => !img.variantId)
+                || productImages[0];
             const baseImageUrl = generalImage?.image || 'https://placehold.co/400x400/1a1a1a/eab308?text=Sin+Imagen';
-
+            console.log('IMG ROW COMPLETA:', JSON.stringify(productImages[0], null, 2));
+            const _combo = variantCombinations.find(c => c.id === item.combinationId);
+            console.log('COMBO ROW COMPLETA:', JSON.stringify(_combo, null, 2));
             // ✅ BUSCAR IMAGEN ESPECÍFICA DE VARIANTE
+// ✅ BUSCAR IMAGEN ESPECÍFICA DE VARIANTE
             let variantImageUrl: string | undefined;
-            
+
             if (item.combinationId) {
-                // Obtener los variantIds que forman esta combinación
-                const combinationVariantIds = variantCombinationItems
-                    .filter(vci => vci.combinationId === item.combinationId)
-                    .map(vci => vci.variantId);
+                const combination = variantCombinations.find(c => c.id === item.combinationId);
 
-
-                // Buscar si alguna de las variantes de esta combinación tiene imagen específica
-                const variantImage = productImages.find(img => 
-                    img.variantId && combinationVariantIds.includes(img.variantId)
+                // Camino 1: la imagen está ligada a la combinación en ProductImage.combinationId
+                const comboLinkedImage = productImages.find(
+                    (img: any) => img.combinationId === item.combinationId
                 );
 
-                if (variantImage) {
-                    variantImageUrl = variantImage.image;
-                    
-                } else {
-                    
+                // Camino 2: la fila de la combinación guarda la referencia (imageId o image)
+                const imageRef: string | undefined =
+                    (combination as any)?.imageId ?? (combination as any)?.image ?? undefined;
+
+                if (comboLinkedImage) {
+                    variantImageUrl = comboLinkedImage.image;
+                } else if (imageRef) {
+                    const linkedImage = productImages.find(img => img.id === imageRef);
+                    variantImageUrl = linkedImage?.image
+                        ?? (imageRef.startsWith('http') ? imageRef : undefined);
                 }
             }
+
+            // Prefijo del sitio: si PUBLIC_URL no está definida en el entorno,
+            // usar '' para que la ruta quede como /images/products/... (mismo dominio)
+            // en lugar de "undefined/images/products/..." (404).
+            const publicUrl = import.meta.env.PUBLIC_URL ?? '';
 
             // ✅ FORMATEAR URL DE IMAGEN GENERAL
             const formattedBaseImage = baseImageUrl.startsWith('http')
                 ? baseImageUrl
-                : `${import.meta.env.PUBLIC_URL}/images/products/${baseImageUrl}`;
+                : `${publicUrl}/images/products/${baseImageUrl}`;
 
             // ✅ FORMATEAR URL DE IMAGEN DE VARIANTE (si existe)
             const formattedVariantImage = variantImageUrl 
                 ? (variantImageUrl.startsWith('http')
                     ? variantImageUrl
-                    : `${import.meta.env.PUBLIC_URL}/images/products/${variantImageUrl}`)
+                    : `${publicUrl}/images/products/${variantImageUrl}`)
                 : undefined;
 
             // ✅ CALCULAR PRECIOS

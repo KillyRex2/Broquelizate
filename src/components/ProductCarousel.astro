@@ -1,0 +1,190 @@
+---
+// src/components/ProductCarousel.astro
+// Carrusel "cascarón" reutilizable: recibe título, link y productos.
+// Scroll horizontal nativo con snap + flechas. Sin librerías.
+//
+// Uso:
+// <ProductCarousel
+//   title="Personalizables con grabado láser"
+//   href="/products?engraving=true"
+//   linkText="Ver colección"
+//   products={engravingProducts}
+// />
+
+import { Formatter } from '@/utils';
+
+export interface CarouselProduct {
+  name: string;
+  price: number;
+  image: string;
+  hoverImage?: string;   // segunda imagen mostrada al hacer hover
+  slug: string;
+  badge?: string;      // ej. "Grabado láser", "Nuevo", "-$100"
+  oldPrice?: number;   // para mostrar precio tachado
+}
+
+interface Props {
+  title: string;
+  href?: string;
+  linkText?: string;
+  products: CarouselProduct[];
+}
+
+const { title, href = '/products', linkText = 'Ver colección', products = [] } = Astro.props;
+---
+
+{products.length > 0 && (
+  <section class="pc-section">
+    <div class="pc-container">
+      <div class="pc-header">
+        <div class="pc-heading">
+          <h2 class="pc-title">{title}</h2>
+          <a href={href} class="pc-link">{linkText}</a>
+        </div>
+        <div class="pc-arrows">
+          <button class="pc-arrow pc-prev" aria-label="Anterior" disabled>
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 12H5m0 0l6 6m-6-6l6-6"/>
+            </svg>
+          </button>
+          <button class="pc-arrow pc-next" aria-label="Siguiente">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14m0 0l-6-6m6 6l-6 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="pc-track" tabindex="0">
+        {products.map((p) => (
+          <a href={`/products/${p.slug}`} class="pc-card">
+            <div class="pc-image-wrap">
+              <img src={p.image} alt={p.name} class="pc-image" loading="lazy" />
+                {p.hoverImage && (
+                  <img src={p.hoverImage} alt="" class="pc-image-hover" loading="lazy" aria-hidden="true" />
+                )}
+              {p.badge && <span class="pc-badge">{p.badge}</span>}
+            </div>
+            <div class="pc-info">
+              <h3 class="pc-name">{p.name}</h3>
+              <div class="pc-prices">
+                {p.oldPrice && <span class="pc-old-price">{Formatter.currency(p.oldPrice)}</span>}
+                <span class="pc-price">{Formatter.currency(p.price)}</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .pc-section { padding: 64px 0; }
+  .pc-container { max-width: 1440px; margin: 0 auto; padding: 0 24px; }
+
+  /* Header: título + link a la izquierda, flechas a la derecha (estilo referencia) */
+  .pc-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+  .pc-title { font-size: clamp(1.5rem, 3.2vw, 2.25rem); font-weight: 800; color: #fff; letter-spacing: -0.02em; line-height: 1.15; }
+  .pc-link { display: inline-block; margin-top: 10px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #eab308; text-decoration: none; border-bottom: 1px solid rgba(234, 179, 8, 0.5); padding-bottom: 3px; transition: color 0.2s, border-color 0.2s; }
+  .pc-link:hover { color: #fbbf24; border-color: #fbbf24; }
+
+  .pc-arrows { display: flex; gap: 8px; flex-shrink: 0; }
+  .pc-arrow { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; color: rgba(255, 255, 255, 0.7); cursor: pointer; transition: all 0.2s; }
+  .pc-arrow:hover:not(:disabled) { border-color: #eab308; color: #eab308; background: rgba(234, 179, 8, 0.08); }
+  .pc-arrow:disabled { opacity: 0.3; cursor: default; }
+
+  /* Track: scroll horizontal con snap */
+  .pc-track {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;      /* Firefox */
+  }
+  .pc-track::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+  .pc-track:focus-visible { outline: 2px solid rgba(234, 179, 8, 0.4); outline-offset: 4px; border-radius: 8px; }
+
+  /* Cards */
+  .pc-card {
+    flex: 0 0 auto;
+    width: clamp(220px, 22vw, 300px);
+    scroll-snap-align: start;
+    text-decoration: none;
+    group: card;
+  }
+  .pc-image-wrap { position: relative; aspect-ratio: 3 / 4; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); }
+  .pc-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); opacity: 1; }
+  .pc-card:hover .pc-image { transform: scale(1.05); }
+  .pc-badge { position: absolute; top: 12px; left: 12px; padding: 5px 12px; background: rgba(20, 20, 20, 0.85); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 100px; color: #eab308; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; backdrop-filter: blur(4px); }
+
+  .pc-info { padding: 16px 4px 0; text-align: center; }
+  .pc-name { font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); line-height: 1.5; transition: color 0.2s; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pc-card:hover .pc-name { color: #eab308; }
+  .pc-prices { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+  .pc-price { font-size: 1rem; font-weight: 700; color: #fff; }
+  .pc-old-price { font-size: 0.85rem; color: rgba(255, 255, 255, 0.35); text-decoration: line-through; }
+
+  .pc-image-hover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transform: scale(1.03);
+    transition: opacity 0.45s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+}
+.pc-card:hover .pc-image-hover {
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+  @media (max-width: 640px) {
+    .pc-section { padding: 44px 0; }
+    .pc-container { padding: 0 16px; }
+    .pc-header { flex-direction: row; align-items: flex-end; }
+    .pc-card { width: 72vw; }
+    .pc-arrows { display: none; } /* en móvil se navega con swipe */
+  }
+</style>
+
+<script>
+  function initCarousels() {
+    document.querySelectorAll<HTMLElement>('.pc-section').forEach((section) => {
+      const track = section.querySelector<HTMLElement>('.pc-track');
+      const prev = section.querySelector<HTMLButtonElement>('.pc-prev');
+      const next = section.querySelector<HTMLButtonElement>('.pc-next');
+      if (!track || !prev || !next) return;
+
+      // Evitar doble inicialización tras navegaciones de Astro
+      if (section.dataset.pcInit === 'true') return;
+      section.dataset.pcInit = 'true';
+
+      const cardWidth = () => {
+        const card = track.querySelector<HTMLElement>('.pc-card');
+        return card ? card.offsetWidth + 20 /* gap */ : 320;
+      };
+
+      const updateArrows = () => {
+        const maxScroll = track.scrollWidth - track.clientWidth - 2;
+        prev.disabled = track.scrollLeft <= 2;
+        next.disabled = track.scrollLeft >= maxScroll;
+      };
+
+      prev.addEventListener('click', () => track.scrollBy({ left: -cardWidth() * 2 }));
+      next.addEventListener('click', () => track.scrollBy({ left: cardWidth() * 2 }));
+      track.addEventListener('scroll', updateArrows, { passive: true });
+      window.addEventListener('resize', updateArrows, { passive: true });
+
+      updateArrows();
+    });
+  }
+
+  initCarousels();
+  document.addEventListener('astro:page-load', initCarousels);
+</script>
