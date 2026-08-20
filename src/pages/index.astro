@@ -7,21 +7,12 @@ import Services from "@/components/Services.astro";
 import Testimonials from "@/components/Testimonials.astro";
 import BroquelizateSection from "@/components/BroquelizateSection.astro";
 import Newsletter from "@/components/Newsletter.astro";
-import ProductCarousel from "@/components/ProductCarousel.astro";
-import type { CarouselProduct } from "@/components/ProductCarousel.astro";
-import { db, eq, inArray, Product, ProductImage } from 'astro:db';
+import HomeCollections from "@/components/HomeCollections.astro";
+import { getHomeCarousels } from "@/utils/collections";
+import { db, eq, and, inArray, Product, ProductImage } from 'astro:db';
 
-// ─────────────────────────────────────────────────────────────
-// Helper reutilizable: trae productos de una colección (según la
-// condición que le pases) y resuelve su imagen (cover → primera).
-// Para agregar otra sección solo llamas esto con otro `where`.
-// ─────────────────────────────────────────────────────────────
-async function getCarouselProducts(
-  condition: any,
-  limit = 10,
-  badge?: string
-): Promise<CarouselProduct[]> {
-  const rows = await db
+const [heroRows, carousels] = await Promise.all([
+  db
     .select({
       id: Product.id,
       name: Product.name,
@@ -30,47 +21,10 @@ async function getCarouselProducts(
       coverImageId: Product.coverImageId,
     })
     .from(Product)
-    .where(condition)
-    .limit(limit);
-
-  const ids = rows.map(p => p.id);
-  let images: Array<{ id: string; productId: string; image: string }> = [];
-  if (ids.length > 0) {
-    images = await db
-      .select({ id: ProductImage.id, productId: ProductImage.productId, image: ProductImage.image })
-      .from(ProductImage)
-      .where(inArray(ProductImage.productId, ids));
-  }
-
-  return rows.map(p => {
-    const productImgs = images.filter(i => i.productId === p.id);
-    const cover = p.coverImageId ? productImgs.find(i => i.id === p.coverImageId) : null;
-    const primary = cover || productImgs[0];
-    // Segunda imagen distinta a la principal, para el efecto hover
-    const secondary = productImgs.find(i => i.id !== primary?.id);
-    return {
-      name: p.name,
-      price: p.price,
-      image: primary?.image || 'https://placehold.co/400x533/1a1a1a/eab308?text=Sin+Imagen',
-      hoverImage: secondary?.image,
-      slug: p.slug,
-      badge,
-    };
-  });
-}
-
-// ─── Hero: productos destacados ───
-const heroRows = await db
-  .select({
-    id: Product.id,
-    name: Product.name,
-    price: Product.price,
-    slug: Product.slug,
-    coverImageId: Product.coverImageId,
-  })
-  .from(Product)
-  .where(eq(Product.isFeatured, true))
-  .limit(4);
+    .where(and(eq(Product.isFeatured, true), eq(Product.isDeleted, false)))
+    .limit(4),
+  getHomeCarousels(),
+]);
 
 const heroIds = heroRows.map(p => p.id);
 let heroImages: Array<{ id: string; productId: string; image: string }> = [];
@@ -93,49 +47,19 @@ const heroProducts = heroRows.map(p => {
     slug: p.slug,
   };
 });
-
-// ─── Colecciones para carruseles ───
-// ⚠️ Los valores de category deben coincidir EXACTO con los de tu BD
-// (revisa cómo los guarda tu admin: "relicarios", "Relicarios", "anillos"...)
-const engravingProducts = await getCarouselProducts(
-  eq(Product.allowsEngraving, true), 10, 'Grabado láser'
-);
-const relicarioProducts = await getCarouselProducts(
-  eq(Product.category, 'relicarios'), 10
-);
-const anilloProducts = await getCarouselProducts(
-  eq(Product.type, 'Anillos'), 10
-);
 ---
 
 <MainLayout title="Broquelizate Web">
   <main class="w-full">
     <HeroSection products={heroProducts} />
+    <HomeCollections collections={carousels} />
     <Categories/>
     <FeaturedProducts/>
 
-    <ProductCarousel
-      title="Personalizables con grabado láser"
-      href="/products?engraving=true"
-      linkText="Ver colección"
-      products={engravingProducts}
-    />
+    <!-- Carruseles que el admin administra desde /admin/collections -->
+    
 
-    <ProductCarousel
-      title="Relicarios"
-      href="/products?category=relicarios"
-      linkText="Ver todos"
-      products={relicarioProducts}
-    />
-
-    <ProductCarousel
-      title="Anillos"
-      href="/products?category=anillos"
-      linkText="Ver todos"
-      products={anilloProducts}
-    />
     <Services/>
-
     <Testimonials/>
     <BroquelizateSection/>
     <Newsletter/>

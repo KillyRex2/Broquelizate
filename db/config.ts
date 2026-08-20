@@ -179,6 +179,48 @@ const Client = defineTable({
     }),
   }
 });
+export const Collection = defineTable({
+  columns: {
+    id: column.text({ primaryKey: true }),
+ 
+    // Presentacion
+    title: column.text(),                             // "Colección Piercings Titanio"
+    linkText: column.text({ default: 'Ver todo' }),
+    href: column.text({ optional: true }),            // "/products?type=Piercings"
+    badge: column.text({ optional: true }),           // "Titanio" · "Oferta"
+ 
+    // Comportamiento
+    mode: column.text({ default: 'auto' }),           // 'auto' | 'manual'
+    filterField: column.text({ optional: true }),     // category | type | allowsEngraving | isFeatured | onSale
+    filterValue: column.text({ optional: true }),     // 'relicarios' | 'Anillos' | 'true'
+    limit: column.number({ default: 10 }),
+ 
+    // Orden y visibilidad en el home
+    sortOrder: column.number({ default: 0 }),
+    isActive: column.boolean({ default: true }),
+ 
+    createdAt: column.date({ default: new Date() }),
+  },
+  indexes: [
+    { on: ['isActive', 'sortOrder'] },
+  ],
+});
+ 
+/**
+ * Solo se usa cuando la coleccion es mode='manual'.
+ * Guarda que productos y en que orden.
+ */
+export const CollectionProduct = defineTable({
+  columns: {
+    id: column.text({ primaryKey: true }),
+    collectionId: column.text({ references: () => Collection.columns.id }),
+    productId: column.text(),          // referencia logica a Product.id
+    position: column.number({ default: 0 }),
+  },
+  indexes: [
+    { on: ['collectionId', 'position'] },
+  ],
+});
 
 export default defineDb({
   tables: {
@@ -191,6 +233,8 @@ export default defineDb({
     VariantCombinationItem,
     orders,
     order_items,
-    Client
+    Client,
+    Collection,
+    CollectionProduct
   }
 });

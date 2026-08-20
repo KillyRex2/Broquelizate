@@ -1,0 +1,76 @@
+---
+// src/components/HomeCollections.astro
+//
+// Renderiza todos los carruseles de colecciones activas dentro de
+// una sección de fondo claro, a juego con FeaturedProductsSection.
+//
+// Uso normal:
+//   <HomeCollections />
+//
+// Uso avanzado (consulta lanzada en paralelo desde index.astro):
+//   <HomeCollections collections={carousels} />
+
+import ProductCarousel from '@/components/ProductCarousel.astro';
+import { getHomeCarousels, type HomeCarousel } from '@/utils/collections';
+
+interface Props {
+  collections?: HomeCarousel[];
+}
+
+const { collections } = Astro.props;
+
+// Si no te pasan nada, el componente se encarga de consultar.
+const carousels = collections ?? (await getHomeCarousels());
+---
+
+{carousels.length > 0 && (
+  <section class="hc-section">
+    <div class="bg-pattern"></div>
+
+    <div class="hc-inner">
+      {carousels.map((c) => (
+        <ProductCarousel
+          title={c.title}
+          href={c.href}
+          linkText={c.linkText}
+          products={c.products}
+        />
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .hc-section {
+    position: relative;
+    padding: 80px 0;
+    background: linear-gradient(180deg, #fafafa 0%, #fff 50%, #fafafa 100%);
+    overflow: hidden;
+  }
+
+  /* Mismo patrón de puntos que la sección de destacados */
+  .bg-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    pointer-events: none;
+  }
+
+  .hc-inner {
+    position: relative;
+    z-index: 10;
+  }
+
+  /* Los carruseles traen su propio padding vertical pensado para
+     vivir sueltos. Aquí van apilados dentro de una sola sección,
+     así que se reduce para que no queden separadísimos. */
+  .hc-inner :global(.pc-section) { padding: 28px 0; }
+  .hc-inner :global(.pc-section:first-child) { padding-top: 0; }
+  .hc-inner :global(.pc-section:last-child) { padding-bottom: 0; }
+
+  @media (max-width: 640px) {
+    .hc-section { padding: 56px 0; }
+    .hc-inner :global(.pc-section) { padding: 20px 0; }
+  }
+</style>
