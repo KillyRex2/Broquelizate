@@ -733,22 +733,6 @@ function loadShippingInfo() {
   const cs = selectedShipping;
   const shippingInfo = cs ? { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
 
-  // Mismo shape que usa createOrder; se guarda para crear el pedido al volver de MP.
-  const orderPayload = {
-    customerEmail: email,
-    customerName,
-    shippingAddress: { streetAddress: sa, neighborhood: nb, city: ct, state: st, postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn },
-    shippingInfo,
-    products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null })),
-    subtotal: d.totalValue - d.shippingValue,
-    shippingCost: d.shippingValue,
-    tax: d.taxValue,
-    total: d.totalValue,
-    paymentMethod: 'mercadopago',
-    paymentIntentId: null,
-    clientId: null,
-  };
-
   isProcessing = true;
   const loadingId = Toast.loading('Redirigiendo a Mercado Pago...');
   try {
@@ -756,20 +740,31 @@ function loadShippingInfo() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        products: orderPayload.products,
-        subtotal: orderPayload.subtotal,
-        shippingCost: orderPayload.shippingCost,
-        total: orderPayload.total,
+        channel: 'online',
         customerEmail: email,
         customerName,
         phone: ph,
+        shippingCost: d.shippingValue,
+        shippingAddress: {
+          streetAddress: sa, neighborhood: nb, city: ct, state: st,
+          postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn,
+        },
         shippingInfo,
+        // El servidor recalcula precios y totales desde la base:
+        // aquí solo viaja qué y cuánto, nunca a qué precio.
+        products: d.productsData.map((p: CartProduct) => ({
+          productId: p.id,
+          quantity: p.quantity,
+          combinationId: (p as any).combinationId ?? null,
+          variantCombination: p.variantCombination ?? null,
+          variantSku: p.variantSku ?? null,
+          image: p.image,
+        })),
       }),
     });
     const data = await res.json();
     if (!res.ok || !data.initPoint) throw new Error(data.error || 'No se pudo iniciar Mercado Pago');
 
-    localStorage.setItem(`mp_order_${data.externalReference}`, JSON.stringify(orderPayload));
     Toast.dismiss(loadingId);
     window.location.href = data.initPoint; // redirige a Checkout Pro
   } catch (e) {

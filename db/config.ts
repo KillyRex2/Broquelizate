@@ -125,7 +125,9 @@ const orders = defineTable({
     labelUrl: column.text({ optional: true }),
     shippingService: column.text({ optional: true }),
     shippingCost: column.number({ optional: true }),
-    shippedAt: column.date({ optional: true })
+    shippedAt: column.date({ optional: true }),
+    paymentId: column.text({ optional: true }),
+    externalReference: column.text({ optional: true })
   }
 });
 

@@ -12,13 +12,24 @@ export default defineConfig({
   integrations: [tailwind(), db({ seedOnStartup: false }), auth(), react(), astroIcon()],
   output: "server",
   adapter: netlify(),
-  
+
   vite: {
-    define: {
-      // Solo para variables que necesitan estar en el cliente
-      'import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY': JSON.stringify(process.env.PUBLIC_STRIPE_PUBLIC_KEY),
-      
-      // NO expongas la clave secreta en el cliente
-    }
-  }
+    optimizeDeps: {
+      // Se declaran para que Vite las pre-bundlee al arrancar.
+      // Si las descubre a media sesión, cambia sus hashes y el
+      // navegador se queda pidiendo los viejos: de ahí el
+      // "504 (Outdated Optimize Dep)" en desarrollo.
+      include: [
+        'react-icons/fa',
+        'react-icons/fa6',
+        'react-icons/ai',
+        'react-icons/bs',
+        'react-icons/gi',
+        'react-icons/md',
+        'react-icons/tb',
+        'react-icons/io5',
+        'react-icons/hi2',
+      ],
+    },
+  },
 });

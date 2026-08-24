@@ -172,8 +172,8 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
   .calc-options::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.5); border-radius: 2px; }
 
   /* ── Opciones de tarifa ──
-     Se inyectan por innerHTML desde el <script>, asi que NO reciben el
-     atributo de scope de Astro. Por eso van con :global(). */
+     Se inyectan por innerHTML desde el bloque de script, asi que NO
+     reciben el atributo de scope de Astro. Por eso van con :global(). */
   .calc-options :global(.rate-opt) {
     display: flex;
     align-items: center;

@@ -1,0 +1,234 @@
+---
+// src/components/admin/PosMercadoPago.astro
+//
+// Cobro con Mercado Pago en mostrador.
+//
+// Cómo funciona:
+//   1. El cajero pulsa "Cobrar con Mercado Pago".
+//   2. Se crea la preferencia y el pedido pendiente en el servidor.
+//   3. Se muestra un QR en pantalla; el cliente lo escanea con su
+//      celular y paga (tarjeta, saldo, MSI, lo que tenga).
+//   4. El componente consulta el estado cada 3s. Cuando el webhook
+//      marca el pedido como pagado, avisa al POS.
+//
+// No requiere terminal física: el celular del cliente es la terminal.
+//
+// No requiere dependencias: el QR se genera con un servicio externo.
+// Si prefieres no depender de terceros: npm i qrcode + npm i -D @types/qrcode
+// y usa QRCode.toCanvas() sobre un <canvas> en vez del <img>.
+---
+
+<div id="pos-mp" class="pos-mp">
+  <button type="button" id="pos-mp-start" class="pos-mp-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/>
+    </svg>
+    <span>Cobrar con Mercado Pago</span>
+  </button>
+
+  <!-- Panel del QR -->
+  <div id="pos-mp-panel" class="pos-mp-panel hidden">
+    <div class="pos-mp-head">
+      <div>
+        <p class="pos-mp-title">Escanea para pagar</p>
+        <p class="pos-mp-sub" id="pos-mp-order">—</p>
+      </div>
+      <button type="button" id="pos-mp-cancel" class="pos-mp-cancel">Cancelar</button>
+    </div>
+
+    <div class="pos-mp-qr-box">
+      <img id="pos-mp-qr" width="240" height="240" alt="Código QR para pagar" />
+    </div>
+
+    <p class="pos-mp-amount" id="pos-mp-amount">$0.00</p>
+
+    <div class="pos-mp-status" id="pos-mp-status">
+      <span class="pos-mp-dot"></span>
+      <span id="pos-mp-status-text">Esperando el pago…</span>
+    </div>
+
+    <a href="#" id="pos-mp-link" target="_blank" rel="noopener" class="pos-mp-link">
+      Abrir el enlace de pago
+    </a>
+  </div>
+</div>
+
+<style>
+  .pos-mp { width: 100%; }
+
+  .pos-mp-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+    background: #009ee3;
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px -6px rgba(0, 158, 227, 0.8);
+  }
+  .pos-mp-btn:hover:not(:disabled) { background: #00b1ea; transform: translateY(-2px); }
+  .pos-mp-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .pos-mp-panel { margin-top: 16px; padding: 20px; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 10px 30px -18px rgba(0,0,0,0.3); text-align: center; }
+  .pos-mp-panel.hidden { display: none; }
+
+  .pos-mp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; text-align: left; margin-bottom: 16px; }
+  .pos-mp-title { font-size: 1rem; font-weight: 700; color: #111; }
+  .pos-mp-sub { font-size: 0.78rem; color: #6b7280; margin-top: 2px; font-family: monospace; }
+  .pos-mp-cancel { background: none; border: none; color: #dc2626; font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 4px; }
+  .pos-mp-cancel:hover { text-decoration: underline; }
+
+  .pos-mp-qr-box { display: inline-flex; padding: 14px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; }
+  .pos-mp-qr-box img { display: block; width: 240px; height: 240px; }
+  .pos-mp-amount { margin-top: 14px; font-size: 1.8rem; font-weight: 900; color: #111; letter-spacing: -0.02em; }
+
+  .pos-mp-status { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 8px 16px; background: #fef9c3; border-radius: 999px; font-size: 0.85rem; font-weight: 600; color: #854d0e; }
+  .pos-mp-status.paid { background: #dcfce7; color: #15803d; }
+  .pos-mp-status.failed { background: #fee2e2; color: #b91c1c; }
+
+  .pos-mp-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: posMpPulse 1.4s ease-in-out infinite; }
+  .pos-mp-status.paid .pos-mp-dot, .pos-mp-status.failed .pos-mp-dot { animation: none; }
+  @keyframes posMpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .pos-mp-link { display: inline-block; margin-top: 14px; font-size: 0.8rem; color: #0077aa; text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce) { .pos-mp-dot { animation: none; } }
+</style>
+
+<script>
+  interface PosCartItem {
+    productId: string;
+    variantId?: string;
+    combinationId?: string;
+    quantity: number;
+    variantName?: string;
+    sku?: string;
+  }
+
+  function initPosMercadoPago() {
+    const root = document.getElementById('pos-mp');
+    if (!root) return;
+    if (root.dataset.init === 'true') return;
+    root.dataset.init = 'true';
+
+    const startBtn = document.getElementById('pos-mp-start') as HTMLButtonElement;
+    const panel = document.getElementById('pos-mp-panel')!;
+    const cancelBtn = document.getElementById('pos-mp-cancel')!;
+    const qrImg = document.getElementById('pos-mp-qr') as HTMLImageElement;
+    const amountEl = document.getElementById('pos-mp-amount')!;
+    const orderEl = document.getElementById('pos-mp-order')!;
+    const statusEl = document.getElementById('pos-mp-status')!;
+    const statusText = document.getElementById('pos-mp-status-text')!;
+    const linkEl = document.getElementById('pos-mp-link') as HTMLAnchorElement;
+
+    let pollTimer: number | null = null;
+    let currentRef: string | null = null;
+
+    const money = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+
+    function stopPolling() {
+      if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function reset() {
+      stopPolling();
+      currentRef = null;
+      panel.classList.add('hidden');
+      startBtn.disabled = false;
+      statusEl.className = 'pos-mp-status';
+      statusText.textContent = 'Esperando el pago…';
+    }
+
+    async function start() {
+      const cart: PosCartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
+      if (cart.length === 0) {
+        window.alert('El carrito está vacío.');
+        return;
+      }
+
+      const clientSelect = document.getElementById('client-select') as HTMLSelectElement | null;
+      const clientId = clientSelect?.value ? Number(clientSelect.value) : null;
+
+      startBtn.disabled = true;
+      statusText.textContent = 'Generando el cobro…';
+
+      try {
+        const res = await fetch('/api/create-mercadopago-preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channel: 'pos',
+            clientId,
+            customerEmail: 'mostrador@broquelizate.com',
+            customerName: 'Venta en mostrador',
+            products: cart.map(i => ({
+              productId: i.productId,
+              quantity: i.quantity,
+              combinationId: i.combinationId ?? null,
+              variantCombination: i.variantName ?? null,
+              variantSku: i.sku ?? null,
+            })),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.initPoint) throw new Error(data.error || 'No se pudo generar el cobro');
+
+        currentRef = data.externalReference;
+        amountEl.textContent = money(data.total);
+        orderEl.textContent = data.orderNumber;
+        linkEl.href = data.initPoint;
+
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(data.initPoint)}`;
+
+        panel.classList.remove('hidden');
+        statusText.textContent = 'Esperando el pago…';
+        startPolling();
+      } catch (e) {
+        startBtn.disabled = false;
+        window.alert(e instanceof Error ? e.message : 'Error al generar el cobro');
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollTimer = window.setInterval(async () => {
+        if (!currentRef) return;
+        try {
+          const r = await fetch(`/api/mercadopago-order-status?ref=${currentRef}`);
+          if (!r.ok) return;
+          const order = await r.json();
+
+          if (order.status === 'paid') {
+            stopPolling();
+            statusEl.className = 'pos-mp-status paid';
+            statusText.textContent = '¡Pago recibido!';
+            // El POS escucha esto para cerrar la venta e imprimir el ticket
+            window.dispatchEvent(new CustomEvent('pos:mp-paid', { detail: order }));
+          } else if (order.status === 'rejected' || order.status === 'cancelled') {
+            stopPolling();
+            statusEl.className = 'pos-mp-status failed';
+            statusText.textContent = 'El pago fue rechazado';
+          }
+        } catch {
+          // Error de red pasajero: el siguiente intento lo resuelve
+        }
+      }, 3000);
+    }
+
+    startBtn.addEventListener('click', start);
+    cancelBtn.addEventListener('click', reset);
+
+    // Si el cajero navega a otra página, no dejar el timer corriendo
+    document.addEventListener('astro:before-preparation', stopPolling, { once: true });
+  }
+
+  document.addEventListener('astro:page-load', initPosMercadoPago);
+</script>
