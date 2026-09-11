@@ -4,7 +4,7 @@ import { CartCounter } from '@/components';
 const { isLoggedIn, isAdmin, user } = Astro.locals;
 
 // Umbral de envío gratis. Debe coincidir con el de la ficha de producto.
-const FREE_SHIPPING_THRESHOLD = 1099;
+import { FREE_SHIPPING_THRESHOLD } from '@/utils';
 
 // ⚠️ Verifica que estos valores existan en tu BD:
 //    type   → Anillos, Broqueles, Cadenas, Pulseras, Piercings...

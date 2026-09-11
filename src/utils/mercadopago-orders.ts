@@ -202,20 +202,15 @@ export async function confirmOrderByReference(externalReference: string, payment
   // Stock: solo en la transición pending → paid
   const items = await db.select().from(order_items).where(eq(order_items.orderId, order.id));
 
-  await Promise.all(
-    items.map(async (it: any) => {
-      await db
-        .update(Product)
-        .set({ stock: sql`${Product.stock} - ${it.quantity}` } as any)
-        .where(eq(Product.id, it.productId));
-
-      if (it.variantCombinationId) {
-        await db
-          .update(ProductVariantCombination)
-          .set({ stock: sql`${ProductVariantCombination.stock} - ${it.quantity}` } as any)
-          .where(eq(ProductVariantCombination.id, it.variantCombinationId));
-      }
-    })
+  const { decrementStock } = await import('@/utils/stock');
+  await decrementStock(
+    items.map((it: any) => ({
+      productId: it.productId,
+      quantity: it.quantity,
+      combinationId: it.variantCombinationId ?? null,
+    })),
+    // El POS puede dejar el inventario negativo; la tienda online no.
+    { allowNegative: order.paymentMethod === 'mercadopago-pos' }
   );
 
   return { ok: true, alreadyPaid: false, orderId: order.id, orderNumber: order.orderNumber };

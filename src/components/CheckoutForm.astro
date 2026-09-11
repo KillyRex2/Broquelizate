@@ -115,6 +115,20 @@ const productsData = products.map(p => {
           </div>
         </section>
 
+        <label class="privacy-check">
+        <input type="checkbox" id="accept-privacy" />
+        <span>
+          He leído y acepto el <a href="/aviso-de-privacidad" target="_blank" rel="noopener">aviso de privacidad</a>,
+          los <a href="/terminos-y-condiciones" target="_blank" rel="noopener">términos y condiciones</a> y la
+          <a href="/cambios-y-devoluciones" target="_blank" rel="noopener">política de cambios y devoluciones</a>.
+        </span>
+      </label>
+
+      <label class="privacy-check optional">
+        <input type="checkbox" id="accept-marketing" />
+        <span>Quiero recibir promociones y novedades por correo <em>(opcional)</em></span>
+      </label>
+
         <!-- Payment Section -->
         <section class="checkout-section">
           <div class="section-header">
@@ -234,6 +248,13 @@ const productsData = products.map(p => {
    estan aqui. Ese bloque de markup se borra y se sustituye por
    <CheckoutProgress /> (el componente trae sus propios estilos).
    ============================================================ */
+
+.privacy-check { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0 0; font-size: 0.82rem; color: var(--txt-2); line-height: 1.55; cursor: pointer; }
+.privacy-check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--gold-2); flex-shrink: 0; cursor: pointer; }
+.privacy-check a { color: var(--gold-deep); text-decoration: underline; text-underline-offset: 2px; }
+.privacy-check a:hover { color: var(--gold-2); }
+.privacy-check.optional { margin-top: 10px; color: var(--txt-3); }
+.privacy-check.optional em { font-style: normal; color: var(--txt-3); }
 
 .checkout-wrapper {
   --lg-tint: rgba(255, 255, 255, 0.34);
@@ -787,6 +808,11 @@ function loadShippingInfo() {
     const mf: string[] = [];
     const em = (document.getElementById('email') as HTMLInputElement)?.value.trim(), sa = (document.getElementById('street-address') as HTMLInputElement)?.value.trim(), nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim(), ct = (document.getElementById('city') as HTMLInputElement)?.value.trim(), st = (document.getElementById('state') as HTMLInputElement)?.value.trim(), pc = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim(), ph = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
     if (!em) mf.push('Email'); if (!sa) mf.push('Calle'); if (!nb) mf.push('Colonia'); if (!ct) mf.push('Ciudad'); if (!st) mf.push('Estado'); if (!pc) mf.push('CP'); if (!ph) mf.push('Teléfono'); if (!selectedShipping) mf.push('Método de envío');
+
+    // Consentimiento: obligatorio y por acto afirmativo (casilla desmarcada por defecto)
+    const privacy = document.getElementById('accept-privacy') as HTMLInputElement;
+    if (!privacy?.checked) mf.push('Aceptar el aviso de privacidad');
+
     return { valid: mf.length === 0, missingFields: mf };
   }
 

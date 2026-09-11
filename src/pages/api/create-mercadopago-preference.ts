@@ -13,6 +13,7 @@
 import type { APIRoute } from 'astro';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { priceItems, createPendingOrder, type IncomingItem } from '@/utils/mercadopago-orders';
+import { chargedShipping, qualifiesForFreeShipping } from '@/utils/shipping';
 
 interface PreferenceRequest {
   products: Array<IncomingItem & { name?: string; image?: string }>;
@@ -56,8 +57,28 @@ export const POST: APIRoute = async ({ request }) => {
 
     // ── 1. Precios reales, desde la base ──
     const priced = await priceItems(body.products);
-    const shippingCost = Math.max(0, Number(body.shippingCost) || 0);
+
+    // Sin existencias no se crea el pedido ni se cobra.
+    // En el POS no aplica: la pieza ya está en la mano del cliente.
+    if (channel === 'online') {
+      const { assertAvailable } = await import('@/utils/stock');
+      await assertAvailable(priced.map(p => ({
+        productId: p.productId,
+        quantity: p.quantity,
+        combinationId: p.combinationId ?? null,
+      })));
+    }
+
     const subtotal = priced.reduce((s, i) => s + i.lineTotal, 0);
+
+    // El envío gratis lo decide el servidor, no el navegador.
+    const shippingCost = chargedShipping(subtotal, Number(body.shippingCost) || 0);
+
+    // Si NO aplica gratis y aun así llega en 0, es que no se cotizó.
+    if (channel === 'online' && shippingCost === 0 && !qualifiesForFreeShipping(subtotal)) {
+      return json({ error: 'Falta calcular el costo de envío antes de pagar.' }, 400);
+    }
+
     const total = subtotal + shippingCost;
 
     if (total <= 0) return json({ error: 'El total debe ser mayor a 0' }, 400);
@@ -95,7 +116,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // En el POS el cliente escanea un QR: al terminar debe caer en una
     // página simple de "listo", no en el checkout de la tienda.
-    const backBase = channel === 'pos' ? `${siteUrl}/pago-listo` : `${siteUrl}/checkout/retorno-mp`;
+    const backBase = channel === 'pos' ? `${siteUrl}/pago-listo` : `${siteUrl}/order-success`;
 
     const result = await new Preference(client).create({
       body: {

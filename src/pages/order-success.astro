@@ -46,7 +46,37 @@ let trackingInfo: any = null;
 Astro.cookies.set('cart', '[]', { path: '/', maxAge: 60 * 60 * 24 * 30 });
 
 const sessionId = Astro.url.searchParams.get('session_id');
-const orderIdParam = Astro.url.searchParams.get('order_id');
+let orderIdParam = Astro.url.searchParams.get('order_id');
+
+// ── Retorno de Mercado Pago ──
+// MP regresa con external_reference, no con order_id. Se confirma el
+// pedido (idempotente: si el webhook ya lo hizo, no repite nada) y se
+// traduce a order_id para que el resto de la página funcione igual
+// que con Stripe o PayPal.
+const extRef = Astro.url.searchParams.get('external_reference');
+if (extRef && !orderIdParam) {
+  try {
+    const mpStatus = Astro.url.searchParams.get('status');
+    const paymentId = Astro.url.searchParams.get('payment_id');
+
+    if (mpStatus === 'approved') {
+      const { confirmOrderByReference } = await import('@/utils/mercadopago-orders');
+      await confirmOrderByReference(extRef, paymentId ?? undefined);
+    }
+
+    const { db, eq, orders } = await import('astro:db');
+    const [found] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.externalReference, extRef));
+
+    if (found) return Astro.redirect(`/order-success?order_id=${found.id}`);
+    errorMessage = 'No encontramos tu pedido. Escríbenos por WhatsApp con tu comprobante.';
+  } catch (e) {
+    console.error('❌ Retorno MP:', e);
+    errorMessage = 'Tu pago se procesó, pero hubo un problema al mostrar el pedido. Escríbenos por WhatsApp.';
+  }
+}
 
 try {
   if (orderIdParam) {
@@ -293,7 +323,7 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
                 <div class="status-timeline">
                   <div class="status-step done">
                     <div class="status-dot"><svg width="14" height="14" fill="none" stroke="#000" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
-                    <div class="status-info"><span class="status-name">Pago confirmado</span><span class="status-desc">{orderDetails.paymentMethod === 'card' ? 'Tarjeta' : orderDetails.paymentMethod === 'paypal' ? 'PayPal' : 'Pagado'}</span></div>
+                    <div class="status-info"><span class="status-name">Pago confirmado</span><span class="status-desc">{orderDetails.paymentMethod === 'card' ? 'Tarjeta' : orderDetails.paymentMethod === 'paypal' ? 'PayPal' : orderDetails.paymentMethod?.startsWith('mercadopago') ? 'Mercado Pago' : 'Pagado'}</span></div>
                   </div>
                   {orderDetails.trackingNumber ? (
                     <>

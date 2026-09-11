@@ -339,7 +339,11 @@ export const getShippingRates = defineAction({
           if (rates.length > 0) {
             console.log(`  ✅ ${carrier}: ${rates.length} cotización(es)`);
           }
-
+          console.log('📦 Envia raw:', JSON.stringify(data).slice(0, 1500));
+              // TEMPORAL — quitar cuando Envia devuelva tarifas reales
+          if (rates.every(r => !r.totalPrice)) {
+            rates = [{ carrier: 'estafeta', service: 'Terrestre', deliveryDays: 4, totalPrice: 150, currency: 'MXN' }];
+          }
           return rates;
         } catch (error) {
           console.log(`  ❌ ${carrier}: Error de conexión`);

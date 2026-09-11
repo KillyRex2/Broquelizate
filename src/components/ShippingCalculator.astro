@@ -200,6 +200,8 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
   .calc-options :global(.rate-days) { font-size: 0.72rem; color: #85858c; margin-top: 1px; }
   .calc-options :global(.rate-price) { font-size: 1rem; font-weight: 800; color: #1c1c1e; white-space: nowrap; }
   .calc-options :global(.rate-opt.selected .rate-price) { color: #a16207; }
+  .calc-options :global(.rate-strike) { color: #85858c; font-weight: 500; font-size: 0.8rem; }
+  .calc-options :global(.rate-free) { color: #15803d; font-weight: 800; }
 
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .shipping-calc-card { background: rgba(255, 255, 255, 0.93); }
@@ -253,6 +255,13 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     const originCp = (document.getElementById('calc-origin-cp') as HTMLInputElement)?.value || '35000';
     const weight = parseFloat((document.getElementById('calc-weight') as HTMLInputElement)?.value || '0.5');
     const itemsCount = parseInt((document.getElementById('calc-items-count') as HTMLInputElement)?.value || '0');
+    const subtotal = parseFloat((document.getElementById('calc-subtotal') as HTMLInputElement)?.value || '0');
+
+    // Debe coincidir con FREE_SHIPPING_THRESHOLD de @/utils/shipping.
+    // Aquí va como constante local porque esto corre en el navegador.
+    const FREE_SHIPPING_THRESHOLD = 1099;
+    const isFree = subtotal >= FREE_SHIPPING_THRESHOLD;
+    console.log('💰 subtotal:', subtotal, '| umbral:', FREE_SHIPPING_THRESHOLD, '| gratis:', isFree);
 
     // Input de CP del formulario de dirección (lo auto-sincroniza si existe)
     const addressCpInput = document.getElementById('postal-code') as HTMLInputElement | null;
@@ -270,7 +279,17 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     function hideErr() { errBox?.classList.add('hidden'); }
 
     function selectRate(r: ShippingRate, cp: string) {
-      const selected = { carrier: r.carrier, service: r.service, price: r.totalPrice, deliveryDays: r.deliveryDays, postalCode: cp };
+      // La tarifa del carrier debe ser válida aunque al cliente no se le cobre:
+      // si viene en 0 es que la API falló, no que el envío sea gratis.
+      if (!(Number(r.totalPrice) > 0)) return;
+      const selected = {
+        carrier: r.carrier,
+        service: r.service,
+        price: isFree ? 0 : Number(r.totalPrice), // lo que paga el cliente
+        carrierRate: Number(r.totalPrice),        // lo que cuesta la guía
+        deliveryDays: r.deliveryDays,
+        postalCode: cp,
+      };
       try { localStorage.setItem('selectedShipping', JSON.stringify(selected)); } catch {}
       // Notifica al CheckoutForm para que actualice totales y UI
       window.dispatchEvent(new CustomEvent('shipping:selected', { detail: selected }));
@@ -278,8 +297,29 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
 
     function render(rates: ShippingRate[], cp: string) {
       if (!optionsBox) return;
-      const sorted = [...rates].sort((a, b) => a.totalPrice - b.totalPrice);
+
+      // Una tarifa en $0 casi siempre significa que la API respondió
+      // sin precio (cuenta sin saldo, servicio no contratado, campo
+      // distinto en la respuesta). Si se cuela, se cobra el envío en
+      // cero: mejor descartarla que vender a pérdida.
+      const valid = rates.filter(r => Number(r.totalPrice) > 0);
+      if (valid.length === 0) {
+        showErr('No pudimos obtener tarifas válidas para ese CP. Contáctanos por WhatsApp para cotizar tu envío.');
+        resultsBox?.classList.add('hidden');
+        return;
+      }
+
+      const sorted = [...valid].sort((a, b) => a.totalPrice - b.totalPrice);
       const minDays = Math.min(...sorted.map(x => x.deliveryDays));
+
+      // Con envío gratis el cliente sigue eligiendo paquetería:
+      // el título lo aclara para que no crea que le van a cobrar.
+      const resultsTitle = optionsBox.closest('.calc-results')?.querySelector('.calc-results-title');
+      if (resultsTitle) {
+        resultsTitle.textContent = isFree
+          ? '¡Tu envío es gratis! Elige paquetería'
+          : 'Opciones disponibles';
+      }
 
       // Sin estilos inline: todo por clases, para que el CSS del componente mande.
       optionsBox.innerHTML = sorted.map((r, i) => {
@@ -298,7 +338,7 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
             <p class="rate-service">${r.service}</p>
             <p class="rate-days">${days}</p>
           </div>
-          <span class="rate-price">${fmt(r.totalPrice)}</span>
+          <span class="rate-price">${isFree ? `<s class="rate-strike">${fmt(r.totalPrice)}</s> <span class="rate-free">Gratis</span>` : fmt(r.totalPrice)}</span>
         </label>`;
       }).join('');
 
