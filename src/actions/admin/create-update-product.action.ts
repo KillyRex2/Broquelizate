@@ -17,7 +17,13 @@ export const crateUpdateProduct = defineAction({
         cost: z.coerce.number().optional(),
         description: z.string(),
         category: z.string(),
-        slug: z.string().transform(val => val.toLowerCase().replaceAll(' ', '-').trim()),
+        slug: z.string().transform(val =>
+          val
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // quita acentos: ó → o
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')                        // TODO lo demás → guion
+            .replace(/^-+|-+$/g, '')                            // sin guiones al inicio/final
+        ),
         type: z.string(),
         piercing_name: z.preprocess((val) => {
             if (Array.isArray(val)) {
