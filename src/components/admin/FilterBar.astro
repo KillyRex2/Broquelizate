@@ -1,5 +1,8 @@
 ---
-// src/components/admin/FilterBar.astro
+// Barra de filtros del inventario (admin)
+// Rediseño: neutros cálidos + un solo acento dorado, sin emojis ni chips
+// de colores. Categorías con selección múltiple (?category=A,B).
+
 interface Props {
   categories: string[];
   initialSearch?: string;
@@ -12,298 +15,476 @@ interface Props {
   totalResults?: number;
 }
 
-const { 
-  categories, 
-  initialSearch = '', 
+const {
+  categories,
+  initialSearch = '',
   initialCategory = 'all',
   initialStockFilter = 'all',
   initialSortBy = 'name',
   initialSortOrder = 'asc',
   initialMinPrice = 0,
   initialMaxPrice = 99999,
-  totalResults = 0
+  totalResults = 0,
 } = Astro.props;
 
-// Contar filtros activos
+// Categorías múltiples: llegan en la URL separadas por coma
+const selectedCategories =
+  initialCategory && initialCategory !== 'all'
+    ? initialCategory.split(',').map(c => c.trim()).filter(Boolean)
+    : [];
+
+// Stock múltiple: mismo formato (?stockFilter=out,low)
+const selectedStock =
+  initialStockFilter && initialStockFilter !== 'all'
+    ? initialStockFilter.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+const hasPrice = initialMinPrice > 0 || initialMaxPrice < 99999;
+
 let activeFiltersCount = 0;
-if (initialCategory !== 'all') activeFiltersCount++;
-if (initialStockFilter !== 'all') activeFiltersCount++;
-if (initialMinPrice > 0) activeFiltersCount++;
-if (initialMaxPrice < 99999) activeFiltersCount++;
+if (selectedCategories.length > 0) activeFiltersCount += selectedCategories.length;
+if (selectedStock.length > 0) activeFiltersCount += selectedStock.length;
+if (hasPrice) activeFiltersCount++;
 
 const stockOptions = [
-  { value: 'all', label: 'Todos', icon: '📦', color: 'gray' },
-  { value: 'out', label: 'Agotado', icon: '🔴', color: 'red' },
-  { value: 'low', label: 'Mínimo (1-5)', icon: '🟠', color: 'orange' },
-  { value: 'available', label: 'Disponible (6-20)', icon: '🟢', color: 'green' },
-  { value: 'high', label: 'Alto stock (+20)', icon: '💎', color: 'blue' },
+  { value: 'all', label: 'Todos', hint: '', tone: 'neutral' },
+  { value: 'out', label: 'Agotado', hint: '0', tone: 'red' },
+  { value: 'low', label: 'Mínimo', hint: '1–5', tone: 'amber' },
+  { value: 'available', label: 'Disponible', hint: '6–20', tone: 'green' },
+  { value: 'high', label: 'Alto stock', hint: '+20', tone: 'blue' },
 ];
+
+const money = (v: number) => `$${v.toLocaleString('es-MX')}`;
 ---
 
-<div class="filter-bar-container" data-astro-transition-persist="inventory-filters">
-  <!-- Barra principal de filtros -->
-  <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+<div class="fb" data-astro-transition-persist="inventory-filters">
+  <!-- Barra principal -->
+  <div class="fb-bar">
     <!-- Búsqueda -->
-    <div class="relative flex-1 min-w-0">
-      <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-      </div>
+    <div class="fb-search">
+      <svg class="fb-search-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
       <input
         type="text"
         id="search-input"
-        placeholder="Buscar por nombre, descripción..."
+        placeholder="Buscar por nombre o descripción"
         value={initialSearch}
         autocomplete="off"
-        class="w-full pl-12 pr-10 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-yellow-400 focus:bg-white transition-all duration-200"
+        class="fb-search-input"
       />
-      <button 
-        id="clear-search-btn"
-        class={`absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors ${!initialSearch ? 'hidden' : ''}`}
-      >
-        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      <button id="clear-search-btn" class:list={['fb-search-clear', { hidden: !initialSearch }]} aria-label="Limpiar búsqueda">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
 
-    <!-- Botón de filtros avanzados -->
-    <button
-      id="open-filters-btn"
-      class="relative flex items-center justify-center gap-2 px-5 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 min-w-[140px]"
-    >
-      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+    <!-- Filtros avanzados -->
+    <button id="open-filters-btn" class:list={['fb-btn', { active: activeFiltersCount > 0 }]}>
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M6 12h12M10 18h4"/>
       </svg>
       <span>Filtros</span>
-      {activeFiltersCount > 0 && (
-        <span class="absolute -top-2 -right-2 flex items-center justify-center w-6 h-6 bg-yellow-500 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
-          {activeFiltersCount}
-        </span>
-      )}
+      {activeFiltersCount > 0 && <span class="fb-count">{activeFiltersCount}</span>}
     </button>
 
-    <!-- Selector de ordenamiento rápido -->
-    <div class="flex items-center gap-2">
-      <select
-        id="sort-select"
-        class="py-3 px-4 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-700 font-medium focus:outline-none focus:border-yellow-400 transition-all duration-200 cursor-pointer"
-      >
-        <option value="name-asc" selected={initialSortBy === 'name' && initialSortOrder === 'asc'}>Nombre A-Z</option>
-        <option value="name-desc" selected={initialSortBy === 'name' && initialSortOrder === 'desc'}>Nombre Z-A</option>
-        <option value="price-asc" selected={initialSortBy === 'price' && initialSortOrder === 'asc'}>Precio ↑</option>
-        <option value="price-desc" selected={initialSortBy === 'price' && initialSortOrder === 'desc'}>Precio ↓</option>
-        <option value="stock-asc" selected={initialSortBy === 'stock' && initialSortOrder === 'asc'}>Stock ↑</option>
-        <option value="stock-desc" selected={initialSortBy === 'stock' && initialSortOrder === 'desc'}>Stock ↓</option>
+    <!-- Orden -->
+    <div class="fb-select-wrap">
+      <select id="sort-select" class="fb-select" aria-label="Ordenar">
+        <option value="name-asc" selected={initialSortBy === 'name' && initialSortOrder === 'asc'}>Nombre A–Z</option>
+        <option value="name-desc" selected={initialSortBy === 'name' && initialSortOrder === 'desc'}>Nombre Z–A</option>
+        <option value="price-asc" selected={initialSortBy === 'price' && initialSortOrder === 'asc'}>Precio: menor a mayor</option>
+        <option value="price-desc" selected={initialSortBy === 'price' && initialSortOrder === 'desc'}>Precio: mayor a menor</option>
+        <option value="stock-asc" selected={initialSortBy === 'stock' && initialSortOrder === 'asc'}>Stock: menor a mayor</option>
+        <option value="stock-desc" selected={initialSortBy === 'stock' && initialSortOrder === 'desc'}>Stock: mayor a menor</option>
       </select>
+      <svg class="fb-select-chevron" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7"/>
+      </svg>
     </div>
 
-    <!-- Contador de resultados -->
-    <div class="hidden lg:flex items-center px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl">
-      <span class="text-sm font-medium text-yellow-700">
-        <span id="results-count">{totalResults}</span> productos
-      </span>
+    <!-- Resultados -->
+    <div class="fb-results">
+      <span id="results-count" class="fb-results-num">{totalResults.toLocaleString('es-MX')}</span>
+      <span class="fb-results-label">productos</span>
     </div>
   </div>
 
   <!-- Chips de filtros activos -->
-  <div id="active-filters-chips" class={`flex flex-wrap gap-2 mt-3 ${activeFiltersCount === 0 && !initialSearch ? 'hidden' : ''}`}>
+  <div id="active-filters-chips" class:list={['fb-chips', { hidden: activeFiltersCount === 0 && !initialSearch }]}>
     {initialSearch && (
-      <span class="filter-chip bg-blue-100 text-blue-800 border-blue-200" data-filter="search">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-        "{initialSearch}"
-        <button class="remove-chip ml-1 hover:text-blue-900" data-filter="search">×</button>
+      <span class="fb-chip" data-filter="search">
+        <span class="fb-chip-key">Búsqueda</span>
+        <span class="fb-chip-val">“{initialSearch}”</span>
+        <button class="remove-chip fb-chip-x" data-filter="search" aria-label="Quitar búsqueda">×</button>
       </span>
     )}
-    {initialCategory !== 'all' && (
-      <span class="filter-chip bg-purple-100 text-purple-800 border-purple-200" data-filter="category">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-        </svg>
-        {initialCategory}
-        <button class="remove-chip ml-1 hover:text-purple-900" data-filter="category">×</button>
+
+    {selectedCategories.map(cat => (
+      <span class="fb-chip" data-filter="category">
+        <span class="fb-chip-key">Categoría</span>
+        <span class="fb-chip-val">{cat}</span>
+        <button class="remove-chip fb-chip-x" data-filter="category" data-value={cat} aria-label={`Quitar ${cat}`}>×</button>
+      </span>
+    ))}
+
+    {selectedStock.map(val => {
+      const opt = stockOptions.find(s => s.value === val);
+      return (
+        <span class="fb-chip" data-filter="stock">
+          <span class={`fb-dot tone-${opt?.tone ?? 'neutral'}`}></span>
+          <span class="fb-chip-key">Stock</span>
+          <span class="fb-chip-val">{opt?.label ?? val}</span>
+          <button class="remove-chip fb-chip-x" data-filter="stock" data-value={val} aria-label={`Quitar ${opt?.label ?? val}`}>×</button>
+        </span>
+      );
+    })}
+
+    {hasPrice && (
+      <span class="fb-chip" data-filter="price">
+        <span class="fb-chip-key">Precio</span>
+        <span class="fb-chip-val">
+          {money(initialMinPrice)} – {initialMaxPrice >= 99999 ? 'sin límite' : money(initialMaxPrice)}
+        </span>
+        <button class="remove-chip fb-chip-x" data-filter="price" aria-label="Quitar filtro de precio">×</button>
       </span>
     )}
-    {initialStockFilter !== 'all' && (
-      <span class="filter-chip bg-green-100 text-green-800 border-green-200" data-filter="stock">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-        </svg>
-        {stockOptions.find(s => s.value === initialStockFilter)?.label}
-        <button class="remove-chip ml-1 hover:text-green-900" data-filter="stock">×</button>
-      </span>
-    )}
-    {(initialMinPrice > 0 || initialMaxPrice < 99999) && (
-      <span class="filter-chip bg-yellow-100 text-yellow-800 border-yellow-200" data-filter="price">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        ${initialMinPrice} - ${initialMaxPrice}
-        <button class="remove-chip ml-1 hover:text-yellow-900" data-filter="price">×</button>
-      </span>
-    )}
+
     {activeFiltersCount > 0 && (
-      <button id="clear-all-filters" class="filter-chip bg-red-50 text-red-600 border-red-200 hover:bg-red-100 transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-        </svg>
-        Limpiar todo
-      </button>
+      <button id="clear-all-filters" class="fb-clear-all">Limpiar todo</button>
     )}
   </div>
 </div>
 
-<!-- Modal/Panel de Filtros Avanzados -->
-<div id="filters-modal" class="fixed inset-0 z-50 hidden">
-  <!-- Backdrop -->
-  <div id="filters-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"></div>
-  
-  <!-- Panel lateral -->
-  <div id="filters-panel" class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-out overflow-hidden flex flex-col">
-    <!-- Header -->
-    <div class="flex items-center justify-between p-5 border-b bg-gradient-to-r from-yellow-50 to-orange-50">
+<!-- Panel lateral de filtros -->
+<div id="filters-modal" class="fb-modal hidden">
+  <div id="filters-backdrop" class="fb-backdrop"></div>
+
+  <aside id="filters-panel" class="fb-panel translate-x-full" aria-label="Filtros avanzados">
+    <header class="fb-panel-head">
       <div>
-        <h2 class="text-xl font-bold text-gray-900">Filtros Avanzados</h2>
-        <p class="text-sm text-gray-500 mt-0.5">Refina tu búsqueda</p>
+        <p class="fb-eyebrow">Inventario</p>
+        <h2 class="fb-panel-title">Filtros</h2>
       </div>
-      <button id="close-filters-btn" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-full transition-colors">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button id="close-filters-btn" class="fb-icon-btn" aria-label="Cerrar">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
-    </div>
-    
-    <!-- Contenido de filtros -->
-    <div class="flex-1 overflow-y-auto p-5 space-y-6">
+    </header>
+
+    <div class="fb-panel-body">
       <!-- Stock -->
-      <div class="filter-section">
-        <h3 class="filter-section-title">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-          </svg>
-          Stock
-        </h3>
-        <div class="space-y-2">
+      <section class="fb-section">
+        <div class="fb-section-head">
+          <h3 class="fb-section-title">Stock</h3>
+          <span class="fb-section-note">Puedes elegir varios</span>
+        </div>
+        <div class="fb-stock-list">
           {stockOptions.map(option => (
-            <label class="filter-option group">
-              <input 
-                type="radio" 
-                name="stockFilter" 
+            <label class="fb-stock-opt">
+              <input
+                type="checkbox"
+                name="stockFilter"
                 value={option.value}
-                checked={initialStockFilter === option.value}
-                class="filter-radio"
+                checked={option.value === 'all' ? selectedStock.length === 0 : selectedStock.includes(option.value)}
+                class="fb-check"
               />
-              <span class="flex items-center gap-2">
-                <span class="text-lg">{option.icon}</span>
-                <span class="font-medium text-gray-700 group-hover:text-gray-900">{option.label}</span>
-              </span>
+              <span class={`fb-dot tone-${option.tone}`}></span>
+              <span class="fb-stock-label">{option.label}</span>
+              {option.hint && <span class="fb-stock-hint">{option.hint}</span>}
             </label>
           ))}
         </div>
-      </div>
+      </section>
 
-      <!-- Rango de precios -->
-      <div class="filter-section">
-        <h3 class="filter-section-title">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          Rango de Precio
-        </h3>
-        <div class="flex items-center gap-3">
-          <div class="flex-1">
-            <label class="text-xs text-gray-500 mb-1 block">Mínimo</label>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-              <input 
-                type="number" 
-                id="min-price-input"
-                value={initialMinPrice}
-                min="0"
-                placeholder="0"
-                class="w-full pl-8 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
-              />
-            </div>
-          </div>
-          <span class="text-gray-400 mt-5">—</span>
-          <div class="flex-1">
-            <label class="text-xs text-gray-500 mb-1 block">Máximo</label>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-              <input 
-                type="number" 
-                id="max-price-input"
-                value={initialMaxPrice === 99999 ? '' : initialMaxPrice}
-                min="0"
-                placeholder="Sin límite"
-                class="w-full pl-8 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-yellow-400 transition-colors"
-              />
-            </div>
-          </div>
+      <!-- Precio -->
+      <section class="fb-section">
+        <h3 class="fb-section-title">Rango de precio</h3>
+        <div class="fb-price-row">
+          <label class="fb-price-field">
+            <span class="fb-price-label">Mínimo</span>
+            <span class="fb-price-input-wrap">
+              <span class="fb-price-sign">$</span>
+              <input type="number" id="min-price-input" value={initialMinPrice} min="0" placeholder="0" class="fb-price-input" />
+            </span>
+          </label>
+          <span class="fb-price-sep">—</span>
+          <label class="fb-price-field">
+            <span class="fb-price-label">Máximo</span>
+            <span class="fb-price-input-wrap">
+              <span class="fb-price-sign">$</span>
+              <input type="number" id="max-price-input" value={initialMaxPrice === 99999 ? '' : initialMaxPrice} min="0" placeholder="Sin límite" class="fb-price-input" />
+            </span>
+          </label>
         </div>
-        <!-- Precios rápidos -->
-        <div class="flex flex-wrap gap-2 mt-3">
-          <button class="quick-price-btn" data-min="0" data-max="500">Hasta $500</button>
-          <button class="quick-price-btn" data-min="500" data-max="1000">$500 - $1,000</button>
-          <button class="quick-price-btn" data-min="1000" data-max="5000">$1,000 - $5,000</button>
-          <button class="quick-price-btn" data-min="5000" data-max="99999">+$5,000</button>
+        <div class="fb-quick">
+          <button class="quick-price-btn fb-quick-btn" data-min="0" data-max="500">Hasta $500</button>
+          <button class="quick-price-btn fb-quick-btn" data-min="500" data-max="1000">$500 – $1,000</button>
+          <button class="quick-price-btn fb-quick-btn" data-min="1000" data-max="5000">$1,000 – $5,000</button>
+          <button class="quick-price-btn fb-quick-btn" data-min="5000" data-max="99999">+$5,000</button>
         </div>
-      </div>
+      </section>
 
-      <!-- Categorías -->
-      <div class="filter-section">
-        <h3 class="filter-section-title">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-          </svg>
-          Categorías
-        </h3>
-        <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-          <label class="filter-option-checkbox group">
-            <input 
-              type="radio" 
-              name="categoryFilter" 
-              value="all"
-              checked={initialCategory === 'all'}
-              class="filter-checkbox"
-            />
-            <span class="font-medium text-gray-700 group-hover:text-gray-900">Todas</span>
+      <!-- Categorías (selección múltiple) -->
+      <section class="fb-section">
+        <div class="fb-section-head">
+          <h3 class="fb-section-title">Categorías</h3>
+          <span class="fb-section-note">Puedes elegir varias</span>
+        </div>
+        <div class="fb-cat-grid">
+          <label class="fb-cat-opt">
+            <input type="checkbox" name="categoryFilter" value="all" checked={selectedCategories.length === 0} class="fb-check" />
+            <span class="fb-cat-label">Todas</span>
           </label>
           {categories.map(cat => (
-            <label class="filter-option-checkbox group">
-              <input 
-                type="radio" 
-                name="categoryFilter" 
-                value={cat}
-                checked={initialCategory === cat}
-                class="filter-checkbox"
-              />
-              <span class="font-medium text-gray-700 group-hover:text-gray-900 truncate">{cat}</span>
+            <label class="fb-cat-opt">
+              <input type="checkbox" name="categoryFilter" value={cat} checked={selectedCategories.includes(cat)} class="fb-check" />
+              <span class="fb-cat-label">{cat}</span>
             </label>
           ))}
         </div>
-      </div>
+      </section>
     </div>
-    
-    <!-- Footer con acciones -->
-    <div class="p-5 border-t bg-gray-50 space-y-3">
-      <button id="apply-filters-btn" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-bold rounded-xl shadow-lg hover:from-yellow-500 hover:to-yellow-600 transition-all duration-200 active:scale-[0.98]">
-        Aplicar Filtros
-      </button>
-      <button id="reset-filters-btn" class="w-full py-3 bg-white border-2 border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">
-        Restablecer Todo
-      </button>
-    </div>
-  </div>
+
+    <footer class="fb-panel-foot">
+      <button id="reset-filters-btn" class="fb-ghost">Restablecer</button>
+      <button id="apply-filters-btn" class="fb-primary">Aplicar filtros</button>
+    </footer>
+  </aside>
 </div>
+
+<style>
+  /* ── Tokens ── */
+  .fb, .fb-modal {
+    --ink: #1c1917;
+    --ink-2: #57534e;
+    --ink-3: #a8a29e;
+    --line: #e7e5e4;
+    --line-2: #d6d3d1;
+    --soft: #fafaf9;
+    --paper: #ffffff;
+    --gold: #eab308;
+    --gold-2: #f59e0b;
+    --gold-deep: #a16207;
+    --gold-wash: #fefce8;
+    --radius: 14px;
+    --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.05);
+    --shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px -12px rgba(28, 25, 23, 0.16);
+    --ring: 0 0 0 3px rgba(234, 179, 8, 0.22);
+  }
+
+  .hidden { display: none !important; }
+
+  /* ── Barra principal ── */
+  .fb-bar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+
+  .fb-search { position: relative; flex: 1 1 320px; min-width: 0; }
+  .fb-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+  .fb-search-input {
+    width: 100%; height: 46px; padding: 0 40px 0 42px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--ink); font-size: 0.92rem; box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .fb-search-input::placeholder { color: var(--ink-3); }
+  .fb-search-input:focus { outline: none; border-color: var(--gold); box-shadow: var(--ring); }
+  .fb-search-clear {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    background: var(--soft); border: none; border-radius: 50%; color: var(--ink-2); cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .fb-search-clear:hover { background: var(--line); color: var(--ink); }
+
+  .fb-btn {
+    position: relative; display: inline-flex; align-items: center; gap: 8px;
+    height: 46px; padding: 0 18px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--ink); font-size: 0.9rem; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .fb-btn:hover { border-color: var(--line-2); background: var(--soft); }
+  .fb-btn.active { border-color: rgba(234, 179, 8, 0.55); background: var(--gold-wash); }
+  .fb-count {
+    min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--ink); color: #fff; border-radius: 999px; font-size: 0.7rem; font-weight: 700;
+  }
+
+  .fb-select-wrap { position: relative; }
+  .fb-select {
+    height: 46px; padding: 0 38px 0 16px; appearance: none;
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--ink); font-size: 0.88rem; font-weight: 500; cursor: pointer; box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .fb-select:focus { outline: none; border-color: var(--gold); box-shadow: var(--ring); }
+  .fb-select-chevron { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+
+  .fb-results { display: flex; align-items: baseline; gap: 6px; padding: 0 6px 0 10px; align-self: center; }
+  .fb-results-num { font-size: 1.15rem; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .fb-results-label { font-size: 0.82rem; color: var(--ink-3); }
+
+  /* ── Chips: un solo estilo, la jerarquía la da la tipografía ── */
+  .fb-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+  .fb-chip {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 12px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow-sm);
+    font-size: 0.8rem;
+  }
+  .fb-chip-key { color: var(--ink-3); font-weight: 500; }
+  .fb-chip-val { color: var(--ink); font-weight: 600; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fb-chip-x {
+    width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: none; border-radius: 50%; color: var(--ink-3); font-size: 1rem; line-height: 1; cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .fb-chip-x:hover { background: var(--soft); color: var(--ink); }
+  .fb-clear-all {
+    height: 32px; padding: 0 10px; background: none; border: none;
+    color: var(--gold-deep); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .fb-clear-all:hover { color: var(--ink); }
+
+  /* ── Panel lateral ── */
+  .fb-modal { position: fixed; inset: 0; z-index: 50; }
+  .fb-backdrop { position: absolute; inset: 0; background: rgba(28, 25, 23, 0.35); backdrop-filter: blur(3px); }
+  .fb-panel {
+    position: absolute; right: 0; top: 0; height: 100%; width: 100%; max-width: 440px;
+    display: flex; flex-direction: column; background: var(--paper);
+    box-shadow: -24px 0 60px -30px rgba(28, 25, 23, 0.45);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .translate-x-full { transform: translateX(100%); }
+
+  .fb-panel-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 24px 24px 18px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--gold-wash), var(--paper));
+  }
+  .fb-eyebrow { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-deep); }
+  .fb-panel-title { margin-top: 2px; font-size: 1.4rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  .fb-icon-btn {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 50%; color: var(--ink-2); cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .fb-icon-btn:hover { background: var(--soft); color: var(--ink); }
+
+  .fb-panel-body { flex: 1; overflow-y: auto; padding: 8px 24px 24px; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  .fb-section { padding: 20px 0; border-bottom: 1px solid var(--line); }
+  .fb-section:last-child { border-bottom: none; }
+  .fb-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .fb-section-title { margin-bottom: 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+  .fb-section-note { font-size: 0.74rem; color: var(--ink-3); }
+
+  /* Stock */
+  .fb-stock-list { display: flex; flex-direction: column; gap: 6px; }
+  .fb-stock-opt {
+    display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+    border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .fb-stock-opt:hover { border-color: var(--line-2); background: var(--soft); }
+  .fb-stock-opt:has(.fb-check:checked) { border-color: rgba(234, 179, 8, 0.6); background: var(--gold-wash); }
+  .fb-stock-label { flex: 1; font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+  .fb-stock-hint { font-size: 0.74rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  .fb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .tone-neutral { background: var(--ink-3); }
+  .tone-red { background: #dc2626; }
+  .tone-amber { background: #f59e0b; }
+  .tone-green { background: #16a34a; }
+  .tone-blue { background: #2563eb; }
+
+  /* Controles propios: el radio/checkbox nativo es lo que más delata "plantilla" */
+  .fb-radio, .fb-check {
+    appearance: none; flex-shrink: 0; width: 18px; height: 18px; margin: 0;
+    border: 1.5px solid var(--line-2); background: var(--paper); cursor: pointer;
+    display: grid; place-content: center; transition: border-color 0.2s, background 0.2s;
+  }
+  .fb-radio { border-radius: 50%; }
+  .fb-check { border-radius: 5px; }
+  .fb-radio::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); transform: scale(0); transition: transform 0.15s; }
+  .fb-radio:checked { border-color: var(--ink); }
+  .fb-radio:checked::before { transform: scale(1); }
+  .fb-check::before {
+    content: ''; width: 10px; height: 10px; transform: scale(0); transition: transform 0.15s;
+    background: #fff; clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  .fb-check:checked { background: var(--ink); border-color: var(--ink); }
+  .fb-check:checked::before { transform: scale(1); }
+  .fb-radio:focus-visible, .fb-check:focus-visible { outline: none; box-shadow: var(--ring); }
+
+  /* Precio */
+  .fb-price-row { display: flex; align-items: flex-end; gap: 10px; }
+  .fb-price-field { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .fb-price-label { font-size: 0.74rem; color: var(--ink-3); }
+  .fb-price-input-wrap { position: relative; }
+  .fb-price-sign { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 0.88rem; }
+  .fb-price-input {
+    width: 100%; height: 42px; padding: 0 12px 0 26px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+    color: var(--ink); font-size: 0.9rem; font-variant-numeric: tabular-nums;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .fb-price-input:focus { outline: none; border-color: var(--gold); box-shadow: var(--ring); }
+  .fb-price-sep { padding-bottom: 11px; color: var(--ink-3); }
+
+  .fb-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .fb-quick-btn {
+    height: 30px; padding: 0 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px;
+    color: var(--ink-2); font-size: 0.76rem; font-weight: 600; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+  }
+  .fb-quick-btn:hover { border-color: rgba(234, 179, 8, 0.6); color: var(--gold-deep); background: var(--gold-wash); }
+
+  /* Categorías */
+  .fb-cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 280px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  .fb-cat-opt {
+    display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .fb-cat-opt:hover { border-color: var(--line-2); background: var(--soft); }
+  .fb-cat-opt:has(.fb-check:checked) { border-color: rgba(234, 179, 8, 0.6); background: var(--gold-wash); }
+  .fb-cat-label { font-size: 0.84rem; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Pie */
+  .fb-panel-foot { display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--soft); }
+  .fb-ghost {
+    height: 46px; padding: 0 18px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    color: var(--ink-2); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: border-color 0.2s, color 0.2s;
+  }
+  .fb-ghost:hover { border-color: var(--line-2); color: var(--ink); }
+  .fb-primary {
+    flex: 1; height: 46px; background: var(--ink); border: none; border-radius: 12px;
+    color: #fff; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 8px 20px -10px rgba(28, 25, 23, 0.6);
+    transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+  }
+  .fb-primary:hover { background: #292524; box-shadow: 0 12px 24px -12px rgba(28, 25, 23, 0.7); }
+  .fb-primary:active { transform: scale(0.98); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fb-panel { transition: none; }
+  }
+
+  @media (max-width: 640px) {
+    .fb-search { flex-basis: 100%; }
+    .fb-btn, .fb-select-wrap { flex: 1; }
+    .fb-select { width: 100%; }
+    .fb-results { display: none; }
+    .fb-cat-grid { grid-template-columns: 1fr; }
+    .fb-panel { max-width: 100%; }
+  }
+</style>
 
 <script>
   function initFilterBar() {
-    // Elementos
-    const searchInput = document.getElementById('search-input') as HTMLInputElement;
+    const searchInput = document.getElementById('search-input') as HTMLInputElement | null;
     const clearSearchBtn = document.getElementById('clear-search-btn');
     const openFiltersBtn = document.getElementById('open-filters-btn');
     const closeFiltersBtn = document.getElementById('close-filters-btn');
@@ -313,18 +494,18 @@ const stockOptions = [
     const applyFiltersBtn = document.getElementById('apply-filters-btn');
     const resetFiltersBtn = document.getElementById('reset-filters-btn');
     const clearAllFilters = document.getElementById('clear-all-filters');
-    const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
-    const minPriceInput = document.getElementById('min-price-input') as HTMLInputElement;
-    const maxPriceInput = document.getElementById('max-price-input') as HTMLInputElement;
+    const sortSelect = document.getElementById('sort-select') as HTMLSelectElement | null;
+    const minPriceInput = document.getElementById('min-price-input') as HTMLInputElement | null;
+    const maxPriceInput = document.getElementById('max-price-input') as HTMLInputElement | null;
     const activeFiltersChips = document.getElementById('active-filters-chips');
 
     let searchTimeout: ReturnType<typeof setTimeout>;
 
-    // Funciones de navegación
+    // ── Navegación ──
     function buildUrl(params: Record<string, string>) {
       const url = new URL(window.location.href);
-      url.searchParams.set('page', '1'); // Reset a página 1 al filtrar
-      
+      url.searchParams.set('page', '1'); // reset a página 1 al filtrar
+
       Object.entries(params).forEach(([key, value]) => {
         if (value && value !== 'all' && value !== '0' && value !== '99999') {
           url.searchParams.set(key, value);
@@ -332,13 +513,12 @@ const stockOptions = [
           url.searchParams.delete(key);
         }
       });
-      
+
       return url.toString();
     }
 
     function navigateWithFilters(params: Record<string, string>) {
-      const url = buildUrl(params);
-      window.location.href = url;
+      window.location.href = buildUrl(params);
     }
 
     function getCurrentParams(): Record<string, string> {
@@ -354,14 +534,12 @@ const stockOptions = [
       };
     }
 
-    // Abrir/cerrar modal de filtros
+    // ── Panel ──
     function openFiltersModal() {
       if (!filtersModal || !filtersPanel) return;
       filtersModal.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
-      requestAnimationFrame(() => {
-        filtersPanel.classList.remove('translate-x-full');
-      });
+      requestAnimationFrame(() => filtersPanel.classList.remove('translate-x-full'));
     }
 
     function closeFiltersModal() {
@@ -373,11 +551,11 @@ const stockOptions = [
       }, 300);
     }
 
-    // Event: Búsqueda con debounce
-    searchInput?.addEventListener('input', (e) => {
+    // ── Búsqueda con debounce ──
+    searchInput?.addEventListener('input', e => {
       const value = (e.target as HTMLInputElement).value;
       clearSearchBtn?.classList.toggle('hidden', !value);
-      
+
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
         const params = getCurrentParams();
@@ -386,7 +564,6 @@ const stockOptions = [
       }, 500);
     });
 
-    // Event: Limpiar búsqueda
     clearSearchBtn?.addEventListener('click', () => {
       if (searchInput) searchInput.value = '';
       clearSearchBtn.classList.add('hidden');
@@ -395,12 +572,11 @@ const stockOptions = [
       navigateWithFilters(params);
     });
 
-    // Event: Abrir modal de filtros
     openFiltersBtn?.addEventListener('click', openFiltersModal);
     closeFiltersBtn?.addEventListener('click', closeFiltersModal);
     filtersBackdrop?.addEventListener('click', closeFiltersModal);
 
-    // Event: Cambio de ordenamiento
+    // ── Orden ──
     sortSelect?.addEventListener('change', () => {
       const [sortBy, sortOrder] = sortSelect.value.split('-');
       const params = getCurrentParams();
@@ -409,26 +585,33 @@ const stockOptions = [
       navigateWithFilters(params);
     });
 
-    // Event: Aplicar filtros
+    // ── Aplicar ──
     applyFiltersBtn?.addEventListener('click', () => {
       const params = getCurrentParams();
-      
-      // Stock
-      const stockRadio = document.querySelector('input[name="stockFilter"]:checked') as HTMLInputElement;
-      params.stockFilter = stockRadio?.value || 'all';
-      
-      // Categoría
-      const categoryRadio = document.querySelector('input[name="categoryFilter"]:checked') as HTMLInputElement;
-      params.category = categoryRadio?.value || 'all';
-      
-      // Precios
+
+      // Stock (selección múltiple)
+      const checkedStock = Array.from(
+        document.querySelectorAll<HTMLInputElement>('input[name="stockFilter"]:checked')
+      )
+        .map(el => el.value)
+        .filter(v => v && v !== 'all');
+      params.stockFilter = checkedStock.length > 0 ? checkedStock.join(',') : 'all';
+
+      // Categorías (selección múltiple)
+      const checkedCats = Array.from(
+        document.querySelectorAll<HTMLInputElement>('input[name="categoryFilter"]:checked')
+      )
+        .map(el => el.value)
+        .filter(v => v && v !== 'all');
+      params.category = checkedCats.length > 0 ? checkedCats.join(',') : 'all';
+
       params.minPrice = minPriceInput?.value || '0';
       params.maxPrice = maxPriceInput?.value || '99999';
-      
+
       navigateWithFilters(params);
     });
 
-    // Event: Restablecer filtros
+    // ── Restablecer ──
     resetFiltersBtn?.addEventListener('click', () => {
       navigateWithFilters({
         search: '',
@@ -441,7 +624,6 @@ const stockOptions = [
       });
     });
 
-    // Event: Limpiar todos los filtros
     clearAllFilters?.addEventListener('click', () => {
       const params = getCurrentParams();
       params.search = searchInput?.value || '';
@@ -452,120 +634,86 @@ const stockOptions = [
       navigateWithFilters(params);
     });
 
-    // Event: Remover chip individual
-    activeFiltersChips?.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest('.remove-chip') as HTMLButtonElement;
+    // ── Quitar un chip ──
+    activeFiltersChips?.addEventListener('click', e => {
+      const btn = (e.target as HTMLElement).closest('.remove-chip') as HTMLButtonElement | null;
       if (!btn) return;
-      
-      const filterType = btn.dataset.filter;
+
       const params = getCurrentParams();
-      
-      switch (filterType) {
+
+      switch (btn.dataset.filter) {
         case 'search':
           params.search = '';
           if (searchInput) searchInput.value = '';
           break;
-        case 'category':
-          params.category = 'all';
+        case 'category': {
+          // Quita solo esa categoría, conserva las demás
+          const remaining = (params.category === 'all' ? [] : params.category.split(','))
+            .filter(c => c !== btn.dataset.value);
+          params.category = remaining.length > 0 ? remaining.join(',') : 'all';
           break;
-        case 'stock':
-          params.stockFilter = 'all';
+        }
+        case 'stock': {
+          const remaining = (params.stockFilter === 'all' ? [] : params.stockFilter.split(','))
+            .filter(s => s !== btn.dataset.value);
+          params.stockFilter = remaining.length > 0 ? remaining.join(',') : 'all';
           break;
+        }
         case 'price':
           params.minPrice = '0';
           params.maxPrice = '99999';
           break;
       }
-      
+
       navigateWithFilters(params);
     });
 
-    // Event: Botones de precio rápido
-    document.querySelectorAll('.quick-price-btn').forEach(btn => {
+    // ── Precios rápidos ──
+    document.querySelectorAll<HTMLButtonElement>('.quick-price-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const min = btn.getAttribute('data-min') || '0';
-        const max = btn.getAttribute('data-max') || '99999';
+        const min = btn.dataset.min || '0';
+        const max = btn.dataset.max || '99999';
         if (minPriceInput) minPriceInput.value = min;
         if (maxPriceInput) maxPriceInput.value = max === '99999' ? '' : max;
       });
     });
 
-    // Cerrar con Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !filtersModal?.classList.contains('hidden')) {
-        closeFiltersModal();
-      }
+    // ── "Todos/Todas" se excluye con el resto de opciones del grupo ──
+    // Marcar una opción desmarca "Todos"; marcar "Todos" limpia las demás;
+    // si se desmarca todo, "Todos" vuelve a quedar marcado.
+    function bindExclusiveAll(groupName: string) {
+      const boxes = document.querySelectorAll<HTMLInputElement>(`input[name="${groupName}"]`);
+      const allBox = document.querySelector<HTMLInputElement>(`input[name="${groupName}"][value="all"]`);
+
+      boxes.forEach(box => {
+        box.addEventListener('change', () => {
+          if (box.value === 'all') {
+            if (box.checked) boxes.forEach(b => { if (b !== box) b.checked = false; });
+          } else if (box.checked && allBox) {
+            allBox.checked = false;
+          }
+          const anyChecked = Array.from(boxes).some(b => b.value !== 'all' && b.checked);
+          if (!anyChecked && allBox) allBox.checked = true;
+        });
+      });
+    }
+
+    bindExclusiveAll('categoryFilter');
+    bindExclusiveAll('stockFilter');
+
+    // ── Escape ──
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !filtersModal?.classList.contains('hidden')) closeFiltersModal();
     });
 
-    // Sincronizar select de sort con URL actual al cargar la página
+    // ── Sincronizar orden con la URL ──
     if (sortSelect) {
       const params = getCurrentParams();
-      const sortValue = `${params.sortBy}-${params.sortOrder}`;
-      sortSelect.value = sortValue;
+      sortSelect.value = `${params.sortBy}-${params.sortOrder}`;
     }
   }
 
-  // Inicializar
+  // astro:page-load también se dispara en la carga inicial:
+  // llamar initFilterBar() aparte duplicaría todos los listeners.
   document.addEventListener('astro:page-load', initFilterBar);
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    initFilterBar();
-  }
 </script>
-
-<style>
-  .filter-chip {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full border cursor-default;
-  }
-
-  .filter-section-title {
-    @apply flex items-center gap-2 text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3;
-  }
-
-  .filter-option {
-    @apply flex items-center gap-3 p-3 rounded-xl border-2 border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 cursor-pointer transition-all duration-200;
-  }
-
-  .filter-option-checkbox {
-    @apply flex items-center gap-2 p-2.5 rounded-lg border-2 border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 cursor-pointer transition-all duration-200 text-sm;
-  }
-
-  .filter-radio {
-    @apply w-5 h-5 text-yellow-500 border-2 border-gray-300 focus:ring-yellow-400 focus:ring-offset-0 cursor-pointer;
-  }
-
-  .filter-checkbox {
-    @apply w-4 h-4 text-yellow-500 border-2 border-gray-300 rounded focus:ring-yellow-400 focus:ring-offset-0 cursor-pointer;
-  }
-
-  .quick-price-btn {
-    @apply px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-yellow-100 hover:text-yellow-700 transition-colors;
-  }
-
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #fbbf24 #f3f4f6;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: #f3f4f6;
-    border-radius: 3px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #fbbf24;
-    border-radius: 3px;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-
-  .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-</style>

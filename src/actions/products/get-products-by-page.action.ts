@@ -1,6 +1,6 @@
 import type { ProductWithImages } from "@/interfaces";
 import { defineAction } from "astro:actions";
-import { and, count, db, eq, gt, inArray, lte, Product, ProductImage, ProductVariant, ProductVariantCombination, sql, asc, desc } from "astro:db";
+import { and, or, count, db, eq, gt, inArray, lte, Product, ProductImage, ProductVariant, ProductVariantCombination, sql, asc, desc } from "astro:db";
 import { z } from "astro:schema";
 
 // Lista de categorías válidas
@@ -21,8 +21,8 @@ const validPiercings = [
 const validSortColumns = ['name', 'price', 'stock', 'category', 'createdAt'];
 const validSortOrders = ['asc', 'desc'];
 
-// ✅ CORREGIDO: Añadida opción 'inStock' para filtrar productos con stock > 0
-const stockFilters = ['all', 'inStock', 'out', 'low', 'available', 'high'] as const;
+// Valores de stock admitidos. Pueden llegar combinados: "out,low"
+const validStockFilters = ['inStock', 'out', 'low', 'available', 'high'];
 
 export const inputSchema = z.object({
   page: z.number().optional().default(1),
@@ -30,7 +30,8 @@ export const inputSchema = z.object({
   category: z.string().optional().default('all'),
   maxPrice: z.number().optional().default(99999),
   minPrice: z.number().optional().default(0),
-  stockFilter: z.enum(stockFilters).optional().default('all'),
+  // Ya no es enum: acepta listas separadas por coma ("out,low")
+  stockFilter: z.string().optional().default('all'),
   search: z.string().optional().default(''),
   piercing: z.string().optional().default('all'),
   sortBy: z.string().optional().default('name'),
@@ -76,16 +77,14 @@ export const handler = async ({
     // Construir condiciones de filtro
     const filters = [];
     filters.push(sql`(${Product.isDeleted} = 0 OR ${Product.isDeleted} IS NULL)`);
-    let filteredCategory = category;
-    
-    // Validar categoría
-    if (category !== 'all' && !validCategories.includes(category)) {
-      filteredCategory = 'all';
-    }
-    
-    // Aplicar filtros
-    if (filteredCategory !== 'all') {
-      filters.push(eq(Product.category, filteredCategory));
+    // Categorías: una o varias separadas por coma. Solo se aceptan las
+    // de la lista válida; cualquier valor desconocido se descarta.
+    const selectedCategories = category && category !== 'all'
+      ? category.split(',').map(c => c.trim()).filter(c => validCategories.includes(c))
+      : [];
+
+    if (selectedCategories.length > 0) {
+      filters.push(inArray(Product.category, selectedCategories));
     }
     
     // Filtro de precio mínimo
@@ -98,26 +97,24 @@ export const handler = async ({
       filters.push(lte(Product.price, maxPrice));
     }
     
-    // ✅ FILTRO DE STOCK MEJORADO - Añadido caso 'inStock'
-    switch (stockFilter) {
-      case 'inStock': // ✅ NUEVO: Solo productos con stock > 0
-        filters.push(gt(Product.stock, 0));
-        break;
-      case 'out': // Agotado (0)
-        filters.push(eq(Product.stock, 0));
-        break;
-      case 'low': // Mínimo (1-5)
-        filters.push(gt(Product.stock, 0));
-        filters.push(lte(Product.stock, 5));
-        break;
-      case 'available': // Arriba del mínimo (6-20)
-        filters.push(gt(Product.stock, 5));
-        filters.push(lte(Product.stock, 20));
-        break;
-      case 'high': // Alto stock (>20)
-        filters.push(gt(Product.stock, 20));
-        break;
-      // 'all' no aplica filtro
+     // Stock: uno o varios rangos, unidos con OR.
+    // "out,low" = agotados O con 1–5 piezas.
+    const stockConds: Record<string, any> = {
+      inStock:   gt(Product.stock, 0),
+      out:       lte(Product.stock, 0),                                  // incluye negativos del POS
+      low:       and(gt(Product.stock, 0), lte(Product.stock, 5)),
+      available: and(gt(Product.stock, 5), lte(Product.stock, 20)),
+      high:      gt(Product.stock, 20),
+    };
+
+    const pickedStock = stockFilter && stockFilter !== 'all'
+      ? stockFilter.split(',').map(s => s.trim()).filter(s => validStockFilters.includes(s))
+      : [];
+
+    if (pickedStock.length === 1) {
+      filters.push(stockConds[pickedStock[0]]);
+    } else if (pickedStock.length > 1) {
+      filters.push(or(...pickedStock.map(s => stockConds[s])));
     }
     
     // FILTRO POR PIERCING
@@ -340,7 +337,7 @@ export const getInventoryStats = defineAction({
         acc.inStockCount++;
       }
 
-      if (stock === 0) {
+      if (stock <= 0) {
         acc.outOfStockCount++;
       }
 
