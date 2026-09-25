@@ -117,11 +117,16 @@ export const handler = async ({
       filters.push(or(...pickedStock.map(s => stockConds[s])));
     }
     
-    // FILTRO POR PIERCING
-    if (piercing && piercing !== 'all' && validPiercings.includes(piercing)) {
-      console.log(`Filtrando por piercing: ${piercing}`);
-      const piercingPattern = `%${piercing}%`;
-      filters.push(sql`${Product.piercing_name} LIKE ${piercingPattern}`);
+       // Perforaciones: una o varias, unidas con OR.
+    // Va con LIKE porque piercing_name guarda una lista separada por comas.
+    const selectedPiercings = piercing && piercing !== 'all'
+      ? piercing.split(',').map(p => p.trim()).filter(p => validPiercings.includes(p))
+      : [];
+
+    if (selectedPiercings.length === 1) {
+      filters.push(sql`${Product.piercing_name} LIKE ${'%' + selectedPiercings[0] + '%'}`);
+    } else if (selectedPiercings.length > 1) {
+      filters.push(or(...selectedPiercings.map(p => sql`${Product.piercing_name} LIKE ${'%' + p + '%'}`)));
     }
 
     // FILTRO POR BÚSQUEDA
