@@ -8,6 +8,8 @@
 //  · Muestras de color por material en vez de iconos genéricos
 //  · Sin react-icons: SVG en línea. Menos peso y evita el 504 de Vite
 //    que provocaban los nueve subpaquetes de iconos.
+//  · Buscador + botón fijos arriba del panel: no se pierden al recorrer
+//    los filtros. Panel redondeado y con más contraste en el buscador.
 
 import { useState, useEffect, useMemo, type FormEvent, type ReactNode } from 'react';
 import { navigate } from 'astro:transitions/client';
@@ -181,7 +183,8 @@ export const FilterSidebar = ({ initialValues }: FilterSidebarProps) => {
   return (
     <aside className="fs">
       <form onSubmit={apply} className="fs-form">
-        {/* Buscador */}
+        {/* Cabecera fija: buscador + botón siempre a la vista */}
+        <div className="fs-top">
         <div className="fs-search">
           <svg className="fs-search-icon" width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -200,8 +203,8 @@ export const FilterSidebar = ({ initialValues }: FilterSidebarProps) => {
           )}
         </div>
 
-        {/* Botón superior: visible sin hacer scroll */}
         <ApplyButton position="top" />
+        </div>
 
         {/* Resumen de selección */}
         {summary.length > 0 && (
@@ -297,76 +300,91 @@ export const FilterSidebar = ({ initialValues }: FilterSidebarProps) => {
           </div>
         </Accordion>
 
-        {/* Botón inferior: tras recorrer los filtros, queda a la mano */}
-        <ApplyButton position="bottom" />
       </form>
 
       <style>{`
         .fs {
-          /* Para pasar la barra a claro, basta cambiar estos seis valores */
-          --bg: #000000;
-          --surface: rgba(255,255,255,0.04);
-          --surface-2: rgba(255,255,255,0.08);
+          --bg: #16161a;
+          --surface: rgba(255,255,255,0.05);
+          --surface-2: rgba(255,255,255,0.10);
           --line: rgba(255,255,255,0.08);
+          --field: #222228;
+          --field-line: rgba(255,255,255,0.16);
           --txt: #ffffff;
-          --txt-2: rgba(255,255,255,0.62);
-          --txt-3: rgba(255,255,255,0.38);
+          --txt-2: rgba(255,255,255,0.72);
+          --txt-3: rgba(255,255,255,0.48);
           --gold: #eab308;
           --gold-2: #f59e0b;
 
           background: var(--bg);
-          border: 1px solid var(--line);
-          border-radius: 22px;
-          padding: 22px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 24px;
+          padding: 0 20px 20px;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 24px 48px -28px rgba(0,0,0,0.55);
         }
 
         .fs-form { display: flex; flex-direction: column; }
         .fs-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
-        /* Buscador */
-        .fs-search { position: relative; margin-bottom: 14px; }
-        .fs-search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--txt-3); }
+        /* Cabecera fija: se queda arriba mientras se hace scroll en el panel */
+        .fs-top {
+          position: sticky; top: 0; z-index: 3;
+          margin: 0 -20px 16px; padding: 20px 20px 16px;
+          background: var(--bg);
+          border-radius: 24px 24px 0 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        /* Buscador: más contraste para que no se confunda con el fondo */
+        .fs-search { position: relative; margin-bottom: 12px; }
+        .fs-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: rgba(234,179,8,0.85); pointer-events: none; }
         .fs-search-input {
-          width: 100%; padding: 14px 40px 14px 44px;
-          background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-          color: var(--txt); font-size: 0.92rem; outline: none; transition: all 0.2s;
+          width: 100%; height: 48px; padding: 0 44px 0 46px;
+          background: var(--field); border: 1.5px solid var(--field-line); border-radius: 999px;
+          color: var(--txt); font-size: 0.95rem; outline: none;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
         .fs-search-input::placeholder { color: var(--txt-3); }
-        .fs-search-input:focus { border-color: rgba(234,179,8,0.5); box-shadow: 0 0 0 3px rgba(234,179,8,0.12); }
+        .fs-search-input:hover { border-color: rgba(255,255,255,0.24); }
+        .fs-search-input:focus { background: #26262d; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(234,179,8,0.16); }
         .fs-search-clear {
-          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-          width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+          position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+          width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
           background: var(--surface-2); border: none; border-radius: 50%; color: var(--txt-2);
-          font-size: 1rem; cursor: pointer; transition: all 0.2s;
+          font-size: 1.05rem; cursor: pointer; transition: all 0.2s;
         }
         .fs-search-clear:hover { background: rgba(239,68,68,0.2); color: #f87171; }
 
         /* Resumen */
         .fs-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 16px; }
         .fs-tag {
-          display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+          display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
           background: rgba(234,179,8,0.14); border: 1px solid rgba(234,179,8,0.3); border-radius: 999px;
-          color: #fbbf24; font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+          color: #fbbf24; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
         }
         .fs-tag:hover { background: rgba(234,179,8,0.22); }
-        .fs-tag-x { font-size: 0.9rem; line-height: 1; opacity: 0.7; }
-        .fs-clear { padding: 6px 4px; background: none; border: none; color: var(--txt-3); font-size: 0.74rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .fs-tag-x { font-size: 0.95rem; line-height: 1; opacity: 0.75; }
+        .fs-clear { padding: 6px 4px; background: none; border: none; color: var(--txt-3); font-size: 0.75rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
         .fs-clear:hover { color: #f87171; }
 
         /* Interruptor */
-        .fs-switch { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); cursor: pointer; }
+        .fs-switch { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 12px 14px; background: var(--surface); border-radius: 16px; cursor: pointer; transition: background 0.2s; }
+        .fs-switch:hover { background: var(--surface-2); }
         .fs-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
-        .fs-switch-track { position: relative; width: 40px; height: 22px; background: var(--surface-2); border-radius: 999px; flex-shrink: 0; transition: background 0.25s; }
-        .fs-switch-thumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); }
+        .fs-switch-track { position: relative; width: 42px; height: 24px; background: rgba(255,255,255,0.16); border-radius: 999px; flex-shrink: 0; transition: background 0.25s; }
+        .fs-switch-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); }
         .fs-switch input:checked + .fs-switch-track { background: linear-gradient(135deg, var(--gold), var(--gold-2)); }
         .fs-switch input:checked + .fs-switch-track .fs-switch-thumb { transform: translateX(18px); }
-        .fs-switch-label { font-size: 0.86rem; color: var(--txt-2); }
+        .fs-switch input:focus-visible + .fs-switch-track { box-shadow: 0 0 0 3px rgba(234,179,8,0.35); }
+        .fs-switch-label { font-size: 0.88rem; color: var(--txt-2); }
         .fs-switch input:checked ~ .fs-switch-label { color: var(--txt); }
 
         /* Acordeón */
         .acc { border-top: 1px solid var(--line); }
-        .acc-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 16px 0; background: none; border: none; color: var(--txt); cursor: pointer; }
+        .acc:first-of-type { border-top: none; }
+        .acc-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 16px 4px; background: none; border: none; color: var(--txt); cursor: pointer; border-radius: 12px; }
+        .acc-head:focus-visible { outline: 2px solid rgba(234,179,8,0.5); outline-offset: 2px; }
         .acc-title { flex: 1; text-align: left; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-2); }
         .acc-count { min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #1a1405; border-radius: 999px; font-size: 0.7rem; font-weight: 800; }
         .acc-chevron { color: var(--txt-3); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); flex-shrink: 0; }
@@ -377,83 +395,72 @@ export const FilterSidebar = ({ initialValues }: FilterSidebarProps) => {
 
         /* Material */
         .fs-grid { display: flex; flex-direction: column; gap: 4px; }
-        .fs-opt { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+        .fs-opt { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid transparent; border-radius: 14px; cursor: pointer; transition: all 0.2s; }
         .fs-opt:hover { background: var(--surface); }
+        .fs-opt:focus-within { border-color: rgba(234,179,8,0.35); }
         .fs-opt.on { background: rgba(234,179,8,0.1); border-color: rgba(234,179,8,0.3); }
-        .fs-swatch { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.4); }
-        .fs-opt-label { flex: 1; font-size: 0.85rem; color: var(--txt-2); }
+        .fs-swatch { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.4); }
+        .fs-opt-label { flex: 1; font-size: 0.87rem; color: var(--txt-2); }
         .fs-opt.on .fs-opt-label { color: var(--txt); font-weight: 600; }
-        .fs-opt-check { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--line); border-radius: 5px; color: transparent; flex-shrink: 0; transition: all 0.2s; }
+        .fs-opt-check { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(255,255,255,0.2); border-radius: 50%; color: transparent; flex-shrink: 0; transition: all 0.2s; }
         .fs-opt.on .fs-opt-check { background: linear-gradient(135deg, var(--gold), var(--gold-2)); border-color: transparent; color: #1a1405; }
 
         /* Perforaciones */
         .fs-zone + .fs-zone { margin-top: 14px; }
-        .fs-zone-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt-3); margin-bottom: 8px; }
+        .fs-zone-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt-3); margin-bottom: 8px; padding-left: 4px; }
         .fs-chips { display: flex; flex-wrap: wrap; gap: 6px; }
         .fs-chip {
-          display: inline-flex; align-items: center; padding: 7px 13px;
+          display: inline-flex; align-items: center; padding: 8px 14px;
           background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
           color: var(--txt-2); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
         }
         .fs-chip:hover { background: var(--surface-2); color: var(--txt); }
+        .fs-chip:focus-within { border-color: rgba(234,179,8,0.5); }
         .fs-chip.on { background: linear-gradient(135deg, var(--gold), var(--gold-2)); border-color: transparent; color: #1a1405; font-weight: 700; }
 
         /* Precio */
-        .fs-price-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+        .fs-price-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; padding-left: 4px; }
         .fs-price-cap { font-size: 0.8rem; color: var(--txt-3); }
         .fs-price-val { font-size: 1.3rem; font-weight: 800; color: var(--txt); font-variant-numeric: tabular-nums; }
         .fs-price-plus { color: var(--gold); }
-        .fs-slider-wrap { position: relative; height: 6px; background: var(--surface-2); border-radius: 3px; margin-bottom: 12px; }
-        .fs-slider-fill { position: absolute; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-2)); border-radius: 3px; pointer-events: none; }
+        .fs-slider-wrap { position: relative; height: 6px; background: var(--surface-2); border-radius: 999px; margin: 0 4px 14px; }
+        .fs-slider-fill { position: absolute; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-2)); border-radius: 999px; pointer-events: none; }
         .fs-slider { position: absolute; top: -8px; width: 100%; height: 22px; opacity: 0; cursor: pointer; }
         .fs-quick { display: flex; flex-wrap: wrap; gap: 6px; }
-        .fs-quick-btn { padding: 6px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; color: var(--txt-2); font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .fs-quick-btn { padding: 7px 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; color: var(--txt-2); font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
         .fs-quick-btn:hover { color: var(--txt); border-color: var(--surface-2); }
         .fs-quick-btn.on { border-color: rgba(234,179,8,0.5); color: #fbbf24; background: rgba(234,179,8,0.12); }
 
-        /* Botón de buscar (arriba y abajo) */
+        /* Botón Buscar */
         .fs-apply {
           width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px;
-          padding: 14px 20px; border: none; border-radius: 14px;
+          height: 48px; padding: 0 20px; border: none; border-radius: 999px;
           background: linear-gradient(135deg, var(--gold) 0%, var(--gold-2) 100%);
-          color: #1a1405; font-size: 0.9rem; font-weight: 800; cursor: pointer;
-          box-shadow: 0 6px 20px -8px rgba(234,179,8,0.5);
+          color: #1a1405; font-size: 0.92rem; font-weight: 800; cursor: pointer;
+          box-shadow: 0 8px 22px -10px rgba(234,179,8,0.6);
           transition: transform 0.2s cubic-bezier(0.34,1.4,0.64,1), box-shadow 0.25s, opacity 0.2s;
         }
-        .fs-apply:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -10px rgba(234,179,8,0.6); }
+        .fs-apply:hover { transform: translateY(-1px); box-shadow: 0 12px 28px -10px rgba(234,179,8,0.7); }
         .fs-apply:active { transform: scale(0.98); }
+        .fs-apply:focus-visible { outline: 3px solid rgba(234,179,8,0.45); outline-offset: 2px; }
 
         /* Cuando lo elegido ya es lo que se está viendo, el botón se
            atenúa: evita el clic inútil sin llegar a deshabilitarlo. */
-        .fs-apply:not(.dirty) { opacity: 0.55; box-shadow: none; }
+        .fs-apply:not(.dirty) { opacity: 0.6; box-shadow: none; }
 
-        .fs-apply-top { margin-bottom: 16px; }
-        .fs-apply-bottom { margin-top: 20px; }
         .fs-apply-count {
           min-width: 20px; height: 20px; padding: 0 6px;
           display: inline-flex; align-items: center; justify-content: center;
-          background: rgba(0,0,0,0.2); border-radius: 999px; font-size: 0.72rem;
-        }
-
-        /* En pantallas altas el de abajo se queda pegado al borde inferior */
-        @media (min-height: 720px) {
-          .fs-apply-bottom { position: sticky; bottom: 12px; }
+          background: rgba(0,0,0,0.18); border-radius: 999px; font-size: 0.72rem;
         }
 
         @media (prefers-reduced-motion: reduce) {
           .acc-body, .fs-switch-thumb, .fs-apply { transition: none; }
         }
 
-        /* Sin marco en ningún tamaño: el borde y la sombra solo
-           dibujaban una caja dentro de otra. */
-        .fs {
-          border: none;
-          border-radius: 0;
-          box-shadow: none;
-        }
-
         @media (max-width: 768px) {
-          .fs { padding: 18px 16px 24px; }
+          .fs { padding: 0 16px 20px; border-radius: 20px; }
+          .fs-top { margin: 0 -16px 14px; padding: 16px 16px 14px; border-radius: 20px 20px 0 0; }
         }
       `}</style>
     </aside>
