@@ -1,4 +1,5 @@
 ---
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 // src/components/CategoriesSection.astro
 
 interface Category {
@@ -81,7 +82,7 @@ const categories: Category[] = [
         >
           <!-- Imagen de fondo -->
           <div class="card-image">
-            <img src={category.image} alt={category.title} loading="lazy" />
+            <img src={optimizeImage(category.image, IMG_WIDTH.card)} alt={category.title} loading="lazy" decoding="async" />
             <div class="card-overlay"></div>
           </div>
           

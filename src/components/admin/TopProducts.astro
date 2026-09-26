@@ -2,6 +2,7 @@
 // src/components/admin/TopProducts.astro
 import { db, order_items, Product, orders, ProductImage } from 'astro:db';
 import { sql, eq, desc } from 'drizzle-orm';
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 const topProductsData = await db.select({
   id: Product.id,
@@ -27,7 +28,7 @@ productImages.forEach(img => { if (!imageMap.has(img.productId)) imageMap.set(im
 
 const topProducts = topProductsData.map(product => ({
   ...product,
-  image: imageMap.get(product.id) || null
+  image: optimizeImage(imageMap.get(product.id), IMG_WIDTH.thumb) || null
 }));
 
 const formatCurrency = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);

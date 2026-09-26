@@ -209,6 +209,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   import 'sweetalert2/dist/sweetalert2.min.css';
   import { navigate } from 'astro:transitions/client';
   import { generateAndPrintTicket} from '@/services/ticketGenerator';
+  import { optimizeImage, IMG_WIDTH } from '@/utils/images';
   import { actions } from 'astro:actions';
 
    type Client = {
@@ -375,7 +376,7 @@ const clientsList: Client[] = clientsData?.clients || [];
             return `
               <li class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors ${item.outOfStock ? 'bg-orange-50 border border-orange-200' : ''}">
                 <img 
-                  src="${item.images?.[0] || 'https://placehold.co/100'}" 
+                  src="${optimizeImage(item.images?.[0], IMG_WIDTH.thumb) || 'https://placehold.co/100'}" 
                   alt="${displayName}" 
                   class="h-16 w-16 rounded-md object-cover shadow-sm" 
                 />

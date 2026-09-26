@@ -185,6 +185,7 @@ import type { ProductForPOS, VariantOption } from '@/interfaces';
 import { navigate } from 'astro:transitions/client';
 // Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
 import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 // Estado global del POS
 const POSState = {
@@ -423,7 +424,8 @@ function initializePOS() {
     emptyState.classList.remove('flex');
     
     productGrid.innerHTML = productsToRender.map((product: ProductForPOS) => {
-      const imageUrl = product.images?.[0] || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
+      // Miniatura de Cloudinary del tamaño de la tarjeta (antes se bajaba la foto original)
+      const imageUrl = optimizeImage(product.images?.[0], IMG_WIDTH.pos) || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
       
       const outOfStockBadge = product.stock <= 0
         ? `<span class="absolute top-1.5 left-1.5 inline-flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10">
@@ -475,6 +477,9 @@ function initializePOS() {
               alt="${product.name}"
               class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
+              decoding="async"
+              width="160"
+              height="140"
               onerror="this.src='https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen'"
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
@@ -520,7 +525,9 @@ function initializePOS() {
     modalProductDescription.textContent = `${product.variantOptions?.length || 0} opciones disponibles`;
     
     variantList.innerHTML = product.variantOptions?.map(variant => {
-      const variantImage = variant.images?.[0] || product.images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
+      const variantOriginal = variant.images?.[0] || product.images?.[0];
+      const variantImage = optimizeImage(variantOriginal, 400) || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
+      const variantFull = optimizeImage(variantOriginal, IMG_WIDTH.full) || variantImage;
       const hasNoStock = variant.stock <= 0;
       const hasDiscount = variant.priceAdjustment < 0;
       
@@ -534,7 +541,9 @@ function initializePOS() {
               <img src="${variantImage}" 
                    alt="${variant.name}" 
                    class="w-full sm:w-28 md:w-36 h-44 sm:h-28 md:h-36 object-cover rounded-xl shadow-md bg-gray-50 cursor-zoom-in variant-zoom-img"
-                   data-full-image="${variantImage}"
+                   loading="lazy"
+                   decoding="async"
+                   data-full-image="${variantFull}"
                    onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
               ${hasDiscount ? `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">Oferta</span>` : ''}
               ${hasNoStock ? `<span class="absolute -bottom-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full shadow">Sin Stock</span>` : ''}
@@ -676,7 +685,7 @@ function initializePOS() {
     if (POSState.cart.length > 0) {
       cartPlaceholder.style.display = 'none';
       cartItemsList.innerHTML = POSState.cart.map((item: CartItem, index: number) => {
-        const imageUrl = item.images?.[0] || 'https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen';
+        const imageUrl = optimizeImage(item.images?.[0], IMG_WIDTH.thumb) || 'https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen';
         const displayName = item.variantName ? `${item.name} - ${item.variantName}` : item.name;
         
         return `

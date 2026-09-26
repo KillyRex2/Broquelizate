@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { FaEye, FaShoppingCart, FaCheck, FaTimes } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi2";
 import "./ProductCard.css";
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 // Extender la interfaz para propiedades opcionales adicionales
 interface ExtendedProduct extends ProductWithImages {
@@ -31,7 +32,7 @@ export const ProductCard = ({ product, index = 0 }: Props) => {
       Array.isArray(product.images) ? product.images : [product.images]
     ).map((img) =>
       img.startsWith("http") || img.startsWith("/")
-        ? img
+        ? optimizeImage(img, IMG_WIDTH.card) // tamaño de tarjeta, no la foto original
         : `${import.meta.env.PUBLIC_URL || ""}/images/products/${img}`
     );
 
@@ -103,6 +104,7 @@ export const ProductCard = ({ product, index = 0 }: Props) => {
           alt={product.name}
           className={`product-image ${imageLoaded ? "loaded" : ""}`}
           loading="lazy"
+          decoding="async"
           onLoad={() => setImageLoaded(true)}
           onMouseEnter={() => images.length > 1 && setCurrentImage(images[1])}
           onMouseLeave={() => setCurrentImage(images[0])}

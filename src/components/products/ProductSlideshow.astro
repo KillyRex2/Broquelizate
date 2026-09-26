@@ -5,11 +5,13 @@ interface Props {
     sliderId?: string;
 }
 
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+
 const { images, sliderId = 'main-slider' } = Astro.props;
 
 const fullImages = images.map(image => {
     return image.startsWith('http')
-        ? image
+        ? optimizeImage(image, IMG_WIDTH.main)
         : `/images/products/${image}`;
 });
 
@@ -351,6 +353,7 @@ const isSingle = fullImages.length <= 1;
 </style>
 
 <script>
+    import { optimizeImage, IMG_WIDTH } from '@/utils/images';
     const slidersInitialized = new Set<string>();
 
     // Muestra u oculta flechas / indicadores / contador según el nº de imágenes
@@ -393,7 +396,9 @@ const isSingle = fullImages.length <= 1;
         toggleControls(slider, newImages.length);
     }
 
-    function updateSliderImages(sliderId: string, newImages: string[]): void {
+    function updateSliderImages(sliderId: string, rawImages: string[]): void {
+        // Mismo tamaño que las imágenes iniciales (y así la comparación de abajo coincide)
+        const newImages = (rawImages || []).map(img => optimizeImage(img, IMG_WIDTH.main));
         const slider = document.querySelector(`[data-slider-id="${sliderId}"]`);
         if (!slider || !newImages?.length) return;
 

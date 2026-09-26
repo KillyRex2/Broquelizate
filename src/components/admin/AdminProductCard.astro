@@ -1,6 +1,7 @@
 ---
 // src/components/AdminProductCard.astro
 import type { ProductWithImages } from '@/interfaces';
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 interface Props {
   product: ProductWithImages;
@@ -16,7 +17,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const imageUrl = images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
+const imageUrl = optimizeImage(images?.[0], IMG_WIDTH.card) || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
 ---
 <article 
   class="group relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border border-gray-200"
@@ -32,6 +33,7 @@ const imageUrl = images?.[0] || 'https://placehold.co/400x400/e2e8f0/4a5568?text
       alt={name} 
       class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
       loading="lazy"
+      decoding="async"
     />
   </div>
   <div class="flex flex-col justify-between p-4 min-h-[9rem]">

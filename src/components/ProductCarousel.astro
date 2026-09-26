@@ -7,6 +7,7 @@
 // de abajo terminan su animación antes de que nadie las vea.
 
 import { Formatter } from '@/utils';
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 export interface CarouselProduct {
   name: string;
@@ -54,9 +55,9 @@ const { title, href = '/products', linkText = 'Ver colección', products = [] } 
         {products.map((p, i) => (
           <a href={`/products/${p.slug}`} class="pc-card" style={`--i:${Math.min(i, 7)}`}>
             <div class="pc-image-wrap">
-              <img src={p.image} alt={p.name} class="pc-image" loading="lazy" />
+              <img src={optimizeImage(p.image, IMG_WIDTH.card)} alt={p.name} class="pc-image" loading="lazy" decoding="async" />
               {p.hoverImage && (
-                <img src={p.hoverImage} alt="" class="pc-image-hover" loading="lazy" aria-hidden="true" />
+                <img src={optimizeImage(p.hoverImage, IMG_WIDTH.card)} alt="" class="pc-image-hover" loading="lazy" decoding="async" aria-hidden="true" />
               )}
               {p.badge && <span class="pc-badge">{p.badge}</span>}
             </div>

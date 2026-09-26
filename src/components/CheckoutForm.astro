@@ -5,6 +5,7 @@ import { actions } from 'astro:actions';
 import { getSession } from 'auth-astro/server';
 import ShippingCalculator from '@/components/ShippingCalculator.astro';
 import CheckoutProgress from '@/components/shared/CheckoutProgressBar.astro'; 
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 import { STORE_PICKUP, storeAddressLine, pickupReadyText } from '@/utils/store';
 
 const session = await getSession(Astro.request);
@@ -229,7 +230,7 @@ const productsData = products.map(p => {
             {products.map((p, index) => (
               <div class="summary-product" style={`animation-delay: ${index * 0.05}s`}>
                 <div class="product-image-mini">
-                  {(p.variantImage || p.image) ? <img src={p.variantImage || p.image} alt={p.name} /> : <div class="product-placeholder"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg></div>}
+                  {(p.variantImage || p.image) ? <img src={optimizeImage(p.variantImage || p.image, IMG_WIDTH.thumb)} alt={p.name} decoding="async" /> : <div class="product-placeholder"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg></div>}
                   <span class="product-qty-badge">{p.quantity}</span>
                 </div>
                 <div class="product-info-mini"><span class="product-name-mini">{p.name}</span>{p.variantCombination && <span class="product-variant-mini">{p.variantCombination}</span>}</div>

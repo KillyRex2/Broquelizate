@@ -17,6 +17,8 @@ interface Props {
   index?: number;
 }
 
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+
 const { product, index = 0 } = Astro.props;
 const { id, image, title, description, price, salePrice, slug } = product;
 
@@ -32,9 +34,10 @@ const discount = salePrice ? Math.round(((price - salePrice) / price) * 100) : 0
   <a href={`/products/${slug}`} class="card-image-link">
     <div class="card-image">
       <img 
-        src={image} 
+        src={optimizeImage(image, IMG_WIDTH.card)} 
         alt={title}
         loading={index < 2 ? "eager" : "lazy"}
+        decoding="async"
         transition:name={`product-image-${id}`}
       />
       <div class="image-overlay"></div>

@@ -6,6 +6,7 @@
 import { actions } from 'astro:actions';
 import ProductsLayout from '@/layouts/ProductsLayout.astro';
 import { Formatter } from '@/utils';
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 // ✅ Leer cookies del servidor (funciona en Netlify SSR)
 const cartCookie = Astro.cookies.get('cart');
@@ -136,7 +137,7 @@ const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
                 const productImage = !rawImage
                   ? '/images/products/no-image.png'
                   : rawImage.startsWith('http') || rawImage.startsWith('/')
-                    ? rawImage
+                    ? optimizeImage(rawImage, IMG_WIDTH.thumb)
                     : `${import.meta.env.PUBLIC_URL}/images/products/${rawImage}`;
                 const isVariantImage = !!product.variantImage;
                 

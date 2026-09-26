@@ -5,6 +5,7 @@ import ProductCustomization from "@/pages/products/ProductCustomization.astro";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
 import { Formatter } from "@/utils";
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
 // ⚙️ Configuración editable
 import { FREE_SHIPPING_THRESHOLD } from '@/utils';
@@ -236,7 +237,7 @@ let relatedProducts: any[] = [];
                     : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
                   return (
                     <button class="thumb-btn" data-gallery-thumb data-index={index}>
-                      <img src={imageSrc} alt={`${product.name} - ${index + 1}`} loading="lazy" />
+                      <img src={optimizeImage(imageSrc, IMG_WIDTH.thumb)} alt={`${product.name} - ${index + 1}`} loading="lazy" decoding="async" />
                       {index === 5 && images.length > 6 && (
                         <div class="thumb-more"><span>+{images.length - 6}</span></div>
                       )}
@@ -530,7 +531,7 @@ let relatedProducts: any[] = [];
                 : `${import.meta.env.PUBLIC_URL}/images/products/${imageObj.image}`;
               return (
                 <div class="gallery-item" data-gallery-image data-gallery-index={index}>
-                  <img src={imageSrc} alt={`${product.name} - Imagen ${index + 1}`} loading="lazy" />
+                  <img src={optimizeImage(imageSrc, IMG_WIDTH.card)} data-full={optimizeImage(imageSrc, IMG_WIDTH.full)} alt={`${product.name} - Imagen ${index + 1}`} loading="lazy" decoding="async" />
                   <div class="gallery-overlay">
                     <div class="overlay-icon">
                       <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -559,7 +560,7 @@ let relatedProducts: any[] = [];
             {relatedProducts.map((rp: any) => (
               <a href={`/products/${rp.slug}`} class="related-card">
                 <div class="related-img">
-                  <img src={rp.image} alt={rp.name} loading="lazy" />
+                  <img src={optimizeImage(rp.image, IMG_WIDTH.card)} alt={rp.name} loading="lazy" decoding="async" />
                 </div>
                 <p class="related-name">{rp.name}</p>
                 <p class="related-price">{Formatter.currency(rp.price)}</p>
@@ -1299,7 +1300,7 @@ let relatedProducts: any[] = [];
       const img = item.querySelector('img') as HTMLImageElement;
       
       if (lightboxImage && img) {
-        lightboxImage.src = img.src;
+        lightboxImage.src = img.dataset.full || img.src; // versión grande solo al abrir el lightbox
         lightboxImage.alt = img.alt;
       }
       

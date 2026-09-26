@@ -3,13 +3,16 @@ import { defineAction } from 'astro:actions';
 import { db, Product, ProductImage, ProductVariant, ProductVariantCombination, VariantCombinationItem, sql } from 'astro:db';
 import type { ProductWithVariants, ProductForPOS } from '@/interfaces';
 import { convertToProductForPOS } from '@/interfaces';
+import { assertAdmin } from '../_guard';
 
 /**
  * Obtiene todos los productos con sus variantes y combinaciones
  * y los convierte al formato simplificado para el POS
  */
 export const getAllProductsWithImages = defineAction({
-  handler: async (): Promise<ProductForPOS[]> => {
+  handler: async (_input, context): Promise<ProductForPOS[]> => {
+    // Devuelve costos de variantes/combinaciones: solo admin (antes era pública)
+    assertAdmin(context);
     try {
       // 1. Obtener todos los datos necesarios
       const [
@@ -64,6 +67,9 @@ export const getAllProductsWithImages = defineAction({
       const imagesByVariant = new Map<string, string[]>();
       const imagesByCombination = new Map<string, string[]>();
       
+      // URL de imagen por id (antes se buscaba con allImages.find por cada producto)
+      const imageUrlById = new Map(allImages.map(img => [img.id, img.image]));
+
       // Mapa de coverImageId por producto
       const coverImageByProduct = new Map<string, string>();
       for (const product of allProducts) {
@@ -109,12 +115,12 @@ export const getAllProductsWithImages = defineAction({
         const coverId = coverImageByProduct.get(product.id);
         if (coverId) {
           // Buscar la imagen de portada en allImages para obtener su URL
-          const coverImg = allImages.find(img => img.id === coverId);
-          if (coverImg) {
+          const coverUrl = imageUrlById.get(coverId);
+          if (coverUrl) {
             // Mover portada al inicio
             productImages = [
-              coverImg.image,
-              ...productImages.filter(url => url !== coverImg.image)
+              coverUrl,
+              ...productImages.filter(url => url !== coverUrl)
             ];
           }
         }

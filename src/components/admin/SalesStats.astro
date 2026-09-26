@@ -281,6 +281,7 @@
 <script>
   import { actions } from 'astro:actions';
   import * as Chart from 'chart.js';
+  import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 
   Chart.Chart.register(...Chart.registerables);
 
@@ -461,7 +462,7 @@
         <li class="rank-row">
           <span class="rank-num">${i + 1}</span>
           ${p.image
-            ? `<img class="rank-photo" src="${p.image}" alt="${p.name}" loading="lazy" />`
+            ? `<img class="rank-photo" src="${optimizeImage(p.image, IMG_WIDTH.thumb)}" alt="${p.name}" loading="lazy" />`
             : `<span class="rank-photo-ph">${phIcon}</span>`}
           <div class="rank-info">
             <div class="rank-name">${p.name}</div>
