@@ -379,3 +379,70 @@ export const Alert = {
   info: (title: string, message?: string) => Alert.show({ title, message, type: 'info' }),
   warning: (title: string, message?: string) => Alert.show({ title, message, type: 'warning' }),
 };
+
+// ============================================
+// VISOR DE IMAGEN (reemplaza Swal.fire({ imageUrl }))
+// ============================================
+export const ImageViewer = {
+  show: (src: string, alt: string = 'Imagen'): Promise<void> => {
+    return new Promise((resolve) => {
+      const dialog = document.createElement('dialog');
+      dialog.id = 'image-dialog-' + Date.now();
+      dialog.innerHTML = `
+        <div class="img-backdrop"></div>
+        <div class="img-content">
+          <button type="button" class="img-close" aria-label="Cerrar">&times;</button>
+          <img src="${src}" alt="${alt.replace(/"/g, '&quot;')}" />
+        </div>
+      `;
+
+      const style = document.createElement('style');
+      style.id = 'image-styles-' + dialog.id;
+      style.textContent = `
+        dialog#${dialog.id} {
+          position: fixed; inset: 0; z-index: 99999;
+          display: flex; align-items: center; justify-content: center;
+          padding: 16px; border: none; background: transparent;
+          max-width: 100vw; max-height: 100vh; width: 100%; height: 100%;
+        }
+        dialog#${dialog.id}::backdrop { background: transparent; }
+        dialog#${dialog.id} .img-backdrop {
+          position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
+          backdrop-filter: blur(4px); animation: imgFadeIn 0.15s ease-out;
+        }
+        dialog#${dialog.id} .img-content {
+          position: relative; max-width: min(92vw, 900px);
+          animation: imgScaleIn 0.2s ease-out;
+        }
+        dialog#${dialog.id} .img-content img {
+          display: block; max-width: 100%; max-height: 82vh; object-fit: contain;
+          border-radius: 16px; background: #fff;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        }
+        dialog#${dialog.id} .img-close {
+          position: absolute; top: -14px; right: -14px; width: 36px; height: 36px;
+          border-radius: 50%; border: none; cursor: pointer;
+          background: #0a0a0a; color: #fff; font-size: 1.4rem; line-height: 1;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        @keyframes imgFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes imgScaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+      `;
+
+      document.head.appendChild(style);
+      document.body.appendChild(dialog);
+      dialog.showModal();
+
+      const cleanup = () => {
+        dialog.close();
+        setTimeout(() => { dialog.remove(); style.remove(); }, 100);
+        resolve();
+      };
+
+      dialog.querySelector('.img-close')?.addEventListener('click', cleanup);
+      dialog.querySelector('.img-backdrop')?.addEventListener('click', cleanup);
+      dialog.addEventListener('cancel', (e) => { e.preventDefault(); cleanup(); }); // Escape
+    });
+  },
+};
+

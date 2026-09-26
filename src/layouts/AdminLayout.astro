@@ -1,5 +1,6 @@
 ---
 import { ClientRouter } from 'astro:transitions';
+import ToasterProvider from '@/components/shared/ToasterProvider';
 import SideBar from '@/components/admin/Sidebar.astro';
 import AdminHeader from '@/components/admin/AdminHeader.astro';
 
@@ -177,5 +178,7 @@ function setupSidebarToggle() {
 
     document.addEventListener('astro:page-load', setupSidebarToggle);
   </script>
+	<!-- Toasts de @/utils/alerts (sonner). Persiste entre navegaciones -->
+	<ToasterProvider client:load transition:persist="toaster" />
 </body>
 </html>

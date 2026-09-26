@@ -183,8 +183,8 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
 <script>
 import type { ProductForPOS, VariantOption } from '@/interfaces';
 import { navigate } from 'astro:transitions/client';
-import Swal from 'sweetalert2';
-import 'sweetalert2/dist/sweetalert2.min.css';
+// Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
+import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
 
 // Estado global del POS
 const POSState = {
@@ -588,19 +588,14 @@ function initializePOS() {
       const hasNoStock = variant.stock <= 0;
       
       if (hasNoStock && !forceAdd) {
-        Swal.fire({
-          icon: 'warning',
+        Confirm.show({
           title: 'Sin stock en sistema',
-          text: '¿Confirma que está disponible físicamente?',
-          showCancelButton: true,
-          confirmButtonColor: '#f59e0b',
-          cancelButtonColor: '#6b7280',
-          confirmButtonText: 'Sí, agregar',
-          cancelButtonText: 'Cancelar'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            addToCart(productId, variantId, true);
-          }
+          message: '¿Confirma que está disponible físicamente?',
+          confirmText: 'Sí, agregar',
+          cancelText: 'Cancelar',
+          type: 'warning'
+        }).then((confirmed) => {
+          if (confirmed) addToCart(productId, variantId, true);
         });
         return;
       }
@@ -628,19 +623,14 @@ function initializePOS() {
       const hasNoStock = product.stock <= 0;
       
       if (hasNoStock && !forceAdd) {
-        Swal.fire({
-          icon: 'warning',
+        Confirm.show({
           title: 'Sin stock en sistema',
-          text: '¿Confirma que está disponible físicamente?',
-          showCancelButton: true,
-          confirmButtonColor: '#f59e0b',
-          cancelButtonColor: '#6b7280',
-          confirmButtonText: 'Sí, agregar',
-          cancelButtonText: 'Cancelar'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            addToCart(productId, undefined, true);
-          }
+          message: '¿Confirma que está disponible físicamente?',
+          confirmText: 'Sí, agregar',
+          cancelText: 'Cancelar',
+          type: 'warning'
+        }).then((confirmed) => {
+          if (confirmed) addToCart(productId, undefined, true);
         });
         return;
       }
@@ -674,15 +664,10 @@ function initializePOS() {
       POSState.cart.find(i => i.productId === productId && i.variantId === variantId) :
       POSState.cart.find(i => i.productId === productId && !i.variantId);
     
-    Swal.fire({
-      icon: 'success',
-      title: 'Agregado',
-      html: `<strong>${addedItem?.name}</strong>${addedItem?.variantName ? ` - ${addedItem.variantName}` : ''}<br>Cantidad: ${addedItem?.quantity}${addedItem?.outOfStock ? '<br><span class="text-orange-600">⚠️ Sin stock</span>' : ''}`,
-      timer: 1500,
-      showConfirmButton: false,
-      position: 'top-end',
-      toast: true
-    });
+    const addedName = `${addedItem?.name ?? ''}${addedItem?.variantName ? ` - ${addedItem.variantName}` : ''}`;
+    const addedDesc = `${addedName} · Cantidad: ${addedItem?.quantity ?? 1}`;
+    if (addedItem?.outOfStock) Toast.warning('Agregado (sin stock en sistema)', addedDesc);
+    else Toast.success('Agregado', addedDesc);
   }
 
   function renderCart() {
@@ -770,28 +755,18 @@ function initializePOS() {
   }
 
   async function clearCart() {
-    const result = await Swal.fire({
+    const confirmed = await Confirm.show({
       title: '¿Vaciar carrito?',
-      text: "Se eliminarán todos los productos",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#f59e0b',
-      cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Sí, vaciar',
-      cancelButtonText: 'Cancelar'
+      message: 'Se eliminarán todos los productos',
+      confirmText: 'Sí, vaciar',
+      cancelText: 'Cancelar',
+      type: 'warning'
     });
 
-    if (result.isConfirmed) {
+    if (confirmed) {
       POSState.cart = [];
       updateAndSaveCart();
-      Swal.fire({
-        title: 'Carrito vaciado',
-        icon: 'success',
-        timer: 1000,
-        showConfirmButton: false,
-        position: 'top-end',
-        toast: true
-      });
+      Toast.success('Carrito vaciado');
     }
   }
 
@@ -886,16 +861,7 @@ function initializePOS() {
     e.preventDefault();
     e.stopPropagation();
     const fullSrc = img.dataset.fullImage || img.src;
-    Swal.fire({
-      imageUrl: fullSrc,
-      imageAlt: 'Imagen de variante',
-      showConfirmButton: false,
-      showCloseButton: true,
-      background: '#fff',
-      width: 'auto',
-      padding: '1rem',
-      customClass: { image: 'rounded-xl max-h-[80vh] object-contain' }
-    });
+    ImageViewer.show(fullSrc, 'Imagen de variante');
   };
 
   const handleCartClick = (e: Event) => {
@@ -912,14 +878,7 @@ function initializePOS() {
     
     if (action === 'remove') {
       updateQuantity(index, 0);
-      Swal.fire({
-        icon: 'info',
-        title: 'Eliminado',
-        timer: 1000,
-        showConfirmButton: false,
-        position: 'top-end',
-        toast: true
-      });
+      Toast.info('Eliminado del carrito');
     }
     if (action === 'incr') updateQuantity(index, item.quantity + 1);
     if (action === 'decr') updateQuantity(index, item.quantity - 1);
@@ -958,17 +917,14 @@ function initializePOS() {
     if (POSState.cart.length > 0) {
       const hasOutOfStockItems = POSState.cart.some(item => item.outOfStock);
       if (hasOutOfStockItems) {
-        Swal.fire({
-          icon: 'warning',
+        Confirm.show({
           title: 'Productos sin stock',
-          text: '¿Confirma que están disponibles físicamente?',
-          showCancelButton: true,
-          confirmButtonColor: '#f59e0b',
-          cancelButtonColor: '#6b7280',
-          confirmButtonText: 'Sí, continuar',
-          cancelButtonText: 'Revisar'
-        }).then((result) => {
-          if (result.isConfirmed) {
+          message: '¿Confirma que están disponibles físicamente?',
+          confirmText: 'Sí, continuar',
+          cancelText: 'Revisar',
+          type: 'warning'
+        }).then((confirmed) => {
+          if (confirmed) {
             localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
             navigate('/admin/checkout');
           }
