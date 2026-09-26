@@ -1,11 +1,9 @@
 import { db, Client } from 'astro:db';
 import type { APIRoute } from 'astro';
-import { getSession } from 'auth-astro/server';
-
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async ({ locals }) => {
   try {
-    const session = await getSession(request);
-    if (!session?.user) {
+    // Solo admin (antes bastaba con tener sesión)
+    if (!(locals as any)?.isAdmin) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
@@ -13,7 +11,7 @@ export const GET: APIRoute = async ({ request }) => {
     }
 
     const clients = await db.select().from(Client);
-    const sortedClients = clients.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const sortedClients = clients.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
     return new Response(JSON.stringify(sortedClients), {
       status: 200,

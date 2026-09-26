@@ -33,8 +33,20 @@ export const updateClient = defineAction({
     observaciones: z.string().optional(),
     telefono: z.string().optional(),
   }),
-  handler: async ({ id, ...clientData }, context) => {
+  handler: async ({ id, ...input }, context) => {
     assertAdmin(context);   // <-- candado
+
+    // Un campo vacío se guarda como NULL, no como ''. Con '' dos clientes
+    // sin clave de elector chocaban con la restricción UNIQUE.
+    const orNull = (v?: string) => (v && v.trim() ? v.trim() : null);
+    const clientData = {
+      nombre: input.nombre.trim(),
+      clave_elector: orNull(input.clave_elector)?.toUpperCase() ?? null,
+      saldo_actual: input.saldo_actual,
+      observaciones: orNull(input.observaciones),
+      telefono: orNull(input.telefono),
+    };
+
     try {
       // Usamos db.update para actualizar el registro existente
       const [updatedClient] = await db
@@ -50,15 +62,18 @@ export const updateClient = defineAction({
       return { success: true, client: updatedClient };
       
     } catch (error: any) {
-      if (error.message.includes('UNIQUE constraint failed')) {
+      if (String(error?.message).includes('UNIQUE constraint failed')) {
         throw new Error('La clave de elector ya está en uso por otro cliente.');
       }
+      if (error?.message === 'No se pudo actualizar el cliente.') throw error;
       throw new Error('Error interno del servidor al actualizar.');
     }
   },
 });
 export const getAllClients = defineAction({
-  handler: async (context) => {
+  // El primer parámetro es el input; antes se tomaba como context y assertAdmin
+  // siempre fallaba, así que el POS nunca recibía la lista de clientes.
+  handler: async (_input, context) => {
     assertAdmin(context); // 🔒 Solo admin
     try {
       // Obtener todos los clientes con sus direcciones
@@ -71,7 +86,8 @@ export const getAllClients = defineAction({
         phone: Client.telefono,
         created_at: Client.createdAt,
       }).from(Client);
-      
+
+      clients.sort((a, b) => a.name.localeCompare(b.name, 'es'));
       return { success: true, clients };
     } catch (error) {
       console.error("Error fetching clients:", error);

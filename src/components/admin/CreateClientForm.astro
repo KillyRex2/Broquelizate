@@ -2,7 +2,7 @@
 // El frontmatter ahora está limpio. No manejamos el POST aquí.
 // Toda la lógica se moverá al script del cliente para una mejor UX.
 ---
-<div class="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-xl ring-1 ring-slate-100">
+<div class="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-xl ring-1 ring-slate-100 text-left">
   <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-4">Crear Nuevo Cliente</h2>
   
   <!-- Contenedor para mensajes de error -->
@@ -12,13 +12,13 @@
     <!-- Campo: Nombre -->
     <div>
       <label for="nombre" class="form-label">Nombre Completo <span class="text-red-500">*</span></label>
-      <input id="nombre" name="nombre" type="text" class="form-input" required />
+      <input id="nombre" name="nombre" type="text" class="form-input" required minlength="3" autocomplete="off" />
     </div>
     
     <!-- Campo: Clave de Elector -->
     <div>
       <label for="clave_elector" class="form-label">Clave de Elector</label>
-      <input id="clave_elector" name="clave_elector" type="text" class="form-input" />
+      <input id="clave_elector" name="clave_elector" type="text" class="form-input uppercase" autocomplete="off" />
       <p class="text-xs text-gray-500 mt-1">Debe ser única para cada cliente.</p>
     </div>
     
@@ -40,7 +40,7 @@
       <textarea id="observaciones" name="observaciones" rows="3" class="form-input"></textarea>
     </div>
     
-    <button type="submit" id="submit-button" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md transition-all duration-200 hover:scale-105">
+    <button type="submit" id="submit-button" class="w-full py-3 px-4 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-semibold rounded-full shadow-md transition-all duration-200">
       <span id="submit-button-text">Crear Cliente</span>
     </button>
   </form>
@@ -48,14 +48,13 @@
 
 <style>
   .form-label { @apply block text-sm font-bold text-gray-600 mb-1; }
-  .form-input { @apply w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition; }
-  #submit-button:disabled { @apply bg-blue-400 cursor-not-allowed; }
+  .form-input { @apply w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-500 transition; }
+  #submit-button:disabled { @apply bg-yellow-300 cursor-not-allowed; }
 </style>
 
 <script>
   import { navigate } from 'astro:transitions/client';
-  import Swal from 'sweetalert2';
-  import 'sweetalert2/dist/sweetalert2.min.css';
+  import { Toast } from '@/utils/alerts';
 
   document.addEventListener('astro:page-load', () => {
     const form = document.getElementById('create-client-form') as HTMLFormElement;
@@ -63,7 +62,8 @@
     const buttonText = document.getElementById('submit-button-text') as HTMLSpanElement;
     const errorContainer = document.getElementById('error-message-container') as HTMLDivElement;
 
-    if (!form) return;
+    if (!form || form.dataset.bound === '1') return;
+    form.dataset.bound = '1';
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -89,17 +89,11 @@
 
         const newClient = await response.json();
 
-        // Mostrar alerta de éxito
-        await Swal.fire({
-          icon: 'success',
-          title: '¡Cliente Creado!',
-          text: `El cliente "${newClient.nombre}" ha sido creado exitosamente.`,
-          timer: 2000,
-          showConfirmButton: false,
-        });
+        Toast.success('¡Cliente creado!', newClient.nombre);
 
-        // Redirigir a la lista de clientes
-        navigate(`javascript:history.back()`);// Asegúrate de que esta URL sea correcta
+        // ?volver=/admin/checkout regresa al POS; si no, se recarga la lista
+        const back = new URLSearchParams(window.location.search).get('volver');
+        navigate(back && back.startsWith('/admin') ? back : '/admin/customers');
 
       } catch (err: unknown) {
         let errorMessage = 'Ocurrió un error inesperado.';
