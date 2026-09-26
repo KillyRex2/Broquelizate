@@ -75,6 +75,10 @@ const isPickup = (order as any).deliveryMethod === 'pickup';
 const pickupName: string = rawAddress.pickupName || rawAddress.name || '';
 const pickupPhone: string = rawAddress.phone || '';
 
+// shippingCost = lo que pagó el cliente · labelCost = lo que costó la guía en Envia
+const labelCost = (order as any).labelCost as number | null | undefined;
+const chargedShippingText = order.shippingCost == null ? null : order.shippingCost > 0 ? formatCurrency(order.shippingCost) : 'Gratis';
+
 const ORIGIN_ADDRESS = {
   name: "Broquelizate",
   street: "Calle Escobedo esquina con Bravo",
@@ -298,10 +302,16 @@ const statusLabels: Record<string, string> = {
               </div>
             </div>
 
-            {order.shippingCost && (
+            {labelCost != null && (
               <div class="cost-box">
-                <span>Costo del Envío</span>
-                <span class="cost-val">{formatCurrency(order.shippingCost)}</span>
+                <span>Costo de la guía</span>
+                <span class="cost-val">{formatCurrency(labelCost)}</span>
+              </div>
+            )}
+            {chargedShippingText && (
+              <div class="cost-box" style="margin-top:8px;">
+                <span>Cobrado al cliente</span>
+                <span class="cost-val">{chargedShippingText}</span>
               </div>
             )}
 
@@ -353,10 +363,16 @@ const statusLabels: Record<string, string> = {
                 </div>
               )}
             </div>
-            {order.shippingCost && (
+            {labelCost != null && (
               <div class="cost-box" style="margin-top:14px;">
-                <span>Costo de Envío</span>
-                <span class="cost-val">{formatCurrency(order.shippingCost)}</span>
+                <span>Costo de la guía</span>
+                <span class="cost-val">{formatCurrency(labelCost)}</span>
+              </div>
+            )}
+            {chargedShippingText && (
+              <div class="cost-box" style="margin-top:8px;">
+                <span>Cobrado al cliente</span>
+                <span class="cost-val">{chargedShippingText}</span>
               </div>
             )}
             <button id="track-shipment-btn" class="btn btn-dark btn-block" style="margin-top:14px;">
@@ -517,8 +533,11 @@ const statusLabels: Record<string, string> = {
             <div class="detail-list">
               <div class="detail-row"><span class="detail-key">Paquetería</span><span class="detail-val">{order.carrier}</span></div>
               <div class="detail-row"><span class="detail-key">Servicio</span><span class="detail-val">{order.shippingService || 'Estándar'}</span></div>
-              {order.shippingCost && (
-                <div class="detail-row"><span class="detail-key">Costo</span><span class="detail-val t-gold">{formatCurrency(order.shippingCost)}</span></div>
+              {labelCost != null && (
+                <div class="detail-row"><span class="detail-key">Costo de la guía</span><span class="detail-val t-gold">{formatCurrency(labelCost)}</span></div>
+              )}
+              {chargedShippingText && (
+                <div class="detail-row"><span class="detail-key">Cobrado al cliente</span><span class="detail-val">{chargedShippingText}</span></div>
               )}
               <div class="detail-row"><span class="detail-key">Estado</span><span class="status-pill status-completed">Etiqueta generada</span></div>
             </div>

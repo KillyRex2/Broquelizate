@@ -129,7 +129,24 @@ const orders = defineTable({
     paymentId: column.text({ optional: true }),
     externalReference: column.text({ optional: true }),
     // 'delivery' (paquetería) | 'pickup' (recoger en tienda)
-    deliveryMethod: column.text({ default: 'delivery' })
+    deliveryMethod: column.text({ default: 'delivery' }),
+    // Lo que costó la guía en Envia. shippingCost es lo que pagó el cliente.
+    labelCost: column.number({ optional: true })
+  }
+});
+
+/**
+ * Cotizaciones de envío guardadas en el servidor. El checkout manda
+ * solo el id + la paquetería elegida, y el precio sale de aquí:
+ * así el navegador no puede decidir cuánto cuesta el envío.
+ */
+const ShippingQuote = defineTable({
+  columns: {
+    id: column.text({ primaryKey: true }),
+    postalCode: column.text(),
+    weight: column.number(),      // kg ya normalizados (lo que se cotizó)
+    rates: column.text(),         // JSON: [{ carrier, service, deliveryDays, totalPrice }]
+    createdAt: column.date(),
   }
 });
 
@@ -239,6 +256,7 @@ export default defineDb({
     order_items,
     Client,
     Collection,
-    CollectionProduct
+    CollectionProduct,
+    ShippingQuote
   }
 });

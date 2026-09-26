@@ -5,6 +5,7 @@ import { db, orders, order_items, User } from 'astro:db';
 import { eq, and } from 'astro:db';
 import { getSession } from 'auth-astro/server';
 import { assertAdmin } from '../_guard';
+import { saveQuote } from '@/utils/checkout';
 
 // ============================================
 // CONFIGURACIÓN DE API
@@ -201,7 +202,7 @@ export const getShippingRates = defineAction({
   accept: 'json',
   input: z.object({
     originPostalCode: z.string(),
-    destinationPostalCode: z.string(),
+    destinationPostalCode: z.string().regex(/^\d{5}$/, 'Código postal inválido'),
     destinationCity: z.string().optional(),
     destinationState: z.string().optional(),
     weight: z.number(),
@@ -367,7 +368,17 @@ export const getShippingRates = defineAction({
         };
       }
 
-      return { success: true, rates: allRates };
+      // Se guarda la cotización: al pagar, el servidor toma el precio de aquí
+      // (con el quoteId), no del navegador.
+      let quoteId: string;
+      try {
+        quoteId = await saveQuote(input.destinationPostalCode, safeWeight, allRates);
+      } catch (e) {
+        console.error('❌ No se pudo guardar la cotización:', e);
+        return { success: false, rates: [], error: 'No pudimos guardar tu cotización. Intenta de nuevo.' };
+      }
+
+      return { success: true, rates: allRates, quoteId };
     } catch (error) {
       console.error('❌ Error getting shipping rates:', error);
       return { 
@@ -1030,7 +1041,8 @@ async function saveTrackingToDatabase(orderId: string, label: ShippingLabel): Pr
         labelId: label.labelId,
         labelUrl: label.labelUrl,
         shippingService: label.service,
-        shippingCost: label.cost,
+        // Costo de la guía en su propia columna: shippingCost es lo que pagó el cliente
+        labelCost: label.cost,
         shippedAt: new Date(),
         status: 'shipped'
       } as any)

@@ -1,5 +1,6 @@
-import { defineAction } from 'astro:actions';
+import { defineAction, ActionError } from 'astro:actions';
 import { z } from 'astro:schema';
+import { CheckoutError, priceCheckout, toIncomingItems, AMOUNT_TOLERANCE, formatMXN } from '@/utils/checkout';
 // --- Constantes de Configuración ---
 const PAYPAL_CLIENT_ID = import.meta.env.PUBLIC_PAYPAL_CLIENT_ID;
 const PAYPAL_CLIENT_SECRET = import.meta.env.PAYPAL_CLIENT_SECRET;
@@ -34,13 +35,73 @@ async function getPayPalAccessToken() {
   return data.access_token;
 }
 
+/**
+ * Consulta una orden de PayPal y devuelve cuánto se capturó realmente.
+ * La usa /api/create-order para verificar el pago antes de registrar el pedido.
+ */
+export async function getPaypalPayment(orderId: string): Promise<{ ok: boolean; amount: number; status: string }> {
+  const accessToken = await getPayPalAccessToken();
+  const response = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    console.error('Error consultando orden de PayPal:', data);
+    return { ok: false, amount: 0, status: 'UNKNOWN' };
+  }
+
+  const captures = (data.purchase_units || [])
+    .flatMap((u: any) => u?.payments?.captures || [])
+    .filter((c: any) => c?.status === 'COMPLETED' && c?.amount?.currency_code === 'MXN');
+  const amount = captures.reduce((s: number, c: any) => s + (parseFloat(c.amount.value) || 0), 0);
+
+  return { ok: data.status === 'COMPLETED' && amount > 0, amount, status: data.status };
+}
+
 // --- Acción para Crear una Orden en PayPal ---
+// El monto lo calcula el servidor (antes se cobraba el `total` del navegador).
 export const createPaypalOrder = defineAction({
   accept: 'json',
   input: z.object({
-    total: z.number().min(0.01, 'El total debe ser mayor a cero.'),
+    /** Total que ve el cliente; solo para avisarle si cambió. */
+    total: z.number().optional(),
+    products: z.array(z.object({
+      id: z.string(),
+      quantity: z.number(),
+      combinationId: z.string().nullish(),
+      variantId: z.string().nullish(),
+    }).passthrough()).min(1, 'El carrito está vacío.'),
+    deliveryMethod: z.string().optional(),
+    shippingInfo: z.object({
+      quoteId: z.string().nullish(),
+      carrier: z.string().nullish(),
+      service: z.string().nullish(),
+    }).passthrough().nullish(),
+    postalCode: z.string().optional(),
   }),
-  handler: async ({ total }) => {
+  handler: async (input) => {
+    let total: number;
+    try {
+      const checkout = await priceCheckout({
+        products: toIncomingItems(input.products),
+        deliveryMethod: input.deliveryMethod,
+        shipping: input.shippingInfo,
+        destinationPostalCode: input.postalCode,
+        checkStock: true,
+      });
+      total = checkout.total;
+    } catch (e) {
+      if (e instanceof CheckoutError) throw new ActionError({ code: 'BAD_REQUEST', message: e.message });
+      throw e;
+    }
+
+    if (input.total != null && Math.abs(input.total - total) > AMOUNT_TOLERANCE) {
+      throw new ActionError({
+        code: 'BAD_REQUEST',
+        message: `El total de tu pedido cambió a ${formatMXN(total)}. Recarga la página para ver el monto actualizado.`,
+      });
+    }
+
     try {
       const accessToken = await getPayPalAccessToken();
       const url = `${PAYPAL_API_BASE}/v2/checkout/orders`;
@@ -69,7 +130,7 @@ export const createPaypalOrder = defineAction({
         throw new Error(data.message || 'Error al crear la orden en PayPal.');
       }
       
-      return { orderId: data.id };
+      return { orderId: data.id, total };
 
     } catch (error) {
       console.error("Error en createPaypalOrder:", error);

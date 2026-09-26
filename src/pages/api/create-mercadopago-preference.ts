@@ -13,7 +13,8 @@
 import type { APIRoute } from 'astro';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { priceItems, createPendingOrder, type IncomingItem } from '@/utils/mercadopago-orders';
-import { chargedShipping, qualifiesForFreeShipping } from '@/utils/shipping';
+import { chargedShipping } from '@/utils/shipping';
+import { CheckoutError, resolveShipping } from '@/utils/checkout';
 import { STORE_PICKUP, normalizeDeliveryMethod } from '@/utils/store';
 
 interface PreferenceRequest {
@@ -78,15 +79,28 @@ export const POST: APIRoute = async ({ request }) => {
 
     const subtotal = priced.reduce((s, i) => s + i.lineTotal, 0);
 
-    // El envío gratis lo decide el servidor, no el navegador.
-    // Recoger en tienda nunca cobra envío.
-    const shippingCost = deliveryMethod === 'pickup'
-      ? 0
-      : chargedShipping(subtotal, Number(body.shippingCost) || 0);
-
-    // Si NO aplica gratis y aun así llega en 0, es que no se cotizó.
-    if (channel === 'online' && deliveryMethod === 'delivery' && shippingCost === 0 && !qualifiesForFreeShipping(subtotal)) {
-      return json({ error: 'Falta calcular el costo de envío antes de pagar.' }, 400);
+    // Envío: en la tienda online sale de la cotización guardada en el servidor
+    // (quoteId + paquetería), nunca del monto que manda el navegador.
+    // Recoger en tienda no cobra envío.
+    let shippingCost = 0;
+    let shippingInfo: Record<string, unknown> | null = body.shippingInfo ?? null;
+    if (channel === 'online' && deliveryMethod === 'delivery') {
+      const resolved = await resolveShipping({
+        subtotal,
+        itemsCount: priced.reduce((s, i) => s + i.quantity, 0),
+        selection: body.shippingInfo as any,
+        destinationPostalCode: String((body.shippingAddress as any)?.postalCode ?? ''),
+      });
+      shippingCost = resolved.shippingCost;
+      shippingInfo = {
+        ...(body.shippingInfo ?? {}),
+        carrier: resolved.carrier,
+        service: resolved.service,
+        price: resolved.shippingCost,
+        deliveryDays: resolved.deliveryDays,
+      };
+    } else if (channel === 'pos') {
+      shippingCost = chargedShipping(subtotal, Number(body.shippingCost) || 0);
     }
 
     const total = subtotal + shippingCost;
@@ -103,7 +117,7 @@ export const POST: APIRoute = async ({ request }) => {
       customerEmail: body.customerEmail,
       customerName: body.customerName || body.customerEmail,
       shippingAddress: body.shippingAddress ?? {},
-      shippingInfo: body.shippingInfo ?? null,
+      shippingInfo,
       clientId: body.clientId ?? null,
       channel,
       deliveryMethod,
@@ -175,6 +189,7 @@ export const POST: APIRoute = async ({ request }) => {
       total,
     });
   } catch (error: any) {
+    if (error instanceof CheckoutError) return json({ error: error.message }, error.status);
     console.error('❌ Error MP:', error?.message, error?.cause ?? '');
     return json({ error: error?.message || 'Error al crear la preferencia' }, 500);
   }

@@ -3,7 +3,16 @@ import { db, Product } from 'astro:db';
 import { eq, sql } from 'drizzle-orm';
 import type { APIRoute } from 'astro';
 
-export const POST: APIRoute = async ({ request }) => {
+// ⚠️ Solo admin. Antes era público: cualquiera podía vaciar el inventario.
+// La tienda online ya no lo usa: /api/create-order descuenta el stock
+// después de verificar el pago.
+export const POST: APIRoute = async ({ request, locals }) => {
+  if (!(locals as any)?.isAdmin) {
+    return new Response(JSON.stringify({ error: 'No autorizado' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
   try {
     const { products } = await request.json();
 

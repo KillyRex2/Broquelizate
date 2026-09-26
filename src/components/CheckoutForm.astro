@@ -603,6 +603,7 @@ const productsData = products.map(p => {
     method?: DeliveryMethod;   // selecciones viejas no lo traen → 'delivery'
     carrier: string; service: string; price: number; carrierRate?: number;
     deliveryDays: number; postalCode: string; cartKey?: string; savedAt?: number;
+    quoteId?: string;          // cotización guardada en el servidor (envío a domicilio)
   }
   interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; combinationId?: string | null; variantId?: string | null; }
 
@@ -639,6 +640,8 @@ const productsData = products.map(p => {
     const cartKey = ($('calc-cart-key') as HTMLInputElement | null)?.value;
     if (p && p.cartKey && cartKey && p.cartKey !== cartKey) p = null;
     if (p && (typeof p.price !== 'number' || !p.carrier)) p = null;
+    // Selecciones de antes de guardar cotizaciones en el servidor: el calculador re-cotiza solo
+    if (p && (p.method ?? 'delivery') === 'delivery' && !p.quoteId) p = null;
 
     const warn = $('shipping-warning'), infoDisp = $('shipping-info-display'), summaryDet = $('shipping-summary-details');
     selectedShipping = p ? { ...p, method: p.method || 'delivery' } : null;
@@ -722,7 +725,7 @@ const productsData = products.map(p => {
 
   function getShippingInfo() {
     const cs = selectedShipping;
-    return cs ? { method: deliveryMethod(), carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
+    return cs ? { method: deliveryMethod(), quoteId: cs.quoteId ?? null, carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
   }
 
   async function initStripe() {
@@ -777,7 +780,7 @@ const productsData = products.map(p => {
       if (se) throw new Error(se.message || 'Error tarjeta');
       if (pi?.status !== 'succeeded') throw new Error('Pago no completado');
 
-      await updateStock();
+      // El stock lo descuenta el servidor al registrar el pedido (tras verificar el pago)
       const o = await createOrder('card', pi.id);
       CartCookiesClient.clearCart();
       localStorage.removeItem('selectedShipping');
@@ -869,6 +872,10 @@ const productsData = products.map(p => {
       if (!val('city')) mf.push('Ciudad');
       if (!val('state')) mf.push('Estado');
       if (!val('postal-code')) mf.push('CP');
+      // El envío se cotizó para un CP: la dirección debe ser de ese mismo CP
+      else if (selectedShipping && val('postal-code') !== selectedShipping.postalCode) {
+        mf.push(`CP de la dirección igual al que cotizaste (${selectedShipping.postalCode}), o vuelve a cotizar`);
+      }
     }
 
     // Consentimiento: obligatorio y por acto afirmativo (casilla desmarcada por defecto)
@@ -906,16 +913,10 @@ const productsData = products.map(p => {
       products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null })),
       subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue,
       paymentMethod: pm, paymentIntentId: piid || null, clientId: null,
+      channel: 'online',
     };
     const r = await fetch('/api/create-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(od) });
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error'); } return await r.json();
-  }
-
-  async function updateStock() {
-    const pd = $('products-data'); if (!pd) throw new Error('Sin datos');
-    const rpd = JSON.parse(pd.textContent || '[]'), sud = rpd.map((p: any) => ({ id: p.id, quantity: p.quantity }));
-    const r = await fetch('/api/update-stock-online', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: sud }) });
-    if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error stock'); }
   }
 
   function validatePaypal() {
@@ -923,7 +924,14 @@ const productsData = products.map(p => {
     if (!v.valid) { Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return null; }
     const d = getCheckoutData();
     if (!d?.totalValue) { Alert.error('Error', 'Sin total'); return null; }
-    return { total: d.totalValue };
+    // El servidor calcula el monto con esto; `total` solo sirve para avisar si cambió
+    return {
+      total: d.totalValue,
+      products: d.productsData.map((p: CartProduct) => ({ id: p.id, quantity: p.quantity, combinationId: p.combinationId ?? null, variantId: p.variantId ?? null })),
+      deliveryMethod: deliveryMethod(),
+      shippingInfo: getShippingInfo(),
+      postalCode: isPickup() ? undefined : val('postal-code'),
+    };
   }
 
   async function initPayPal() {
@@ -941,7 +949,7 @@ const productsData = products.map(p => {
         const d = validatePaypal();
         if (!d) return Promise.reject('Val fail');
         try {
-          const r = await actions.createPaypalOrder({ total: d.total });
+          const r = await actions.createPaypalOrder(d);
           if (r.error) throw new Error(r.error.message);
           return r.data.orderId;
         } catch (e) {
@@ -954,8 +962,8 @@ const productsData = products.map(p => {
         try {
           const r = await actions.capturePaypalOrder({ orderId: data.orderID });
           if (r.error) throw new Error(r.error.message);
-          await updateStock();
-          const o = await createOrder('paypal');
+          // Se manda el id de la orden de PayPal: el servidor verifica el pago con él
+          const o = await createOrder('paypal', data.orderID);
           CartCookiesClient.clearCart();
           localStorage.removeItem('selectedShipping');
           Toast.dismiss(loadingId);

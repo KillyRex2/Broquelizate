@@ -312,6 +312,7 @@ const storeData = {
 
 <script>
   import { actions } from 'astro:actions';
+  import { packageForItems } from '@/utils/shipping';
 
   interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
 
@@ -326,9 +327,12 @@ const storeData = {
     postalCode: string;
     cartKey: string;
     savedAt: number;
+    /** Cotización guardada en el servidor: de ahí sale el precio al pagar. */
+    quoteId?: string;
   }
 
-  interface CachedQuote { cartKey: string; rates: ShippingRate[]; quotedAt: number; }
+  interface CachedQuote { cartKey: string; rates: ShippingRate[]; quotedAt: number; quoteId: string; }
+  interface QuoteResult { rates: ShippingRate[]; quoteId: string; }
 
   const SELECTION_KEY = 'selectedShipping';
   const LAST_DELIVERY_KEY = 'lastDeliveryChoice'; // sessionStorage: última paquetería elegida
@@ -355,15 +359,15 @@ const storeData = {
   const LS = typeof localStorage !== 'undefined' ? localStorage : undefined;
   const SS = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
 
-  function readQuote(cp: string, cartKey: string): ShippingRate[] | null {
+  function readQuote(cp: string, cartKey: string): QuoteResult | null {
     const all = store.get<Record<string, CachedQuote>>(SS, QUOTES_KEY) || {};
     const q = all[cp];
-    if (!q || q.cartKey !== cartKey || Date.now() - q.quotedAt > QUOTE_TTL_MS) return null;
-    return q.rates;
+    if (!q || !q.quoteId || q.cartKey !== cartKey || Date.now() - q.quotedAt > QUOTE_TTL_MS) return null;
+    return { rates: q.rates, quoteId: q.quoteId };
   }
-  function writeQuote(cp: string, cartKey: string, rates: ShippingRate[]) {
+  function writeQuote(cp: string, cartKey: string, rates: ShippingRate[], quoteId: string) {
     const all = store.get<Record<string, CachedQuote>>(SS, QUOTES_KEY) || {};
-    all[cp] = { cartKey, rates, quotedAt: Date.now() };
+    all[cp] = { cartKey, rates, quotedAt: Date.now(), quoteId };
     // Solo los CPs más recientes
     const keep = Object.entries(all).sort((a, b) => b[1].quotedAt - a[1].quotedAt).slice(0, MAX_CACHED_CPS);
     store.set(SS, QUOTES_KEY, Object.fromEntries(keep));
@@ -392,7 +396,6 @@ const storeData = {
     const modeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.calc-mode'));
 
     const originCp = (document.getElementById('calc-origin-cp') as HTMLInputElement)?.value || '35000';
-    const weight = parseFloat((document.getElementById('calc-weight') as HTMLInputElement)?.value || '0.5');
     const itemsCount = parseInt((document.getElementById('calc-items-count') as HTMLInputElement)?.value || '0');
     const subtotal = parseFloat((document.getElementById('calc-subtotal') as HTMLInputElement)?.value || '0');
     const cartKey = (document.getElementById('calc-cart-key') as HTMLInputElement)?.value || `${itemsCount}:${subtotal}`;
@@ -415,7 +418,7 @@ const storeData = {
     let loading = false;
     let mode: 'delivery' | 'pickup' = 'delivery';
     // Última cotización mostrada, para volver de "tienda" a "domicilio" sin re-cotizar
-    let current: { cp: string; rates: ShippingRate[] } | null = null;
+    let current: { cp: string; rates: ShippingRate[]; quoteId: string } | null = null;
 
     function setLoading(v: boolean) {
       loading = v;
@@ -436,7 +439,7 @@ const storeData = {
       window.dispatchEvent(new CustomEvent('shipping:cleared'));
     }
 
-    function selectRate(r: ShippingRate, cp: string) {
+    function selectRate(r: ShippingRate, cp: string, quoteId: string) {
       // La tarifa del carrier debe ser válida aunque al cliente no se le cobre:
       // si viene en 0 es que la API falló, no que el envío sea gratis.
       if (!(Number(r.totalPrice) > 0)) return;
@@ -451,6 +454,7 @@ const storeData = {
         postalCode: cp,
         cartKey,
         savedAt: Date.now(),
+        quoteId,
       });
     }
 
@@ -473,7 +477,7 @@ const storeData = {
      * Pinta las tarifas. `preferred` = selección previa del usuario:
      * si sigue existiendo se respeta; si no, se elige la más barata.
      */
-    function render(rates: ShippingRate[], cp: string, preferred: { carrier: string; service: string } | null = null) {
+    function render(rates: ShippingRate[], cp: string, preferred: { carrier: string; service: string } | null, quoteId: string) {
       if (!optionsBox) return;
 
       // Una tarifa en $0 casi siempre significa que la API respondió
@@ -490,7 +494,7 @@ const storeData = {
       const minDays = Math.min(...sorted.map(x => x.deliveryDays));
       const prefIdx = sorted.findIndex(r => sameRate(r, preferred));
       const selectedIdx = prefIdx >= 0 ? prefIdx : 0;
-      current = { cp, rates: valid };
+      current = { cp, rates: valid, quoteId };
 
       const resultsTitle = resultsBox?.querySelector('.calc-results-title');
       if (resultsTitle) {
@@ -521,7 +525,7 @@ const storeData = {
       optionsBox.querySelectorAll<HTMLInputElement>('input[name="calc-rate"]').forEach(inp => {
         inp.addEventListener('change', () => {
           const idx = parseInt(inp.value);
-          selectRate(sorted[idx], cp);
+          selectRate(sorted[idx], cp, quoteId);
           optionsBox.querySelectorAll('.rate-opt').forEach((l, i) => l.classList.toggle('selected', i === idx));
         });
       });
@@ -530,7 +534,7 @@ const storeData = {
       postalOk?.classList.remove('hidden');
       resultsBox?.classList.remove('hidden');
       // Si mientras cotizaba se cambió a "Recoger en tienda", no pisar esa elección
-      if (mode === 'delivery') selectRate(sorted[selectedIdx], cp);
+      if (mode === 'delivery') selectRate(sorted[selectedIdx], cp, quoteId);
 
       // Auto-rellena el CP en el formulario de dirección si está vacío
       if (addressCpInput && !addressCpInput.value) addressCpInput.value = cp;
@@ -547,24 +551,28 @@ const storeData = {
       if (!validCp(cp)) { showErr('Ingresa un código postal válido de 5 dígitos'); return; }
 
       const cached = readQuote(cp, cartKey);
-      if (cached) { render(cached, cp, preferred); return; }
+      if (cached) { render(cached.rates, cp, preferred, cached.quoteId); return; }
 
       hideErr(); setLoading(true);
       try {
+        // Mismo cálculo de paquete que usa el servidor para validar la cotización
+        const pkg = packageForItems(itemsCount);
         const result = await actions.getShippingRates({
           originPostalCode: originCp,
           destinationPostalCode: cp,
-          weight: Math.max(1, weight),
-          length: Math.min(15 + (itemsCount * 2), 50),
-          width: 15,
-          height: 10,
+          weight: pkg.weight,
+          length: pkg.length,
+          width: pkg.width,
+          height: pkg.height,
         });
         if (result.error) { showErr('No pudimos obtener las tarifas. Intenta de nuevo.'); return; }
         const data = result.data;
         if (!data?.success || !data?.rates?.length) { showErr(data?.error || 'No hay opciones para ese código postal.'); return; }
 
-        writeQuote(cp, cartKey, data.rates);
-        render(data.rates, cp, preferred);
+        if (!data.quoteId) { showErr('No pudimos guardar tu cotización. Intenta de nuevo.'); return; }
+
+        writeQuote(cp, cartKey, data.rates, data.quoteId);
+        render(data.rates, cp, preferred, data.quoteId);
       } catch {
         showErr('Error de conexión. Verifica tu internet e intenta de nuevo.');
       } finally {
@@ -600,10 +608,10 @@ const storeData = {
         // Regresa a la paquetería que tenía elegida (o la más barata), sin re-cotizar
         const last = store.get<{ cp: string; carrier: string; service: string }>(SS, LAST_DELIVERY_KEY);
         const cp = current?.cp || last?.cp || '';
-        const rates = current?.rates || (cp ? readQuote(cp, cartKey) : null);
-        if (cp && rates) {
+        const q = current ? { rates: current.rates, quoteId: current.quoteId } : (cp ? readQuote(cp, cartKey) : null);
+        if (cp && q) {
           postalInput.value = cp;
-          render(rates, cp, last?.cp === cp ? last : null);
+          render(q.rates, cp, last?.cp === cp ? last : null, q.quoteId);
         } else {
           clearSelection();
           postalInput.focus();
