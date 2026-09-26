@@ -1,13 +1,27 @@
 ---
 // src/components/ShippingCalculator.astro
+import { STORE_PICKUP, storeAddressLine, pickupReadyText } from '@/utils/store';
+
 interface Props {
   subtotal: number;
   totalItems: number;
   originPostalCode?: string;
+  /** Muestra la pestaña "Recoger en tienda". Por defecto, lo que diga la config. */
+  allowPickup?: boolean;
 }
 
-const { subtotal, totalItems, originPostalCode = "35000" } = Astro.props;
+const { subtotal, totalItems, originPostalCode = STORE_PICKUP.postalCode, allowPickup = STORE_PICKUP.enabled } = Astro.props;
 const estimatedWeight = Math.max(0.5, totalItems * 0.05);
+
+// Huella del carrito: si cambia, la cotización/selección guardada ya no sirve.
+const cartKey = `${totalItems}:${subtotal}`;
+
+const storeData = {
+  name: STORE_PICKUP.name,
+  address: storeAddressLine(),
+  postalCode: STORE_PICKUP.postalCode,
+  readyInDays: STORE_PICKUP.readyInDays,
+};
 ---
 
 <div class="shipping-calc-card">
@@ -18,12 +32,26 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
       </svg>
     </div>
     <div>
-      <h3 class="calc-title">Método de envío</h3>
-      <p class="calc-subtitle">Calcula tu envío según tu código postal</p>
+      <h3 class="calc-title">Método de entrega</h3>
+      <p class="calc-subtitle" id="calc-subtitle">{allowPickup ? 'Envío a domicilio o recoge en tienda' : 'Calcula tu envío según tu código postal'}</p>
     </div>
   </div>
 
-  <div class="calc-body">
+  {allowPickup && (
+    <div class="calc-modes" role="tablist" aria-label="Método de entrega">
+      <button type="button" class="calc-mode active" data-mode="delivery" role="tab" aria-selected="true">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+        <span>Envío a domicilio</span>
+      </button>
+      <button type="button" class="calc-mode" data-mode="pickup" role="tab" aria-selected="false">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1.5-5h15L21 9M3 9h18M3 9v11h18V9M9 20v-6h6v6"/></svg>
+        <span>Recoger en tienda</span>
+        <span class="calc-mode-pill">Gratis</span>
+      </button>
+    </div>
+  )}
+
+  <div class="calc-body" id="calc-delivery-panel">
     <div class="calc-input-row">
       <div class="calc-input-wrapper">
         <input
@@ -66,10 +94,35 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     </div>
   </div>
 
+  {allowPickup && (
+    <div class="calc-pickup hidden" id="calc-pickup-panel">
+      <div class="pickup-card">
+        <div class="pickup-row">
+          <span class="pickup-emoji">🏬</span>
+          <div class="pickup-info">
+            <span class="pickup-name">{STORE_PICKUP.name}</span>
+            <span class="pickup-address">{storeAddressLine()}</span>
+          </div>
+          <span class="pickup-badge">Gratis</span>
+        </div>
+        <div class="pickup-meta">
+          <span>🕒 {STORE_PICKUP.hours}</span>
+          <span>📦 {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
+        </div>
+        <p class="pickup-note">{STORE_PICKUP.instructions}</p>
+        {STORE_PICKUP.mapsUrl && (
+          <a href={STORE_PICKUP.mapsUrl} target="_blank" rel="noopener" class="pickup-map">Ver en Google Maps →</a>
+        )}
+      </div>
+    </div>
+  )}
+
   <input type="hidden" id="calc-origin-cp" value={originPostalCode} />
   <input type="hidden" id="calc-weight" value={estimatedWeight} />
   <input type="hidden" id="calc-items-count" value={totalItems} />
   <input type="hidden" id="calc-subtotal" value={subtotal} />
+  <input type="hidden" id="calc-cart-key" value={cartKey} />
+  {allowPickup && <script type="application/json" id="calc-store-data" set:html={JSON.stringify(storeData)} />}
 </div>
 
 <style>
@@ -139,6 +192,28 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
   .calc-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); border-radius: 16px; color: var(--gold-deep); flex-shrink: 0; }
   .calc-title { font-size: 1rem; font-weight: 700; color: var(--txt); }
   .calc-subtitle { font-size: 0.82rem; color: var(--txt-2); margin-top: 2px; }
+
+  /* ── Selector domicilio / tienda ── */
+  .calc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; margin-bottom: 16px; background: rgba(255, 255, 255, 0.4); box-shadow: var(--lg-thickness); border-radius: 999px; }
+  .calc-mode { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; background: transparent; border: none; border-radius: 999px; color: var(--txt-2); font-size: 0.86rem; font-weight: 600; cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1); white-space: nowrap; }
+  .calc-mode:hover:not(.active) { background: rgba(255, 255, 255, 0.5); color: var(--txt); }
+  .calc-mode.active { background: rgba(255, 255, 255, 0.92); color: var(--txt); box-shadow: var(--lg-thickness), 0 4px 12px -6px rgba(0, 0, 0, 0.2); }
+  .calc-mode svg { flex-shrink: 0; color: var(--gold-deep); }
+  .calc-mode-pill { font-size: 0.62rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: rgba(34, 197, 94, 0.9); color: #fff; }
+
+  .calc-body.hidden, .calc-pickup.hidden { display: none; }
+
+  /* ── Recoger en tienda ── */
+  .pickup-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; background: rgba(234, 179, 8, 0.14); box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.45); }
+  .pickup-row { display: flex; align-items: center; gap: 12px; }
+  .pickup-emoji { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+  .pickup-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .pickup-name { font-weight: 700; font-size: 0.92rem; color: var(--txt); }
+  .pickup-address { font-size: 0.8rem; color: var(--txt-2); line-height: 1.4; }
+  .pickup-badge { font-size: 0.75rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(34, 197, 94, 0.9); color: #fff; white-space: nowrap; }
+  .pickup-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.8rem; color: var(--txt-2); }
+  .pickup-note { font-size: 0.78rem; color: var(--txt-3); line-height: 1.5; }
+  .pickup-map { align-self: flex-start; font-size: 0.8rem; font-weight: 600; color: var(--gold-deep); text-decoration: underline; text-underline-offset: 2px; }
 
   .calc-body { display: flex; flex-direction: column; gap: 14px; }
   .calc-input-row { display: flex; gap: 10px; }
@@ -210,7 +285,7 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
   @keyframes calc-spin { to { transform: rotate(360deg); } }
 
   @media (prefers-reduced-motion: reduce) {
-    .calc-btn, .calc-options :global(.rate-opt) { transition: none; }
+    .calc-btn, .calc-mode, .calc-options :global(.rate-opt) { transition: none; }
   }
 
   /* ── Responsive ── */
@@ -221,6 +296,8 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     .calc-title { font-size: 0.95rem; }
     .calc-subtitle { font-size: 0.78rem; }
     .calc-input-row { flex-direction: column; }
+    .calc-mode { padding: 10px 8px; font-size: 0.8rem; gap: 6px; }
+    .calc-mode-pill { display: none; }
     .calc-btn { width: 100%; padding: 14px 24px; }
     .calc-options { max-height: none; }
     .calc-options :global(.rate-opt) { padding: 12px; gap: 10px; border-radius: 16px; flex-wrap: wrap; }
@@ -238,10 +315,68 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
 
   interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
 
+  /** Lo que se guarda en localStorage y lee CheckoutForm. */
+  interface SelectedShipping {
+    method: 'delivery' | 'pickup';
+    carrier: string;
+    service: string;
+    price: number;        // lo que paga el cliente
+    carrierRate: number;  // lo que cuesta la guía (0 en tienda)
+    deliveryDays: number;
+    postalCode: string;
+    cartKey: string;
+    savedAt: number;
+  }
+
+  interface CachedQuote { cartKey: string; rates: ShippingRate[]; quotedAt: number; }
+
+  const SELECTION_KEY = 'selectedShipping';
+  const LAST_DELIVERY_KEY = 'lastDeliveryChoice'; // sessionStorage: última paquetería elegida
+  const QUOTES_KEY = 'shippingQuotes';          // sessionStorage: { [cp]: CachedQuote }
+  const QUOTE_TTL_MS = 30 * 60 * 1000;         // una cotización vale 30 min
+  const MAX_CACHED_CPS = 5;
+
+  // Debe coincidir con FREE_SHIPPING_THRESHOLD de @/utils/shipping.
+  // Aquí va como constante local porque esto corre en el navegador.
+  const FREE_SHIPPING_THRESHOLD = 1099;
+
+  // ── Storage seguro (modo privado / cookies bloqueadas no rompen nada) ──
+  const store = {
+    get<T>(area: Storage | undefined, key: string): T | null {
+      try { const v = area?.getItem(key); return v ? JSON.parse(v) as T : null; } catch { return null; }
+    },
+    set(area: Storage | undefined, key: string, v: unknown) {
+      try { area?.setItem(key, JSON.stringify(v)); } catch {}
+    },
+    del(area: Storage | undefined, key: string) {
+      try { area?.removeItem(key); } catch {}
+    },
+  };
+  const LS = typeof localStorage !== 'undefined' ? localStorage : undefined;
+  const SS = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
+
+  function readQuote(cp: string, cartKey: string): ShippingRate[] | null {
+    const all = store.get<Record<string, CachedQuote>>(SS, QUOTES_KEY) || {};
+    const q = all[cp];
+    if (!q || q.cartKey !== cartKey || Date.now() - q.quotedAt > QUOTE_TTL_MS) return null;
+    return q.rates;
+  }
+  function writeQuote(cp: string, cartKey: string, rates: ShippingRate[]) {
+    const all = store.get<Record<string, CachedQuote>>(SS, QUOTES_KEY) || {};
+    all[cp] = { cartKey, rates, quotedAt: Date.now() };
+    // Solo los CPs más recientes
+    const keep = Object.entries(all).sort((a, b) => b[1].quotedAt - a[1].quotedAt).slice(0, MAX_CACHED_CPS);
+    store.set(SS, QUOTES_KEY, Object.fromEntries(keep));
+  }
+
   function initShippingCalculator() {
     const _postalInput = document.getElementById('shipping-calc-postal') as HTMLInputElement | null;
     if (!_postalInput) return;
     const postalInput = _postalInput;
+
+    // Evita doble inicialización sobre el mismo DOM
+    if (postalInput.dataset.bound === '1') return;
+    postalInput.dataset.bound = '1';
 
     const btn = document.getElementById('calc-shipping-btn') as HTMLButtonElement;
     const btnText = document.getElementById('calc-btn-text');
@@ -252,16 +387,21 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     const resultsBox = document.getElementById('calc-results');
     const optionsBox = document.getElementById('calc-options');
     const clearBtn = document.getElementById('calc-clear-btn');
+    const deliveryPanel = document.getElementById('calc-delivery-panel');
+    const pickupPanel = document.getElementById('calc-pickup-panel');
+    const modeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.calc-mode'));
+
     const originCp = (document.getElementById('calc-origin-cp') as HTMLInputElement)?.value || '35000';
     const weight = parseFloat((document.getElementById('calc-weight') as HTMLInputElement)?.value || '0.5');
     const itemsCount = parseInt((document.getElementById('calc-items-count') as HTMLInputElement)?.value || '0');
     const subtotal = parseFloat((document.getElementById('calc-subtotal') as HTMLInputElement)?.value || '0');
+    const cartKey = (document.getElementById('calc-cart-key') as HTMLInputElement)?.value || `${itemsCount}:${subtotal}`;
 
-    // Debe coincidir con FREE_SHIPPING_THRESHOLD de @/utils/shipping.
-    // Aquí va como constante local porque esto corre en el navegador.
-    const FREE_SHIPPING_THRESHOLD = 1099;
+    let storeData: { name: string; address: string; postalCode: string; readyInDays: number } | null = null;
+    try { storeData = JSON.parse(document.getElementById('calc-store-data')?.textContent || 'null'); } catch {}
+    const pickupEnabled = !!storeData && !!pickupPanel;
+
     const isFree = subtotal >= FREE_SHIPPING_THRESHOLD;
-    console.log('💰 subtotal:', subtotal, '| umbral:', FREE_SHIPPING_THRESHOLD, '| gratis:', isFree);
 
     // Input de CP del formulario de dirección (lo auto-sincroniza si existe)
     const addressCpInput = document.getElementById('postal-code') as HTMLInputElement | null;
@@ -269,8 +409,16 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
     const validCp = (cp: string) => /^\d{5}$/.test(cp);
     const emoji = (c: string) => (({ fedex:'🚚', dhl:'📦', estafeta:'📫', redpack:'🔴', ups:'🟤', paquetexpress:'📬', '99minutos':'⚡', sendex:'✉️' } as Record<string,string>)[c.toLowerCase()] || '📦');
+    const sameRate = (r: ShippingRate, s: { carrier: string; service: string } | null) =>
+      !!s && r.carrier === s.carrier && r.service === s.service;
+
+    let loading = false;
+    let mode: 'delivery' | 'pickup' = 'delivery';
+    // Última cotización mostrada, para volver de "tienda" a "domicilio" sin re-cotizar
+    let current: { cp: string; rates: ShippingRate[] } | null = null;
 
     function setLoading(v: boolean) {
+      loading = v;
       if (btn) btn.disabled = v;
       if (btnText) btnText.textContent = v ? 'Cotizando...' : 'Cotizar';
       btnSpinner?.classList.toggle('hidden', !v);
@@ -278,24 +426,54 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
     function showErr(msg: string) { if (errBox && errText) { errText.textContent = msg; errBox.classList.remove('hidden'); } resultsBox?.classList.add('hidden'); }
     function hideErr() { errBox?.classList.add('hidden'); }
 
+    function publish(sel: SelectedShipping) {
+      store.set(LS, SELECTION_KEY, sel);
+      // Notifica al CheckoutForm para que actualice totales y UI
+      window.dispatchEvent(new CustomEvent('shipping:selected', { detail: sel }));
+    }
+    function clearSelection() {
+      store.del(LS, SELECTION_KEY);
+      window.dispatchEvent(new CustomEvent('shipping:cleared'));
+    }
+
     function selectRate(r: ShippingRate, cp: string) {
       // La tarifa del carrier debe ser válida aunque al cliente no se le cobre:
       // si viene en 0 es que la API falló, no que el envío sea gratis.
       if (!(Number(r.totalPrice) > 0)) return;
-      const selected = {
+      store.set(SS, LAST_DELIVERY_KEY, { cp, carrier: r.carrier, service: r.service });
+      publish({
+        method: 'delivery',
         carrier: r.carrier,
         service: r.service,
-        price: isFree ? 0 : Number(r.totalPrice), // lo que paga el cliente
-        carrierRate: Number(r.totalPrice),        // lo que cuesta la guía
+        price: isFree ? 0 : Number(r.totalPrice),
+        carrierRate: Number(r.totalPrice),
         deliveryDays: r.deliveryDays,
         postalCode: cp,
-      };
-      try { localStorage.setItem('selectedShipping', JSON.stringify(selected)); } catch {}
-      // Notifica al CheckoutForm para que actualice totales y UI
-      window.dispatchEvent(new CustomEvent('shipping:selected', { detail: selected }));
+        cartKey,
+        savedAt: Date.now(),
+      });
     }
 
-    function render(rates: ShippingRate[], cp: string) {
+    function selectPickup() {
+      if (!storeData) return;
+      publish({
+        method: 'pickup',
+        carrier: 'Recoger en tienda',
+        service: storeData.name,
+        price: 0,
+        carrierRate: 0,
+        deliveryDays: storeData.readyInDays,
+        postalCode: storeData.postalCode,
+        cartKey,
+        savedAt: Date.now(),
+      });
+    }
+
+    /**
+     * Pinta las tarifas. `preferred` = selección previa del usuario:
+     * si sigue existiendo se respeta; si no, se elige la más barata.
+     */
+    function render(rates: ShippingRate[], cp: string, preferred: { carrier: string; service: string } | null = null) {
       if (!optionsBox) return;
 
       // Una tarifa en $0 casi siempre significa que la API respondió
@@ -305,29 +483,27 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
       const valid = rates.filter(r => Number(r.totalPrice) > 0);
       if (valid.length === 0) {
         showErr('No pudimos obtener tarifas válidas para ese CP. Contáctanos por WhatsApp para cotizar tu envío.');
-        resultsBox?.classList.add('hidden');
         return;
       }
 
       const sorted = [...valid].sort((a, b) => a.totalPrice - b.totalPrice);
       const minDays = Math.min(...sorted.map(x => x.deliveryDays));
+      const prefIdx = sorted.findIndex(r => sameRate(r, preferred));
+      const selectedIdx = prefIdx >= 0 ? prefIdx : 0;
+      current = { cp, rates: valid };
 
-      // Con envío gratis el cliente sigue eligiendo paquetería:
-      // el título lo aclara para que no crea que le van a cobrar.
-      const resultsTitle = optionsBox.closest('.calc-results')?.querySelector('.calc-results-title');
+      const resultsTitle = resultsBox?.querySelector('.calc-results-title');
       if (resultsTitle) {
-        resultsTitle.textContent = isFree
-          ? '¡Tu envío es gratis! Elige paquetería'
-          : 'Opciones disponibles';
+        resultsTitle.textContent = isFree ? '¡Tu envío es gratis! Elige paquetería' : 'Opciones disponibles';
       }
 
-      // Sin estilos inline: todo por clases, para que el CSS del componente mande.
       optionsBox.innerHTML = sorted.map((r, i) => {
         const best = i === 0;
         const fast = r.deliveryDays === minDays && !best;
+        const sel = i === selectedIdx;
         const days = `${r.deliveryDays} día${r.deliveryDays !== 1 ? 's' : ''} hábil${r.deliveryDays !== 1 ? 'es' : ''}`;
-        return `<label class="rate-opt${best ? ' selected' : ''}" data-idx="${i}">
-          <input type="radio" name="calc-rate" value="${i}" ${best ? 'checked' : ''} />
+        return `<label class="rate-opt${sel ? ' selected' : ''}" data-idx="${i}">
+          <input type="radio" name="calc-rate" value="${i}" ${sel ? 'checked' : ''} />
           <span class="rate-emoji">${emoji(r.carrier)}</span>
           <div class="rate-info">
             <div class="rate-top">
@@ -342,22 +518,37 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
         </label>`;
       }).join('');
 
-      optionsBox.querySelectorAll('input[name="calc-rate"]').forEach(inp => {
-        inp.addEventListener('change', (e) => {
-          const idx = parseInt((e.target as HTMLInputElement).value);
+      optionsBox.querySelectorAll<HTMLInputElement>('input[name="calc-rate"]').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const idx = parseInt(inp.value);
           selectRate(sorted[idx], cp);
-          optionsBox.querySelectorAll('.rate-opt').forEach((l, i) => {
-            l.classList.toggle('selected', i === idx);
-          });
+          optionsBox.querySelectorAll('.rate-opt').forEach((l, i) => l.classList.toggle('selected', i === idx));
         });
       });
 
-      if (sorted.length > 0) selectRate(sorted[0], cp);
+      hideErr();
+      postalOk?.classList.remove('hidden');
+      resultsBox?.classList.remove('hidden');
+      // Si mientras cotizaba se cambió a "Recoger en tienda", no pisar esa elección
+      if (mode === 'delivery') selectRate(sorted[selectedIdx], cp);
+
+      // Auto-rellena el CP en el formulario de dirección si está vacío
+      if (addressCpInput && !addressCpInput.value) addressCpInput.value = cp;
     }
 
-    async function calculate() {
+    /**
+     * Cotiza un CP. Primero busca en la caché de la sesión (mismo CP,
+     * mismo carrito, < 30 min); solo si no hay, llama a Envia.
+     * Cotizar NO genera guía ni cobra: la guía se crea hasta que hay pedido pagado.
+     */
+    async function calculate(preferred: { carrier: string; service: string } | null = null) {
+      if (loading) return; // evita dobles clics / Enter + clic
       const cp = postalInput.value.trim();
       if (!validCp(cp)) { showErr('Ingresa un código postal válido de 5 dígitos'); return; }
+
+      const cached = readQuote(cp, cartKey);
+      if (cached) { render(cached, cp, preferred); return; }
+
       hideErr(); setLoading(true);
       try {
         const result = await actions.getShippingRates({
@@ -372,12 +563,8 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
         const data = result.data;
         if (!data?.success || !data?.rates?.length) { showErr(data?.error || 'No hay opciones para ese código postal.'); return; }
 
-        postalOk?.classList.remove('hidden');
-        resultsBox?.classList.remove('hidden');
-        render(data.rates, cp);
-
-        // Auto-rellena el CP en el formulario de dirección si está vacío
-        if (addressCpInput && !addressCpInput.value) addressCpInput.value = cp;
+        writeQuote(cp, cartKey, data.rates);
+        render(data.rates, cp, preferred);
       } catch {
         showErr('Error de conexión. Verifica tu internet e intenta de nuevo.');
       } finally {
@@ -387,21 +574,56 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
 
     function clearAll() {
       postalInput.value = '';
+      current = null;
       postalOk?.classList.add('hidden');
       resultsBox?.classList.add('hidden');
-      try { localStorage.removeItem('selectedShipping'); } catch {}
-      window.dispatchEvent(new CustomEvent('shipping:cleared'));
+      clearSelection();
+      postalInput.focus();
     }
 
-    postalInput.addEventListener('input', (e) => {
-      const t = e.target as HTMLInputElement;
-      t.value = t.value.replace(/\D/g, '').slice(0, 5);
+    function setMode(next: 'delivery' | 'pickup', opts: { silent?: boolean } = {}) {
+      if (next === 'pickup' && !pickupEnabled) next = 'delivery';
+      mode = next;
+      modeBtns.forEach(b => {
+        const on = b.dataset.mode === next;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+      deliveryPanel?.classList.toggle('hidden', next !== 'delivery');
+      pickupPanel?.classList.toggle('hidden', next !== 'pickup');
+      if (opts.silent) return;
+
+      if (next === 'pickup') {
+        hideErr();
+        selectPickup();
+      } else {
+        // Regresa a la paquetería que tenía elegida (o la más barata), sin re-cotizar
+        const last = store.get<{ cp: string; carrier: string; service: string }>(SS, LAST_DELIVERY_KEY);
+        const cp = current?.cp || last?.cp || '';
+        const rates = current?.rates || (cp ? readQuote(cp, cartKey) : null);
+        if (cp && rates) {
+          postalInput.value = cp;
+          render(rates, cp, last?.cp === cp ? last : null);
+        } else {
+          clearSelection();
+          postalInput.focus();
+        }
+      }
+    }
+
+    // ── Eventos ──
+    postalInput.addEventListener('input', () => {
+      postalInput.value = postalInput.value.replace(/\D/g, '').slice(0, 5);
       postalOk?.classList.add('hidden');
       hideErr();
     });
-    postalInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); calculate(); } });
-    btn?.addEventListener('click', calculate);
+    postalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); calculate(); } });
+    btn?.addEventListener('click', () => calculate());
     clearBtn?.addEventListener('click', clearAll);
+    modeBtns.forEach(b => b.addEventListener('click', () => {
+      const m = b.dataset.mode as 'delivery' | 'pickup';
+      if (m !== mode) setMode(m);
+    }));
 
     // Sincronización: si el usuario escribe el CP en la dirección, pre-llenar aquí
     addressCpInput?.addEventListener('blur', () => {
@@ -410,18 +632,30 @@ const estimatedWeight = Math.max(0.5, totalItems * 0.05);
       }
     });
 
-    // Restaurar selección previa
-    try {
-      const saved = localStorage.getItem('selectedShipping');
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.postalCode && validCp(s.postalCode)) {
-          postalInput.value = s.postalCode;
-          setTimeout(calculate, 300);
-        }
-      }
-    } catch {}
+    // ── Restaurar selección previa ──
+    // Si el carrito cambió, la selección ya no aplica (peso/subtotal distintos).
+    const saved = store.get<SelectedShipping>(LS, SELECTION_KEY);
+    if (!saved || (saved.cartKey && saved.cartKey !== cartKey)) {
+      if (saved) clearSelection();
+      setMode('delivery', { silent: true });
+      return;
+    }
+
+    if (saved.method === 'pickup') {
+      if (pickupEnabled) { setMode('pickup'); return; }  // re-publica con datos frescos, sin API
+      clearSelection();
+      setMode('delivery', { silent: true });
+      return;
+    }
+
+    // Envío a domicilio (o selección vieja sin `method`)
+    setMode('delivery', { silent: true });
+    if (saved.postalCode && validCp(saved.postalCode)) {
+      postalInput.value = saved.postalCode;
+      // Usa la caché si existe; si no, re-cotiza UNA vez respetando la paquetería elegida
+      calculate({ carrier: saved.carrier, service: saved.service });
+    }
   }
 
-  document.addEventListener('astro:page-load', () => setTimeout(initShippingCalculator, 100));
+  document.addEventListener('astro:page-load', initShippingCalculator);
 </script>

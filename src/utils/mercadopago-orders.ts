@@ -15,12 +15,15 @@
 //     llegar los dos y no se duplica nada.
 // ============================================================
 
-import { db, eq, inArray, sql, Product, ProductVariantCombination, orders, order_items } from 'astro:db';
+import { db, eq, inArray, sql, Product, ProductVariant, ProductVariantCombination, orders, order_items } from 'astro:db';
+import type { DeliveryMethod } from '@/utils/store';
 
 export interface IncomingItem {
   productId: string;
   quantity: number;
   combinationId?: string | null;
+  /** Productos de un solo grupo de variantes: id de ProductVariant (precio base + ajuste) */
+  variantId?: string | null;
   variantCombination?: unknown;
   variantSku?: string | null;
   customizationData?: unknown;
@@ -63,17 +66,25 @@ export async function priceItems(items: IncomingItem[]): Promise<PricedItem[]> {
   const productIds = [...new Set(items.map(i => i.productId).filter(Boolean))];
   if (productIds.length === 0) throw new Error('Los productos del carrito no son válidos');
 
-  const comboIds = [...new Set(items.map(i => i.combinationId).filter(Boolean))] as string[];
+  // El carrito manda combinationId (2+ grupos) o variantId (1 grupo). Se buscan
+  // ambos ids en las dos tablas, igual que /api/create-order.
+  const variantOrComboIds = [...new Set(
+    items.map(i => i.combinationId || i.variantId).filter(Boolean)
+  )] as string[];
 
-  const [products, combos] = await Promise.all([
+  const [products, combos, variants] = await Promise.all([
     db.select().from(Product).where(inArray(Product.id, productIds)),
-    comboIds.length
-      ? db.select().from(ProductVariantCombination).where(inArray(ProductVariantCombination.id, comboIds))
+    variantOrComboIds.length
+      ? db.select().from(ProductVariantCombination).where(inArray(ProductVariantCombination.id, variantOrComboIds))
+      : Promise.resolve([] as any[]),
+    variantOrComboIds.length
+      ? db.select().from(ProductVariant).where(inArray(ProductVariant.id, variantOrComboIds))
       : Promise.resolve([] as any[]),
   ]);
 
   const productById = new Map(products.map(p => [p.id, p]));
   const comboById = new Map(combos.map((c: any) => [c.id, c]));
+  const variantById = new Map(variants.map((v: any) => [v.id, v]));
 
   return items.map(item => {
     const product = productById.get(item.productId);
@@ -82,9 +93,14 @@ export async function priceItems(items: IncomingItem[]): Promise<PricedItem[]> {
 
     const qty = Math.max(1, Math.floor(toNum(item.quantity, 1)));
 
-    // Con variantes el precio lo manda la combinación, no el producto.
-    const combo = item.combinationId ? comboById.get(item.combinationId) : null;
-    const unitPrice = toNum(combo ? combo.price : product.price);
+    // Con variantes el precio lo manda la combinación (precio absoluto) o la
+    // variante suelta (precio base + ajuste), no el producto.
+    const refId = item.combinationId || item.variantId || null;
+    const combo = refId ? comboById.get(refId) : null;
+    const variant = !combo && refId ? variantById.get(refId) : null;
+    const unitPrice = combo
+      ? toNum(combo.price)
+      : toNum(product.price) + (variant ? toNum(variant.priceAdjustment) : 0);
 
     // 💡 Cuando entre el sistema de ofertas, el descuento se aplica aquí:
     //    const { price: unitPrice } = getPrice({ price: basePrice, ...product });
@@ -94,6 +110,8 @@ export async function priceItems(items: IncomingItem[]): Promise<PricedItem[]> {
 
     return {
       ...item,
+      // Solo las combinaciones van a order_items.variantCombinationId (tiene FK)
+      combinationId: combo ? combo.id : null,
       quantity: qty,
       name: product.name,
       unitPrice,
@@ -121,6 +139,8 @@ interface CreatePendingArgs {
   clientId?: number | null;
   /** 'online' (tienda) | 'pos' (mostrador) */
   channel?: 'online' | 'pos';
+  /** 'delivery' (paquetería) | 'pickup' (recoger en tienda) */
+  deliveryMethod?: DeliveryMethod;
 }
 
 /** Crea el pedido en estado pendiente y devuelve sus totales */
@@ -146,6 +166,10 @@ export async function createPendingOrder(args: CreatePendingArgs) {
     clientId: args.clientId != null ? toNum(args.clientId) : null,
     shippingCost: toNum(shippingCost),
     externalReference: String(args.externalReference),
+    deliveryMethod: args.deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
+    // Paquetería que eligió el cliente (la guía real se genera después desde el admin)
+    carrier: args.deliveryMethod === 'pickup' ? null : toText(args.shippingInfo?.carrier),
+    shippingService: args.deliveryMethod === 'pickup' ? 'Recoger en tienda' : toText(args.shippingInfo?.service),
   };
 
   try {
@@ -196,7 +220,8 @@ export async function confirmOrderByReference(externalReference: string, payment
 
   await db
     .update(orders)
-    .set({ status: 'paid', labelId: paymentId != null ? String(paymentId) : order.labelId } as any)
+    // El id de pago va en paymentId. Antes se guardaba en labelId, que es de la guía de Envia.
+    .set({ status: 'paid', paymentId: paymentId != null ? String(paymentId) : order.paymentId } as any)
     .where(eq(orders.id, order.id));
 
   // Stock: solo en la transición pending → paid

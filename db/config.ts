@@ -127,7 +127,9 @@ const orders = defineTable({
     shippingCost: column.number({ optional: true }),
     shippedAt: column.date({ optional: true }),
     paymentId: column.text({ optional: true }),
-    externalReference: column.text({ optional: true })
+    externalReference: column.text({ optional: true }),
+    // 'delivery' (paquetería) | 'pickup' (recoger en tienda)
+    deliveryMethod: column.text({ default: 'delivery' })
   }
 });
 

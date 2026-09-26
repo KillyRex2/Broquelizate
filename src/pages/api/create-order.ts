@@ -2,6 +2,8 @@ import { db, orders, order_items, Product, ProductVariantCombination, ProductVar
 import { v4 as uuidv4 } from 'uuid';
 import type { APIRoute } from 'astro';
 import { getSession } from 'auth-astro/server';
+import { chargedShipping } from '@/utils/shipping';
+import { STORE_PICKUP, normalizeDeliveryMethod } from '@/utils/store';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -124,7 +126,22 @@ export const POST: APIRoute = async ({ request }) => {
     const additionalCharges = Math.max(0, Math.min(serverSubtotal * 2, Number(data.additionalCharges) || 0));
     const tax = Math.max(0, Number(data.tax) || 0);
 
-    const serverTotal = serverSubtotal + additionalCharges + tax - discount;
+    // ── Envío ──
+    // Solo la tienda online manda deliveryMethod/shippingInfo; el POS no, y ahí no hay envío.
+    // Antes el envío no se sumaba al total guardado aunque sí se cobraba en Stripe/PayPal.
+    const isOnlineCheckout = data.deliveryMethod != null || data.shippingInfo != null;
+    const deliveryMethod = normalizeDeliveryMethod(data.deliveryMethod);
+    if (isOnlineCheckout && deliveryMethod === 'pickup' && !STORE_PICKUP.enabled) {
+      return new Response(JSON.stringify({ error: 'Recoger en tienda no está disponible por ahora.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const shippingCost = !isOnlineCheckout || deliveryMethod === 'pickup'
+      ? 0
+      : chargedShipping(serverSubtotal, Number(data.shippingInfo?.price ?? data.shippingCost) || 0);
+
+    const serverTotal = serverSubtotal + shippingCost + additionalCharges + tax - discount;
 
     // Verificar que el total del cliente no difiera significativamente
     const clientTotal = Number(data.total) || 0;
@@ -153,7 +170,12 @@ export const POST: APIRoute = async ({ request }) => {
       paymentMethod: data.paymentMethod || 'Desconocido',
       status: 'completed',
       createdAt: new Date(),
-      clientId: data.clientId || null
+      clientId: data.clientId || null,
+      shippingCost,
+      deliveryMethod,
+      // Paquetería que eligió el cliente (la guía real se genera después desde el admin)
+      carrier: isOnlineCheckout && deliveryMethod === 'delivery' ? (data.shippingInfo?.carrier ?? null) : null,
+      shippingService: !isOnlineCheckout ? null : deliveryMethod === 'pickup' ? 'Recoger en tienda' : (data.shippingInfo?.service ?? null),
     } as any);
 
     // Crear items

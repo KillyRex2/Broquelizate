@@ -14,6 +14,7 @@ import type { APIRoute } from 'astro';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { priceItems, createPendingOrder, type IncomingItem } from '@/utils/mercadopago-orders';
 import { chargedShipping, qualifiesForFreeShipping } from '@/utils/shipping';
+import { STORE_PICKUP, normalizeDeliveryMethod } from '@/utils/store';
 
 interface PreferenceRequest {
   products: Array<IncomingItem & { name?: string; image?: string }>;
@@ -25,6 +26,8 @@ interface PreferenceRequest {
   shippingInfo?: Record<string, unknown> | null;
   clientId?: number | null;
   channel?: 'online' | 'pos';
+  /** 'delivery' | 'pickup'. Solo aplica a la tienda online. */
+  deliveryMethod?: string;
 }
 
 const json = (data: unknown, status = 200) =>
@@ -47,6 +50,10 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const body: PreferenceRequest = await request.json();
     const channel = body.channel === 'pos' ? 'pos' : 'online';
+    const deliveryMethod = channel === 'online' ? normalizeDeliveryMethod(body.deliveryMethod) : 'delivery';
+    if (deliveryMethod === 'pickup' && !STORE_PICKUP.enabled) {
+      return json({ error: 'Recoger en tienda no está disponible por ahora.' }, 400);
+    }
 
     if (!Array.isArray(body.products) || body.products.length === 0) {
       return json({ error: 'No hay productos en el carrito' }, 400);
@@ -72,10 +79,13 @@ export const POST: APIRoute = async ({ request }) => {
     const subtotal = priced.reduce((s, i) => s + i.lineTotal, 0);
 
     // El envío gratis lo decide el servidor, no el navegador.
-    const shippingCost = chargedShipping(subtotal, Number(body.shippingCost) || 0);
+    // Recoger en tienda nunca cobra envío.
+    const shippingCost = deliveryMethod === 'pickup'
+      ? 0
+      : chargedShipping(subtotal, Number(body.shippingCost) || 0);
 
     // Si NO aplica gratis y aun así llega en 0, es que no se cotizó.
-    if (channel === 'online' && shippingCost === 0 && !qualifiesForFreeShipping(subtotal)) {
+    if (channel === 'online' && deliveryMethod === 'delivery' && shippingCost === 0 && !qualifiesForFreeShipping(subtotal)) {
       return json({ error: 'Falta calcular el costo de envío antes de pagar.' }, 400);
     }
 
@@ -96,6 +106,7 @@ export const POST: APIRoute = async ({ request }) => {
       shippingInfo: body.shippingInfo ?? null,
       clientId: body.clientId ?? null,
       channel,
+      deliveryMethod,
     });
 
     // ── 3. Preferencia ──
@@ -142,6 +153,7 @@ export const POST: APIRoute = async ({ request }) => {
           order_id: order.orderId,
           order_number: order.orderNumber,
           channel,
+          delivery_method: deliveryMethod,
         },
       },
     });

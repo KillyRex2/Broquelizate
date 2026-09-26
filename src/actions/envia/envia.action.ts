@@ -4,6 +4,7 @@ import { z } from 'astro:schema';
 import { db, orders, order_items, User } from 'astro:db';
 import { eq, and } from 'astro:db';
 import { getSession } from 'auth-astro/server';
+import { assertAdmin } from '../_guard';
 
 // ============================================
 // CONFIGURACIÓN DE API
@@ -418,9 +419,19 @@ export const createShippingLabel = defineAction({
     }),
   }),
   handler: async (input, context) => {
-    const session = await getSession(context.request);
-    if (!session?.user) {
-      throw new Error('No autorizado para generar etiquetas');
+    // Generar una guía cuesta saldo de Envia: solo admin (antes bastaba con tener sesión).
+    assertAdmin(context);
+
+    // Una guía por pedido, y nunca para "Recoger en tienda".
+    const existing = await db.select().from(orders).where(eq(orders.id, input.orderId)).get();
+    if (!existing) {
+      return { success: false, error: 'Pedido no encontrado' };
+    }
+    if ((existing as any).deliveryMethod === 'pickup') {
+      return { success: false, error: 'Este pedido es para recoger en tienda: no lleva guía de envío.' };
+    }
+    if (existing.trackingNumber) {
+      return { success: false, error: `Este pedido ya tiene guía (${existing.trackingNumber}). No se generó otra.` };
     }
 
     const safeWeight = normalizeWeight(input.package.weight);
@@ -601,14 +612,22 @@ export const getUserShipments = defineAction({
     clientId: z.number().optional(),
     customerEmail: z.string().optional(),
   }),
-  handler: async (input) => {
-    console.log('📋 Buscando pedidos para:', input);
+  handler: async (input, context) => {
+    // Un cliente solo ve SUS pedidos. Antes cualquiera podía pedir los de otro email.
+    const isAdmin = !!context?.locals?.isAdmin;
+    const sessionEmail: string | undefined = context?.locals?.user?.email;
+    if (!isAdmin && !sessionEmail) {
+      return { success: false, shipments: [], error: 'Inicia sesión para ver tus pedidos' };
+    }
+    const criteria = isAdmin
+      ? input
+      : { userId: undefined, clientId: undefined, customerEmail: sessionEmail };
 
     try {
       const userOrders = await getOrdersFromDatabase(
-        input.userId,
-        input.clientId,
-        input.customerEmail
+        criteria.userId,
+        criteria.clientId,
+        criteria.customerEmail
       );
       
       console.log(`📦 Pedidos encontrados: ${userOrders.length}`);
@@ -661,7 +680,8 @@ export const updateOrderStatus = defineAction({
     orderId: z.string(),
     status: z.enum(['pending', 'processing', 'shipped', 'completed', 'cancelled']),
   }),
-  handler: async (input) => {
+  handler: async (input, context) => {
+    assertAdmin(context); // antes no tenía ninguna protección
     try {
       await db.update(orders)
         .set({ 
@@ -698,12 +718,8 @@ export const updateOrderShippingAddress = defineAction({
     }),
   }),
   handler: async (input, context) => {
+    assertAdmin(context); // antes bastaba con tener sesión
     try {
-      const session = await getSession(context.request);
-      if (!session?.user) {
-        throw new Error('No autorizado');
-      }
-
       const shippingAddressJson = JSON.stringify(input.shippingAddress);
 
       await db.update(orders)
@@ -871,7 +887,9 @@ export const getUserProfileByEmail = defineAction({
   input: z.object({
     email: z.string().email('Email inválido'),
   }),
-  handler: async (input) => {
+  handler: async (input, context) => {
+    // Devuelve teléfono y dirección de cualquier usuario: solo admin.
+    assertAdmin(context);
     try {
       const users = await db
         .select()

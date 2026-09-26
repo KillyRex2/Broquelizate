@@ -37,6 +37,8 @@ interface PaymentIntentRequest {
   customerName: string;
   shippingAddress: ShippingAddress;
   shippingInfo: ShippingInfo | null;
+  /** 'delivery' | 'pickup' */
+  deliveryMethod?: string;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -69,6 +71,8 @@ export const POST: APIRoute = async ({ request }) => {
       shippingAddress, 
       shippingInfo 
     } = body;
+    // En "Recoger en tienda" no hay domicilio del cliente: no se manda a Stripe.
+    const isPickup = body.deliveryMethod === 'pickup';
 
     console.log('📦 Creando PaymentIntent:', {
       subtotal,
@@ -149,7 +153,7 @@ export const POST: APIRoute = async ({ request }) => {
         customer = await stripe.customers.create({
           email: customerEmail,
           name: customerName || undefined,
-          address: {
+          address: isPickup ? undefined : {
             line1: shippingAddress.line1,
             line2: shippingAddress.line2 || undefined,
             city: shippingAddress.city,
@@ -182,9 +186,10 @@ export const POST: APIRoute = async ({ request }) => {
         shipping_carrier: shippingInfo?.carrier || 'N/A',
         shipping_service: shippingInfo?.service || 'N/A',
         shipping_days: shippingInfo?.deliveryDays?.toString() || 'N/A',
+        delivery_method: isPickup ? 'pickup' : 'delivery',
         customer_email: customerEmail
       },
-      shipping: {
+      shipping: isPickup ? undefined : {
         address: {
           line1: shippingAddress.line1,
           line2: shippingAddress.line2 || undefined,

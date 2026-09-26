@@ -27,7 +27,7 @@ interface OrderDetails {
   orderId: string;
   date: string;
   products: NormalizedProduct[];
-  shipping: { method: string; cost: number; address: string; city?: string; state?: string; postalCode?: string; };
+  shipping: { method: string; cost: number; address: string; city?: string; state?: string; postalCode?: string; pickup?: boolean; };
   customer: { name: string; email: string; phone?: string; };
   subtotal: number;
   total: number;
@@ -99,12 +99,22 @@ try {
           variantImage: item.variantImage || null, weight: 100,
           engraving: item.engraving || null,
         })),
-        shipping: {
-          method: shippingInfo ? `${shippingInfo.carrier} - ${shippingInfo.service}` : "Envío Estándar",
-          cost: orderData.shippingCost || shippingInfo?.price || 0,
-          address: shippingData.streetAddress || "Dirección no disponible",
-          city: shippingData.city, state: shippingData.state, postalCode: shippingData.postalCode
-        },
+        shipping: orderData.deliveryMethod === 'pickup'
+          ? {
+              method: "Recoger en tienda",
+              cost: 0,
+              address: [shippingData.streetAddress, shippingData.neighborhood].filter(Boolean).join(', ') || "Tienda Broquelizate",
+              city: shippingData.city, state: shippingData.state, postalCode: shippingData.postalCode,
+              pickup: true,
+            }
+          : {
+              method: shippingInfo
+                ? `${shippingInfo.carrier} - ${shippingInfo.service}`
+                : (orderData.carrier && orderData.shippingService ? `${orderData.carrier} - ${orderData.shippingService}` : "Envío Estándar"),
+              cost: orderData.shippingCost || shippingInfo?.price || 0,
+              address: shippingData.streetAddress || "Dirección no disponible",
+              city: shippingData.city, state: shippingData.state, postalCode: shippingData.postalCode
+            },
         customer: { name: orderData.customerName || shippingData.name || "Cliente", email: orderData.customerEmail, phone: shippingData.phone },
         subtotal: orderData.subtotal, total: orderData.total, paymentStatus: "Pagado",
         paymentMethod: orderData.paymentMethod || 'Tarjeta',
@@ -285,17 +295,17 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
               <div class="os-card">
                 <div class="card-header">
                   <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
-                  <h2 class="card-title">Información de envío</h2>
+                  <h2 class="card-title">{orderDetails.shipping.pickup ? 'Recoger en tienda' : 'Información de envío'}</h2>
                 </div>
                 <div class="info-grid">
                   <div class="info-block">
-                    <span class="info-label">Destinatario</span>
+                    <span class="info-label">{orderDetails.shipping.pickup ? 'Recoge' : 'Destinatario'}</span>
                     <span class="info-value">{orderDetails.customer.name}</span>
                     <span class="info-sub">{orderDetails.customer.email}</span>
                     {orderDetails.customer.phone && <span class="info-sub">Tel: {orderDetails.customer.phone}</span>}
                   </div>
                   <div class="info-block">
-                    <span class="info-label">Dirección</span>
+                    <span class="info-label">{orderDetails.shipping.pickup ? 'Tienda' : 'Dirección'}</span>
                     <span class="info-value">{orderDetails.shipping.address}</span>
                     {orderDetails.shipping.city && <span class="info-sub">{orderDetails.shipping.city}, {orderDetails.shipping.state} {orderDetails.shipping.postalCode}</span>}
                   </div>

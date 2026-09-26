@@ -5,6 +5,7 @@ import { actions } from 'astro:actions';
 import { getSession } from 'auth-astro/server';
 import ShippingCalculator from '@/components/ShippingCalculator.astro';
 import CheckoutProgress from '@/components/shared/CheckoutProgressBar.astro'; 
+import { STORE_PICKUP, storeAddressLine, pickupReadyText } from '@/utils/store';
 
 const session = await getSession(Astro.request);
 const userEmail = session?.user?.email || '';
@@ -29,12 +30,22 @@ const tax = 0;
 const total = subtotal;
 const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
 
+// Dirección que se guarda en la orden cuando el cliente recoge en tienda
+const pickupAddress = {
+  streetAddress: STORE_PICKUP.street, neighborhood: STORE_PICKUP.neighborhood,
+  city: STORE_PICKUP.city, state: STORE_PICKUP.state, postalCode: STORE_PICKUP.postalCode,
+  country: STORE_PICKUP.country,
+};
+
 const productsData = products.map(p => {
   const cartItem = cartItems.find(ci => ci.productId === p.productId && ci.variantId === p.variantId && ci.combinationId === p.combinationId);
   return { 
     id: p.productId, name: p.name, price: p.variantPrice ?? p.price, quantity: p.quantity,
     image: p.variantImage || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null,
-    engraving: cartItem?.engraving || null
+    engraving: cartItem?.engraving || null,
+    // El servidor recalcula el precio con esto (combinación o variante suelta)
+    combinationId: p.combinationId || null,
+    variantId: p.variantId || null,
   };
 });
 ---
@@ -74,13 +85,13 @@ const productsData = products.map(p => {
     <div id="shipping-warning" class="shipping-warning hidden">
       <div class="warning-icon">...</div>
       <div class="warning-content">
-        <span class="warning-title">Calcula tu envío</span>
-        <span class="warning-subtitle">Ingresa tu código postal abajo para ver opciones de envío antes de pagar.</span>
+        <span class="warning-title">Elige cómo recibir tu pedido</span>
+        <span class="warning-subtitle">{STORE_PICKUP.enabled ? 'Cotiza el envío con tu código postal o elige recoger en tienda antes de pagar.' : 'Ingresa tu código postal abajo para ver opciones de envío antes de pagar.'}</span>
       </div>
     </div>
 
     <!-- Shipping Calculator (componente reutilizable) -->
-    <div class="sc-fix">
+    <div class="sc-fix" id="delivery-method">
       <ShippingCalculator subtotal={subtotal} totalItems={totalItems} />
     </div>
 
@@ -91,27 +102,37 @@ const productsData = products.map(p => {
         <section class="checkout-section">
           <div class="section-header">
             <div class="section-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
-            <div><h2 class="section-title">Dirección de envío</h2><p class="section-subtitle">¿A dónde enviamos tu pedido?</p></div>
+            <div><h2 class="section-title" id="address-section-title">Dirección de envío</h2><p class="section-subtitle" id="address-section-subtitle">¿A dónde enviamos tu pedido?</p></div>
           </div>
 
           <div id="shipping-info-display" class="shipping-display hidden">
             <div class="shipping-display-content">
               <div class="shipping-display-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></div>
               <div class="shipping-display-info"><span id="display-carrier" class="shipping-carrier">-</span><span id="display-delivery" class="shipping-delivery">-</span></div>
-              <div class="shipping-display-price"><span id="display-shipping-price" class="price-value">-</span><a href="/cart" class="change-link">Cambiar</a></div>
+              <div class="shipping-display-price"><span id="display-shipping-price" class="price-value">-</span><a href="#delivery-method" class="change-link">Cambiar</a></div>
+            </div>
+          </div>
+
+          <div id="pickup-info" class="pickup-info hidden">
+            <span class="pickup-info-icon">🏬</span>
+            <div class="pickup-info-text">
+              <span class="pickup-info-title">Recoges en {STORE_PICKUP.name}</span>
+              <span class="pickup-info-line">{storeAddressLine()}</span>
+              <span class="pickup-info-line">🕒 {STORE_PICKUP.hours} · {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
             </div>
           </div>
 
           <div class="form-grid">
-            <div class="form-group"><label class="form-label">Calle y número <span class="required">*</span></label><input type="text" id="street-address" class="form-input" placeholder="Ej: Av. Reforma 123" required /></div>
-            <div class="form-group"><label class="form-label">Colonia <span class="required">*</span></label><input type="text" id="neighborhood" class="form-input" placeholder="Ej: Centro" required /></div>
-            <div class="form-group"><label class="form-label">Ciudad <span class="required">*</span></label><input type="text" id="city" class="form-input" placeholder="Ej: Ciudad de México" required /></div>
-            <div class="form-group"><label class="form-label">Estado <span class="required">*</span></label><input type="text" id="state" class="form-input" placeholder="Ej: CDMX" required /></div>
-            <div class="form-group"><label class="form-label">Código Postal <span class="required">*</span></label><input type="text" id="postal-code" class="form-input" placeholder="Ej: 06600" maxlength="5" required /></div>
-            <div class="form-group"><label class="form-label">País</label><input type="text" id="country" value="México" class="form-input readonly" readonly /></div>
+            <div class="form-group full-width pickup-only hidden"><label class="form-label">Nombre de quien recoge <span class="required">*</span></label><input type="text" id="pickup-name" class="form-input" value={userName} placeholder="Nombre completo (se pedirá identificación)" autocomplete="name" /></div>
+            <div class="form-group address-only"><label class="form-label">Calle y número <span class="required">*</span></label><input type="text" id="street-address" class="form-input" placeholder="Ej: Av. Reforma 123" required /></div>
+            <div class="form-group address-only"><label class="form-label">Colonia <span class="required">*</span></label><input type="text" id="neighborhood" class="form-input" placeholder="Ej: Centro" required /></div>
+            <div class="form-group address-only"><label class="form-label">Ciudad <span class="required">*</span></label><input type="text" id="city" class="form-input" placeholder="Ej: Ciudad de México" required /></div>
+            <div class="form-group address-only"><label class="form-label">Estado <span class="required">*</span></label><input type="text" id="state" class="form-input" placeholder="Ej: CDMX" required /></div>
+            <div class="form-group address-only"><label class="form-label">Código Postal <span class="required">*</span></label><input type="text" id="postal-code" class="form-input" placeholder="Ej: 06600" maxlength="5" required /></div>
+            <div class="form-group address-only"><label class="form-label">País</label><input type="text" id="country" value="México" class="form-input readonly" readonly /></div>
             <div class="form-group full-width"><label class="form-label">Correo Electrónico <span class="required">*</span></label><input type="email" id="email" value={userEmail} class:list={["form-input", isAuthenticated && "readonly"]} placeholder="tu@email.com" readonly={isAuthenticated} required />{isAuthenticated && <span class="form-hint">Este es el email de tu cuenta</span>}</div>
             <div class="form-group full-width"><label class="form-label">Teléfono de contacto <span class="required">*</span></label><input type="tel" id="phone" class="form-input" placeholder="Ej: 55 1234 5678" required /></div>
-            <div class="form-group full-width"><label class="form-label">Notas de entrega (opcional)</label><textarea id="delivery-notes" class="form-textarea" rows="2" placeholder="Ej: Dejar con el portero, timbre 2B..."></textarea></div>
+            <div class="form-group full-width address-only"><label class="form-label">Notas de entrega (opcional)</label><textarea id="delivery-notes" class="form-textarea" rows="2" placeholder="Ej: Dejar con el portero, timbre 2B..."></textarea></div>
           </div>
         </section>
 
@@ -221,7 +242,7 @@ const productsData = products.map(p => {
 
           <div class="summary-totals">
             <div class="summary-row"><span class="row-label">Subtotal</span><span class="row-value">{Formatter.currency(subtotal)}</span></div>
-            <div class="summary-row"><span class="row-label">Envío</span><span id="summary-shipping" class="row-value muted">Por calcular</span></div>
+            <div class="summary-row"><span class="row-label" id="summary-shipping-label">Envío</span><span id="summary-shipping" class="row-value muted">Por calcular</span></div>
             <div id="shipping-summary-details" class="shipping-summary hidden"><span class="shipping-icon" id="summary-carrier-icon">📦</span><div class="shipping-info-mini"><span id="summary-carrier-name" class="carrier-name">-</span><span id="summary-delivery-days" class="delivery-days">-</span></div></div>
             <div class="summary-divider"></div>
             <div class="summary-row total"><span class="row-label">Total a pagar</span><span id="summary-total" class="row-value">{Formatter.currency(total)}</span></div>
@@ -382,6 +403,13 @@ const productsData = products.map(p => {
 .section-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 18px; color: var(--gold-deep); flex-shrink: 0; }
 .section-title { font-size: 1.25rem; font-weight: 800; color: var(--txt); letter-spacing: -0.02em; }
 .section-subtitle { font-size: 0.9rem; color: var(--txt-2); margin-top: 2px; }
+
+.address-only.hidden, .pickup-only.hidden, .pickup-info.hidden { display: none; }
+.pickup-info { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 24px; padding: 16px 20px; background: rgba(234, 179, 8, 0.14); box-shadow: var(--lg-thickness); border-radius: 20px; }
+.pickup-info-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; }
+.pickup-info-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pickup-info-title { font-size: 0.95rem; font-weight: 700; color: var(--txt); }
+.pickup-info-line { font-size: 0.82rem; color: var(--txt-2); line-height: 1.45; }
 
 .shipping-display { margin-bottom: 24px; padding: 16px 20px; background: rgba(234, 179, 8, 0.14); border-radius: 20px; }
 .shipping-display.hidden { display: none; }
@@ -562,315 +590,344 @@ const productsData = products.map(p => {
 </style>
 
 <script>
-  // ✅ CAMBIO: Importar nuevo sistema de alertas en lugar de Swal
   import { CartCookiesClient } from '@/utils/cart-cookies';
   import { loadScript } from '@paypal/paypal-js';
   import { loadStripe } from '@stripe/stripe-js';
   import type { Stripe, StripeCardElement } from '@stripe/stripe-js';
-  import { Alert, Toast } from '@/utils/alerts'; // ✅ Reemplaza: import Swal from 'sweetalert2';
+  import { Alert, Toast } from '@/utils/alerts';
   import { navigate } from 'astro:transitions/client';
   import { actions } from 'astro:actions';
 
-  interface SelectedShipping { carrier: string; service: string; price: number; deliveryDays: number; postalCode: string; }
-  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; }
+  type DeliveryMethod = 'delivery' | 'pickup';
+  interface SelectedShipping {
+    method?: DeliveryMethod;   // selecciones viejas no lo traen → 'delivery'
+    carrier: string; service: string; price: number; carrierRate?: number;
+    deliveryDays: number; postalCode: string; cartKey?: string; savedAt?: number;
+  }
+  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; combinationId?: string | null; variantId?: string | null; }
 
   const Formatter = { currency: (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value) };
   function getCarrierIcon(c: string): string { const i: Record<string, string> = { 'fedex': '🚚', 'dhl': '📦', 'estafeta': '📫', 'redpack': '🔴', 'ups': '🟤', 'paquetexpress': '📬', '99minutos': '⚡', 'sendex': '✉️' }; return i[c.toLowerCase()] || '📦'; }
+  const $ = <T extends HTMLElement = HTMLInputElement>(id: string) => document.getElementById(id) as T | null;
+  const val = (id: string) => ($(id)?.value || '').trim();
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   let stripe: Stripe | null = null, cardElement: StripeCardElement | null = null, selectedShipping: SelectedShipping | null = null, subtotalValue = 0;
   let isProcessing = false;
+  let windowListenersBound = false;
 
-function loadShippingInfo() {
-  let saved: string | null = null;
-  try { saved = localStorage.getItem('selectedShipping'); } catch {}
-  const warn = document.getElementById('shipping-warning');
-  const infoDisp = document.getElementById('shipping-info-display');
-  const summaryDet = document.getElementById('shipping-summary-details');
+  const isPickup = () => selectedShipping?.method === 'pickup';
+  const deliveryMethod = (): DeliveryMethod => (isPickup() ? 'pickup' : 'delivery');
 
-  if (!saved) {
-    warn?.classList.remove('hidden');
-    infoDisp?.classList.add('hidden');
-    summaryDet?.classList.add('hidden');
-    selectedShipping = null;
-    updateTotals();
-    return;
+  // ── Modo de entrega: muestra/oculta la dirección ──
+  function applyDeliveryMode() {
+    const pickup = isPickup();
+    document.querySelectorAll('.address-only').forEach(el => el.classList.toggle('hidden', pickup));
+    document.querySelectorAll('.pickup-only').forEach(el => el.classList.toggle('hidden', !pickup));
+    $('pickup-info')?.classList.toggle('hidden', !pickup);
+    const t = $('address-section-title'), st = $('address-section-subtitle'), sl = $('summary-shipping-label');
+    if (t) t.textContent = pickup ? 'Datos para recoger' : 'Dirección de envío';
+    if (st) st.textContent = pickup ? '¿Quién pasará por tu pedido?' : '¿A dónde enviamos tu pedido?';
+    if (sl) sl.textContent = pickup ? 'Entrega' : 'Envío';
   }
 
-  try {
-    const p: SelectedShipping = JSON.parse(saved);
-    if (!p || typeof p.price !== 'number' || !p.carrier) {
+  function loadShippingInfo() {
+    let p: SelectedShipping | null = null;
+    try { p = JSON.parse(localStorage.getItem('selectedShipping') || 'null'); } catch {}
+
+    // La selección debe corresponder al carrito actual (lo marca el ShippingCalculator)
+    const cartKey = ($('calc-cart-key') as HTMLInputElement | null)?.value;
+    if (p && p.cartKey && cartKey && p.cartKey !== cartKey) p = null;
+    if (p && (typeof p.price !== 'number' || !p.carrier)) p = null;
+
+    const warn = $('shipping-warning'), infoDisp = $('shipping-info-display'), summaryDet = $('shipping-summary-details');
+    selectedShipping = p ? { ...p, method: p.method || 'delivery' } : null;
+    applyDeliveryMode();
+
+    if (!selectedShipping) {
       warn?.classList.remove('hidden');
-      selectedShipping = null;
+      infoDisp?.classList.add('hidden');
+      summaryDet?.classList.add('hidden');
       updateTotals();
       return;
     }
-    selectedShipping = { ...p };
+
+    const s = selectedShipping;
+    const pickup = s.method === 'pickup';
     warn?.classList.add('hidden');
 
     if (infoDisp) {
       infoDisp.classList.remove('hidden');
-      const dc = document.getElementById('display-carrier');
-      const dd = document.getElementById('display-delivery');
-      const dp = document.getElementById('display-shipping-price');
-      if (dc) dc.textContent = `${p.carrier} - ${p.service}`;
-      if (dd) dd.textContent = `Entrega en ${p.deliveryDays} día${p.deliveryDays !== 1 ? 's' : ''} hábil${p.deliveryDays !== 1 ? 'es' : ''}`;
-      if (dp) dp.textContent = Formatter.currency(p.price);
+      const dc = $('display-carrier'), dd = $('display-delivery'), dp = $('display-shipping-price');
+      if (dc) dc.textContent = pickup ? `Recoger en tienda · ${s.service}` : `${s.carrier} - ${s.service}`;
+      if (dd) dd.textContent = pickup
+        ? (s.deliveryDays <= 0 ? 'Listo el mismo día' : `Listo en ${plural(s.deliveryDays, 'día hábil', 'días hábiles')}`)
+        : `Entrega en ${plural(s.deliveryDays, 'día hábil', 'días hábiles')}`;
+      if (dp) dp.textContent = s.price === 0 ? 'Gratis' : Formatter.currency(s.price);
     }
     if (summaryDet) {
       summaryDet.classList.remove('hidden');
-      const sci = document.getElementById('summary-carrier-icon');
-      const scn = document.getElementById('summary-carrier-name');
-      const sdd = document.getElementById('summary-delivery-days');
-      if (sci) sci.textContent = getCarrierIcon(p.carrier);
-      if (scn) scn.textContent = p.carrier;
-      if (sdd) sdd.textContent = `${p.deliveryDays} día${p.deliveryDays !== 1 ? 's' : ''}`;
+      const sci = $('summary-carrier-icon'), scn = $('summary-carrier-name'), sdd = $('summary-delivery-days');
+      if (sci) sci.textContent = pickup ? '🏬' : getCarrierIcon(s.carrier);
+      if (scn) scn.textContent = pickup ? 'Recoger en tienda' : s.carrier;
+      if (sdd) sdd.textContent = pickup
+        ? (s.deliveryDays <= 0 ? 'Mismo día' : `Listo en ${plural(s.deliveryDays, 'día', 'días')}`)
+        : plural(s.deliveryDays, 'día', 'días');
     }
 
-    // Auto-completa el CP en el form de dirección
-    const pci = document.getElementById('postal-code') as HTMLInputElement;
-    if (pci && p.postalCode && !pci.value) pci.value = p.postalCode;
+    // Auto-completa el CP en el form de dirección (solo envío a domicilio)
+    const pci = $('postal-code');
+    if (!pickup && pci && s.postalCode && !pci.value) pci.value = s.postalCode;
 
-    updateTotals();
-  } catch {
-    warn?.classList.remove('hidden');
-    selectedShipping = null;
     updateTotals();
   }
-}
 
   function updateTotals() {
-    subtotalValue = parseFloat(document.getElementById('subtotal-data')?.textContent || '0');
+    subtotalValue = parseFloat($('subtotal-data')?.textContent || '0');
     const sp = selectedShipping?.price || 0, t = subtotalValue + sp;
-    const ss = document.getElementById('summary-shipping'); if (ss) { ss.textContent = selectedShipping ? Formatter.currency(sp) : 'Por calcular'; ss.className = selectedShipping ? 'row-value' : 'row-value muted'; }
-    const st = document.getElementById('summary-total'); if (st) st.textContent = Formatter.currency(t);
-    const pba = document.getElementById('pay-button-amount'); if (pba) pba.textContent = Formatter.currency(t);
-    const td = document.getElementById('total-data'); if (td) td.textContent = t.toString();
+    const ss = $('summary-shipping');
+    if (ss) {
+      ss.textContent = !selectedShipping ? 'Por calcular' : sp === 0 ? 'Gratis' : Formatter.currency(sp);
+      ss.className = selectedShipping ? 'row-value' : 'row-value muted';
+    }
+    const st = $('summary-total'); if (st) st.textContent = Formatter.currency(t);
+    const pba = $('pay-button-amount'); if (pba) pba.textContent = Formatter.currency(t);
+    const mba = $('mp-button-amount'); if (mba) mba.textContent = Formatter.currency(t);
+    const td = $('total-data'); if (td) td.textContent = t.toString();
+  }
+
+  // ── Datos del cliente y dirección según el modo ──
+  function getCustomerName(fallback?: string) {
+    if (isPickup()) return val('pickup-name');
+    let userData: any = {};
+    try { userData = JSON.parse($('user-data')?.textContent || '{}'); } catch {}
+    return fallback || userData.name || val('email');
+  }
+
+  /** Dirección que viaja a la orden. En tienda: la de la tienda + quién recoge. */
+  function getShippingAddress() {
+    const phone = val('phone');
+    if (isPickup()) {
+      let store: any = {};
+      try { store = JSON.parse($('pickup-address-data')?.textContent || '{}'); } catch {}
+      const pickupName = val('pickup-name');
+      return { ...store, name: pickupName, pickupName, phone, deliveryNotes: `RECOGER EN TIENDA · Recoge: ${pickupName}` };
+    }
+    return {
+      streetAddress: val('street-address'), neighborhood: val('neighborhood'), city: val('city'),
+      state: val('state'), postalCode: val('postal-code'), country: 'México', phone,
+      deliveryNotes: ($('delivery-notes') as HTMLTextAreaElement | null)?.value || '',
+    };
+  }
+
+  function getShippingInfo() {
+    const cs = selectedShipping;
+    return cs ? { method: deliveryMethod(), carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
   }
 
   async function initStripe() {
-    const ce = document.getElementById('card-element'); if (!ce || (cardElement && ce.querySelector('.StripeElement'))) return;
+    const ce = $<HTMLDivElement>('card-element'); if (!ce || (cardElement && ce.querySelector('.StripeElement'))) return;
     try {
       ce.innerHTML = '<div style="color:#85858c;font-size:0.9rem;">Cargando...</div>';
       if (!stripe) { const pk = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY; if (!pk) throw new Error('Sin clave Stripe'); const si = await loadStripe(pk); if (!si) throw new Error('Error Stripe'); stripe = si; }
       const el = stripe.elements({ locale: 'es' }); cardElement = el.create('card', { style: { base: { color: '#1c1c1e', fontFamily: 'Inter,sans-serif', fontSize: '16px', '::placeholder': { color: '#85858c' }, iconColor: '#a16207' }, invalid: { color: '#b91c1c', iconColor: '#b91c1c' } }, hidePostalCode: true });
       ce.innerHTML = ''; cardElement.mount(ce);
-      cardElement.on('change', (e) => { const err = document.getElementById('card-errors'); if (err) err.textContent = e.error ? e.error.message : ''; const btn = document.getElementById('submit-card-payment') as HTMLButtonElement; if (btn) btn.disabled = !e.complete; });
+      cardElement.on('change', (e) => { const err = $('card-errors'); if (err) err.textContent = e.error ? e.error.message : ''; const btn = $<HTMLButtonElement>('submit-card-payment'); if (btn) btn.disabled = !e.complete; });
     } catch { ce.innerHTML = '<div style="color:#f87171;font-size:0.9rem;">Error al cargar pasarela</div>'; }
   }
 
   async function processCard(): Promise<void> {
     if (isProcessing) return;
-    
-    // ✅ CAMBIO: Swal.fire → Alert.error
-    if (!stripe || !cardElement) { 
-      await Alert.error('Error', 'Pasarela no está lista'); 
-      return; 
-    }
-    
-    const v = validateForm(); 
-    // ✅ CAMBIO: Swal.fire → Alert.warning
-    if (!v.valid) { 
-      await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); 
-      return; 
-    }
-    
-    const email = (document.getElementById('email') as HTMLInputElement)?.value.trim(), chn = (document.getElementById('card-holder-name') as HTMLInputElement)?.value.trim(), str = (document.getElementById('street-address') as HTMLInputElement)?.value.trim(), nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim(), ct = (document.getElementById('city') as HTMLInputElement)?.value.trim(), st = (document.getElementById('state') as HTMLInputElement)?.value.trim(), pc = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim(), ph = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
-    
-    // ✅ CAMBIO: Swal.fire → Alert.warning
-    if (!chn) { 
-      await Alert.warning('Nombre requerido', 'Ingresa el nombre del titular'); 
-      return; 
-    }
-    
-    const d = getCheckoutData(); 
-    // ✅ CAMBIO: Swal.fire → Alert.error
-    if (!d) { 
-      await Alert.error('Error', 'Sin datos del pedido'); 
-      return; 
-    }
-    
-    const cs = selectedShipping, sc = cs?.price || 0, sub = d.totalValue - sc;
-    const btn = document.getElementById('submit-card-payment') as HTMLButtonElement, txt = document.getElementById('card-btn-text'), orig = txt?.textContent || 'Pagar'; 
-    
+    if (!stripe || !cardElement) { await Alert.error('Error', 'Pasarela no está lista'); return; }
+
+    const v = validateForm();
+    if (!v.valid) { await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return; }
+
+    const email = val('email'), chn = val('card-holder-name'), ph = val('phone');
+    if (!chn) { await Alert.warning('Nombre requerido', 'Ingresa el nombre del titular'); return; }
+
+    const d = getCheckoutData();
+    if (!d) { await Alert.error('Error', 'Sin datos del pedido'); return; }
+
+    const addr = getShippingAddress();
+    const sc = d.shippingValue, sub = d.totalValue - sc;
+    const btn = $<HTMLButtonElement>('submit-card-payment'), txt = $('card-btn-text'), orig = txt?.textContent || 'Pagar';
+
     isProcessing = true;
-    if (btn) btn.disabled = true; 
+    if (btn) btn.disabled = true;
     if (txt) txt.textContent = 'Procesando...';
-    
-    // ✅ CAMBIO: Swal.fire con loading → Toast.loading
     const loadingId = Toast.loading('Procesando tu pago...');
-    
+
     try {
-      const r = await fetch('/api/create-payment-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: d.productsData, subtotal: sub, shippingCost: sc, total: d.totalValue, customerEmail: email, customerName: chn, shippingAddress: { line1: str, line2: nb, city: ct, state: st, postal_code: pc, country: 'MX', phone: ph }, shippingInfo: cs ? { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null }) });
+      const r = await fetch('/api/create-payment-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        products: d.productsData, subtotal: sub, shippingCost: sc, total: d.totalValue,
+        customerEmail: email, customerName: chn,
+        deliveryMethod: deliveryMethod(),
+        shippingAddress: { line1: addr.streetAddress, line2: addr.neighborhood, city: addr.city, state: addr.state, postal_code: addr.postalCode, country: 'MX', phone: ph },
+        shippingInfo: getShippingInfo(),
+      }) });
       if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error pago'); }
       const { clientSecret } = await r.json();
-      const { error: se, paymentIntent: pi } = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: cardElement, billing_details: { name: chn, email, phone: ph || undefined, address: { line1: str, line2: nb || undefined, city: ct, state: st, postal_code: pc, country: 'MX' } } } });
-      if (se) throw new Error(se.message || 'Error tarjeta'); 
+
+      // En tienda no mandamos la dirección de la tienda como domicilio de facturación
+      const billing_details = isPickup()
+        ? { name: chn, email, phone: ph || undefined }
+        : { name: chn, email, phone: ph || undefined, address: { line1: addr.streetAddress, line2: addr.neighborhood || undefined, city: addr.city, state: addr.state, postal_code: addr.postalCode, country: 'MX' } };
+      const { error: se, paymentIntent: pi } = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: cardElement, billing_details } });
+      if (se) throw new Error(se.message || 'Error tarjeta');
       if (pi?.status !== 'succeeded') throw new Error('Pago no completado');
-      
-      await updateStock(); 
+
+      await updateStock();
       const o = await createOrder('card', pi.id);
-      CartCookiesClient.clearCart(); 
-      localStorage.removeItem('selectedShipping'); 
-      
-      // ✅ CAMBIO: Swal.close() + Swal.fire → Toast.dismiss + Toast.success
+      CartCookiesClient.clearCart();
+      localStorage.removeItem('selectedShipping');
+
       Toast.dismiss(loadingId);
       Toast.success('¡Pago exitoso!', `Orden #${o.orderNumber} procesada`);
-      
       setTimeout(() => navigate(`/order-success?order_id=${o.id}`), 1000);
-      
-    } catch (e) { 
-      // ✅ CAMBIO: Swal.close() + Swal.fire → Toast.dismiss + Alert.error
+    } catch (e) {
       Toast.dismiss(loadingId);
-      await Alert.error('Error en el pago', e instanceof Error ? e.message : 'Error desconocido'); 
-    } finally { 
+      await Alert.error('Error en el pago', e instanceof Error ? e.message : 'Error desconocido');
+    } finally {
       isProcessing = false;
-      if (btn) btn.disabled = false; 
-      if (txt) txt.textContent = orig; 
+      if (btn) btn.disabled = false;
+      if (txt) txt.textContent = orig;
     }
   }
 
   async function processMercadoPago(): Promise<void> {
-  if (isProcessing) return;
+    if (isProcessing) return;
 
-  const v = validateForm();
-  if (!v.valid) { await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return; }
+    const v = validateForm();
+    if (!v.valid) { await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return; }
 
-  const d = getCheckoutData();
-  if (!d) { await Alert.error('Error', 'Sin datos del pedido'); return; }
+    const d = getCheckoutData();
+    if (!d) { await Alert.error('Error', 'Sin datos del pedido'); return; }
 
-  const email = (document.getElementById('email') as HTMLInputElement)?.value.trim();
-  let userData: any = {};
-  try { userData = JSON.parse(document.getElementById('user-data')?.textContent || '{}'); } catch {}
-  const customerName = userData.name || email;
+    const email = val('email');
+    const addr = getShippingAddress();
 
-  const sa = (document.getElementById('street-address') as HTMLInputElement)?.value.trim();
-  const nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim();
-  const ct = (document.getElementById('city') as HTMLInputElement)?.value.trim();
-  const st = (document.getElementById('state') as HTMLInputElement)?.value.trim();
-  const pc = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim();
-  const ph = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
-  const dn = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value || '';
+    isProcessing = true;
+    const loadingId = Toast.loading('Redirigiendo a Mercado Pago...');
+    try {
+      const res = await fetch('/api/create-mercadopago-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'online',
+          customerEmail: email,
+          customerName: getCustomerName(),
+          phone: addr.phone,
+          deliveryMethod: deliveryMethod(),
+          shippingCost: d.shippingValue,
+          shippingAddress: addr,
+          shippingInfo: getShippingInfo(),
+          // El servidor recalcula precios y totales desde la base:
+          // aquí solo viaja qué y cuánto, nunca a qué precio.
+          products: d.productsData.map((p: CartProduct) => ({
+            productId: p.id,
+            quantity: p.quantity,
+            combinationId: p.combinationId ?? null,
+            variantId: p.variantId ?? null,
+            variantCombination: p.variantCombination ?? null,
+            variantSku: p.variantSku ?? null,
+            image: p.image,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.initPoint) throw new Error(data.error || 'No se pudo iniciar Mercado Pago');
 
-  const cs = selectedShipping;
-  const shippingInfo = cs ? { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
-
-  isProcessing = true;
-  const loadingId = Toast.loading('Redirigiendo a Mercado Pago...');
-  try {
-    const res = await fetch('/api/create-mercadopago-preference', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel: 'online',
-        customerEmail: email,
-        customerName,
-        phone: ph,
-        shippingCost: d.shippingValue,
-        shippingAddress: {
-          streetAddress: sa, neighborhood: nb, city: ct, state: st,
-          postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn,
-        },
-        shippingInfo,
-        // El servidor recalcula precios y totales desde la base:
-        // aquí solo viaja qué y cuánto, nunca a qué precio.
-        products: d.productsData.map((p: CartProduct) => ({
-          productId: p.id,
-          quantity: p.quantity,
-          combinationId: (p as any).combinationId ?? null,
-          variantCombination: p.variantCombination ?? null,
-          variantSku: p.variantSku ?? null,
-          image: p.image,
-        })),
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.initPoint) throw new Error(data.error || 'No se pudo iniciar Mercado Pago');
-
-    Toast.dismiss(loadingId);
-    window.location.href = data.initPoint; // redirige a Checkout Pro
-  } catch (e) {
-    Toast.dismiss(loadingId);
-    isProcessing = false;
-    await Alert.error('Error', e instanceof Error ? e.message : 'Error al iniciar Mercado Pago');
+      Toast.dismiss(loadingId);
+      window.location.href = data.initPoint; // redirige a Checkout Pro
+    } catch (e) {
+      Toast.dismiss(loadingId);
+      isProcessing = false;
+      await Alert.error('Error', e instanceof Error ? e.message : 'Error al iniciar Mercado Pago');
+    }
   }
-}
-
 
   function getCheckoutData() {
-    const pd = document.getElementById('products-data'), pi = document.getElementById('products-images'), txd = document.getElementById('tax-data'), td = document.getElementById('total-data');
+    const pd = $('products-data'), pi = $('products-images'), txd = $('tax-data'), td = $('total-data');
     if (!pd || !txd || !td) return null;
     const rpd = JSON.parse(pd.textContent || '[]'), pim = pi ? JSON.parse(pi.textContent || '[]') : [], txv = parseFloat(txd.textContent || '0'), tv = parseFloat(td.textContent || '0'), sv = selectedShipping?.price || 0;
-    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null, engraving: p.engraving || null }));
+    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null }));
     return { productsData: pdata, taxValue: txv, totalValue: tv, shippingValue: sv };
   }
 
   function validateForm(): { valid: boolean; missingFields: string[] } {
     const mf: string[] = [];
-    const em = (document.getElementById('email') as HTMLInputElement)?.value.trim(), sa = (document.getElementById('street-address') as HTMLInputElement)?.value.trim(), nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value.trim(), ct = (document.getElementById('city') as HTMLInputElement)?.value.trim(), st = (document.getElementById('state') as HTMLInputElement)?.value.trim(), pc = (document.getElementById('postal-code') as HTMLInputElement)?.value.trim(), ph = (document.getElementById('phone') as HTMLInputElement)?.value.trim();
-    if (!em) mf.push('Email'); if (!sa) mf.push('Calle'); if (!nb) mf.push('Colonia'); if (!ct) mf.push('Ciudad'); if (!st) mf.push('Estado'); if (!pc) mf.push('CP'); if (!ph) mf.push('Teléfono'); if (!selectedShipping) mf.push('Método de envío');
+    if (!selectedShipping) mf.push('Método de entrega');
+    if (!val('email')) mf.push('Email');
+    if (!val('phone')) mf.push('Teléfono');
+
+    if (isPickup()) {
+      if (!val('pickup-name')) mf.push('Nombre de quien recoge');
+    } else {
+      if (!val('street-address')) mf.push('Calle');
+      if (!val('neighborhood')) mf.push('Colonia');
+      if (!val('city')) mf.push('Ciudad');
+      if (!val('state')) mf.push('Estado');
+      if (!val('postal-code')) mf.push('CP');
+    }
 
     // Consentimiento: obligatorio y por acto afirmativo (casilla desmarcada por defecto)
-    const privacy = document.getElementById('accept-privacy') as HTMLInputElement;
-    if (!privacy?.checked) mf.push('Aceptar el aviso de privacidad');
+    if (!$('accept-privacy')?.checked) mf.push('Aceptar el aviso de privacidad');
 
     return { valid: mf.length === 0, missingFields: mf };
   }
 
-  function setupFormValidation() { 
-    ['email', 'street-address', 'neighborhood', 'city', 'state', 'postal-code', 'phone'].forEach(id => { 
-      const f = document.getElementById(id); 
-      if (f) f.addEventListener('blur', () => { 
-        f.style.borderColor = !(f as HTMLInputElement).value.trim() ? '#ef4444' : 'rgba(255,255,255,0.1)'; 
-      }); 
-    }); 
+  function setupFormValidation() {
+    ['email', 'street-address', 'neighborhood', 'city', 'state', 'postal-code', 'phone', 'pickup-name'].forEach(id => {
+      const f = $(id);
+      f?.addEventListener('blur', () => {
+        f.style.outline = f.value.trim() ? '' : '2px solid rgba(239, 68, 68, 0.6)';
+      });
+    });
   }
 
-function updatePaymentVis() {
-  const sm = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement; if (!sm) return;
-  const cf = document.getElementById('card-form'),
-        pc = document.getElementById('paypal-container'),
-        mp = document.getElementById('mercadopago-container');
-  if (cf) cf.classList.add('hidden');
-  if (pc) pc.classList.add('hidden');
-  if (mp) mp.classList.add('hidden');
-  if (sm.id === 'card') { if (cf) cf.classList.remove('hidden'); initStripe(); }
-  else if (sm.id === 'paypal') { if (pc) pc.classList.remove('hidden'); initPayPal(); }
-  else if (sm.id === 'mercadopago') { if (mp) mp.classList.remove('hidden'); }
-}
+  function updatePaymentVis() {
+    const sm = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement; if (!sm) return;
+    const cf = $('card-form'), pc = $('paypal-container'), mp = $('mercadopago-container');
+    cf?.classList.add('hidden'); pc?.classList.add('hidden'); mp?.classList.add('hidden');
+    if (sm.id === 'card') { cf?.classList.remove('hidden'); initStripe(); }
+    else if (sm.id === 'paypal') { pc?.classList.remove('hidden'); initPayPal(); }
+    else if (sm.id === 'mercadopago') { mp?.classList.remove('hidden'); }
+  }
 
   async function createOrder(pm: string, piid?: string) {
-    const em = (document.getElementById('email') as HTMLInputElement)?.value, chn = (document.getElementById('card-holder-name') as HTMLInputElement)?.value, sa = (document.getElementById('street-address') as HTMLInputElement)?.value, nb = (document.getElementById('neighborhood') as HTMLInputElement)?.value, ct = (document.getElementById('city') as HTMLInputElement)?.value, st = (document.getElementById('state') as HTMLInputElement)?.value, pc = (document.getElementById('postal-code') as HTMLInputElement)?.value, ph = (document.getElementById('phone') as HTMLInputElement)?.value, dn = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value || '';
     const d = getCheckoutData(); if (!d) throw new Error('Sin datos');
-    let si: { carrier: string; service: string; price: number; deliveryDays: number } | null = null; const cs = selectedShipping; if (cs) si = { carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays };
-    const od = { customerEmail: em, customerName: chn || em, shippingAddress: { streetAddress: sa, neighborhood: nb, city: ct, state: st, postalCode: pc, country: 'México', phone: ph, deliveryNotes: dn }, shippingInfo: si, products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null })), subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue, paymentMethod: pm, paymentIntentId: piid || null, clientId: null };
+    const od = {
+      customerEmail: val('email'),
+      customerName: getCustomerName(val('card-holder-name')),
+      deliveryMethod: deliveryMethod(),
+      shippingAddress: getShippingAddress(),
+      shippingInfo: getShippingInfo(),
+      products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null })),
+      subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue,
+      paymentMethod: pm, paymentIntentId: piid || null, clientId: null,
+    };
     const r = await fetch('/api/create-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(od) });
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error'); } return await r.json();
   }
 
   async function updateStock() {
-    const pd = document.getElementById('products-data'); if (!pd) throw new Error('Sin datos');
+    const pd = $('products-data'); if (!pd) throw new Error('Sin datos');
     const rpd = JSON.parse(pd.textContent || '[]'), sud = rpd.map((p: any) => ({ id: p.id, quantity: p.quantity }));
     const r = await fetch('/api/update-stock-online', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: sud }) });
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error stock'); }
   }
 
-  // ✅ CAMBIO: Swal.fire → Alert.warning/error
-  function validatePaypal() { 
-    const v = validateForm(); 
-    if (!v.valid) { 
-      Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); 
-      return null; 
-    } 
-    const d = getCheckoutData(); 
-    if (!d?.totalValue) { 
-      Alert.error('Error', 'Sin total'); 
-      return null; 
-    } 
-    return { total: d.totalValue }; 
+  function validatePaypal() {
+    const v = validateForm();
+    if (!v.valid) { Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return null; }
+    const d = getCheckoutData();
+    if (!d?.totalValue) { Alert.error('Error', 'Sin total'); return null; }
+    return { total: d.totalValue };
   }
 
   async function initPayPal() {
-    const c = document.getElementById('paypal-button-container'); if (!c) return; c.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.4);">Cargando PayPal...</div>';
+    const c = $('paypal-button-container'); if (!c) return; c.innerHTML = '<div style="text-align:center;padding:20px;color:#85858c;">Cargando PayPal...</div>';
     try {
       const pp = await loadScript({ clientId: import.meta.env.PUBLIC_PAYPAL_CLIENT_ID || "AcBeVZggGRidpLZa0RrTje-kNfh0Q6vhNY1H4qTVjFxaEHrF-ltd1D3erIxPNbjVrtUXjHM-5qsa8-3y", currency: "MXN", intent: "capture", commit: true, vault: false, components: "buttons", disableFunding: "venmo,giropay,sofort,sepa", locale: "es_MX" });
       if (pp?.Buttons) renderPayPal(pp); else c.innerHTML = '<div style="color:#f87171;text-align:center;">PayPal no disponible</div>';
@@ -880,68 +937,72 @@ function updatePaymentVis() {
   function renderPayPal(pp: any) {
     pp.Buttons({
       style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' },
-      createOrder: async () => { 
-        const d = validatePaypal(); 
-        if (!d) return Promise.reject('Val fail'); 
-        try { 
-          const r = await actions.createPaypalOrder({ total: d.total }); 
-          if (r.error) throw new Error(r.error.message); 
-          return r.data.orderId; 
-        } catch (e) { 
-          // ✅ CAMBIO: Swal.fire → Alert.error
-          Alert.error('Error', e instanceof Error ? e.message : 'Error'); 
-          return Promise.reject(e); 
-        } 
+      createOrder: async () => {
+        const d = validatePaypal();
+        if (!d) return Promise.reject('Val fail');
+        try {
+          const r = await actions.createPaypalOrder({ total: d.total });
+          if (r.error) throw new Error(r.error.message);
+          return r.data.orderId;
+        } catch (e) {
+          Alert.error('Error', e instanceof Error ? e.message : 'Error');
+          return Promise.reject(e);
+        }
       },
-      onApprove: async (data: any) => { 
-        // ✅ CAMBIO: Swal.fire loading → Toast.loading
+      onApprove: async (data: any) => {
         const loadingId = Toast.loading('Procesando pago con PayPal...');
-        try { 
-          const r = await actions.capturePaypalOrder({ orderId: data.orderID }); 
-          if (r.error) throw new Error(r.error.message); 
-          await updateStock(); 
-          const o = await createOrder('paypal'); 
-          CartCookiesClient.clearCart(); 
-          localStorage.removeItem('selectedShipping'); 
-          // ✅ CAMBIO: Swal.close() → Toast.dismiss + Toast.success
+        try {
+          const r = await actions.capturePaypalOrder({ orderId: data.orderID });
+          if (r.error) throw new Error(r.error.message);
+          await updateStock();
+          const o = await createOrder('paypal');
+          CartCookiesClient.clearCart();
+          localStorage.removeItem('selectedShipping');
           Toast.dismiss(loadingId);
           Toast.success('¡Pago exitoso!', `Orden #${o.orderNumber}`);
           setTimeout(() => navigate(`/order-success?order_id=${o.id}`), 1000);
-        } catch (e) { 
-          // ✅ CAMBIO: Swal.close() + Swal.fire → Toast.dismiss + Alert.error
+        } catch (e) {
           Toast.dismiss(loadingId);
-          Alert.error('Error', e instanceof Error ? e.message : 'Error'); 
-        } 
+          Alert.error('Error', e instanceof Error ? e.message : 'Error');
+        }
       },
-      // ✅ CAMBIO: Swal.fire → Alert.error / Toast.info
-      onError: () => Alert.error('Error', 'Error con PayPal'), 
+      onError: () => Alert.error('Error', 'Error con PayPal'),
       onCancel: () => Toast.info('Pago cancelado')
     }).render('#paypal-button-container');
   }
 
   function init() {
-    if (!document.getElementById('products-data')) return;
+    const root = $('products-data');
+    if (!root) return;
+    // DOMContentLoaded y astro:page-load disparan ambos en la primera carga:
+    // sin este guard se duplicaban los listeners (y los clics de pago).
+    if (root.dataset.bound === '1') return;
+    root.dataset.bound = '1';
+
     loadShippingInfo();
     setupFormValidation();
     document.querySelectorAll('input[name="payment-method"]').forEach(r => r.addEventListener('change', updatePaymentVis));
-    document.getElementById('submit-card-payment')?.addEventListener('click', e => { e.preventDefault(); processCard(); });
-    document.getElementById('submit-mp-payment')?.addEventListener('click', e => { e.preventDefault(); processMercadoPago(); });
+    $('submit-card-payment')?.addEventListener('click', e => { e.preventDefault(); processCard(); });
+    $('submit-mp-payment')?.addEventListener('click', e => { e.preventDefault(); processMercadoPago(); });
     updatePaymentVis();
 
-    // ✅ Escucha eventos del ShippingCalculator
-    window.addEventListener('shipping:selected', () => loadShippingInfo());
-    window.addEventListener('shipping:cleared', () => loadShippingInfo());
+    // Los listeners de window sobreviven a las navegaciones: se registran una sola vez
+    if (!windowListenersBound) {
+      windowListenersBound = true;
+      window.addEventListener('shipping:selected', () => { if ($('products-data')) loadShippingInfo(); });
+      window.addEventListener('shipping:cleared', () => { if ($('products-data')) loadShippingInfo(); });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   document.addEventListener('astro:page-load', init);
-  setTimeout(() => { const w = document.getElementById('shipping-warning'); if (w && !w.classList.contains('hidden')) loadShippingInfo(); }, 500);
 </script>
 
 
-<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null })))}</div>
+<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId, variantId: p.variantId })))}</div>
 <div id="products-images" class="hidden">{JSON.stringify(products.map(p => p.variantImage || p.image || ''))}</div>
 <div id="tax-data" class="hidden">{tax}</div>
 <div id="total-data" class="hidden">{total}</div>
 <div id="subtotal-data" class="hidden">{subtotal}</div>
+<div id="pickup-address-data" class="hidden">{JSON.stringify(pickupAddress)}</div>
 <div id="user-data" class="hidden">{JSON.stringify({ email: userEmail, name: userName, isAuthenticated })}</div>
