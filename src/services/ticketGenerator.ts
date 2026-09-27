@@ -52,7 +52,9 @@ export const generateAndPrintTicket = async (
   addedMount?: number,
   observations?: string,
   amountReceived?: number,
-  change?: number
+  change?: number,
+  /** Descripción del monto agregado (p. ej. "Perforación de hélix") */
+  addedMountDescription?: string
 ): Promise<void> => {
   try {
     const logoUrl = '/assets/Broquelizate-logos/logo-relleno-negro.png';
@@ -81,6 +83,12 @@ export const generateAndPrintTicket = async (
         { text: 'Monto Agregado:', style: 'totalLabel', alignment: 'right' }, 
         { text: `$${addedMount.toFixed(2)}`, style: 'addedAmount', alignment: 'right' }
       ]);
+      if (addedMountDescription && addedMountDescription.trim()) {
+        totalsBody.push([
+          { text: addedMountDescription.trim(), style: 'addedDescription', alignment: 'right', colSpan: 2, margin: [0, -2, 0, 2] } as Content,
+          ''
+        ]);
+      }
     }
     
     totalsBody.push([
@@ -207,6 +215,7 @@ export const generateAndPrintTicket = async (
         finalTotalAmount: { fontSize: 12, bold: true },
         paymentMethodLabel: { fontSize: 9, color: '#000' },
         paymentMethodAmount: { fontSize: 9, color: '#000' },
+        addedDescription: { fontSize: 8, italics: true, color: '#333333' },
         observationsLabel: { fontSize: 10, bold: true, italics: true },
         observationsText: { fontSize: 9, color: '#000' },
         footer: { fontSize: 10, italics: true },

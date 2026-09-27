@@ -75,6 +75,9 @@ const isPickup = (order as any).deliveryMethod === 'pickup';
 const pickupName: string = rawAddress.pickupName || rawAddress.name || '';
 const pickupPhone: string = rawAddress.phone || '';
 
+// Descripción del monto adicional (ventas del POS; se guarda en shippingAddress)
+const additionalChargeDescription: string = rawAddress.additionalChargeDescription || '';
+
 // shippingCost = lo que pagó el cliente · labelCost = lo que costó la guía en Envia
 const labelCost = (order as any).labelCost as number | null | undefined;
 const chargedShippingText = order.shippingCost == null ? null : order.shippingCost > 0 ? formatCurrency(order.shippingCost) : 'Gratis';
@@ -114,6 +117,7 @@ const statusLabels: Record<string, string> = {
   <div id="payment-method-data" style="display:none;">{order.paymentMethod || 'Desconocido'}</div>
   <div id="discount-data" style="display:none;">{discount}</div>
   <div id="additional-charges-data" style="display:none;">{additionalCharges}</div>
+  <div id="additional-charge-desc-data" style="display:none;">{additionalChargeDescription}</div>
 
   {/* Datos para gestión de envíos */}
   <div id="order-data" style="display:none;"
@@ -197,7 +201,10 @@ const statusLabels: Record<string, string> = {
             </div>
             {additionalCharges > 0 && (
               <div class="t-row">
-                <span>Monto adicional</span>
+                <span>
+                  Monto adicional
+                  {additionalChargeDescription && <small style="display:block;font-size:0.75rem;opacity:0.7;">{additionalChargeDescription}</small>}
+                </span>
                 <span class="t-val">{formatCurrency(additionalCharges)}</span>
               </div>
             )}
@@ -780,6 +787,7 @@ const statusLabels: Record<string, string> = {
       const paymentMethod = paymentMethodDataEl ? paymentMethodDataEl.textContent || 'Desconocido' : 'Desconocido';
       const discountValue = discountDataEl ? parseFloat(discountDataEl.textContent || '0') : 0;
       const additionalChargesValue = additionalChargesDataEl ? parseFloat(additionalChargesDataEl.textContent || '0') : 0;
+      const additionalChargeDescription = (document.getElementById('additional-charge-desc-data')?.textContent || '').trim();
 
       const printBtn = document.getElementById('print-ticket-btn');
       printBtn?.addEventListener('click', () => {
@@ -796,7 +804,11 @@ const statusLabels: Record<string, string> = {
           paymentMethod,
           storeInfo,
           discountValue,
-          additionalChargesValue
+          additionalChargesValue,
+          undefined,
+          undefined,
+          undefined,
+          additionalChargeDescription || undefined
         );
       });
 

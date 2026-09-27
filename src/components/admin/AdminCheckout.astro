@@ -96,18 +96,14 @@ const clientsList: Client[] = clientsData?.clients || [];
           <span class="text-gray-600">Subtotal de productos</span>
           <span id="summary-subtotal" class="font-semibold text-yellow-600">$0.00</span>
         </div>
-        <div id="add-amount-row" class="flex justify-between items-center">
-            <span class="text-gray-600">Monto Adicional</span>
-            <button id="add-amount-btn" class="font-semibold text-yellow-600 hover:underline">Agregar monto</button>
-        </div>
-        <div id="additional-amount-summary-row" class="flex justify-between items-center hidden">
-            <span class="text-gray-500">Monto adicional</span>
-            <div class="flex items-center gap-2 bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-md">
-                <span id="summary-additional-amount-text"></span>
-                <button id="remove-additional-amount-btn" type="button" aria-label="Quitar monto adicional" class="hover:text-green-800">
-                    <Icon name="mdi:close" class="h-4 w-4" />
-                </button>
+        <!-- Monto adicional: se captura en el POS (Vender) y llega aquí con el carrito -->
+        <div id="additional-amount-summary-row" class="flex justify-between items-start gap-3 hidden">
+            <div class="min-w-0">
+              <span class="text-gray-500">Monto adicional</span>
+              <p id="summary-additional-amount-desc" class="text-xs text-gray-500 break-words"></p>
+              <a href="/admin/sale" class="text-xs font-medium text-yellow-600 hover:underline">Cambiar en Vender</a>
             </div>
+            <span id="summary-additional-amount-text" class="bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-md flex-shrink-0"></span>
         </div>
         <div id="discount-apply-row" class="flex justify-between items-center">
             <span class="text-gray-600">Descuentos</span>
@@ -209,6 +205,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   import 'sweetalert2/dist/sweetalert2.min.css';
   import { navigate } from 'astro:transitions/client';
   import { generateAndPrintTicket} from '@/services/ticketGenerator';
+  import { readPosExtra, savePosExtra } from '@/utils/pos-extra';
   import { optimizeImage, IMG_WIDTH } from '@/utils/images';
   import { actions } from 'astro:actions';
 
@@ -243,7 +240,10 @@ const clientsList: Client[] = clientsData?.clients || [];
   }
 
   function initializeCheckout() {
-    let additionalAmount = 0;
+    // Monto adicional capturado en el POS (con su descripción para el ticket)
+    const posExtra = readPosExtra();
+    const additionalAmount = posExtra?.amount ?? 0;
+    const additionalDescription = posExtra?.description ?? '';
     let discountInfo = {
       amount: 0,
       type: null as 'fixed' | 'percentage' | null,
@@ -280,11 +280,9 @@ const clientsList: Client[] = clientsData?.clients || [];
     const summaryDiscountTextEl = document.getElementById('summary-discount-text');
     const removeDiscountBtn = document.getElementById('remove-discount-btn');
 
-    const addAmountBtn = document.getElementById('add-amount-btn');
-    const addAmountRowEl = document.getElementById('add-amount-row');
     const additionalAmountSummaryRowEl = document.getElementById('additional-amount-summary-row');
     const summaryAdditionalAmountTextEl = document.getElementById('summary-additional-amount-text');
-    const removeAdditionalAmountBtn = document.getElementById('remove-additional-amount-btn');
+    const summaryAdditionalAmountDescEl = document.getElementById('summary-additional-amount-desc');
 
     // ACTUALIZADO: Permite stocks negativos
     async function updateProductStock() {
@@ -326,15 +324,11 @@ const clientsList: Client[] = clientsData?.clients || [];
       if (summaryTotalEl) summaryTotalEl.textContent = formatCurrency(total);
       if (amountReceivedEl) amountReceivedEl.placeholder = `Valor recibido (${formatCurrency(total)})`;
 
-      if (addAmountRowEl && additionalAmountSummaryRowEl && summaryAdditionalAmountTextEl) {
-          if(additionalAmount > 0) {
-            summaryAdditionalAmountTextEl.textContent = `+${formatCurrency(additionalAmount)}`;
-            addAmountRowEl.classList.add('hidden');
-            additionalAmountSummaryRowEl.classList.remove('hidden');
-          } else {
-            addAmountRowEl.classList.remove('hidden');
-            additionalAmountSummaryRowEl.classList.add('hidden');
-          }
+      if (additionalAmountSummaryRowEl && summaryAdditionalAmountTextEl) {
+          const hasExtra = additionalAmount > 0;
+          additionalAmountSummaryRowEl.classList.toggle('hidden', !hasExtra);
+          summaryAdditionalAmountTextEl.textContent = hasExtra ? `+${formatCurrency(additionalAmount)}` : '';
+          if (summaryAdditionalAmountDescEl) summaryAdditionalAmountDescEl.textContent = additionalDescription;
       }
       
       if (discountApplyRowEl && discountSummaryRowEl && summaryDiscountTextEl) {
@@ -396,33 +390,6 @@ const clientsList: Client[] = clientsData?.clients || [];
           cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic text-center py-8">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
         }
       }
-    }
-
-    async function handleAddAmount() {
-        const { value: amountStr } = await Swal.fire({
-            title: 'Agregar Monto Adicional',
-            input: 'text',
-            inputLabel: 'Ingresa el monto a agregar (ej. para un servicio o cargo extra)',
-            inputPlaceholder: '0.00',
-            confirmButtonText: 'Agregar',
-            confirmButtonColor: '#d97706',
-            showCancelButton: true,
-            inputValidator: (value) => {
-                if (!value || isNaN(parseFloat(value)) || parseFloat(value) <= 0) {
-                    return 'Por favor, ingresa un número válido y positivo.'
-                }
-            }
-        });
-
-        if (amountStr) {
-            additionalAmount = parseFloat(amountStr);
-            updateTotals();
-        }
-    }
-
-    function handleRemoveAdditionalAmount() {
-      additionalAmount = 0;
-      updateTotals();
     }
 
     const formatCurrency = (value: number): string => `$${Number(value).toFixed(2)}`;
@@ -600,7 +567,9 @@ const clientsList: Client[] = clientsData?.clients || [];
         const orderData = {
           clientId,
           customerEmail,
-          shippingAddress: {},
+          // Venta de mostrador: sin dirección. Se guarda aquí la descripción
+          // del monto adicional para poder reimprimir el ticket igual.
+          shippingAddress: additionalDescription ? { additionalChargeDescription: additionalDescription } : {},
           products: cart.map(item => ({ 
             id: item.productId,
             variantId: item.variantId || null,
@@ -642,6 +611,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         }
         
         localStorage.removeItem('admin-pos-cart');
+        savePosExtra(null);
 
         const storeInfo = { 
           name: "Broquelizate", 
@@ -688,7 +658,8 @@ const clientsList: Client[] = clientsData?.clients || [];
               orderData.additionalCharges,
               observationsText,
               receivedForTicket,
-              changeForTicket
+              changeForTicket,
+              additionalDescription
             );
           }
           Swal.close();
@@ -717,6 +688,7 @@ const clientsList: Client[] = clientsData?.clients || [];
       }).then((result: SweetAlertResult) => {
         if (result.isConfirmed) {
           localStorage.removeItem('admin-pos-cart');
+          savePosExtra(null);
           Swal.close();
           navigate('/admin/sale')
         }
@@ -733,8 +705,6 @@ const clientsList: Client[] = clientsData?.clients || [];
     discardSaleBtn?.addEventListener('click', handleDiscardSale);
     applyDiscountBtn?.addEventListener('click', handleApplyDiscount);
     removeDiscountBtn?.addEventListener('click', handleRemoveDiscount);
-    addAmountBtn?.addEventListener('click', handleAddAmount);
-    removeAdditionalAmountBtn?.addEventListener('click', handleRemoveAdditionalAmount);
 
     // Inicialización
     updateCartSummary();

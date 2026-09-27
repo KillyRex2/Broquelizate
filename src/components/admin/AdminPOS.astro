@@ -160,6 +160,28 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
           <span class="text-gray-600">Subtotal</span>
           <span id="subtotal-amount" class="font-medium text-gray-800">$0.00</span>
         </div>
+
+        <!-- Monto adicional (servicio, cargo extra…) -->
+        <div id="extra-add-row" class="flex justify-between items-center">
+          <span class="text-gray-600">Monto adicional</span>
+          <button id="add-extra-btn" type="button" class="text-xs md:text-sm font-semibold text-amber-600 hover:text-amber-700 hover:underline">
+            + Agregar monto
+          </button>
+        </div>
+        <div id="extra-summary-row" class="hidden items-start justify-between gap-3">
+          <div class="min-w-0">
+            <span class="text-gray-600">Monto adicional</span>
+            <p id="extra-description" class="text-xs text-gray-500 truncate" title=""></p>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button id="edit-extra-btn" type="button" title="Editar monto" class="rounded-md bg-green-50 px-2 py-0.5 font-semibold text-green-700 hover:bg-green-100 transition-colors">
+              <span id="extra-amount-text">+$0.00</span>
+            </button>
+            <button id="remove-extra-btn" type="button" aria-label="Quitar monto adicional" class="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+              <Icon name="mdi:close" class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
         <div class="flex justify-between text-base md:text-lg pt-2 border-t border-gray-100">
           <span class="font-bold text-gray-900">Total</span>
           <span id="total-amount" class="font-bold text-amber-600">$0.00</span>
@@ -176,6 +198,48 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       </button>
     </div>
   </aside>
+
+  <!-- Modal: monto adicional con descripción -->
+  <dialog id="extra-dialog" class="extra-dialog">
+    <form id="extra-form" class="bg-white rounded-2xl p-6 shadow-2xl w-full space-y-4" novalidate>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Monto adicional</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Servicio o cargo extra. Se suma al total y aparece en el ticket.</p>
+        </div>
+        <button type="button" id="extra-cancel-x" aria-label="Cerrar" class="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+          <Icon name="mdi:close" class="h-5 w-5" />
+        </button>
+      </div>
+
+      <label class="block">
+        <span class="text-sm font-semibold text-gray-700">Monto <span class="text-red-500">*</span></span>
+        <div class="relative mt-1">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <input id="extra-amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00"
+            class="w-full rounded-xl border-2 border-gray-200 py-2.5 pl-7 pr-3 text-gray-900 focus:border-amber-500 focus:ring-0 outline-none" />
+        </div>
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-semibold text-gray-700">Descripción</span>
+        <input id="extra-desc" name="description" type="text" maxlength="120" autocomplete="off"
+          placeholder="Ej. Perforación de hélix, cambio de joya…"
+          class="mt-1 w-full rounded-xl border-2 border-gray-200 py-2.5 px-3 text-gray-900 focus:border-amber-500 focus:ring-0 outline-none" />
+        <span class="mt-1 flex justify-between text-xs text-gray-400">
+          <span>Opcional · se imprime en el ticket</span>
+          <span id="extra-desc-count">0/120</span>
+        </span>
+      </label>
+
+      <p id="extra-error" class="hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+
+      <div class="flex gap-2 pt-1">
+        <button type="button" id="extra-cancel" class="flex-1 rounded-xl border-2 border-gray-200 py-2.5 font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
+        <button type="submit" class="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 font-bold text-white shadow hover:from-amber-600 hover:to-orange-600">Guardar</button>
+      </div>
+    </form>
+  </dialog>
 </div>
 
 <div id="all-products-data" style="display: none;">{JSON.stringify(allProducts)}</div>
@@ -186,6 +250,7 @@ import { navigate } from 'astro:transitions/client';
 // Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
 import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
 import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+import { readPosExtra, savePosExtra, POS_EXTRA_DESCRIPTION_MAX, type PosExtraCharge } from '@/utils/pos-extra';
 
 // Estado global del POS
 const POSState = {
@@ -294,6 +359,83 @@ function initializePOS() {
   POSState.cart = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
 
   const formatCurrency = (value: number) => `$${Number(value).toFixed(2)}`;
+
+  // ==========================================
+  // MONTO ADICIONAL (antes estaba en el checkout del admin)
+  // ==========================================
+  const extraAddRow = document.getElementById('extra-add-row');
+  const extraSummaryRow = document.getElementById('extra-summary-row');
+  const extraDescriptionEl = document.getElementById('extra-description');
+  const extraAmountText = document.getElementById('extra-amount-text');
+  const addExtraBtn = document.getElementById('add-extra-btn');
+  const editExtraBtn = document.getElementById('edit-extra-btn');
+  const removeExtraBtn = document.getElementById('remove-extra-btn');
+  const extraDialog = document.getElementById('extra-dialog') as HTMLDialogElement | null;
+  const extraForm = document.getElementById('extra-form') as HTMLFormElement | null;
+  const extraAmountInput = document.getElementById('extra-amount') as HTMLInputElement | null;
+  const extraDescInput = document.getElementById('extra-desc') as HTMLInputElement | null;
+  const extraDescCount = document.getElementById('extra-desc-count');
+  const extraError = document.getElementById('extra-error');
+  const extraCancelBtns = [document.getElementById('extra-cancel'), document.getElementById('extra-cancel-x')];
+
+  function renderExtra(extra: PosExtraCharge | null = readPosExtra()) {
+    const has = !!extra;
+    extraAddRow?.classList.toggle('hidden', has);
+    extraSummaryRow?.classList.toggle('hidden', !has);
+    extraSummaryRow?.classList.toggle('flex', has);
+    if (extra) {
+      if (extraAmountText) extraAmountText.textContent = `+${formatCurrency(extra.amount)}`;
+      if (extraDescriptionEl) {
+        extraDescriptionEl.textContent = extra.description || 'Sin descripción';
+        extraDescriptionEl.title = extra.description;
+        extraDescriptionEl.classList.toggle('italic', !extra.description);
+      }
+    }
+  }
+
+  function updateExtraCount() {
+    if (extraDescCount && extraDescInput) extraDescCount.textContent = `${extraDescInput.value.length}/${POS_EXTRA_DESCRIPTION_MAX}`;
+  }
+
+  const handleOpenExtra = (e: Event) => {
+    e.preventDefault();
+    if (!extraDialog) return;
+    const current = readPosExtra();
+    if (extraAmountInput) extraAmountInput.value = current ? String(current.amount) : '';
+    if (extraDescInput) extraDescInput.value = current?.description ?? '';
+    extraError?.classList.add('hidden');
+    updateExtraCount();
+    extraDialog.showModal();
+    setTimeout(() => extraAmountInput?.focus(), 50);
+  };
+
+  const handleSaveExtra = (e: Event) => {
+    e.preventDefault();
+    const amount = Math.round((parseFloat(extraAmountInput?.value || '') || 0) * 100) / 100;
+    if (!(amount > 0) || amount > 100000) {
+      if (extraError) {
+        extraError.textContent = 'Ingresa un monto mayor a $0.';
+        extraError.classList.remove('hidden');
+      }
+      extraAmountInput?.focus();
+      return;
+    }
+    const description = (extraDescInput?.value || '').trim();
+    savePosExtra({ amount, description });
+    extraDialog?.close();
+    renderCart();
+    Toast.success('Monto adicional agregado', `${formatCurrency(amount)}${description ? ` · ${description}` : ''}`);
+  };
+
+  const handleCancelExtra = () => extraDialog?.close();
+  const handleExtraBackdrop = (e: Event) => { if (e.target === extraDialog) extraDialog?.close(); };
+
+  const handleRemoveExtra = (e: Event) => {
+    e.preventDefault();
+    savePosExtra(null);
+    renderCart();
+    Toast.info('Monto adicional quitado');
+  };
 
   // ==========================================
   // FUNCIONES DE CARRITO MÓVIL
@@ -738,8 +880,10 @@ function initializePOS() {
     }
     
     const subtotal = POSState.cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+    const extra = readPosExtra();
     subtotalAmount.textContent = formatCurrency(subtotal);
-    totalAmount.textContent = formatCurrency(subtotal);
+    totalAmount.textContent = formatCurrency(subtotal + (extra?.amount ?? 0));
+    renderExtra(extra);
     
     updateMobileCartCount();
   }
@@ -774,6 +918,7 @@ function initializePOS() {
 
     if (confirmed) {
       POSState.cart = [];
+      savePosExtra(null); // el monto adicional es de esta venta
       updateAndSaveCart();
       Toast.success('Carrito vaciado');
     }
@@ -946,7 +1091,8 @@ function initializePOS() {
   };
   
   const handleKeyboard = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    // Con el modal de monto abierto, Escape solo cierra ese modal
+    if (e.key === 'Escape' && !extraDialog?.open) {
       if (!variantModal?.classList.contains('hidden')) {
         hideVariantModal();
       } else if (window.innerWidth < 1024 && !cartDrawer?.classList.contains('translate-x-full')) {
@@ -1008,6 +1154,13 @@ function initializePOS() {
   clearCartBtn?.addEventListener('click', handleClearCart);
   clearCartBtnDesktop?.addEventListener('click', handleClearCart);
   checkoutButton?.addEventListener('click', handleCheckout);
+  addExtraBtn?.addEventListener('click', handleOpenExtra);
+  editExtraBtn?.addEventListener('click', handleOpenExtra);
+  removeExtraBtn?.addEventListener('click', handleRemoveExtra);
+  extraForm?.addEventListener('submit', handleSaveExtra);
+  extraDescInput?.addEventListener('input', updateExtraCount);
+  extraDialog?.addEventListener('click', handleExtraBackdrop);
+  extraCancelBtns.forEach(b => b?.addEventListener('click', handleCancelExtra));
   document.addEventListener('keydown', handleKeyboard);
   mobileCartToggle?.addEventListener('click', handleMobileCartToggle);
   closeCartMobile?.addEventListener('click', handleCloseCartMobile);
@@ -1033,6 +1186,14 @@ function initializePOS() {
     clearCartBtn?.removeEventListener('click', handleClearCart);
     clearCartBtnDesktop?.removeEventListener('click', handleClearCart);
     checkoutButton?.removeEventListener('click', handleCheckout);
+    addExtraBtn?.removeEventListener('click', handleOpenExtra);
+    editExtraBtn?.removeEventListener('click', handleOpenExtra);
+    removeExtraBtn?.removeEventListener('click', handleRemoveExtra);
+    extraForm?.removeEventListener('submit', handleSaveExtra);
+    extraDescInput?.removeEventListener('input', updateExtraCount);
+    extraDialog?.removeEventListener('click', handleExtraBackdrop);
+    extraCancelBtns.forEach(b => b?.removeEventListener('click', handleCancelExtra));
+    if (extraDialog?.open) extraDialog.close();
     document.removeEventListener('keydown', handleKeyboard);
     mobileCartToggle?.removeEventListener('click', handleMobileCartToggle);
     closeCartMobile?.removeEventListener('click', handleCloseCartMobile);
@@ -1075,6 +1236,9 @@ if (document.readyState === 'complete') {
 </script>
 
 <style is:global>
+  /* Modal de monto adicional */
+  .extra-dialog { border: none; padding: 0; background: transparent; width: min(92vw, 420px); max-height: 92vh; }
+  .extra-dialog::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px); }
 /* =============================================
    SCROLLBAR PERSONALIZADO
    ============================================= */
