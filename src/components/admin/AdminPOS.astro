@@ -161,27 +161,14 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
           <span id="subtotal-amount" class="font-medium text-gray-800">$0.00</span>
         </div>
 
-        <!-- Monto adicional (servicio, cargo extra…) -->
-        <div id="extra-add-row" class="flex justify-between items-center">
-          <span class="text-gray-600">Monto adicional</span>
+        <!-- Montos adicionales (servicios, cargos extra…). Puede haber varios -->
+        <div class="flex justify-between items-center">
+          <span id="extra-label" class="text-gray-600">Monto adicional</span>
           <button id="add-extra-btn" type="button" class="text-xs md:text-sm font-semibold text-amber-600 hover:text-amber-700 hover:underline">
             + Agregar monto
           </button>
         </div>
-        <div id="extra-summary-row" class="hidden items-start justify-between gap-3">
-          <div class="min-w-0">
-            <span class="text-gray-600">Monto adicional</span>
-            <p id="extra-description" class="text-xs text-gray-500 truncate" title=""></p>
-          </div>
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <button id="edit-extra-btn" type="button" title="Editar monto" class="rounded-md bg-green-50 px-2 py-0.5 font-semibold text-green-700 hover:bg-green-100 transition-colors">
-              <span id="extra-amount-text">+$0.00</span>
-            </button>
-            <button id="remove-extra-btn" type="button" aria-label="Quitar monto adicional" class="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
-              <Icon name="mdi:close" class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <ul id="extra-list" class="hidden space-y-1.5 max-h-32 overflow-y-auto product-scroll"></ul>
         <div class="flex justify-between text-base md:text-lg pt-2 border-t border-gray-100">
           <span class="font-bold text-gray-900">Total</span>
           <span id="total-amount" class="font-bold text-amber-600">$0.00</span>
@@ -204,7 +191,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     <form id="extra-form" class="bg-white rounded-2xl p-6 shadow-2xl w-full space-y-4" novalidate>
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 class="text-lg font-bold text-gray-900">Monto adicional</h3>
+          <h3 id="extra-dialog-title" class="text-lg font-bold text-gray-900">Agregar monto</h3>
           <p class="text-xs text-gray-500 mt-0.5">Servicio o cargo extra. Se suma al total y aparece en el ticket.</p>
         </div>
         <button type="button" id="extra-cancel-x" aria-label="Cerrar" class="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -250,7 +237,7 @@ import { navigate } from 'astro:transitions/client';
 // Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
 import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
 import { optimizeImage, IMG_WIDTH } from '@/utils/images';
-import { readPosExtra, savePosExtra, POS_EXTRA_DESCRIPTION_MAX, type PosExtraCharge } from '@/utils/pos-extra';
+import { readPosExtras, savePosExtras, clearPosExtras, extrasTotal, POS_EXTRA_DESCRIPTION_MAX, POS_EXTRA_MAX_ITEMS, type PosExtraCharge } from '@/utils/pos-extra';
 
 // Estado global del POS
 const POSState = {
@@ -361,16 +348,13 @@ function initializePOS() {
   const formatCurrency = (value: number) => `$${Number(value).toFixed(2)}`;
 
   // ==========================================
-  // MONTO ADICIONAL (antes estaba en el checkout del admin)
+  // MONTOS ADICIONALES (antes estaba en el checkout del admin, y era uno solo)
   // ==========================================
-  const extraAddRow = document.getElementById('extra-add-row');
-  const extraSummaryRow = document.getElementById('extra-summary-row');
-  const extraDescriptionEl = document.getElementById('extra-description');
-  const extraAmountText = document.getElementById('extra-amount-text');
+  const extraLabel = document.getElementById('extra-label');
+  const extraList = document.getElementById('extra-list');
   const addExtraBtn = document.getElementById('add-extra-btn');
-  const editExtraBtn = document.getElementById('edit-extra-btn');
-  const removeExtraBtn = document.getElementById('remove-extra-btn');
   const extraDialog = document.getElementById('extra-dialog') as HTMLDialogElement | null;
+  const extraDialogTitle = document.getElementById('extra-dialog-title');
   const extraForm = document.getElementById('extra-form') as HTMLFormElement | null;
   const extraAmountInput = document.getElementById('extra-amount') as HTMLInputElement | null;
   const extraDescInput = document.getElementById('extra-desc') as HTMLInputElement | null;
@@ -378,35 +362,82 @@ function initializePOS() {
   const extraError = document.getElementById('extra-error');
   const extraCancelBtns = [document.getElementById('extra-cancel'), document.getElementById('extra-cancel-x')];
 
-  function renderExtra(extra: PosExtraCharge | null = readPosExtra()) {
-    const has = !!extra;
-    extraAddRow?.classList.toggle('hidden', has);
-    extraSummaryRow?.classList.toggle('hidden', !has);
-    extraSummaryRow?.classList.toggle('flex', has);
-    if (extra) {
-      if (extraAmountText) extraAmountText.textContent = `+${formatCurrency(extra.amount)}`;
-      if (extraDescriptionEl) {
-        extraDescriptionEl.textContent = extra.description || 'Sin descripción';
-        extraDescriptionEl.title = extra.description;
-        extraDescriptionEl.classList.toggle('italic', !extra.description);
-      }
+  /** Índice del monto que se está editando; null = agregando uno nuevo */
+  let editingExtra: number | null = null;
+
+  function renderExtras(extras: PosExtraCharge[] = readPosExtras()) {
+    if (!extraList) return;
+    extraList.classList.toggle('hidden', extras.length === 0);
+    if (extraLabel) {
+      extraLabel.textContent = extras.length > 1
+        ? `Montos adicionales (${formatCurrency(extrasTotal(extras))})`
+        : 'Monto adicional';
     }
+    if (addExtraBtn) addExtraBtn.classList.toggle('hidden', extras.length >= POS_EXTRA_MAX_ITEMS);
+
+    // Se arma con DOM (no innerHTML) porque la descripción la escribe el usuario
+    extraList.replaceChildren(...extras.map((x, i) => {
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-2 rounded-lg bg-green-50 pl-2 pr-1 py-1';
+
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.dataset.extraEdit = String(i);
+      edit.title = 'Editar monto';
+      edit.className = 'flex min-w-0 flex-1 items-center justify-between gap-2 text-left';
+      const desc = document.createElement('span');
+      desc.className = `truncate text-xs ${x.description ? 'text-gray-700' : 'italic text-gray-400'}`;
+      desc.textContent = x.description || 'Sin descripción';
+      desc.title = x.description;
+      const amount = document.createElement('span');
+      amount.className = 'flex-shrink-0 text-xs md:text-sm font-semibold text-green-700';
+      amount.textContent = `+${formatCurrency(x.amount)}`;
+      edit.append(desc, amount);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.dataset.extraRemove = String(i);
+      remove.setAttribute('aria-label', `Quitar ${x.description || 'monto'}`);
+      remove.className = 'flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors';
+      remove.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+      li.append(edit, remove);
+      return li;
+    }));
   }
 
   function updateExtraCount() {
     if (extraDescCount && extraDescInput) extraDescCount.textContent = `${extraDescInput.value.length}/${POS_EXTRA_DESCRIPTION_MAX}`;
   }
 
-  const handleOpenExtra = (e: Event) => {
-    e.preventDefault();
+  function openExtraDialog(index: number | null) {
     if (!extraDialog) return;
-    const current = readPosExtra();
+    const current = index != null ? readPosExtras()[index] : undefined;
+    editingExtra = current ? index : null;
+    if (extraDialogTitle) extraDialogTitle.textContent = current ? 'Editar monto' : 'Agregar monto';
     if (extraAmountInput) extraAmountInput.value = current ? String(current.amount) : '';
     if (extraDescInput) extraDescInput.value = current?.description ?? '';
     extraError?.classList.add('hidden');
     updateExtraCount();
     extraDialog.showModal();
     setTimeout(() => extraAmountInput?.focus(), 50);
+  }
+
+  const handleOpenExtra = (e: Event) => { e.preventDefault(); openExtraDialog(null); };
+
+  const handleExtraListClick = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const editBtn = target.closest<HTMLElement>('[data-extra-edit]');
+    const removeBtn = target.closest<HTMLElement>('[data-extra-remove]');
+    if (editBtn) {
+      openExtraDialog(Number(editBtn.dataset.extraEdit));
+    } else if (removeBtn) {
+      const extras = readPosExtras();
+      const [removed] = extras.splice(Number(removeBtn.dataset.extraRemove), 1);
+      savePosExtras(extras);
+      renderCart();
+      if (removed) Toast.info('Monto quitado', removed.description || formatCurrency(removed.amount));
+    }
   };
 
   const handleSaveExtra = (e: Event) => {
@@ -421,21 +452,19 @@ function initializePOS() {
       return;
     }
     const description = (extraDescInput?.value || '').trim();
-    savePosExtra({ amount, description });
+    const extras = readPosExtras();
+    const isEdit = editingExtra != null && extras[editingExtra] !== undefined;
+    if (isEdit) extras[editingExtra!] = { amount, description };
+    else extras.push({ amount, description });
+    savePosExtras(extras);
+    editingExtra = null;
     extraDialog?.close();
     renderCart();
-    Toast.success('Monto adicional agregado', `${formatCurrency(amount)}${description ? ` · ${description}` : ''}`);
+    Toast.success(isEdit ? 'Monto actualizado' : 'Monto agregado', `${formatCurrency(amount)}${description ? ` · ${description}` : ''}`);
   };
 
-  const handleCancelExtra = () => extraDialog?.close();
-  const handleExtraBackdrop = (e: Event) => { if (e.target === extraDialog) extraDialog?.close(); };
-
-  const handleRemoveExtra = (e: Event) => {
-    e.preventDefault();
-    savePosExtra(null);
-    renderCart();
-    Toast.info('Monto adicional quitado');
-  };
+  const handleCancelExtra = () => { editingExtra = null; extraDialog?.close(); };
+  const handleExtraBackdrop = (e: Event) => { if (e.target === extraDialog) handleCancelExtra(); };
 
   // ==========================================
   // FUNCIONES DE CARRITO MÓVIL
@@ -880,10 +909,10 @@ function initializePOS() {
     }
     
     const subtotal = POSState.cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
-    const extra = readPosExtra();
+    const extras = readPosExtras();
     subtotalAmount.textContent = formatCurrency(subtotal);
-    totalAmount.textContent = formatCurrency(subtotal + (extra?.amount ?? 0));
-    renderExtra(extra);
+    totalAmount.textContent = formatCurrency(subtotal + extrasTotal(extras));
+    renderExtras(extras);
     
     updateMobileCartCount();
   }
@@ -918,7 +947,7 @@ function initializePOS() {
 
     if (confirmed) {
       POSState.cart = [];
-      savePosExtra(null); // el monto adicional es de esta venta
+      clearPosExtras(); // los montos adicionales son de esta venta
       updateAndSaveCart();
       Toast.success('Carrito vaciado');
     }
@@ -1155,8 +1184,7 @@ function initializePOS() {
   clearCartBtnDesktop?.addEventListener('click', handleClearCart);
   checkoutButton?.addEventListener('click', handleCheckout);
   addExtraBtn?.addEventListener('click', handleOpenExtra);
-  editExtraBtn?.addEventListener('click', handleOpenExtra);
-  removeExtraBtn?.addEventListener('click', handleRemoveExtra);
+  extraList?.addEventListener('click', handleExtraListClick);
   extraForm?.addEventListener('submit', handleSaveExtra);
   extraDescInput?.addEventListener('input', updateExtraCount);
   extraDialog?.addEventListener('click', handleExtraBackdrop);
@@ -1187,8 +1215,7 @@ function initializePOS() {
     clearCartBtnDesktop?.removeEventListener('click', handleClearCart);
     checkoutButton?.removeEventListener('click', handleCheckout);
     addExtraBtn?.removeEventListener('click', handleOpenExtra);
-    editExtraBtn?.removeEventListener('click', handleOpenExtra);
-    removeExtraBtn?.removeEventListener('click', handleRemoveExtra);
+    extraList?.removeEventListener('click', handleExtraListClick);
     extraForm?.removeEventListener('submit', handleSaveExtra);
     extraDescInput?.removeEventListener('input', updateExtraCount);
     extraDialog?.removeEventListener('click', handleExtraBackdrop);

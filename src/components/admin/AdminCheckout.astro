@@ -98,9 +98,9 @@ const clientsList: Client[] = clientsData?.clients || [];
         </div>
         <!-- Monto adicional: se captura en el POS (Vender) y llega aquí con el carrito -->
         <div id="additional-amount-summary-row" class="flex justify-between items-start gap-3 hidden">
-            <div class="min-w-0">
-              <span class="text-gray-500">Monto adicional</span>
-              <p id="summary-additional-amount-desc" class="text-xs text-gray-500 break-words"></p>
+            <div class="min-w-0 flex-1">
+              <span id="summary-additional-amount-label" class="text-gray-500">Monto adicional</span>
+              <ul id="summary-additional-amount-list" class="mt-0.5 space-y-0.5 text-xs text-gray-500"></ul>
               <a href="/admin/sale" class="text-xs font-medium text-yellow-600 hover:underline">Cambiar en Vender</a>
             </div>
             <span id="summary-additional-amount-text" class="bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-md flex-shrink-0"></span>
@@ -205,7 +205,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   import 'sweetalert2/dist/sweetalert2.min.css';
   import { navigate } from 'astro:transitions/client';
   import { generateAndPrintTicket} from '@/services/ticketGenerator';
-  import { readPosExtra, savePosExtra } from '@/utils/pos-extra';
+  import { readPosExtras, clearPosExtras, extrasTotal } from '@/utils/pos-extra';
   import { optimizeImage, IMG_WIDTH } from '@/utils/images';
   import { actions } from 'astro:actions';
 
@@ -240,10 +240,9 @@ const clientsList: Client[] = clientsData?.clients || [];
   }
 
   function initializeCheckout() {
-    // Monto adicional capturado en el POS (con su descripción para el ticket)
-    const posExtra = readPosExtra();
-    const additionalAmount = posExtra?.amount ?? 0;
-    const additionalDescription = posExtra?.description ?? '';
+    // Montos adicionales capturados en el POS (cada uno con su descripción para el ticket)
+    const posExtras = readPosExtras();
+    const additionalAmount = extrasTotal(posExtras);
     let discountInfo = {
       amount: 0,
       type: null as 'fixed' | 'percentage' | null,
@@ -282,7 +281,8 @@ const clientsList: Client[] = clientsData?.clients || [];
 
     const additionalAmountSummaryRowEl = document.getElementById('additional-amount-summary-row');
     const summaryAdditionalAmountTextEl = document.getElementById('summary-additional-amount-text');
-    const summaryAdditionalAmountDescEl = document.getElementById('summary-additional-amount-desc');
+    const summaryAdditionalAmountListEl = document.getElementById('summary-additional-amount-list');
+    const summaryAdditionalAmountLabelEl = document.getElementById('summary-additional-amount-label');
 
     // ACTUALIZADO: Permite stocks negativos
     async function updateProductStock() {
@@ -328,7 +328,26 @@ const clientsList: Client[] = clientsData?.clients || [];
           const hasExtra = additionalAmount > 0;
           additionalAmountSummaryRowEl.classList.toggle('hidden', !hasExtra);
           summaryAdditionalAmountTextEl.textContent = hasExtra ? `+${formatCurrency(additionalAmount)}` : '';
-          if (summaryAdditionalAmountDescEl) summaryAdditionalAmountDescEl.textContent = additionalDescription;
+          if (summaryAdditionalAmountLabelEl) {
+            summaryAdditionalAmountLabelEl.textContent = posExtras.length > 1 ? 'Montos adicionales' : 'Monto adicional';
+          }
+          // Con DOM (no innerHTML): la descripción la escribe el usuario
+          summaryAdditionalAmountListEl?.replaceChildren(...posExtras.map(x => {
+            const li = document.createElement('li');
+            li.className = 'flex justify-between gap-2';
+            const d = document.createElement('span');
+            d.className = `truncate ${x.description ? '' : 'italic'}`;
+            d.textContent = x.description || 'Sin descripción';
+            d.title = x.description;
+            li.append(d);
+            if (posExtras.length > 1) {
+              const a = document.createElement('span');
+              a.className = 'flex-shrink-0';
+              a.textContent = formatCurrency(x.amount);
+              li.append(a);
+            }
+            return li;
+          }));
       }
       
       if (discountApplyRowEl && discountSummaryRowEl && summaryDiscountTextEl) {
@@ -567,9 +586,9 @@ const clientsList: Client[] = clientsData?.clients || [];
         const orderData = {
           clientId,
           customerEmail,
-          // Venta de mostrador: sin dirección. Se guarda aquí la descripción
-          // del monto adicional para poder reimprimir el ticket igual.
-          shippingAddress: additionalDescription ? { additionalChargeDescription: additionalDescription } : {},
+          // Venta de mostrador: sin dirección. Se guardan aquí los montos
+          // adicionales con su descripción para poder reimprimir el ticket igual.
+          shippingAddress: posExtras.length ? { extraCharges: posExtras } : {},
           products: cart.map(item => ({ 
             id: item.productId,
             variantId: item.variantId || null,
@@ -611,7 +630,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         }
         
         localStorage.removeItem('admin-pos-cart');
-        savePosExtra(null);
+        clearPosExtras();
 
         const storeInfo = { 
           name: "Broquelizate", 
@@ -659,7 +678,7 @@ const clientsList: Client[] = clientsData?.clients || [];
               observationsText,
               receivedForTicket,
               changeForTicket,
-              additionalDescription
+              posExtras
             );
           }
           Swal.close();
@@ -688,7 +707,7 @@ const clientsList: Client[] = clientsData?.clients || [];
       }).then((result: SweetAlertResult) => {
         if (result.isConfirmed) {
           localStorage.removeItem('admin-pos-cart');
-          savePosExtra(null);
+          clearPosExtras();
           Swal.close();
           navigate('/admin/sale')
         }

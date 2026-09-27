@@ -53,8 +53,11 @@ export const generateAndPrintTicket = async (
   observations?: string,
   amountReceived?: number,
   change?: number,
-  /** Descripción del monto agregado (p. ej. "Perforación de hélix") */
-  addedMountDescription?: string
+  /**
+   * Detalle del monto agregado: la lista de montos del POS
+   * ([{ amount, description }]) o, en tickets viejos, solo una descripción.
+   */
+  addedMountDetail?: string | { amount: number; description: string }[]
 ): Promise<void> => {
   try {
     const logoUrl = '/assets/Broquelizate-logos/logo-relleno-negro.png';
@@ -79,13 +82,29 @@ export const generateAndPrintTicket = async (
     }
 
     if (addedMount && addedMount > 0) {
+      const extras = Array.isArray(addedMountDetail)
+        ? addedMountDetail.filter(x => Number(x?.amount) > 0)
+        : [];
+      const singleDescription = typeof addedMountDetail === 'string'
+        ? addedMountDetail.trim()
+        : extras.length === 1 ? (extras[0].description || '').trim() : '';
+
       totalsBody.push([
-        { text: 'Monto Agregado:', style: 'totalLabel', alignment: 'right' }, 
+        { text: extras.length > 1 ? 'Montos Agregados:' : 'Monto Agregado:', style: 'totalLabel', alignment: 'right' },
         { text: `$${addedMount.toFixed(2)}`, style: 'addedAmount', alignment: 'right' }
       ]);
-      if (addedMountDescription && addedMountDescription.trim()) {
+
+      if (extras.length > 1) {
+        // Un renglón por monto: descripción a la izquierda, importe a la derecha
+        extras.forEach(x => {
+          totalsBody.push([
+            { text: x.description?.trim() || 'Monto agregado', style: 'addedDescription', alignment: 'right', margin: [0, -2, 0, 0] },
+            { text: `$${Number(x.amount).toFixed(2)}`, style: 'addedItemAmount', alignment: 'right', margin: [0, -2, 0, 0] }
+          ]);
+        });
+      } else if (singleDescription) {
         totalsBody.push([
-          { text: addedMountDescription.trim(), style: 'addedDescription', alignment: 'right', colSpan: 2, margin: [0, -2, 0, 2] } as Content,
+          { text: singleDescription, style: 'addedDescription', alignment: 'right', colSpan: 2, margin: [0, -2, 0, 2] } as Content,
           ''
         ]);
       }
@@ -216,6 +235,7 @@ export const generateAndPrintTicket = async (
         paymentMethodLabel: { fontSize: 9, color: '#000' },
         paymentMethodAmount: { fontSize: 9, color: '#000' },
         addedDescription: { fontSize: 8, italics: true, color: '#333333' },
+        addedItemAmount: { fontSize: 8, color: '#333333' },
         observationsLabel: { fontSize: 10, bold: true, italics: true },
         observationsText: { fontSize: 9, color: '#000' },
         footer: { fontSize: 10, italics: true },

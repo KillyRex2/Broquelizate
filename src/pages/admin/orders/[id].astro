@@ -4,6 +4,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import { db, orders, order_items } from 'astro:db';
 import { eq } from 'drizzle-orm';
 import { actions } from 'astro:actions';
+import { normalizeExtras } from '@/utils/pos-extra';
 
 interface ShippingAddress {
   streetAddress: string;
@@ -75,8 +76,10 @@ const isPickup = (order as any).deliveryMethod === 'pickup';
 const pickupName: string = rawAddress.pickupName || rawAddress.name || '';
 const pickupPhone: string = rawAddress.phone || '';
 
-// Descripción del monto adicional (ventas del POS; se guarda en shippingAddress)
-const additionalChargeDescription: string = rawAddress.additionalChargeDescription || '';
+// Montos adicionales de ventas del POS (se guardan en shippingAddress).
+// extraCharges = lista [{ amount, description }]; additionalChargeDescription = formato de un solo monto.
+const extraChargesDetail = normalizeExtras(rawAddress.extraCharges ?? []);
+const legacyChargeDescription: string = rawAddress.additionalChargeDescription || '';
 
 // shippingCost = lo que pagó el cliente · labelCost = lo que costó la guía en Envia
 const labelCost = (order as any).labelCost as number | null | undefined;
@@ -117,7 +120,7 @@ const statusLabels: Record<string, string> = {
   <div id="payment-method-data" style="display:none;">{order.paymentMethod || 'Desconocido'}</div>
   <div id="discount-data" style="display:none;">{discount}</div>
   <div id="additional-charges-data" style="display:none;">{additionalCharges}</div>
-  <div id="additional-charge-desc-data" style="display:none;">{additionalChargeDescription}</div>
+  <div id="additional-charge-desc-data" style="display:none;">{extraChargesDetail.length ? JSON.stringify(extraChargesDetail) : legacyChargeDescription}</div>
 
   {/* Datos para gestión de envíos */}
   <div id="order-data" style="display:none;"
@@ -202,8 +205,14 @@ const statusLabels: Record<string, string> = {
             {additionalCharges > 0 && (
               <div class="t-row">
                 <span>
-                  Monto adicional
-                  {additionalChargeDescription && <small style="display:block;font-size:0.75rem;opacity:0.7;">{additionalChargeDescription}</small>}
+                  {extraChargesDetail.length > 1 ? 'Montos adicionales' : 'Monto adicional'}
+                  {extraChargesDetail.length > 0
+                    ? extraChargesDetail.map(x => (
+                        <small style="display:block;font-size:0.75rem;opacity:0.7;">
+                          {x.description || 'Sin descripción'}{extraChargesDetail.length > 1 && ` · ${formatCurrency(x.amount)}`}
+                        </small>
+                      ))
+                    : legacyChargeDescription && <small style="display:block;font-size:0.75rem;opacity:0.7;">{legacyChargeDescription}</small>}
                 </span>
                 <span class="t-val">{formatCurrency(additionalCharges)}</span>
               </div>
@@ -787,7 +796,12 @@ const statusLabels: Record<string, string> = {
       const paymentMethod = paymentMethodDataEl ? paymentMethodDataEl.textContent || 'Desconocido' : 'Desconocido';
       const discountValue = discountDataEl ? parseFloat(discountDataEl.textContent || '0') : 0;
       const additionalChargesValue = additionalChargesDataEl ? parseFloat(additionalChargesDataEl.textContent || '0') : 0;
-      const additionalChargeDescription = (document.getElementById('additional-charge-desc-data')?.textContent || '').trim();
+      // Lista de montos (JSON) o, en pedidos del formato anterior, solo la descripción
+      const rawChargeDetail = (document.getElementById('additional-charge-desc-data')?.textContent || '').trim();
+      let additionalChargeDetail: string | { amount: number; description: string }[] | undefined = rawChargeDetail || undefined;
+      if (rawChargeDetail.startsWith('[')) {
+        try { additionalChargeDetail = JSON.parse(rawChargeDetail); } catch {}
+      }
 
       const printBtn = document.getElementById('print-ticket-btn');
       printBtn?.addEventListener('click', () => {
@@ -808,7 +822,7 @@ const statusLabels: Record<string, string> = {
           undefined,
           undefined,
           undefined,
-          additionalChargeDescription || undefined
+          additionalChargeDetail
         );
       });
 
