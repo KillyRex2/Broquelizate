@@ -1,0 +1,178 @@
+---
+// src/components/admin/UserList.astro
+// Cuentas registradas en la tienda: rol, pedidos y total comprado.
+import { actions } from 'astro:actions';
+
+const { data, error } = await Astro.callAction(actions.getAllUsers, {});
+const users = data?.users ?? [];
+const roles = data?.roles ?? [];
+
+const money = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+const date = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const initials = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '?';
+
+const admins = users.filter(u => u.rol === 'admin').length;
+const buyers = users.filter(u => u.ordersCount > 0).length;
+
+const roleBadge: Record<string, string> = {
+  admin: 'bg-yellow-100 text-yellow-800 ring-yellow-300',
+  worker: 'bg-blue-100 text-blue-800 ring-blue-300',
+};
+const roleLabel: Record<string, string> = { admin: 'Administrador', worker: 'Trabajador', user: 'Cliente' };
+const labelFor = (r: { id: string; name: string }) => roleLabel[r.id] ?? r.name;
+---
+
+<div class="rounded-2xl bg-white shadow overflow-hidden">
+  {/* Encabezado */}
+  <div class="flex flex-col gap-4 p-5 border-b border-gray-100 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h2 class="text-xl font-bold text-gray-800">Cuentas registradas</h2>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {users.length} usuario{users.length === 1 ? '' : 's'} · {admins} admin{admins === 1 ? '' : 's'} · {buyers} con compras
+      </p>
+    </div>
+    <div class="relative">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input id="user-search" type="search" placeholder="Buscar nombre, correo o teléfono"
+        class="w-full md:w-80 rounded-full border border-gray-300 py-2.5 pl-9 pr-4 text-sm text-gray-800 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition" />
+    </div>
+  </div>
+
+  {error ? (
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 m-4 rounded-md">
+      <p class="text-sm text-red-700">No se pudieron cargar los usuarios: {error.message}</p>
+    </div>
+  ) : users.length === 0 ? (
+    <div class="text-center py-14 text-gray-500">Todavía no hay cuentas registradas.</div>
+  ) : (
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="table-header">Usuario</th>
+            <th class="table-header">Teléfono</th>
+            <th class="table-header">Registro</th>
+            <th class="table-header text-right">Pedidos</th>
+            <th class="table-header text-right">Total comprado</th>
+            <th class="table-header">Rol</th>
+          </tr>
+        </thead>
+        <tbody id="user-list-body" class="bg-white divide-y divide-gray-100">
+          {users.map(u => (
+            <tr class="user-row hover:bg-gray-50 transition-colors"
+                data-search={`${u.name} ${u.email} ${u.phone ?? ''}`.toLowerCase()}>
+              <td class="table-cell">
+                <div class="flex items-center gap-3">
+                  <span class={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${u.rol === 'admin' ? 'bg-yellow-400 text-gray-900' : 'bg-gray-100 text-gray-600'}`}>
+                    {initials(u.name)}
+                  </span>
+                  <div class="min-w-0">
+                    <p class="font-medium text-gray-900">
+                      {u.name}
+                      {u.isYou && <span class="ml-1.5 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white align-middle">Tú</span>}
+                    </p>
+                    <a href={`mailto:${u.email}`} class="text-xs text-gray-500 hover:text-yellow-700">{u.email}</a>
+                  </div>
+                </div>
+              </td>
+              <td class="table-cell text-gray-600">
+                {u.phone ? <a href={`tel:${u.phone.replace(/\s+/g, '')}`} class="hover:text-yellow-700">{u.phone}</a> : '—'}
+              </td>
+              <td class="table-cell text-gray-500">{date(u.createdAt)}</td>
+              <td class="table-cell text-right text-gray-700">{u.ordersCount}</td>
+              <td class="table-cell text-right font-medium text-gray-900">{u.totalSpent > 0 ? money(u.totalSpent) : '—'}</td>
+              <td class="table-cell">
+                {u.isYou ? (
+                  <span class={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${roleBadge[u.rol] ?? 'bg-gray-100 text-gray-700 ring-gray-300'}`}>
+                    {roleLabel[u.rol] ?? u.roleName}
+                  </span>
+                ) : (
+                  <select
+                    class="role-select rounded-full border border-gray-300 bg-white py-1.5 pl-3 pr-8 text-sm text-gray-800 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none cursor-pointer"
+                    data-user-id={u.id}
+                    data-user-name={u.name}
+                    data-current={u.rol}
+                    aria-label={`Rol de ${u.name}`}
+                  >
+                    {roles.map(r => <option value={r.id} selected={r.id === u.rol}>{labelFor(r)}</option>)}
+                  </select>
+                )}
+              </td>
+            </tr>
+          ))}
+          <tr id="user-no-results" class="hidden">
+            <td colspan="6" class="px-6 py-10 text-center text-sm text-gray-500">Ningún usuario coincide con la búsqueda.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
+
+<style>
+  .table-header { @apply px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider; }
+  .table-cell { @apply px-6 py-4 whitespace-nowrap text-sm; }
+</style>
+
+<script>
+  import { actions } from 'astro:actions';
+  import { Confirm, Toast, Alert } from '@/utils/alerts';
+
+  function setupUserList() {
+    const body = document.getElementById('user-list-body');
+    if (!body || body.dataset.bound === '1') return;
+    body.dataset.bound = '1';
+
+    // ── Búsqueda ──
+    const search = document.getElementById('user-search') as HTMLInputElement | null;
+    const noResults = document.getElementById('user-no-results');
+    search?.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      let visible = 0;
+      body.querySelectorAll<HTMLTableRowElement>('tr.user-row').forEach(row => {
+        const show = !q || (row.dataset.search || '').includes(q);
+        row.classList.toggle('hidden', !show);
+        if (show) visible++;
+      });
+      noResults?.classList.toggle('hidden', visible > 0);
+    });
+
+    // ── Cambio de rol ──
+    body.addEventListener('change', async (e) => {
+      const select = e.target as HTMLSelectElement;
+      if (!select.matches('.role-select')) return;
+
+      const { userId, userName, current } = select.dataset;
+      const newRole = select.value;
+      const newLabel = select.selectedOptions[0]?.textContent?.trim() || newRole;
+      if (!userId || newRole === current) return;
+
+      const confirmed = await Confirm.show({
+        title: '¿Cambiar rol?',
+        message: newRole === 'admin'
+          ? `${userName} tendrá acceso completo al panel de administración.`
+          : `${userName} pasará a ser ${newLabel}.`,
+        confirmText: 'Sí, cambiar',
+        cancelText: 'Cancelar',
+        type: newRole === 'admin' || current === 'admin' ? 'danger' : 'warning',
+      });
+      if (!confirmed) { select.value = current || ''; return; }
+
+      select.disabled = true;
+      const { error } = await actions.updateUserRole({ userId, roleId: newRole });
+      select.disabled = false;
+
+      if (error) {
+        select.value = current || '';
+        await Alert.error('No se pudo cambiar el rol', error.message);
+        return;
+      }
+      select.dataset.current = newRole;
+      Toast.success('Rol actualizado', `${userName}: ${newLabel}`);
+    });
+  }
+
+  document.addEventListener('astro:page-load', setupUserList);
+</script>

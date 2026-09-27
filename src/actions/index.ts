@@ -12,6 +12,7 @@ import { subscribeToNewsletter } from "./newsletter/newsletter.action";
 import { createBatchVariants, generateVariantCombinations, updateCombinationStock, getGroupedProductVariants, deleteVariant, deleteVariantGroup, updateVariant, getVariantCombination, updateVariantGroup, uploadCombinationImage, deleteCombinationImage } from "./admin/product-variants.action";
 import {createShippingLabel, trackShipment, getUserShipments, getShippingRates, updateOrderStatus, updateOrderShippingAddress, updateShippingAddress, getUserProfile, updateUserProfile, getUserProfileByEmail} from './envia/envia.action';
 import { getSalesStats } from "./admin/get-sales-stats.action";
+import { getAllUsers, updateUserRole } from "./admin/get-all-users";
 import { createCollection, updateCollection, toggleCollection, deleteCollection, reorderCollections, getCollectionProducts, setCollectionProducts, listCollections, searchAdminProducts, getProductsByIds, getFilterOptions } from "./admin/collections.action"
 import type { set } from "date-fns";
 
@@ -47,6 +48,10 @@ export const server = {
     uploadCustomizationImage,
     toggleFeaturedProduct,
     getSalesStats,
+
+    // Admin Users
+    getAllUsers,
+    updateUserRole,
 
     // Admin Client
     updateClient,
