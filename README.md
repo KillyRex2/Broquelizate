@@ -1,9 +1,9 @@
-![Logo Broquelizate](/public/assets/Broquelizate-logos/logo-contornos.png)
+![Logo Broquelízate](/public/assets/Broquelizate-logos/logo-contornos.png)
 
 
 
 **Tienda de Joyería y Perforaciones**  
-El repositorio oficial de Broquelizate, un e-commerce construido 100% con **Astro** para ofrecer joyería única y un servicio de perforaciones profesional.
+El repositorio oficial de Broquelízate, un e-commerce construido 100% con **Astro** para ofrecer joyería única y un servicio de perforaciones profesional.
 
 ---
 
@@ -30,7 +30,7 @@ El repositorio oficial de Broquelizate, un e-commerce construido 100% con **Astr
 
 - **Framework**: [Astro](https://astro.build)  
 - **Estilos**: Tailwind CSS  
-- **Componentes**: React (integrados en Astro)  
+- **Componentes**: React / Preact (integrados en Astro)  
 - **E-commerce**: Stripe, PayPal SDKs  
 - **State & Cookies**: js-cookie, localStorage  
-- **Back-end (en desarrollo)**: Astro actions
+- **Back-end (en desarrollo)**: Node.js + Expres
