@@ -1,0 +1,193 @@
+---
+// src/components/admin/ClientList.astro
+// Lee los clientes directo de la base. Antes se pedían a /api/get-clients
+// con un fetch desde el servidor que no llevaba la cookie de sesión, así
+// que la API respondía "No autorizado" y la tabla nunca aparecía.
+import { db, Client } from 'astro:db';
+
+let clients: Array<{
+  id: number;
+  nombre: string;
+  clave_elector: string | null;
+  saldo_actual: number;
+  observaciones: string | null;
+  telefono: string | null;
+}> = [];
+let error: string | null = null;
+
+try {
+  clients = (await db.select().from(Client)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+} catch (e) {
+  console.error('Error cargando clientes:', e);
+  error = 'No se pudieron cargar los clientes. Recarga la página.';
+}
+
+const money = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+const withBalance = clients.filter(c => (c.saldo_actual || 0) > 0);
+const totalDebt = withBalance.reduce((s, c) => s + (c.saldo_actual || 0), 0);
+---
+
+<div class="rounded-2xl bg-white shadow overflow-hidden">
+  {/* Encabezado */}
+  <div class="flex flex-col gap-4 p-5 border-b border-gray-100 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h2 class="text-xl font-bold text-gray-800">Lista de clientes</h2>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {clients.length} cliente{clients.length === 1 ? '' : 's'}
+        {withBalance.length > 0 && <> · <span class="text-red-600 font-medium">{money(totalDebt)} por cobrar</span> ({withBalance.length} con saldo)</>}
+      </p>
+    </div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input id="client-search" type="search" placeholder="Buscar nombre, teléfono o clave"
+          class="w-full sm:w-72 rounded-full border border-gray-300 py-2.5 pl-9 pr-4 text-sm text-gray-800 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition" />
+      </div>
+      <button type="button" id="open-create-client"
+        class="inline-flex items-center justify-center gap-2 rounded-full bg-yellow-500 px-5 py-2.5 text-sm font-semibold text-gray-900 shadow-sm hover:bg-yellow-400 transition">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        Nuevo cliente
+      </button>
+    </div>
+  </div>
+
+  {error ? (
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 m-4 rounded-md">
+      <p class="text-sm text-red-700">{error}</p>
+    </div>
+  ) : clients.length === 0 ? (
+    <div class="text-center py-14">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+      <h3 class="mt-2 text-lg font-medium text-gray-900">No hay clientes registrados</h3>
+      <p class="mt-1 text-sm text-gray-500">Agrega tu primer cliente con el botón “Nuevo cliente”.</p>
+    </div>
+  ) : (
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="table-header">Nombre</th>
+            <th class="table-header">Teléfono</th>
+            <th class="table-header">Clave de elector</th>
+            <th class="table-header text-right">Saldo</th>
+            <th class="table-header text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="client-list-body" class="bg-white divide-y divide-gray-100">
+          {clients.map(client => (
+            <tr
+              id={`client-row-${client.id}`}
+              class="client-row hover:bg-gray-50 transition-colors"
+              data-search={`${client.nombre} ${client.telefono ?? ''} ${client.clave_elector ?? ''}`.toLowerCase()}
+            >
+              <td class="table-cell">
+                <p class="font-medium text-gray-900">{client.nombre}</p>
+                {client.observaciones && <p class="text-xs text-gray-500 truncate max-w-xs" title={client.observaciones}>{client.observaciones}</p>}
+              </td>
+              <td class="table-cell text-gray-600">
+                {client.telefono
+                  ? <a href={`tel:${client.telefono.replace(/\s+/g, '')}`} class="hover:text-yellow-700">{client.telefono}</a>
+                  : '—'}
+              </td>
+              <td class="table-cell text-gray-500 font-mono text-xs">{client.clave_elector || '—'}</td>
+              <td class="table-cell text-right">
+                <span class={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full ${(client.saldo_actual || 0) > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                  {(client.saldo_actual || 0) > 0 ? money(client.saldo_actual) : 'Sin adeudo'}
+                </span>
+              </td>
+              <td class="table-cell text-right">
+                <div class="inline-flex items-center gap-2">
+                  <a href={`/admin/client/${client.id}`} class="rounded-full px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 transition">Editar</a>
+                  <button type="button"
+                    class="delete-btn rounded-full px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition"
+                    data-client-id={client.id}
+                    data-client-name={client.nombre}>
+                    Eliminar
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          <tr id="client-no-results" class="hidden">
+            <td colspan="5" class="px-6 py-10 text-center text-sm text-gray-500">Ningún cliente coincide con la búsqueda.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
+
+<style>
+  .table-header { @apply px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider; }
+  .table-cell { @apply px-6 py-4 whitespace-nowrap text-sm; }
+  .fade-out {
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    opacity: 0;
+    transform: translateX(20px);
+  }
+</style>
+
+<script>
+  // Alertas propias: SweetAlert2 pierde su CSS con View Transitions
+  import { Confirm, Toast, Alert } from '@/utils/alerts';
+
+  function setupClientList() {
+    const body = document.getElementById('client-list-body');
+    const search = document.getElementById('client-search') as HTMLInputElement | null;
+    if (!body || body.dataset.bound === '1') return;
+    body.dataset.bound = '1';
+
+    // ── Búsqueda (en el navegador, sin recargar) ──
+    const noResults = document.getElementById('client-no-results');
+    search?.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      let visible = 0;
+      body.querySelectorAll<HTMLTableRowElement>('tr.client-row').forEach(row => {
+        const show = !q || (row.dataset.search || '').includes(q);
+        row.classList.toggle('hidden', !show);
+        if (show) visible++;
+      });
+      noResults?.classList.toggle('hidden', visible > 0);
+    });
+
+    // ── Eliminar ──
+    body.addEventListener('click', async (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLButtonElement>('.delete-btn');
+      if (!button) return;
+      const { clientId, clientName } = button.dataset;
+      if (!clientId) return;
+
+      const confirmed = await Confirm.show({
+        title: '¿Eliminar cliente?',
+        message: `Se eliminará a ${clientName}. Esta acción no se puede deshacer.`,
+        confirmText: 'Sí, eliminar',
+        cancelText: 'Cancelar',
+        type: 'danger',
+      });
+      if (!confirmed) return;
+
+      button.disabled = true;
+      try {
+        const response = await fetch('/api/delete-client.action', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `id=${encodeURIComponent(clientId)}`,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'No se pudo eliminar el cliente.');
+
+        Toast.success('Cliente eliminado', clientName);
+        const row = document.getElementById(`client-row-${clientId}`);
+        if (row) {
+          row.classList.add('fade-out');
+          setTimeout(() => row.remove(), 400);
+        }
+      } catch (err) {
+        await Alert.error('No se pudo eliminar', err instanceof Error ? err.message : 'Error desconocido');
+        button.disabled = false;
+      }
+    });
+  }
+
+  document.addEventListener('astro:page-load', setupClientList);
+</script>

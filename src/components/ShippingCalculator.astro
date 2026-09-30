@@ -1,0 +1,669 @@
+---
+// src/components/ShippingCalculator.astro
+import { STORE_PICKUP, storeAddressLine, pickupReadyText } from '@/utils/store';
+
+interface Props {
+  subtotal: number;
+  totalItems: number;
+  originPostalCode?: string;
+  /** Muestra la pestaña "Recoger en tienda". Por defecto, lo que diga la config. */
+  allowPickup?: boolean;
+}
+
+const { subtotal, totalItems, originPostalCode = STORE_PICKUP.postalCode, allowPickup = STORE_PICKUP.enabled } = Astro.props;
+const estimatedWeight = Math.max(0.5, totalItems * 0.05);
+
+// Huella del carrito: si cambia, la cotización/selección guardada ya no sirve.
+const cartKey = `${totalItems}:${subtotal}`;
+
+const storeData = {
+  name: STORE_PICKUP.name,
+  address: storeAddressLine(),
+  postalCode: STORE_PICKUP.postalCode,
+  readyInDays: STORE_PICKUP.readyInDays,
+};
+---
+
+<div class="shipping-calc-card">
+  <div class="calc-header">
+    <div class="calc-icon">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+      </svg>
+    </div>
+    <div>
+      <h3 class="calc-title">Método de entrega</h3>
+      <p class="calc-subtitle" id="calc-subtitle">{allowPickup ? 'Envío a domicilio o recoge en tienda' : 'Calcula tu envío según tu código postal'}</p>
+    </div>
+  </div>
+
+  {allowPickup && (
+    <div class="calc-modes" role="tablist" aria-label="Método de entrega">
+      <button type="button" class="calc-mode active" data-mode="delivery" role="tab" aria-selected="true">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+        <span>Envío a domicilio</span>
+      </button>
+      <button type="button" class="calc-mode" data-mode="pickup" role="tab" aria-selected="false">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1.5-5h15L21 9M3 9h18M3 9v11h18V9M9 20v-6h6v6"/></svg>
+        <span>Recoger en tienda</span>
+        <span class="calc-mode-pill">Gratis</span>
+      </button>
+    </div>
+  )}
+
+  <div class="calc-body" id="calc-delivery-panel">
+    <div class="calc-input-row">
+      <div class="calc-input-wrapper">
+        <input
+          type="text"
+          id="shipping-calc-postal"
+          placeholder="Código postal (5 dígitos)"
+          maxlength="5"
+          pattern="[0-9]{5}"
+          inputmode="numeric"
+          class="calc-input"
+        />
+        <div id="calc-postal-ok" class="calc-validation hidden">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+      <button id="calc-shipping-btn" type="button" class="calc-btn">
+        <span id="calc-btn-text">Cotizar</span>
+        <svg id="calc-btn-spinner" class="hidden calc-spinner" width="18" height="18" fill="none" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"></circle>
+          <path fill="currentColor" opacity="0.75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div id="calc-error" class="calc-error hidden">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      </svg>
+      <span id="calc-error-text">Error al cotizar</span>
+    </div>
+
+    <div id="calc-results" class="calc-results hidden">
+      <div class="calc-results-header">
+        <span class="calc-results-title">Opciones disponibles</span>
+        <button id="calc-clear-btn" type="button" class="calc-change-btn">Cambiar CP</button>
+      </div>
+      <div id="calc-options" class="calc-options"></div>
+    </div>
+  </div>
+
+  {allowPickup && (
+    <div class="calc-pickup hidden" id="calc-pickup-panel">
+      <div class="pickup-card">
+        <div class="pickup-row">
+          <span class="pickup-emoji">🏬</span>
+          <div class="pickup-info">
+            <span class="pickup-name">{STORE_PICKUP.name}</span>
+            <span class="pickup-address">{storeAddressLine()}</span>
+          </div>
+          <span class="pickup-badge">Gratis</span>
+        </div>
+        <div class="pickup-meta">
+          <span>🕒 {STORE_PICKUP.hours}</span>
+          <span>📦 {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
+        </div>
+        <p class="pickup-note">{STORE_PICKUP.instructions}</p>
+        {STORE_PICKUP.mapsUrl && (
+          <a href={STORE_PICKUP.mapsUrl} target="_blank" rel="noopener" class="pickup-map">Ver en Google Maps →</a>
+        )}
+      </div>
+    </div>
+  )}
+
+  <input type="hidden" id="calc-origin-cp" value={originPostalCode} />
+  <input type="hidden" id="calc-weight" value={estimatedWeight} />
+  <input type="hidden" id="calc-items-count" value={totalItems} />
+  <input type="hidden" id="calc-subtotal" value={subtotal} />
+  <input type="hidden" id="calc-cart-key" value={cartKey} />
+  {allowPickup && <script type="application/json" id="calc-store-data" set:html={JSON.stringify(storeData)} />}
+</div>
+
+<style>
+  .shipping-calc-card {
+    --lg-tint: rgba(255, 255, 255, 0.34);
+    --lg-blur: blur(6px) saturate(200%) brightness(1.04);
+    --lg-thickness:
+      inset 1.5px 1.5px 0 -0.5px rgba(255, 255, 255, 1),
+      inset -1.5px -1.5px 0 -0.5px rgba(255, 255, 255, 0.7),
+      inset 0 0 16px -4px rgba(255, 255, 255, 0.75),
+      inset 0 -14px 24px -18px rgba(0, 0, 0, 0.16),
+      0 0 0 0.5px rgba(0, 0, 0, 0.05);
+    --lg-drop: 0 6px 16px -8px rgba(0, 0, 0, 0.16), 0 20px 46px -22px rgba(0, 0, 0, 0.22);
+
+    --txt: #1c1c1e;
+    --txt-2: #55555c;
+    --txt-3: #85858c;
+    --gold: #eab308;
+    --gold-2: #f59e0b;
+    --gold-deep: #a16207;
+
+    position: relative;
+    isolation: isolate;
+    padding: 22px;
+    margin-bottom: 24px;
+    border: none;
+    border-radius: 28px;
+    background: var(--lg-tint);
+    backdrop-filter: var(--lg-blur);
+    -webkit-backdrop-filter: var(--lg-blur);
+    box-shadow: var(--lg-thickness), var(--lg-drop);
+  }
+
+  /* Anillo de refraccion */
+  .shipping-calc-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 9px;
+    backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* Reflejo especular */
+  .shipping-calc-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: linear-gradient(140deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 26%, transparent 52%, rgba(255,255,255,0.18) 100%);
+    pointer-events: none;
+  }
+  .shipping-calc-card > * { position: relative; z-index: 3; }
+
+  @supports (corner-shape: squircle) {
+    .shipping-calc-card { corner-shape: squircle; }
+  }
+
+  .calc-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.6); }
+  .calc-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); border-radius: 16px; color: var(--gold-deep); flex-shrink: 0; }
+  .calc-title { font-size: 1rem; font-weight: 700; color: var(--txt); }
+  .calc-subtitle { font-size: 0.82rem; color: var(--txt-2); margin-top: 2px; }
+
+  /* ── Selector domicilio / tienda ── */
+  .calc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; margin-bottom: 16px; background: rgba(255, 255, 255, 0.4); box-shadow: var(--lg-thickness); border-radius: 999px; }
+  .calc-mode { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 14px; background: transparent; border: none; border-radius: 999px; color: var(--txt-2); font-size: 0.86rem; font-weight: 600; cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1); white-space: nowrap; }
+  .calc-mode:hover:not(.active) { background: rgba(255, 255, 255, 0.5); color: var(--txt); }
+  .calc-mode.active { background: rgba(255, 255, 255, 0.92); color: var(--txt); box-shadow: var(--lg-thickness), 0 4px 12px -6px rgba(0, 0, 0, 0.2); }
+  .calc-mode svg { flex-shrink: 0; color: var(--gold-deep); }
+  .calc-mode-pill { font-size: 0.62rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: rgba(34, 197, 94, 0.9); color: #fff; }
+
+  .calc-body.hidden, .calc-pickup.hidden { display: none; }
+
+  /* ── Recoger en tienda ── */
+  .pickup-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 18px; background: rgba(234, 179, 8, 0.14); box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.45); }
+  .pickup-row { display: flex; align-items: center; gap: 12px; }
+  .pickup-emoji { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+  .pickup-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .pickup-name { font-weight: 700; font-size: 0.92rem; color: var(--txt); }
+  .pickup-address { font-size: 0.8rem; color: var(--txt-2); line-height: 1.4; }
+  .pickup-badge { font-size: 0.75rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(34, 197, 94, 0.9); color: #fff; white-space: nowrap; }
+  .pickup-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.8rem; color: var(--txt-2); }
+  .pickup-note { font-size: 0.78rem; color: var(--txt-3); line-height: 1.5; }
+  .pickup-map { align-self: flex-start; font-size: 0.8rem; font-weight: 600; color: var(--gold-deep); text-decoration: underline; text-underline-offset: 2px; }
+
+  .calc-body { display: flex; flex-direction: column; gap: 14px; }
+  .calc-input-row { display: flex; gap: 10px; }
+  .calc-input-wrapper { flex: 1; position: relative; min-width: 0; }
+  .calc-input { width: 100%; padding: 13px 42px 13px 18px; background: rgba(255, 255, 255, 0.7); border: none; box-shadow: var(--lg-thickness); border-radius: 999px; color: var(--txt); font-size: 0.95rem; transition: all 0.2s; }
+  .calc-input::placeholder { color: var(--txt-3); }
+  .calc-input:focus { outline: 2px solid rgba(234, 179, 8, 0.6); outline-offset: 1px; background: rgba(255, 255, 255, 0.9); }
+  .calc-validation { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #15803d; }
+  .calc-validation.hidden { display: none; }
+
+  .calc-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 24px; background: linear-gradient(140deg, rgba(255,255,255,0.5), transparent 45%), linear-gradient(135deg, var(--gold), var(--gold-2)); border: none; border-radius: 999px; color: #2a1f04; font-size: 0.9rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.25s cubic-bezier(0.34, 1.4, 0.64, 1); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.85), 0 8px 20px -10px rgba(234, 179, 8, 0.95); }
+  .calc-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.01); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.85), 0 14px 26px -12px rgba(234, 179, 8, 1); }
+  .calc-btn:active:not(:disabled) { transform: scale(0.97); }
+  .calc-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+  .calc-spinner { animation: calc-spin 1s linear infinite; }
+  .calc-spinner.hidden { display: none; }
+
+  .calc-error { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(239, 68, 68, 0.12); box-shadow: var(--lg-thickness); border-radius: 16px; color: #b91c1c; font-size: 0.82rem; }
+  .calc-error.hidden { display: none; }
+  .calc-error svg { flex-shrink: 0; }
+
+  .calc-results.hidden { display: none; }
+  .calc-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+  .calc-results-title { font-size: 0.82rem; font-weight: 600; color: var(--txt-2); }
+  .calc-change-btn { background: none; border: none; color: var(--gold-deep); font-size: 0.78rem; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 4px; }
+  .calc-change-btn:hover { color: var(--gold-2); }
+
+  .calc-options { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; padding-right: 6px; }
+  .calc-options::-webkit-scrollbar { width: 4px; }
+  .calc-options::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.04); border-radius: 2px; }
+  .calc-options::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.5); border-radius: 2px; }
+
+  /* ── Opciones de tarifa ──
+     Se inyectan por innerHTML desde el bloque de script, asi que NO
+     reciben el atributo de scope de Astro. Por eso van con :global(). */
+  .calc-options :global(.rate-opt) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border: none;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: var(--lg-thickness);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+  .calc-options :global(.rate-opt:hover) { background: rgba(255, 255, 255, 0.78); transform: translateY(-1px); }
+  .calc-options :global(.rate-opt.selected) { background: rgba(234, 179, 8, 0.18); box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.55); }
+  .calc-options :global(.rate-opt input) { display: none; }
+  .calc-options :global(.rate-emoji) { font-size: 1.4rem; line-height: 1; flex-shrink: 0; }
+  .calc-options :global(.rate-info) { flex: 1; min-width: 0; }
+  .calc-options :global(.rate-top) { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .calc-options :global(.rate-carrier) { font-weight: 700; font-size: 0.88rem; color: #1c1c1e; text-transform: capitalize; }
+  .calc-options :global(.rate-badge) { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.02em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .calc-options :global(.rate-badge.best) { background: linear-gradient(135deg, #eab308, #f59e0b); color: #2a1f04; box-shadow: inset 0 1px 0 rgba(255,255,255,0.5); }
+  .calc-options :global(.rate-badge.fast) { background: rgba(34, 197, 94, 0.9); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.35); }
+  .calc-options :global(.rate-service) { font-size: 0.78rem; color: #55555c; margin-top: 3px; }
+  .calc-options :global(.rate-days) { font-size: 0.72rem; color: #85858c; margin-top: 1px; }
+  .calc-options :global(.rate-price) { font-size: 1rem; font-weight: 800; color: #1c1c1e; white-space: nowrap; }
+  .calc-options :global(.rate-opt.selected .rate-price) { color: #a16207; }
+  .calc-options :global(.rate-strike) { color: #85858c; font-weight: 500; font-size: 0.8rem; }
+  .calc-options :global(.rate-free) { color: #15803d; font-weight: 800; }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .shipping-calc-card { background: rgba(255, 255, 255, 0.93); }
+  }
+
+  @keyframes calc-spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .calc-btn, .calc-mode, .calc-options :global(.rate-opt) { transition: none; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .shipping-calc-card { padding: 16px; border-radius: 22px; }
+    .calc-header { gap: 12px; margin-bottom: 14px; padding-bottom: 14px; }
+    .calc-icon { width: 38px; height: 38px; border-radius: 13px; }
+    .calc-title { font-size: 0.95rem; }
+    .calc-subtitle { font-size: 0.78rem; }
+    .calc-input-row { flex-direction: column; }
+    .calc-mode { padding: 10px 8px; font-size: 0.8rem; gap: 6px; }
+    .calc-mode-pill { display: none; }
+    .calc-btn { width: 100%; padding: 14px 24px; }
+    .calc-options { max-height: none; }
+    .calc-options :global(.rate-opt) { padding: 12px; gap: 10px; border-radius: 16px; flex-wrap: wrap; }
+    .calc-options :global(.rate-price) { font-size: 0.95rem; }
+  }
+  @media (max-width: 400px) {
+    .calc-options :global(.rate-emoji) { font-size: 1.2rem; }
+    .calc-options :global(.rate-carrier) { font-size: 0.84rem; }
+    .calc-options :global(.rate-badge) { font-size: 0.58rem; padding: 2px 6px; }
+  }
+</style>
+
+<script>
+  import { actions } from 'astro:actions';
+  import { packageForItems } from '@/utils/shipping';
+
+  interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
+
+  /** Lo que se guarda en localStorage y lee CheckoutForm. */
+  interface SelectedShipping {
+    method: 'delivery' | 'pickup';
+    carrier: string;
+    service: string;
+    price: number;        // lo que paga el cliente
+    carrierRate: number;  // lo que cuesta la guía (0 en tienda)
+    deliveryDays: number;
+    postalCode: string;
+    cartKey: string;
+    savedAt: number;
+    /** Cotización guardada en el servidor: de ahí sale el precio al pagar. */
+    quoteId?: string;
+  }
+
+  interface CachedQuote { cartKey: string; rates: ShippingRate[]; quotedAt: number; quoteId: string; }
+  interface QuoteResult { rates: ShippingRate[]; quoteId: string; }
+
+  const SELECTION_KEY = 'selectedShipping';
+  const LAST_DELIVERY_KEY = 'lastDeliveryChoice'; // sessionStorage: última paquetería elegida
+  const QUOTES_KEY = 'shippingQuotes';          // sessionStorage: { [cp]: CachedQuote }
+  const QUOTE_TTL_MS = 30 * 60 * 1000;         // una cotización vale 30 min
+  const MAX_CACHED_CPS = 5;
+
+  // Debe coincidir con FREE_SHIPPING_THRESHOLD de @/utils/shipping.
+  // Aquí va como constante local porque esto corre en el navegador.
+  const FREE_SHIPPING_THRESHOLD = 1099;
+
+  // ── Storage seguro (modo privado / cookies bloqueadas no rompen nada) ──
+  const store = {
+    get<T>(area: Storage | undefined, key: string): T | null {
+      try { const v = area?.getItem(key); return v ? JSON.parse(v) as T : null; } catch { return null; }
+    },
+    set(area: Storage | undefined, key: string, v: unknown) {
+      try { area?.setItem(key, JSON.stringify(v)); } catch {}
+    },
+    del(area: Storage | undefined, key: string) {
+      try { area?.removeItem(key); } catch {}
+    },
+  };
+  const LS = typeof localStorage !== 'undefined' ? localStorage : undefined;
+  const SS = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
+
+  function readQuote(cp: string, cartKey: string): QuoteResult | null {
+    const all = store.get<Record<string, CachedQuote>>(SS, QUOTES_KEY) || {};
+    const q = all[cp];
+    if (!q || !q.quoteId || q.cartKey !== cartKey || Date.now() - q.quotedAt > QUOTE_TTL_MS) return null;
+    return { rates: q.rates, quoteId: q.quoteId };
+  }
+  function writeQuote(cp: string, cartKey: string, rates: ShippingRate[], quoteId: string) {
+    const all = store.get<Record<string, CachedQuote>>(SS, QUOTES_KEY) || {};
+    all[cp] = { cartKey, rates, quotedAt: Date.now(), quoteId };
+    // Solo los CPs más recientes
+    const keep = Object.entries(all).sort((a, b) => b[1].quotedAt - a[1].quotedAt).slice(0, MAX_CACHED_CPS);
+    store.set(SS, QUOTES_KEY, Object.fromEntries(keep));
+  }
+
+  function initShippingCalculator() {
+    const _postalInput = document.getElementById('shipping-calc-postal') as HTMLInputElement | null;
+    if (!_postalInput) return;
+    const postalInput = _postalInput;
+
+    // Evita doble inicialización sobre el mismo DOM
+    if (postalInput.dataset.bound === '1') return;
+    postalInput.dataset.bound = '1';
+
+    const btn = document.getElementById('calc-shipping-btn') as HTMLButtonElement;
+    const btnText = document.getElementById('calc-btn-text');
+    const btnSpinner = document.getElementById('calc-btn-spinner');
+    const postalOk = document.getElementById('calc-postal-ok');
+    const errBox = document.getElementById('calc-error');
+    const errText = document.getElementById('calc-error-text');
+    const resultsBox = document.getElementById('calc-results');
+    const optionsBox = document.getElementById('calc-options');
+    const clearBtn = document.getElementById('calc-clear-btn');
+    const deliveryPanel = document.getElementById('calc-delivery-panel');
+    const pickupPanel = document.getElementById('calc-pickup-panel');
+    const modeBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('.calc-mode'));
+
+    const originCp = (document.getElementById('calc-origin-cp') as HTMLInputElement)?.value || '35000';
+    const itemsCount = parseInt((document.getElementById('calc-items-count') as HTMLInputElement)?.value || '0');
+    const subtotal = parseFloat((document.getElementById('calc-subtotal') as HTMLInputElement)?.value || '0');
+    const cartKey = (document.getElementById('calc-cart-key') as HTMLInputElement)?.value || `${itemsCount}:${subtotal}`;
+
+    let storeData: { name: string; address: string; postalCode: string; readyInDays: number } | null = null;
+    try { storeData = JSON.parse(document.getElementById('calc-store-data')?.textContent || 'null'); } catch {}
+    const pickupEnabled = !!storeData && !!pickupPanel;
+
+    const isFree = subtotal >= FREE_SHIPPING_THRESHOLD;
+
+    // Input de CP del formulario de dirección (lo auto-sincroniza si existe)
+    const addressCpInput = document.getElementById('postal-code') as HTMLInputElement | null;
+
+    const fmt = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+    const validCp = (cp: string) => /^\d{5}$/.test(cp);
+    const emoji = (c: string) => (({ fedex:'🚚', dhl:'📦', estafeta:'📫', redpack:'🔴', ups:'🟤', paquetexpress:'📬', '99minutos':'⚡', sendex:'✉️' } as Record<string,string>)[c.toLowerCase()] || '📦');
+    const sameRate = (r: ShippingRate, s: { carrier: string; service: string } | null) =>
+      !!s && r.carrier === s.carrier && r.service === s.service;
+
+    let loading = false;
+    let mode: 'delivery' | 'pickup' = 'delivery';
+    // Última cotización mostrada, para volver de "tienda" a "domicilio" sin re-cotizar
+    let current: { cp: string; rates: ShippingRate[]; quoteId: string } | null = null;
+
+    function setLoading(v: boolean) {
+      loading = v;
+      if (btn) btn.disabled = v;
+      if (btnText) btnText.textContent = v ? 'Cotizando...' : 'Cotizar';
+      btnSpinner?.classList.toggle('hidden', !v);
+    }
+    function showErr(msg: string) { if (errBox && errText) { errText.textContent = msg; errBox.classList.remove('hidden'); } resultsBox?.classList.add('hidden'); }
+    function hideErr() { errBox?.classList.add('hidden'); }
+
+    function publish(sel: SelectedShipping) {
+      store.set(LS, SELECTION_KEY, sel);
+      // Notifica al CheckoutForm para que actualice totales y UI
+      window.dispatchEvent(new CustomEvent('shipping:selected', { detail: sel }));
+    }
+    function clearSelection() {
+      store.del(LS, SELECTION_KEY);
+      window.dispatchEvent(new CustomEvent('shipping:cleared'));
+    }
+
+    function selectRate(r: ShippingRate, cp: string, quoteId: string) {
+      // La tarifa del carrier debe ser válida aunque al cliente no se le cobre:
+      // si viene en 0 es que la API falló, no que el envío sea gratis.
+      if (!(Number(r.totalPrice) > 0)) return;
+      store.set(SS, LAST_DELIVERY_KEY, { cp, carrier: r.carrier, service: r.service });
+      publish({
+        method: 'delivery',
+        carrier: r.carrier,
+        service: r.service,
+        price: isFree ? 0 : Number(r.totalPrice),
+        carrierRate: Number(r.totalPrice),
+        deliveryDays: r.deliveryDays,
+        postalCode: cp,
+        cartKey,
+        savedAt: Date.now(),
+        quoteId,
+      });
+    }
+
+    function selectPickup() {
+      if (!storeData) return;
+      publish({
+        method: 'pickup',
+        carrier: 'Recoger en tienda',
+        service: storeData.name,
+        price: 0,
+        carrierRate: 0,
+        deliveryDays: storeData.readyInDays,
+        postalCode: storeData.postalCode,
+        cartKey,
+        savedAt: Date.now(),
+      });
+    }
+
+    /**
+     * Pinta las tarifas. `preferred` = selección previa del usuario:
+     * si sigue existiendo se respeta; si no, se elige la más barata.
+     */
+    function render(rates: ShippingRate[], cp: string, preferred: { carrier: string; service: string } | null, quoteId: string) {
+      if (!optionsBox) return;
+
+      // Una tarifa en $0 casi siempre significa que la API respondió
+      // sin precio (cuenta sin saldo, servicio no contratado, campo
+      // distinto en la respuesta). Si se cuela, se cobra el envío en
+      // cero: mejor descartarla que vender a pérdida.
+      const valid = rates.filter(r => Number(r.totalPrice) > 0);
+      if (valid.length === 0) {
+        showErr('No pudimos obtener tarifas válidas para ese CP. Contáctanos por WhatsApp para cotizar tu envío.');
+        return;
+      }
+
+      const sorted = [...valid].sort((a, b) => a.totalPrice - b.totalPrice);
+      const minDays = Math.min(...sorted.map(x => x.deliveryDays));
+      const prefIdx = sorted.findIndex(r => sameRate(r, preferred));
+      const selectedIdx = prefIdx >= 0 ? prefIdx : 0;
+      current = { cp, rates: valid, quoteId };
+
+      const resultsTitle = resultsBox?.querySelector('.calc-results-title');
+      if (resultsTitle) {
+        resultsTitle.textContent = isFree ? '¡Tu envío es gratis! Elige paquetería' : 'Opciones disponibles';
+      }
+
+      optionsBox.innerHTML = sorted.map((r, i) => {
+        const best = i === 0;
+        const fast = r.deliveryDays === minDays && !best;
+        const sel = i === selectedIdx;
+        const days = `${r.deliveryDays} día${r.deliveryDays !== 1 ? 's' : ''} hábil${r.deliveryDays !== 1 ? 'es' : ''}`;
+        return `<label class="rate-opt${sel ? ' selected' : ''}" data-idx="${i}">
+          <input type="radio" name="calc-rate" value="${i}" ${sel ? 'checked' : ''} />
+          <span class="rate-emoji">${emoji(r.carrier)}</span>
+          <div class="rate-info">
+            <div class="rate-top">
+              <span class="rate-carrier">${r.carrier}</span>
+              ${best ? '<span class="rate-badge best">MEJOR PRECIO</span>' : ''}
+              ${fast ? '<span class="rate-badge fast">MÁS RÁPIDO</span>' : ''}
+            </div>
+            <p class="rate-service">${r.service}</p>
+            <p class="rate-days">${days}</p>
+          </div>
+          <span class="rate-price">${isFree ? `<s class="rate-strike">${fmt(r.totalPrice)}</s> <span class="rate-free">Gratis</span>` : fmt(r.totalPrice)}</span>
+        </label>`;
+      }).join('');
+
+      optionsBox.querySelectorAll<HTMLInputElement>('input[name="calc-rate"]').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const idx = parseInt(inp.value);
+          selectRate(sorted[idx], cp, quoteId);
+          optionsBox.querySelectorAll('.rate-opt').forEach((l, i) => l.classList.toggle('selected', i === idx));
+        });
+      });
+
+      hideErr();
+      postalOk?.classList.remove('hidden');
+      resultsBox?.classList.remove('hidden');
+      // Si mientras cotizaba se cambió a "Recoger en tienda", no pisar esa elección
+      if (mode === 'delivery') selectRate(sorted[selectedIdx], cp, quoteId);
+
+      // Auto-rellena el CP en el formulario de dirección si está vacío
+      if (addressCpInput && !addressCpInput.value) addressCpInput.value = cp;
+    }
+
+    /**
+     * Cotiza un CP. Primero busca en la caché de la sesión (mismo CP,
+     * mismo carrito, < 30 min); solo si no hay, llama a Envia.
+     * Cotizar NO genera guía ni cobra: la guía se crea hasta que hay pedido pagado.
+     */
+    async function calculate(preferred: { carrier: string; service: string } | null = null) {
+      if (loading) return; // evita dobles clics / Enter + clic
+      const cp = postalInput.value.trim();
+      if (!validCp(cp)) { showErr('Ingresa un código postal válido de 5 dígitos'); return; }
+
+      const cached = readQuote(cp, cartKey);
+      if (cached) { render(cached.rates, cp, preferred, cached.quoteId); return; }
+
+      hideErr(); setLoading(true);
+      try {
+        // Mismo cálculo de paquete que usa el servidor para validar la cotización
+        const pkg = packageForItems(itemsCount);
+        const result = await actions.getShippingRates({
+          originPostalCode: originCp,
+          destinationPostalCode: cp,
+          weight: pkg.weight,
+          length: pkg.length,
+          width: pkg.width,
+          height: pkg.height,
+        });
+        if (result.error) { showErr('No pudimos obtener las tarifas. Intenta de nuevo.'); return; }
+        const data = result.data;
+        if (!data?.success || !data?.rates?.length) { showErr(data?.error || 'No hay opciones para ese código postal.'); return; }
+
+        if (!data.quoteId) { showErr('No pudimos guardar tu cotización. Intenta de nuevo.'); return; }
+
+        writeQuote(cp, cartKey, data.rates, data.quoteId);
+        render(data.rates, cp, preferred, data.quoteId);
+      } catch {
+        showErr('Error de conexión. Verifica tu internet e intenta de nuevo.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function clearAll() {
+      postalInput.value = '';
+      current = null;
+      postalOk?.classList.add('hidden');
+      resultsBox?.classList.add('hidden');
+      clearSelection();
+      postalInput.focus();
+    }
+
+    function setMode(next: 'delivery' | 'pickup', opts: { silent?: boolean } = {}) {
+      if (next === 'pickup' && !pickupEnabled) next = 'delivery';
+      mode = next;
+      modeBtns.forEach(b => {
+        const on = b.dataset.mode === next;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+      deliveryPanel?.classList.toggle('hidden', next !== 'delivery');
+      pickupPanel?.classList.toggle('hidden', next !== 'pickup');
+      if (opts.silent) return;
+
+      if (next === 'pickup') {
+        hideErr();
+        selectPickup();
+      } else {
+        // Regresa a la paquetería que tenía elegida (o la más barata), sin re-cotizar
+        const last = store.get<{ cp: string; carrier: string; service: string }>(SS, LAST_DELIVERY_KEY);
+        const cp = current?.cp || last?.cp || '';
+        const q = current ? { rates: current.rates, quoteId: current.quoteId } : (cp ? readQuote(cp, cartKey) : null);
+        if (cp && q) {
+          postalInput.value = cp;
+          render(q.rates, cp, last?.cp === cp ? last : null, q.quoteId);
+        } else {
+          clearSelection();
+          postalInput.focus();
+        }
+      }
+    }
+
+    // ── Eventos ──
+    postalInput.addEventListener('input', () => {
+      postalInput.value = postalInput.value.replace(/\D/g, '').slice(0, 5);
+      postalOk?.classList.add('hidden');
+      hideErr();
+    });
+    postalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); calculate(); } });
+    btn?.addEventListener('click', () => calculate());
+    clearBtn?.addEventListener('click', clearAll);
+    modeBtns.forEach(b => b.addEventListener('click', () => {
+      const m = b.dataset.mode as 'delivery' | 'pickup';
+      if (m !== mode) setMode(m);
+    }));
+
+    // Sincronización: si el usuario escribe el CP en la dirección, pre-llenar aquí
+    addressCpInput?.addEventListener('blur', () => {
+      if (!postalInput.value && validCp(addressCpInput.value.trim())) {
+        postalInput.value = addressCpInput.value.trim();
+      }
+    });
+
+    // ── Restaurar selección previa ──
+    // Si el carrito cambió, la selección ya no aplica (peso/subtotal distintos).
+    const saved = store.get<SelectedShipping>(LS, SELECTION_KEY);
+    if (!saved || (saved.cartKey && saved.cartKey !== cartKey)) {
+      if (saved) clearSelection();
+      setMode('delivery', { silent: true });
+      return;
+    }
+
+    if (saved.method === 'pickup') {
+      if (pickupEnabled) { setMode('pickup'); return; }  // re-publica con datos frescos, sin API
+      clearSelection();
+      setMode('delivery', { silent: true });
+      return;
+    }
+
+    // Envío a domicilio (o selección vieja sin `method`)
+    setMode('delivery', { silent: true });
+    if (saved.postalCode && validCp(saved.postalCode)) {
+      postalInput.value = saved.postalCode;
+      // Usa la caché si existe; si no, re-cotiza UNA vez respetando la paquetería elegida
+      calculate({ carrier: saved.carrier, service: saved.service });
+    }
+  }
+
+  document.addEventListener('astro:page-load', initShippingCalculator);
+</script>

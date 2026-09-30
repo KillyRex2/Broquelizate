@@ -1,0 +1,213 @@
+---
+// src/layouts/LegalLayout.astro
+// Envoltura común para aviso de privacidad, términos y devoluciones.
+// Mantiene el mismo material de vidrio que el resto del sitio.
+
+import ProductsLayout from '@/layouts/ProductsLayout.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  lastUpdated: string;
+}
+
+const { title, description, lastUpdated } = Astro.props;
+
+const legalPages = [
+  { href: '/aviso-de-privacidad', label: 'Aviso de privacidad' },
+  { href: '/terminos-y-condiciones', label: 'Términos y condiciones' },
+  { href: '/cambios-y-devoluciones', label: 'Cambios y devoluciones' },
+];
+
+const path = Astro.url.pathname;
+---
+
+<ProductsLayout title={`${title} | Broquelizate`} description={description}>
+  <div class="legal-page">
+    <div class="bg-decoration">
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+      <div class="grid-pattern"></div>
+    </div>
+
+    <div class="legal-container">
+      <nav class="legal-breadcrumb" aria-label="Navegación">
+        <a href="/" class="lb-link">Inicio</a>
+        <span class="lb-sep">›</span>
+        <span class="lb-current">{title}</span>
+      </nav>
+
+      <header class="legal-header">
+        <h1 class="legal-title">{title}</h1>
+        <p class="legal-date">Última actualización: {lastUpdated}</p>
+      </header>
+
+      <nav class="legal-tabs" aria-label="Documentos legales">
+        {legalPages.map(p => (
+          <a href={p.href} class={`legal-tab ${path === p.href ? 'active' : ''}`}>
+            {p.label}
+          </a>
+        ))}
+      </nav>
+
+      <article class="legal-body">
+        <slot />
+      </article>
+
+      <footer class="legal-footer">
+        <p>
+          ¿Dudas sobre este documento? Escríbenos a
+          <a href="mailto:broquelizatelaguna@gmail.com">broquelizatelaguna@gmail.com</a>
+        </p>
+      </footer>
+    </div>
+  </div>
+</ProductsLayout>
+
+<style>
+  .legal-page {
+    --lg-tint: rgba(255, 255, 255, 0.34);
+    --lg-blur: blur(6px) saturate(200%) brightness(1.04);
+    --lg-thickness:
+      inset 1.5px 1.5px 0 -0.5px rgba(255, 255, 255, 1),
+      inset -1.5px -1.5px 0 -0.5px rgba(255, 255, 255, 0.7),
+      inset 0 0 16px -4px rgba(255, 255, 255, 0.75),
+      inset 0 -14px 24px -18px rgba(0, 0, 0, 0.16),
+      0 0 0 0.5px rgba(0, 0, 0, 0.05);
+    --lg-drop: 0 6px 16px -8px rgba(0, 0, 0, 0.16), 0 20px 46px -22px rgba(0, 0, 0, 0.22);
+
+    --txt: #1c1c1e;
+    --txt-2: #45454c;
+    --txt-3: #85858c;
+    --gold: #eab308;
+    --gold-2: #f59e0b;
+    --gold-deep: #a16207;
+
+    position: relative;
+    min-height: 100vh;
+    padding: 32px 0 80px;
+    overflow: hidden;
+    background: #fdfcfa;
+  }
+
+  .bg-decoration { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(100px); }
+  .glow-1 { width: 700px; height: 700px; background: radial-gradient(circle, rgba(234, 179, 8, 0.14), transparent 66%); top: -220px; right: -160px; }
+  .glow-2 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(180, 83, 9, 0.06), transparent 66%); bottom: 60px; left: -200px; }
+  .grid-pattern { position: absolute; inset: 0; background-image: linear-gradient(180deg, rgba(250, 246, 238, 0.9) 0%, transparent 30%, rgba(250, 246, 238, 0.7) 100%), linear-gradient(rgba(0, 0, 0, 0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.022) 1px, transparent 1px); background-size: 100% 100%, 46px 46px, 46px 46px; }
+
+  .legal-container { position: relative; z-index: 10; max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  /* Breadcrumb */
+  .legal-breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; font-size: 0.85rem; }
+  .lb-link { color: var(--txt-2); text-decoration: none; }
+  .lb-link:hover { color: var(--gold-deep); }
+  .lb-sep { color: var(--txt-3); }
+  .lb-current { color: var(--txt); font-weight: 600; }
+
+  /* Encabezado */
+  .legal-header { margin-bottom: 24px; }
+  .legal-title { font-size: clamp(1.8rem, 4vw, 2.4rem); font-weight: 900; color: var(--txt); letter-spacing: -0.03em; line-height: 1.1; }
+  .legal-date { margin-top: 8px; font-size: 0.85rem; color: var(--txt-3); }
+
+  /* Pestañas entre documentos */
+  .legal-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .legal-tab {
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.5);
+    box-shadow: var(--lg-thickness);
+    color: var(--txt-2);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.25s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+  .legal-tab:hover { background: rgba(255, 255, 255, 0.85); color: var(--txt); transform: translateY(-1px); }
+  .legal-tab.active { background: rgba(234, 179, 8, 0.22); color: #6b3f02; box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.45); }
+
+  /* Cuerpo del documento */
+  .legal-body {
+    position: relative;
+    isolation: isolate;
+    padding: 40px 44px;
+    border-radius: 28px;
+    background: var(--lg-tint);
+    backdrop-filter: var(--lg-blur);
+    -webkit-backdrop-filter: var(--lg-blur);
+    box-shadow: var(--lg-thickness), var(--lg-drop);
+  }
+
+  .legal-body::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 9px;
+    backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .legal-body > * { position: relative; z-index: 3; }
+
+  @supports (corner-shape: squircle) {
+    .legal-body { corner-shape: squircle; }
+  }
+
+  /* Tipografía del contenido */
+  .legal-body :global(h2) {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--txt);
+    letter-spacing: -0.01em;
+    margin: 36px 0 12px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 0, 0, 0.07);
+  }
+  .legal-body :global(h2:first-child) { margin-top: 0; padding-top: 0; border-top: none; }
+
+  .legal-body :global(h3) { font-size: 0.98rem; font-weight: 700; color: var(--txt); margin: 22px 0 8px; }
+
+  .legal-body :global(p) { font-size: 0.94rem; line-height: 1.75; color: var(--txt-2); margin-bottom: 14px; }
+
+  .legal-body :global(ul), .legal-body :global(ol) { margin: 0 0 16px; padding-left: 22px; }
+  .legal-body :global(li) { font-size: 0.94rem; line-height: 1.7; color: var(--txt-2); margin-bottom: 7px; }
+
+  .legal-body :global(strong) { color: var(--txt); font-weight: 700; }
+  .legal-body :global(a) { color: var(--gold-deep); text-decoration: underline; text-underline-offset: 2px; }
+  .legal-body :global(a:hover) { color: var(--gold-2); }
+
+  /* Bloque destacado, para lo que el cliente debe leer sí o sí */
+  .legal-body :global(.destacado) {
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-radius: 18px;
+    background: rgba(234, 179, 8, 0.14);
+    box-shadow: var(--lg-thickness);
+  }
+  .legal-body :global(.destacado p:last-child) { margin-bottom: 0; }
+
+  .legal-body :global(.tabla) { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 0.88rem; }
+  .legal-body :global(.tabla th) { text-align: left; padding: 10px 12px; color: var(--txt); font-weight: 700; border-bottom: 2px solid rgba(0, 0, 0, 0.1); }
+  .legal-body :global(.tabla td) { padding: 10px 12px; color: var(--txt-2); border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+
+  .legal-footer { margin-top: 28px; text-align: center; }
+  .legal-footer p { font-size: 0.85rem; color: var(--txt-3); }
+  .legal-footer a { color: var(--gold-deep); }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .legal-body, .legal-tab { background: rgba(255, 255, 255, 0.93); }
+  }
+
+  @media (max-width: 768px) {
+    .legal-page { padding: 20px 0 60px; }
+    .legal-container { padding: 0 16px; }
+    .legal-body { padding: 26px 22px; border-radius: 22px; }
+    .legal-tab { font-size: 0.76rem; padding: 8px 13px; }
+  }
+</style>

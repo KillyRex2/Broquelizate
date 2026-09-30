@@ -1,0 +1,749 @@
+---
+// src/pages/admin/checkout.astro
+import { Icon } from 'astro-icon/components';
+import { actions } from 'astro:actions';
+
+type Client = {
+  id: number;
+  name: string;
+  email?: string | null;
+  address?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  elector_key: string | null;
+  current_balance: number;
+  observations: string | null;
+  phone: string | null;
+  created_at: Date;
+};
+
+const { data: clientsData, error: err } = await Astro.callAction(
+  actions.getAllClients,
+  {}
+);
+
+const clientsList: Client[] = clientsData?.clients || [];
+---
+
+<div class="flex h-screen bg-gray-50 font-sans text-gray-800 rounded-lg">
+  <main class="flex-1 p-8 overflow-y-auto space-y-8">
+    <header class="flex items-center justify-between border-b border-gray-200 pb-4">
+      <h1 class="text-3xl font-extrabold text-yellow-600 tracking-tight">Vender</h1>
+      <span id="header-total" class="text-3xl font-extrabold text-gray-900">$0.00</span>
+    </header>
+
+    <!-- Cliente -->
+    <section class="bg-white rounded-xl shadow-lg p-6">
+      <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-gray-900">Cliente</h2>
+          <a href="/admin/customers?nuevo=1&volver=/admin/checkout" aria-label="Agregar nuevo cliente" class="bg-yellow-100 text-yellow-600 hover:bg-yellow-200 rounded-full p-3 transition">
+              <Icon name="mdi:plus" class="h-6 w-6" />
+          </a>
+      </div>
+      <div class="mt-4">
+        <label for="client-select" class="block text-sm font-medium text-gray-700 mb-2">Seleccionar un cliente existente</label>
+        <select id="client-select" class="w-full rounded-lg border border-gray-300 p-3 focus:border-yellow-500 focus:ring-yellow-500 transition-shadow">
+          <option value="">Cliente general (mostrador)</option>
+          {clientsList.map(client => (
+            <option value={client.id}>{client.name}</option>
+          ))}
+        </select>
+      </div>
+    </section>
+
+    <!-- Observación -->
+    <section class="bg-white rounded-xl shadow-lg p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">Observación</h2>
+      <textarea
+        id="observation"
+        placeholder="Digite la observación aquí"
+        class="w-full h-24 rounded-lg border border-gray-300 p-4 placeholder-gray-400 focus:border-yellow-500 focus:ring-yellow-500 transition-shadow"
+      ></textarea>
+      <div class="flex items-center mt-4">
+        <input
+          type="checkbox"
+          id="show-on-receipt"
+          class="h-5 w-5 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+        />
+        <label for="show-on-receipt" class="ml-2 text-gray-600">Mostrar en el recibo</label>
+      </div>
+    </section>
+
+    <!-- Carrito -->
+    <details class="bg-white rounded-xl shadow-lg" open>
+      <summary class="flex items-center justify-between p-6 cursor-pointer list-none">
+        <h2 id="item-count" class="text-xl font-semibold text-gray-900">0 Items</h2>
+        <Icon name="mdi:chevron-down" class="h-6 w-6 transition-transform" />
+      </summary>
+      <div class="px-6 pb-6">
+        <ul id="cart-items-summary" class="space-y-4 border-t pt-4">
+          <p class="text-gray-500 italic">El carrito está vacío.</p>
+        </ul>
+      </div>
+    </details>
+  </main>
+
+  <!-- Aside Resumen y Pago -->
+  <aside class="w-full max-w-md bg-white p-8 space-y-8 border-l border-gray-200 rounded-lg">
+    <!-- Resumen del pedido -->
+    <section class="space-y-6">
+      <h2 class="text-2xl font-extrabold text-gray-900">Resumen del pedido</h2>
+      <div class="space-y-4 text-md">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Subtotal de productos</span>
+          <span id="summary-subtotal" class="font-semibold text-yellow-600">$0.00</span>
+        </div>
+        <!-- Monto adicional: se captura en el POS (Vender) y llega aquí con el carrito -->
+        <div id="additional-amount-summary-row" class="flex justify-between items-start gap-3 hidden">
+            <div class="min-w-0 flex-1">
+              <span id="summary-additional-amount-label" class="text-gray-500">Monto adicional</span>
+              <ul id="summary-additional-amount-list" class="mt-0.5 space-y-0.5 text-xs text-gray-500"></ul>
+              <a href="/admin/sale" class="text-xs font-medium text-yellow-600 hover:underline">Cambiar en Vender</a>
+            </div>
+            <span id="summary-additional-amount-text" class="bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-md flex-shrink-0"></span>
+        </div>
+        <div id="discount-apply-row" class="flex justify-between items-center">
+            <span class="text-gray-600">Descuentos</span>
+            <button id="apply-discount-btn" class="font-semibold text-yellow-600 hover:underline">Aplicar descuento</button>
+        </div>
+        <div id="discount-summary-row" class="flex justify-between items-center hidden">
+            <span class="text-gray-500">Descuento aplicado</span>
+            <div class="flex items-center gap-2 bg-red-50 text-red-600 font-semibold px-2 py-1 rounded-md">
+                <span id="summary-discount-text"></span>
+                <button id="remove-discount-btn" type="button" aria-label="Quitar descuento" class="hover:text-red-800">
+                    <Icon name="mdi:close" class="h-4 w-4" />
+                </button>
+            </div>
+        </div>
+      </div>
+      <div class="border-t border-gray-200"></div>
+      <div class="flex justify-between text-2xl">
+        <span class="font-extrabold">Total</span>
+        <span id="summary-total" class="font-extrabold text-gray-900">$0.00</span>
+      </div>
+    </section>
+
+    <!-- Método de pago -->
+    <section class="space-y-6">
+      <h2 class="text-2xl font-extrabold text-gray-900">Método de pago</h2>
+      <div class="space-y-4">
+        <!-- Efectivo -->
+        <label class="block border rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 transition-all">
+          <div class="flex items-center gap-4">
+            <input type="radio" name="payment-method" value="Efectivo" id="cash-radio" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" checked />
+            <Icon name="mdi:cash-multiple" class="h-6 w-6 text-gray-600" />
+            <span class="font-semibold text-gray-900">Efectivo</span>
+          </div>
+          <div class="mt-4 pl-10">
+            <input
+              type="text"
+              id="amount-received"
+              placeholder="Valor recibido"
+              class="w-full rounded-lg border border-gray-300 p-3 placeholder-gray-400 focus:border-yellow-500 focus:ring-yellow-500 transition-shadow"
+            />
+            <div id="change-row" class="hidden mt-4 pt-3 border-t border-amber-200/70 flex items-center justify-between">
+              <span class="flex items-center gap-2 font-semibold text-gray-700">
+                <Icon name="mdi:cash-refund" class="h-5 w-5 text-amber-700" />
+                Feria
+              </span>
+              <span id="change-amount" class="inline-flex items-center rounded-full bg-amber-100 px-4 py-1.5 text-xl font-extrabold text-amber-800 shadow-sm ring-1 ring-amber-300/60">
+                $0.00
+              </span>
+            </div>
+          </div>
+        </label>
+        <!-- Débito -->
+        <label class="flex items-center gap-4 border rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 transition-all">
+          <input type="radio" name="payment-method" value="Débito" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" />
+          <Icon name="mdi:credit-card-outline" class="h-6 w-6 text-gray-600" />
+          <span class="font-semibold text-gray-900">Débito</span>
+        </label>
+        <!-- Crédito -->
+        <label class="flex items-center gap-4 border rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 transition-all">
+          <input type="radio" name="payment-method" value="Crédito" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" />
+          <Icon name="mdi:credit-card-outline" class="h-6 w-6 text-gray-600" />
+          <span class="font-semibold text-gray-900">Crédito</span>
+        </label>
+        
+        <!-- Venta a Crédito -->
+        <label id="credit-sale-label" class="block border rounded-lg p-4 transition-all has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-50 opacity-50 cursor-not-allowed">
+          <div class="flex items-center gap-4">
+            <input type="radio" name="payment-method" value="Venta a crédito" id="credit-sale-radio" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" disabled />
+            <Icon name="mdi:account-credit-card-outline" class="h-6 w-6 text-gray-600" />
+            <span class="font-semibold text-gray-900">Venta a crédito</span>
+          </div>
+          <p id="credit-sale-info" class="text-xs text-gray-500 mt-2 pl-10">Selecciona un cliente para habilitar esta opción.</p>
+        </label>
+      </div>
+        <div class="fixed bottom-0 left-0 lg:left-80 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4 z-50">
+          <div class="max-w-6xl mx-auto flex justify-end gap-4">
+              <button type="button" id="finalize-sale-btn" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transition-transform hover:scale-105">
+                Finalizar venta
+              </button>
+              <button type="button" id="discard-sale-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold px-8 py-3 rounded-lg shadow-lg transition-transform hover:scale-105">
+                Descartar Venta
+              </button>
+          </div>
+        </div>
+    </section>
+  </aside>
+</div>
+
+<div id="clients-data" style="display: none;">
+  {JSON.stringify(clientsList)}
+</div>
+
+<style>
+  details[open] > summary > svg { transform: rotate(180deg); }
+</style>
+
+<script>
+  import Swal, { type SweetAlertResult } from 'sweetalert2';
+  import 'sweetalert2/dist/sweetalert2.min.css';
+  import { navigate } from 'astro:transitions/client';
+  import { generateAndPrintTicket} from '@/services/ticketGenerator';
+  import { readPosExtras, clearPosExtras, extrasTotal } from '@/utils/pos-extra';
+  import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+  import { actions } from 'astro:actions';
+
+   type Client = {
+    id: number;
+    name: string;
+    email?: string | null;
+    address?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    elector_key: string | null;
+    current_balance: number;
+    observations: string | null;
+    phone: string | null;
+    created_at: Date;
+  };
+
+  interface CartItem {
+    productId: string;
+    variantId?: string;
+    name: string;
+    variantName?: string;
+    price: number;
+    quantity: number;
+    images?: string[];
+    stock: number;
+    sku?: string;
+    outOfStock?: boolean;
+  }
+
+  function initializeCheckout() {
+    // Montos adicionales capturados en el POS (cada uno con su descripción para el ticket)
+    const posExtras = readPosExtras();
+    const additionalAmount = extrasTotal(posExtras);
+    let discountInfo = {
+      amount: 0,
+      type: null as 'fixed' | 'percentage' | null,
+      percentageValue: 0
+    };
+    
+    const clientsDataElement = document.getElementById('clients-data');
+    const clientsList: Client[] = clientsDataElement 
+      ? JSON.parse(clientsDataElement.textContent || '[]') 
+      : [];
+    
+    const cart: CartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
+    
+    const headerTotalEl = document.getElementById('header-total');
+    const summarySubtotalEl = document.getElementById('summary-subtotal');
+    const summaryTotalEl = document.getElementById('summary-total');
+    const itemCountEl = document.getElementById('item-count');
+    const cartSummaryListEl = document.getElementById('cart-items-summary');
+    
+    const amountReceivedEl = document.getElementById('amount-received') as HTMLInputElement | null;
+    const changeRowEl = document.getElementById('change-row');
+    const changeAmountEl = document.getElementById('change-amount');
+    const clientSelectEl = document.getElementById('client-select') as HTMLSelectElement | null;
+    const creditSaleRadio = document.getElementById('credit-sale-radio') as HTMLInputElement | null;
+    const creditSaleLabel = document.getElementById('credit-sale-label') as HTMLLabelElement | null;
+    const creditSaleInfo = document.getElementById('credit-sale-info') as HTMLParagraphElement | null;
+    const finalizeSaleBtn = document.getElementById('finalize-sale-btn');
+    const discardSaleBtn = document.getElementById('discard-sale-btn');
+    const cashRadio = document.getElementById('cash-radio') as HTMLInputElement | null;
+
+    const applyDiscountBtn = document.getElementById('apply-discount-btn');
+    const discountApplyRowEl = document.getElementById('discount-apply-row');
+    const discountSummaryRowEl = document.getElementById('discount-summary-row');
+    const summaryDiscountTextEl = document.getElementById('summary-discount-text');
+    const removeDiscountBtn = document.getElementById('remove-discount-btn');
+
+    const additionalAmountSummaryRowEl = document.getElementById('additional-amount-summary-row');
+    const summaryAdditionalAmountTextEl = document.getElementById('summary-additional-amount-text');
+    const summaryAdditionalAmountListEl = document.getElementById('summary-additional-amount-list');
+    const summaryAdditionalAmountLabelEl = document.getElementById('summary-additional-amount-label');
+
+    // ACTUALIZADO: Permite stocks negativos
+    async function updateProductStock() {
+      if (cart.length === 0) return;
+
+      const stockUpdateData = cart.map((item: CartItem) => ({
+        productId: item.productId,
+        variantId: item.variantId || null,
+        quantity: item.quantity
+      }));
+      
+      try {
+        const response = await fetch('/api/update-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: stockUpdateData })
+        });
+
+        if (!response.ok) {
+          const errorResponse = await response.json();
+          console.error('Error al actualizar stock:', errorResponse.error);
+          // No lanzamos error, solo lo registramos
+        } else {
+          console.log('Stock actualizado exitosamente (puede quedar negativo).');
+        }
+
+      } catch (error) {
+        console.error('Error al actualizar el stock:', error);
+        // No lanzamos error, la venta ya se procesó
+      }
+    }
+
+    function updateTotals() {
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const total = subtotal + additionalAmount - discountInfo.amount;
+
+      if (headerTotalEl) headerTotalEl.textContent = formatCurrency(total);
+      if (summarySubtotalEl) summarySubtotalEl.textContent = formatCurrency(subtotal);
+      if (summaryTotalEl) summaryTotalEl.textContent = formatCurrency(total);
+      if (amountReceivedEl) amountReceivedEl.placeholder = `Valor recibido (${formatCurrency(total)})`;
+
+      if (additionalAmountSummaryRowEl && summaryAdditionalAmountTextEl) {
+          const hasExtra = additionalAmount > 0;
+          additionalAmountSummaryRowEl.classList.toggle('hidden', !hasExtra);
+          summaryAdditionalAmountTextEl.textContent = hasExtra ? `+${formatCurrency(additionalAmount)}` : '';
+          if (summaryAdditionalAmountLabelEl) {
+            summaryAdditionalAmountLabelEl.textContent = posExtras.length > 1 ? 'Montos adicionales' : 'Monto adicional';
+          }
+          // Con DOM (no innerHTML): la descripción la escribe el usuario
+          summaryAdditionalAmountListEl?.replaceChildren(...posExtras.map(x => {
+            const li = document.createElement('li');
+            li.className = 'flex justify-between gap-2';
+            const d = document.createElement('span');
+            d.className = `truncate ${x.description ? '' : 'italic'}`;
+            d.textContent = x.description || 'Sin descripción';
+            d.title = x.description;
+            li.append(d);
+            if (posExtras.length > 1) {
+              const a = document.createElement('span');
+              a.className = 'flex-shrink-0';
+              a.textContent = formatCurrency(x.amount);
+              li.append(a);
+            }
+            return li;
+          }));
+      }
+      
+      if (discountApplyRowEl && discountSummaryRowEl && summaryDiscountTextEl) {
+        if (discountInfo.amount > 0) {
+          let discountText = '';
+          if (discountInfo.type === 'percentage') {
+            discountText = `(${discountInfo.percentageValue}%) -${formatCurrency(discountInfo.amount)}`;
+          } else {
+            discountText = `-${formatCurrency(discountInfo.amount)}`;
+          }
+          summaryDiscountTextEl.textContent = discountText;
+          
+          discountApplyRowEl.classList.add('hidden');
+          discountSummaryRowEl.classList.remove('hidden');
+        } else {
+          discountApplyRowEl.classList.remove('hidden');
+          discountSummaryRowEl.classList.add('hidden');
+        }
+      }
+
+      updateChange();
+    }
+    
+    function updateCartSummary() {
+      const uniqueItemsCount = cart.length;
+      const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+      
+      if (itemCountEl) {
+        itemCountEl.textContent = `${uniqueItemsCount} ${uniqueItemsCount === 1 ? 'Producto' : 'Productos'} (${totalQuantity} unidades)`;
+      }
+      
+      if (cartSummaryListEl) {
+        if (cart.length > 0) {
+          cartSummaryListEl.innerHTML = cart.map((item) => {
+            const displayName = item.variantName 
+              ? `${item.name} - ${item.variantName}` 
+              : item.name;
+            
+            return `
+              <li class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors ${item.outOfStock ? 'bg-orange-50 border border-orange-200' : ''}">
+                <img 
+                  src="${optimizeImage(item.images?.[0], IMG_WIDTH.thumb) || 'https://placehold.co/100'}" 
+                  alt="${displayName}" 
+                  class="h-16 w-16 rounded-md object-cover shadow-sm" 
+                />
+                <div class="flex-grow">
+                  <p class="font-semibold text-gray-900">${displayName}</p>
+                  ${item.sku ? `<p class="text-xs text-gray-500">SKU: ${item.sku}</p>` : ''}
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="text-sm text-gray-600">${item.quantity} x ${formatCurrency(item.price)}</span>
+                    ${item.outOfStock ? `<span class="text-xs text-orange-600 font-medium">⚠️ Sin stock en sistema</span>` : ''}
+                  </div>
+                </div>
+                <p class="font-bold text-lg text-gray-900">${formatCurrency(item.price * item.quantity)}</p>
+              </li>
+            `;
+          }).join('');
+        } else {
+          cartSummaryListEl.innerHTML = '<p class="text-gray-500 italic text-center py-8">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
+        }
+      }
+    }
+
+    const formatCurrency = (value: number): string => `$${Number(value).toFixed(2)}`;
+    
+    function updateChange() {
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const total = subtotal + additionalAmount - discountInfo.amount;
+      const received = parseFloat(amountReceivedEl?.value || '0') || 0;
+      const change = received - total;
+
+      const paymentMethodEl = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement | null;
+      const isCash = paymentMethodEl?.value === 'Efectivo';
+
+      if (changeRowEl && changeAmountEl) {
+        if (isCash && received > 0 && change >= 0) {
+          changeAmountEl.textContent = formatCurrency(change);
+          changeRowEl.classList.remove('hidden');
+        } else {
+          changeRowEl.classList.add('hidden');
+        }
+      }
+    }
+
+    function toggleCreditOption() {
+      if (!clientSelectEl || !creditSaleRadio || !creditSaleLabel || !creditSaleInfo) return;
+
+      const isClientSelected = clientSelectEl.value !== "";
+      creditSaleRadio.disabled = !isClientSelected;
+      creditSaleLabel.classList.toggle('opacity-50', !isClientSelected);
+      creditSaleLabel.classList.toggle('cursor-not-allowed', !isClientSelected);
+      creditSaleInfo.style.display = isClientSelected ? 'none' : 'block';
+      
+      if (!isClientSelected && creditSaleRadio.checked && cashRadio) {
+        cashRadio.checked = true;
+      }
+    }
+
+    async function handleApplyDiscount() {
+        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+        const { value: formValues, isConfirmed } = await Swal.fire({
+            title: 'Aplicar Descuento',
+            html: `
+                  <div class="p-6 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200 max-w-md mx-auto">
+                    <p class="text-sm text-gray-500 mb-6">Elige una opción. Solo se aplicará un tipo de descuento.</p>
+
+                    <div class="space-y-5">
+                      <div>
+                        <label for="swal-fixed-discount" class="block text-gray-700 font-medium mb-1">
+                          Descuento fijo ($)
+                        </label>
+                        <input
+                          id="swal-fixed-discount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
+                        />
+                      </div>
+
+                      <div>
+                        <label for="swal-percentage-discount" class="block text-gray-700 font-medium mb-1">
+                          Descuento por Porcentaje (%)
+                        </label>
+                        <input
+                          id="swal-percentage-discount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
+                        />
+                      </div>
+                    </div>
+                  </div>
+            `,
+            confirmButtonText: 'Aplicar descuento',
+            confirmButtonColor: '#d97706',
+            cancelButtonText: 'Cancelar',
+            showCancelButton: true,
+            focusConfirm: false,
+            didOpen: () => {
+                const fixedInput = document.getElementById('swal-fixed-discount') as HTMLInputElement;
+                const percentageInput = document.getElementById('swal-percentage-discount') as HTMLInputElement;
+                
+                fixedInput.addEventListener('input', () => {
+                    if (fixedInput.value) percentageInput.value = '';
+                });
+                
+                percentageInput.addEventListener('input', () => {
+                    if (percentageInput.value) fixedInput.value = '';
+                });
+            },
+            preConfirm: () => {
+                const fixed = (document.getElementById('swal-fixed-discount') as HTMLInputElement).value;
+                const percentage = (document.getElementById('swal-percentage-discount') as HTMLInputElement).value;
+                return { fixed: parseFloat(fixed) || 0, percentage: parseFloat(percentage) || 0 };
+            }
+        });
+
+        if (isConfirmed && formValues) {
+            let calculatedDiscount = 0;
+            let type: 'fixed' | 'percentage' | null = null;
+            let percentageValue = 0;
+
+            if (formValues.fixed > 0) {
+                calculatedDiscount = formValues.fixed;
+                type = 'fixed';
+            } else if (formValues.percentage > 0) {
+                calculatedDiscount = subtotal * (formValues.percentage / 100);
+                type = 'percentage';
+                percentageValue = formValues.percentage;
+            }
+
+            if (calculatedDiscount > subtotal) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'El descuento no puede ser mayor que el subtotal.', confirmButtonColor: '#d97706' });
+                return;
+            }
+            if (calculatedDiscount < 0) {
+              calculatedDiscount = 0;
+            }
+            
+            discountInfo = {
+              amount: calculatedDiscount,
+              type,
+              percentageValue
+            };
+
+            updateTotals();
+        }
+    }
+
+    function handleRemoveDiscount() {
+      discountInfo = {
+        amount: 0,
+        type: null,
+        percentageValue: 0
+      };
+      updateTotals();
+    }
+
+    // ACTUALIZADO: Sin validación de stock
+    async function handleFinalizeSale() {
+      const paymentMethodEl = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement | null;
+      if (!paymentMethodEl || !clientSelectEl) return;
+      
+      const clientId = clientSelectEl.value ? parseInt(clientSelectEl.value, 10) : null;
+      const paymentMethod = paymentMethodEl.value;
+      
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const total = subtotal + additionalAmount - discountInfo.amount;
+
+      if (paymentMethod === 'Venta a crédito' && !clientId) {
+        Swal.fire({ 
+          icon: 'error', 
+          title: 'Cliente no seleccionado', 
+          text: 'Debes seleccionar un cliente para realizar una venta a crédito.', 
+          confirmButtonColor: '#d97706' 
+        });
+        return;
+      }
+
+      // SIN VALIDACIÓN DE STOCK - permite vender con stock negativo
+      
+      Swal.fire({ 
+        title: 'Procesando Venta...', 
+        html: 'Por favor, espera.', 
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+      });
+
+      try {
+        const selectedClient = clientId ? clientsList.find(c => c.id === clientId) : null;
+        const customerEmail = selectedClient?.email || 'mostrador@tienda.com';
+        
+        const orderData = {
+          clientId,
+          customerEmail,
+          // Venta de mostrador: sin dirección. Se guardan aquí los montos
+          // adicionales con su descripción para poder reimprimir el ticket igual.
+          shippingAddress: posExtras.length ? { extraCharges: posExtras } : {},
+          products: cart.map(item => ({ 
+            id: item.productId,
+            variantId: item.variantId || null,
+            name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+            price: item.price, 
+            quantity: item.quantity,
+            sku: item.sku || null
+          })),
+          subtotal,
+          additionalCharges: additionalAmount,
+          discount: discountInfo.amount,
+          tax: 0,
+          total,
+          paymentMethod,
+        };
+
+        const response = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderData)
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Error del servidor');
+
+        // Actualizar stock (puede quedar negativo)
+        await updateProductStock();
+        
+        if (paymentMethod === 'Venta a crédito' && clientId) {
+          const updateResult = await actions.updateClientBalance({
+            clientId: clientId,
+            amountToAdd: total
+          });
+
+          if (updateResult.error) {
+            console.error("Error al actualizar el saldo del cliente:", updateResult.error.message);
+            Swal.fire('Venta registrada', 'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.', 'warning');
+          }
+        }
+        
+        localStorage.removeItem('admin-pos-cart');
+        clearPosExtras();
+
+        const storeInfo = { 
+          name: "Broquelizate", 
+          address: "Calle Escobedo esquina con Calle Bravo (segundo piso), Colonia Centro, Gómez Palacio, Durango.", 
+          phone: "528 714 617696", 
+          rfc: "XAXX010101000" 
+        };
+        
+        const showOnReceiptCheckbox = document.getElementById('show-on-receipt') as HTMLInputElement | null;
+        const observationsTextarea = document.getElementById('observation') as HTMLTextAreaElement | null;
+        const observationsText = (showOnReceiptCheckbox?.checked && observationsTextarea) ? observationsTextarea.value : undefined;
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Venta Finalizada!',
+          html: `La orden <strong>#${result.orderNumber}</strong> ha sido registrada exitosamente.`,
+          showCancelButton: true,
+          confirmButtonText: 'Imprimir Ticket',
+          cancelButtonText: 'Nueva Venta',
+          confirmButtonColor: '#d97706',
+          cancelButtonColor: '#6b7280'
+        }).then((res: SweetAlertResult) => {
+          if (res.isConfirmed) {
+            const ticketCart = cart.map(item => ({
+              id: parseInt(item.productId),
+              name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+              price: item.price,
+              quantity: item.quantity,
+              images: item.images
+            }));
+            
+            const receivedForTicket = parseFloat(amountReceivedEl?.value || '0') || 0;
+            const changeForTicket = paymentMethod === 'Efectivo' && receivedForTicket > 0
+              ? Math.max(0, receivedForTicket - total)
+              : 0;
+
+            generateAndPrintTicket(
+              ticketCart,
+              total,
+              result.orderNumber,
+              paymentMethod,
+              storeInfo,
+              orderData.discount,
+              orderData.additionalCharges,
+              observationsText,
+              receivedForTicket,
+              changeForTicket,
+              posExtras
+            );
+          }
+          Swal.close();
+          navigate('/admin/sale');
+        });
+
+      } catch (err: unknown) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: err instanceof Error ? err.message : 'No se pudo finalizar la venta.',
+          confirmButtonColor: '#d97706'
+        });
+      }
+    }
+
+    function handleDiscardSale() {
+      Swal.fire({
+        title: '¿Descartar Venta?',
+        text: "Se perderán todos los productos del carrito.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonText: 'No, continuar',
+        confirmButtonText: 'Sí, descartar'
+      }).then((result: SweetAlertResult) => {
+        if (result.isConfirmed) {
+          localStorage.removeItem('admin-pos-cart');
+          clearPosExtras();
+          Swal.close();
+          navigate('/admin/sale')
+        }
+      });
+    }
+
+    // Event Listeners
+    clientSelectEl?.addEventListener('change', toggleCreditOption);
+    amountReceivedEl?.addEventListener('input', updateChange);
+    document.querySelectorAll('input[name="payment-method"]').forEach(radio => {
+      radio.addEventListener('change', updateChange);
+    });
+    finalizeSaleBtn?.addEventListener('click', handleFinalizeSale);
+    discardSaleBtn?.addEventListener('click', handleDiscardSale);
+    applyDiscountBtn?.addEventListener('click', handleApplyDiscount);
+    removeDiscountBtn?.addEventListener('click', handleRemoveDiscount);
+
+    // Inicialización
+    updateCartSummary();
+    updateTotals();
+    toggleCreditOption();
+
+    // Verificar si el carrito está vacío
+    if (cart.length === 0) {
+      navigate('/admin/sale');
+      return;
+    }
+  }
+
+// Por esto:
+document.addEventListener('astro:page-load', () => {
+  // Verificar que estamos en la página correcta
+  if (window.location.pathname !== '/admin/checkout') {
+    return; // No ejecutar si no estamos en checkout
+  }
+  
+  initializeCheckout();
+});
+</script>

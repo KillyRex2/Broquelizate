@@ -1,0 +1,18 @@
+---
+// src/pages/admin/users.astro
+import AdminLayout from "@/layouts/AdminLayout.astro";
+import UserList from "@/components/admin/UserList.astro";
+
+const pageTitle = 'Usuarios';
+---
+
+<AdminLayout title={pageTitle}>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-3xl font-bold text-gray-200">{pageTitle}</h1>
+    <p class="text-gray-400 mt-1">Cuentas registradas en la tienda y su nivel de acceso.</p>
+
+    <div class="mt-6">
+      <UserList />
+    </div>
+  </div>
+</AdminLayout>

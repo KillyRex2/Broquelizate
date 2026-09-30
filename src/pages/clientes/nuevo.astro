@@ -1,0 +1,7 @@
+---
+// src/pages/clientes/nuevo.astro
+// Esta página vivía fuera de /admin (el middleware no la protegía).
+// El alta de clientes ahora está en /admin/customers; se conserva la
+// ruta solo para que los enlaces viejos sigan funcionando.
+return Astro.redirect('/admin/customers?nuevo=1');
+---

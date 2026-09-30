@@ -1,0 +1,285 @@
+---
+// src/components/admin/RevenueChart.astro
+import { db, orders } from 'astro:db';
+import { sql, gte } from 'drizzle-orm';
+
+const now = new Date();
+const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+
+type DailyResult = { day: string; total: number };
+
+const dailyRevenue: DailyResult[] = await db.select({
+  day: sql<string>`DATE(${orders.createdAt})`,
+  total: sql<number>`SUM(${orders.total})`.mapWith(Number)
+}).from(orders)
+.where(gte(orders.createdAt, twoYearsAgo))
+.groupBy(sql`DATE(${orders.createdAt})`)
+.orderBy(sql`DATE(${orders.createdAt}) ASC`)
+.all();
+---
+
+<div class="revenue-chart-wrapper">
+  <div class="rc-controls">
+    <div id="chart-filters" class="rc-period-tabs">
+      <button data-period="30" class="rc-tab">1 Mes</button>
+      <button data-period="90" class="rc-tab">3 Meses</button>
+      <button data-period="365" class="rc-tab active">1 Año</button>
+    </div>
+
+    <div class="rc-kpis">
+      <div class="rc-kpi">
+        <span class="rc-kpi-label">Total</span>
+        <span id="kpi-total" class="rc-kpi-value">$0</span>
+      </div>
+      <div class="rc-kpi-sep"></div>
+      <div class="rc-kpi">
+        <span class="rc-kpi-label">MTD</span>
+        <span id="kpi-mtd" class="rc-kpi-value">$0</span>
+      </div>
+      <div class="rc-kpi-sep"></div>
+      <div class="rc-kpi">
+        <span class="rc-kpi-label">Cambio</span>
+        <span id="kpi-pct" class="rc-kpi-value">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rc-grid">
+    <div class="rc-main">
+      <canvas id="revenueChart"></canvas>
+    </div>
+    <div class="rc-sidebar">
+      <div class="rc-spark-box">
+        <span class="rc-spark-label">Tendencia (7d MA)</span>
+        <div class="rc-spark-container">
+          <canvas id="sparkline"></canvas>
+        </div>
+      </div>
+      <div class="rc-insights">
+        <span class="rc-spark-label">Insights</span>
+        <div class="rc-insight-row">
+          <span class="rc-insight-icon">▲</span>
+          <span>Máximo diario: <strong id="insight-max">$0</strong></span>
+        </div>
+        <div class="rc-insight-row">
+          <span class="rc-insight-icon">≈</span>
+          <span>Promedio diario: <strong id="insight-avg">$0</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .revenue-chart-wrapper { display: flex; flex-direction: column; gap: 16px; }
+  .rc-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .rc-period-tabs { display: flex; gap: 4px; padding: 4px; background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
+  .rc-tab { padding: 6px 14px; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.4); border-radius: 8px; cursor: pointer; border: none; background: transparent; transition: all 0.2s; }
+  .rc-tab:hover { color: rgba(255,255,255,0.7); }
+  .rc-tab.active { background: rgba(234,179,8,0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.2); }
+  .rc-kpis { display: flex; align-items: center; gap: 16px; }
+  .rc-kpi { text-align: right; }
+  .rc-kpi-label { display: block; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; }
+  .rc-kpi-value { display: block; font-size: 1rem; font-weight: 700; color: #fff; margin-top: 2px; }
+  .rc-kpi-sep { width: 1px; height: 28px; background: rgba(255,255,255,0.08); }
+  .rc-grid { display: grid; grid-template-columns: 1fr 240px; gap: 16px; }
+  .rc-main { position: relative; height: 380px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 16px; }
+  .rc-main canvas { width: 100% !important; height: 100% !important; }
+  .rc-sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .rc-spark-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 14px; }
+  .rc-spark-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px; }
+  .rc-spark-container { height: 80px; }
+  .rc-spark-container canvas { width: 100% !important; height: 100% !important; }
+  .rc-insights { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 14px; flex: 1; }
+  .rc-insight-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: rgba(255,255,255,0.6); padding: 6px 0; }
+  .rc-insight-row strong { color: #eab308; }
+  .rc-insight-icon { width: 20px; text-align: center; color: rgba(234,179,8,0.6); font-size: 0.7rem; }
+  @media (max-width: 1024px) {
+    .rc-grid { grid-template-columns: 1fr; }
+    .rc-main { height: 300px; }
+    .rc-sidebar { flex-direction: row; }
+    .rc-spark-box, .rc-insights { flex: 1; }
+  }
+  @media (max-width: 640px) {
+    .rc-sidebar { flex-direction: column; }
+    .rc-kpis { display: none; }
+  }
+</style>
+
+<script define:vars={{ dailyRevenue }}>
+  let chartInstance = null;
+  let sparkInstance = null;
+  const CHARTJS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js';
+
+  const revenueMap = new Map(dailyRevenue.map(d => [d.day, Number(d.total)]));
+
+  function isoDate(d) { return d.toISOString().split('T')[0]; }
+
+  function rangeDatesArray(start, end) {
+    const arr = []; const cur = new Date(start);
+    while (cur <= end) { arr.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+    return arr;
+  }
+
+  function buildSeries(periodDays) {
+    const end = new Date(); const start = new Date();
+    start.setDate(end.getDate() - (periodDays - 1));
+    const dates = rangeDatesArray(start, end);
+    const labels = []; const values = [];
+    dates.forEach(d => { const key = isoDate(d); labels.push(key); values.push(revenueMap.get(key) || 0); });
+    return { labels, values };
+  }
+
+  function movingAverage(arr, w = 7) {
+    return arr.map((_, i) => {
+      const s = Math.max(0, i - w + 1);
+      const sl = arr.slice(s, i + 1);
+      return +(sl.reduce((a, b) => a + b, 0) / sl.length).toFixed(2);
+    });
+  }
+
+  function formatMoney(v) { return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v); }
+
+  function createGradient(ctx, color) {
+    const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    g.addColorStop(0, color.replace('1)', '0.25)'));
+    g.addColorStop(1, color.replace('1)', '0)'));
+    return g;
+  }
+
+  async function ensureChartJs() {
+    if (typeof window.Chart !== 'undefined') return;
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = CHARTJS_URL; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  async function initChartForPeriod(periodDays) {
+    await ensureChartJs();
+    const { labels, values } = buildSeries(periodDays);
+
+    const canvas = document.getElementById('revenueChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (chartInstance) { try { chartInstance.destroy(); } catch(e) {} chartInstance = null; }
+
+    const gold = 'rgba(234,179,8,1)';
+
+    chartInstance = new window.Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels.map(l => new Date(l).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })),
+        datasets: [{
+          label: 'Ingresos',
+          data: values,
+          borderColor: gold,
+          borderWidth: 2.5,
+          pointBackgroundColor: '#1a1a2e',
+          pointBorderColor: gold,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          tension: 0.35,
+          fill: true,
+          backgroundColor: createGradient(ctx, 'rgba(234,179,8,1)')
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            titleColor: '#eab308',
+            bodyColor: '#fff',
+            borderColor: 'rgba(234,179,8,0.3)',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              title: (items) => { if (!items.length) return ''; return new Date(labels[items[0].dataIndex]).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }); },
+              label: (c) => ` ${formatMoney(c.parsed.y || 0)}`
+            }
+          }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+            ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 11 }, callback: v => v >= 1000 ? '$' + (v/1000) + 'k' : '$' + v }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: 'rgba(255,255,255,0.3)', maxRotation: 0, autoSkip: true, maxTicksLimit: 12, font: { size: 11 } }
+          }
+        }
+      }
+    });
+
+    // Sparkline
+    const sparkCanvas = document.getElementById('sparkline');
+    if (!sparkCanvas) return;
+    const sparkCtx = sparkCanvas.getContext('2d');
+    if (!sparkCtx) return;
+
+    if (sparkInstance) { try { sparkInstance.destroy(); } catch(e) {} sparkInstance = null; }
+
+    const ma = movingAverage(values, 7);
+    sparkInstance = new window.Chart(sparkCtx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{ data: ma, borderColor: gold, borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: { x: { display: false }, y: { display: false } }
+      }
+    });
+
+    // KPIs
+    const total = values.reduce((a, b) => a + b, 0);
+    const startMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    let mtd = 0;
+    for (let i = 0; i < labels.length; i++) { if (new Date(labels[i]) >= startMonth) mtd += values[i]; }
+    const n = values.length; const half = Math.floor(n/2) || 1;
+    const recent = values.slice(n-half).reduce((a,b)=>a+b,0);
+    const prev = values.slice(Math.max(0,n-2*half), n-half).reduce((a,b)=>a+b,0);
+    const pct = prev === 0 ? null : ((recent-prev)/prev)*100;
+
+    const el = (id) => document.getElementById(id);
+    if (el('kpi-total')) el('kpi-total').textContent = formatMoney(total);
+    if (el('kpi-mtd')) el('kpi-mtd').textContent = formatMoney(mtd);
+    if (el('kpi-pct')) el('kpi-pct').textContent = pct === null ? '—' : `${pct>=0?'+':''}${pct.toFixed(1)}%`;
+
+    const max = Math.max(...values);
+    const avg = total / (values.length || 1);
+    if (el('insight-max')) el('insight-max').textContent = formatMoney(max);
+    if (el('insight-avg')) el('insight-avg').textContent = formatMoney(+avg.toFixed(2));
+  }
+
+  // ✅ FIX: usar clase propia 'active' en vez de clases Tailwind con corchetes
+  document.addEventListener('astro:page-load', () => {
+    const container = document.getElementById('chart-filters');
+    if (!container) return;
+
+    container.addEventListener('click', (e) => {
+      const target = e.target.closest('.rc-tab');
+      if (!target) return;
+      container.querySelectorAll('.rc-tab').forEach(b => b.classList.remove('active'));
+      target.classList.add('active');
+      initChartForPeriod(Number(target.dataset.period));
+    });
+
+    initChartForPeriod(365);
+  });
+
+  document.addEventListener('astro:before-swap', () => {
+    if (chartInstance) { try { chartInstance.destroy(); } catch(e) {} chartInstance = null; }
+    if (sparkInstance) { try { sparkInstance.destroy(); } catch(e) {} sparkInstance = null; }
+  });
+</script>

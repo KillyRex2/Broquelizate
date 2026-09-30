@@ -1,0 +1,196 @@
+---
+// src/pages/cambios-y-devoluciones.astro
+//
+// ⚠️ Cada [CORCHETE] es una decisión de negocio. Confírmalas
+// con el cliente: esto es lo que van a reclamarle después.
+
+import LegalLayout from '@/layouts/LegalLayout.astro';
+
+const CORREO = 'broquelizatelaguna@gmail.com';
+const WHATSAPP = '528714617696';
+const DIAS_CAMBIO = '[7]';        // días naturales para solicitar cambio
+const DIAS_REEMBOLSO = '[5 a 10]'; // días hábiles para ver el reembolso
+---
+
+<LegalLayout
+  title="Cambios y devoluciones"
+  description="Qué hacer si tu pedido llegó dañado, incompleto o no es lo que esperabas."
+  lastUpdated="31-08-2026"
+>
+  <h2>Resumen rápido</h2>
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th>Situación</th>
+        <th>¿Aplica cambio?</th>
+        <th>Plazo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Producto dañado o defectuoso</td>
+        <td>Sí, cambio o reembolso</td>
+        <td>{DIAS_CAMBIO} días naturales</td>
+      </tr>
+      <tr>
+        <td>Recibiste un producto distinto</td>
+        <td>Sí, cambio o reembolso</td>
+        <td>{DIAS_CAMBIO} días naturales</td>
+      </tr>
+      <tr>
+        <td>Pedido incompleto</td>
+        <td>Sí, envío de lo faltante</td>
+        <td>{DIAS_CAMBIO} días naturales</td>
+      </tr>
+      <tr>
+        <td>Piercings y joyería de perforación</td>
+        <td>No, por higiene</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>Piezas personalizadas o con grabado</td>
+        <td>No</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>1. Por qué los piercings no se devuelven</h2>
+  <div class="destacado">
+    <p>
+      Los piercings y la joyería para perforaciones entran en contacto directo con
+      tejido abierto. Una vez abierto su empaque sellado{' '}
+      <strong>no podemos aceptarlos de vuelta</strong>, aunque no se hayan usado: no
+      hay forma de garantizar su esterilidad para la siguiente persona.
+    </p>
+    <p>
+      Es la misma razón por la que no se devuelven productos de higiene personal. Te
+      pedimos revisar bien la medida, el calibre y el material antes de comprar; si
+      tienes dudas, escríbenos por WhatsApp antes de hacer tu pedido y te asesoramos.
+    </p>
+  </div>
+
+  <h2>2. Piezas personalizadas</h2>
+  <p>
+    Los productos con grabado, nombre, fecha o imagen se elaboran específicamente para
+    ti y no pueden revenderse. Por eso <strong>no admiten cambio ni
+    devolución</strong>, salvo que lleguen con un defecto de fabricación o que el
+    grabado no corresponda a lo que solicitaste.
+  </p>
+  <p>
+    Antes de producir te mostramos una vista previa del grabado. Revísala con cuidado:
+    una vez aprobada, la pieza entra a producción y no puede modificarse.
+  </p>
+
+  <h2>3. Producto dañado, defectuoso o equivocado</h2>
+  <p>Si tu pedido llega en malas condiciones o no corresponde a lo que compraste:</p>
+  <ol>
+    <li>
+      Escríbenos dentro de los <strong>{DIAS_CAMBIO} días naturales</strong> siguientes
+      a la entrega.
+    </li>
+    <li>
+      Envíanos <strong>fotografías</strong> del producto y del empaque tal como lo
+      recibiste, junto con tu número de pedido.
+    </li>
+    <li>Revisamos el caso y te respondemos en un máximo de 3 días hábiles.</li>
+    <li>
+      Si procede, elegimos contigo entre <strong>reponer la pieza</strong> o{' '}
+      <strong>reembolsar</strong> el importe.
+    </li>
+  </ol>
+  <p>
+    En estos casos <strong>el costo del envío corre por nuestra cuenta</strong>, tanto
+    para la devolución como para el reenvío.
+  </p>
+  <div class="destacado">
+    <p>
+      <strong>Guarda el empaque original</strong> y toma fotos antes de abrirlo del
+      todo si notas que llegó golpeado. Es lo que nos permite reclamar a la paquetería.
+    </p>
+  </div>
+
+  <h2>4. Cambio por talla o modelo</h2>
+  <p>
+    Para productos que <strong>sí</strong> admiten cambio (anillos, cadenas, pulseras y
+    aretes que no sean de perforación), puedes solicitarlo dentro de los{' '}
+    <strong>{DIAS_CAMBIO} días naturales</strong> posteriores a la entrega, siempre que:
+  </p>
+  <ul>
+    <li>La pieza esté sin usar, sin rayones y en su empaque original</li>
+    <li>Conserves el comprobante o número de pedido</li>
+    <li>No se trate de una pieza personalizada o de perforación</li>
+  </ul>
+  <p>
+    En cambios por gusto o talla, <strong>el costo del envío corre por cuenta del
+    cliente</strong> [CONFIRMAR: ¿quién paga? ¿solo el de regreso o también el reenvío?].
+  </p>
+  <p>
+    Si la pieza nueva tiene un precio mayor, se cubre la diferencia; si es menor, se
+    genera un saldo a favor para tu próxima compra.
+  </p>
+
+  <h2>5. Reembolsos</h2>
+  <p>
+    Los reembolsos se realizan por el <strong>mismo medio de pago</strong> con el que
+    compraste. No podemos depositar a una cuenta distinta ni entregar efectivo por
+    compras en línea.
+  </p>
+  <p>
+    Una vez autorizado, el reembolso tarda entre <strong>{DIAS_REEMBOLSO} días
+    hábiles</strong> en reflejarse, según tu banco o la plataforma de pago. Ese plazo
+    no depende de nosotros.
+  </p>
+  <p>
+    El costo de envío original no se reembolsa, salvo cuando el error fue nuestro.
+  </p>
+
+  <h2>6. Cancelaciones</h2>
+  <p>
+    Puedes cancelar tu pedido <strong>sin costo mientras no se haya generado la guía de
+    envío</strong>. Escríbenos lo antes posible por WhatsApp.
+  </p>
+  <p>
+    Si el paquete ya salió, el pedido debe seguir el proceso de devolución descrito
+    arriba. Las piezas personalizadas no pueden cancelarse una vez aprobada la vista
+    previa del grabado.
+  </p>
+
+  <h2>7. Cómo solicitar un cambio o devolución</h2>
+  <p>Escríbenos por cualquiera de estos medios con la siguiente información:</p>
+  <ul>
+    <li>Número de pedido</li>
+    <li>Qué producto y qué ocurrió</li>
+    <li>Fotografías, si el producto llegó dañado o equivocado</li>
+  </ul>
+  <p>
+    <a href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noopener">
+      WhatsApp
+    </a>{' '}
+    · <a href={`mailto:${CORREO}`}>{CORREO}</a>
+  </p>
+  <p>Te responderemos en un máximo de 3 días hábiles.</p>
+
+  <h2>8. Garantía</h2>
+  <p>
+    Nuestras piezas cuentan con garantía de <strong>[30] días</strong> contra defectos
+    de fabricación. La garantía no cubre:
+  </p>
+  <ul>
+    <li>Desgaste normal por uso</li>
+    <li>Daños por golpes, humedad, perfumes, cloro o productos químicos</li>
+    <li>Piezas modificadas o reparadas por terceros</li>
+    <li>Pérdida de piedras por uso rudo</li>
+  </ul>
+  <p>
+    Para conservar tus piezas: retíralas antes de bañarte, nadar o hacer ejercicio,
+    guárdalas en su bolsa individual y evita el contacto con perfumes y cremas.
+  </p>
+
+  <h2>9. Tus derechos como consumidor</h2>
+  <p>
+    Esta política no limita los derechos que la Ley Federal de Protección al Consumidor
+    te reconoce. Si no llegamos a un acuerdo, puedes acudir a la Procuraduría Federal
+    del Consumidor (PROFECO).
+  </p>
+</LegalLayout>

@@ -1,0 +1,10 @@
+---
+// src/pages/admin/stats.astro
+import SalesStats from '@/components/admin/SalesStats.astro';
+import AdminLayout from "@/layouts/AdminLayout.astro"
+
+const pageTitle = 'Estadísticas de Ventas';
+---
+<AdminLayout title={pageTitle}>
+  <SalesStats />
+</AdminLayout>

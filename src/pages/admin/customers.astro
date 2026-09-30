@@ -1,0 +1,64 @@
+---
+// src/pages/admin/customers.astro
+import ClientList from '@/components/admin/ClientList.astro';
+import CreateClientForm from '@/components/admin/CreateClientForm.astro';
+import AdminLayout from '@/layouts/AdminLayout.astro';
+
+const pageTitle = 'Gestión de Clientes';
+// /admin/customers?nuevo=1 abre directo el formulario (lo usa el checkout del POS)
+const openCreate = Astro.url.searchParams.get('nuevo') === '1';
+---
+<AdminLayout title={pageTitle}>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-3xl font-bold text-gray-200">{pageTitle}</h1>
+    <p class="text-gray-400 mt-1">Clientes de mostrador y ventas a crédito.</p>
+
+    <div class="mt-6">
+      <ClientList />
+    </div>
+  </div>
+
+  <!-- Alta de cliente en un modal (antes llevaba a /clientes/nuevo, fuera del admin) -->
+  <dialog id="create-client-dialog" class="client-dialog" data-open-on-load={openCreate ? '1' : '0'}>
+    <div class="client-dialog-inner">
+      <button type="button" class="client-dialog-close" id="close-create-client" aria-label="Cerrar">&times;</button>
+      <CreateClientForm />
+    </div>
+  </dialog>
+</AdminLayout>
+
+<style>
+  .client-dialog {
+    border: none; padding: 0; background: transparent;
+    width: min(92vw, 460px); max-height: 92vh; overflow: visible;
+  }
+  .client-dialog::backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(3px); }
+  .client-dialog-inner { position: relative; }
+  .client-dialog-close {
+    position: absolute; top: 14px; right: 14px; z-index: 1;
+    width: 34px; height: 34px; border-radius: 999px; border: none; cursor: pointer;
+    background: #f3f4f6; color: #374151; font-size: 1.4rem; line-height: 1;
+  }
+  .client-dialog-close:hover { background: #e5e7eb; }
+</style>
+
+<script>
+  function setupCreateDialog() {
+    const dialog = document.getElementById('create-client-dialog') as HTMLDialogElement | null;
+    if (!dialog || dialog.dataset.bound === '1') return;
+    dialog.dataset.bound = '1';
+
+    const open = () => {
+      if (!dialog.open) dialog.showModal();
+      (dialog.querySelector('#nombre') as HTMLInputElement | null)?.focus();
+    };
+    document.getElementById('open-create-client')?.addEventListener('click', open);
+    document.getElementById('close-create-client')?.addEventListener('click', () => dialog.close());
+    // Clic fuera del formulario cierra
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+
+    if (dialog.dataset.openOnLoad === '1') open();
+  }
+
+  document.addEventListener('astro:page-load', setupCreateDialog);
+</script>

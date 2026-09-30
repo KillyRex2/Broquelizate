@@ -1,15 +1,21 @@
 import { db, eq, User } from 'astro:db';
 //import GitHub from '@auth/core/providers/github';
 import { defineConfig } from 'auth-astro';
+import Google from "@auth/core/providers/google";
 import Credentials from '@auth/core/providers/credentials';
 import bcrypt from 'bcryptjs';
 import type { AdapterUser } from '@auth/core/adapters';
 export default defineConfig({
   providers: [
     // TODO
-    // GitHub({
-    //   clientId: import.meta.env.GITHUB_CLIENT_ID,
-    //   clientSecret: import.meta.env.GITHUB_CLIENT_SECRET,
+    Google({
+      clientId: import.meta.env.GOOGLE_CLIENT_ID,
+      clientSecret: import.meta.env.GOOGLE_CLIENT_SECRET,
+    }),
+        // TODO
+    // Apple({
+    //   clientId: import.meta.env.Apple_CLIENT_ID,
+    //   clientSecret: import.meta.env.Apple_CLIENT_SECRET,
     // }),
 
     Credentials({

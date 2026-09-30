@@ -1,0 +1,305 @@
+---
+// src/components/admin/SalesByPaymentMethod.astro
+import { db, orders } from 'astro:db';
+import { sql, gte } from 'drizzle-orm';
+
+const now = new Date();
+const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+
+type Row = { day: string; paymentMethod: string; totalSales: number; orderCount: number; };
+
+const paymentSeries: Row[] = await db.select({
+  day: sql<string>`DATE(${orders.createdAt})`,
+  paymentMethod: orders.paymentMethod,
+  totalSales: sql<number>`SUM(${orders.total})`.mapWith(Number),
+  orderCount: sql<number>`COUNT(*)`.mapWith(Number)
+})
+.from(orders)
+.where(gte(orders.createdAt, twoYearsAgo))
+.groupBy(sql`DATE(${orders.createdAt}), ${orders.paymentMethod}`)
+.orderBy(sql`DATE(${orders.createdAt}) ASC`)
+.all();
+
+const colorPalette = [
+  'rgba(234,179,8,0.85)',
+  'rgba(59,130,246,0.85)',
+  'rgba(16,185,129,0.85)',
+  'rgba(139,92,246,0.85)',
+  'rgba(245,158,11,0.85)',
+  'rgba(236,72,153,0.85)'
+];
+
+const serialized = { paymentSeries, colorPalette };
+---
+
+<div class="spm-wrapper">
+  <div class="spm-kpis">
+    <div class="spm-kpi">
+      <span class="spm-kpi-label">Total</span>
+      <span id="spm-kpi-total" class="spm-kpi-value">$0</span>
+    </div>
+    <div class="spm-kpi">
+      <span class="spm-kpi-label">Top método</span>
+      <span id="spm-kpi-top" class="spm-kpi-value">—</span>
+    </div>
+    <div class="spm-kpi">
+      <span class="spm-kpi-label">Pedidos</span>
+      <span id="spm-kpi-orders" class="spm-kpi-value">0</span>
+    </div>
+  </div>
+
+  <div class="spm-charts">
+    <div class="spm-chart-box">
+      <span class="spm-chart-label">Distribución de ingresos</span>
+      <div class="spm-doughnut-container">
+        <canvas id="paymentMethodChart"></canvas>
+      </div>
+    </div>
+    <div class="spm-chart-box">
+      <span class="spm-chart-label">Pedidos por método</span>
+      <div class="spm-bar-container">
+        <canvas id="paymentsBar"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .spm-wrapper { display: flex; flex-direction: column; gap: 16px; }
+  .spm-kpis { display: flex; gap: 16px; flex-wrap: wrap; }
+  .spm-kpi { flex: 1; min-width: 80px; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; }
+  .spm-kpi-label { display: block; font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; }
+  .spm-kpi-value { display: block; font-size: 0.95rem; font-weight: 700; color: #fff; margin-top: 4px; }
+  .spm-charts { display: flex; flex-direction: column; gap: 16px; }
+  .spm-chart-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 14px; }
+  .spm-chart-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 12px; }
+  .spm-doughnut-container { height: 240px; position: relative; }
+  .spm-doughnut-container canvas { width: 100% !important; height: 100% !important; }
+  .spm-bar-container { height: 180px; position: relative; }
+  .spm-bar-container canvas { width: 100% !important; height: 100% !important; }
+</style>
+
+<script id="spm-data" type="application/json" set:html={JSON.stringify(serialized)}></script>
+
+<script>
+  import Chart from 'chart.js/auto';
+  import type { TooltipItem } from 'chart.js';
+
+  type PaymentRow = {
+    day: string;
+    paymentMethod: string;
+    totalSales: number;
+    orderCount: number;
+  };
+
+  type Serialized = {
+    paymentSeries: PaymentRow[];
+    colorPalette: string[];
+  };
+
+  type Aggregated = {
+    labels: string[];
+    revenues: number[];
+    counts: number[];
+    totalRevenue: number;
+    totalOrders: number;
+  };
+
+  const dataEl = document.getElementById('spm-data');
+  const serialized: Serialized = dataEl?.textContent
+    ? JSON.parse(dataEl.textContent) as Serialized
+    : { paymentSeries: [], colorPalette: [] };
+  const { paymentSeries, colorPalette } = serialized;
+
+  let doughnutChart: Chart | null = null;
+  let barChart: Chart | null = null;
+
+  function formatMoney(v: number): string {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+  }
+
+  function isoToDate(s: string): Date {
+    return new Date(s + 'T00:00:00');
+  }
+
+  function dateInRange(dayStr: string, start: Date, end: Date): boolean {
+    const d = isoToDate(dayStr); d.setHours(0, 0, 0, 0);
+    const s = new Date(start); s.setHours(0, 0, 0, 0);
+    const e = new Date(end); e.setHours(23, 59, 59, 999);
+    return d >= s && d <= e;
+  }
+
+  function aggregateByPeriod(periodDays: number): Aggregated {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - (periodDays - 1));
+
+    const revenueMap = new Map<string, number>();
+    const countMap = new Map<string, number>();
+    let totalRevenue = 0;
+    let totalOrders = 0;
+
+    paymentSeries.forEach((row) => {
+      if (dateInRange(row.day, start, end)) {
+        const m = row.paymentMethod || 'Otro';
+        const rev = Number(row.totalSales || 0);
+        const cnt = Number(row.orderCount || 0);
+        revenueMap.set(m, (revenueMap.get(m) || 0) + rev);
+        countMap.set(m, (countMap.get(m) || 0) + cnt);
+        totalRevenue += rev;
+        totalOrders += cnt;
+      }
+    });
+
+    const methods = Array.from(new Set([...revenueMap.keys(), ...countMap.keys()]));
+    methods.sort((a, b) => (revenueMap.get(b) || 0) - (revenueMap.get(a) || 0));
+
+    return {
+      labels: methods,
+      revenues: methods.map((m) => revenueMap.get(m) || 0),
+      counts: methods.map((m) => countMap.get(m) || 0),
+      totalRevenue,
+      totalOrders
+    };
+  }
+
+  function renderPaymentCharts(periodDays: number): void {
+    const agg = aggregateByPeriod(periodDays || 365);
+
+    if (doughnutChart) {
+      try { doughnutChart.destroy(); } catch { /* noop */ }
+      doughnutChart = null;
+    }
+    if (barChart) {
+      try { barChart.destroy(); } catch { /* noop */ }
+      barChart = null;
+    }
+
+    const doughCtx = document.getElementById('paymentMethodChart') as HTMLCanvasElement | null;
+    if (!doughCtx) return;
+    const dCtx = doughCtx.getContext('2d');
+    if (!dCtx) return;
+
+    const bgColors = agg.labels.map((_, i) => colorPalette[i % colorPalette.length]);
+
+    doughnutChart = new Chart(dCtx, {
+      type: 'doughnut',
+      data: {
+        labels: agg.labels,
+        datasets: [{ data: agg.revenues, backgroundColor: bgColors, borderWidth: 0 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle',
+              padding: 8,
+              boxWidth: 10,
+              color: 'rgba(255,255,255,0.6)',
+              font: { size: 11 }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            titleColor: '#eab308',
+            bodyColor: '#fff',
+            borderColor: 'rgba(234,179,8,0.3)',
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx: TooltipItem<'doughnut'>) => {
+                const data = ctx.dataset.data as number[];
+                const total = data.reduce((a, b) => a + Number(b || 0), 0);
+                const value = Number(ctx.raw || 0);
+                const pct = total > 0 ? (value / total) * 100 : 0;
+                return `${ctx.label}: ${formatMoney(value)} (${pct.toFixed(1)}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const barCtx = document.getElementById('paymentsBar') as HTMLCanvasElement | null;
+    if (!barCtx) return;
+    const bCtx = barCtx.getContext('2d');
+    if (!bCtx) return;
+
+    barChart = new Chart(bCtx, {
+      type: 'bar',
+      data: {
+        labels: agg.labels,
+        datasets: [{
+          label: 'Pedidos',
+          data: agg.counts,
+          backgroundColor: bgColors,
+          borderRadius: 6,
+          barThickness: 18
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 11 } },
+            grid: { display: false }
+          },
+          y: {
+            ticks: { color: 'rgba(255,255,255,0.3)', precision: 0, font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.04)' }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx: TooltipItem<'bar'>) => `${ctx.dataset.label}: ${ctx.raw}`
+            }
+          }
+        }
+      }
+    });
+
+    const setText = (id: string, text: string): void => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    setText('spm-kpi-total', formatMoney(agg.totalRevenue));
+    setText('spm-kpi-orders', String(agg.totalOrders));
+    setText('spm-kpi-top', agg.labels[0] || '—');
+  }
+
+  function init(): void {
+    const doughCtx = document.getElementById('paymentMethodChart');
+    if (!doughCtx) return;
+    renderPaymentCharts(365);
+  }
+
+  let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+  window.addEventListener('resize', () => {
+    if (resizeTimeout) clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      const activeTab = document.querySelector<HTMLElement>('#chart-filters .rc-tab.active');
+      const period = activeTab?.dataset.period ? Number(activeTab.dataset.period) : 365;
+      renderPaymentCharts(period);
+    }, 250);
+  });
+
+  document.addEventListener('astro:page-load', init);
+
+  document.addEventListener('astro:before-swap', () => {
+    if (doughnutChart) {
+      try { doughnutChart.destroy(); } catch { /* noop */ }
+      doughnutChart = null;
+    }
+    if (barChart) {
+      try { barChart.destroy(); } catch { /* noop */ }
+      barChart = null;
+    }
+  });
+</script>

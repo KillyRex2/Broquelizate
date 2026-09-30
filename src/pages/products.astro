@@ -1,39 +1,320 @@
 ---
-import { ProductList } from "@/components";
-import Pagination from "@/components/shared/Pagination.astro";
+// src/pages/products/index.astro
+import { ProductList } from "@/components/products/ProductList";
+import { FilterSidebar } from "@/components/products/FilterSidebar";
+import { Pagination } from "@/components/shared/Pagination.tsx";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
+import type { ProductWithImages } from "@/interfaces";
 
 const searchParams = Astro.url.searchParams;
-const pageParam = Number(searchParams.get('page') ?? 1);
 
-const { data, error } = await Astro.callAction(
-  actions.getProductsByPage,  
+// Obtener parámetros de la URL
+const pageParam = Number(searchParams.get('page') || 1);
+const categoryParam = searchParams.get('category') || 'all';
+const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
+const stockFilterParam = searchParams.get('stockFilter') || 'all';
+const search = searchParams.get('search') || '';
+const piercingParam = searchParams.get('piercing') || '';
+
+// ✅ CORREGIDO: Pasar limit y stockFilter correctamente
+const result = await Astro.callAction(
+  actions.getProductsByPage,
   {
     page: pageParam,
+    limit: 16, // ✅ 16 productos por página
+    category: categoryParam,
+    maxPrice: maxPriceParam,
+    stockFilter: 'inStock', // ✅ Solo productos con stock > 0
+    search: search,
+    piercing: piercingParam
   }
 );
 
-console.log(data)
-
-if (error) {
-  // maneja el error como prefieras (redirect, throw, etc.)
-  return Astro.redirect('/');
+// Manejo de errores
+if (result.error) {
+  console.error("Error al cargar productos:", result.error);
+  return Astro.redirect('/error');
+}
+if (!result.data) {
+  console.error("No se recibieron datos de productos");
+  return Astro.redirect('/error');
 }
 
-const { products, totalPages } = data;
+const { products, totalPages } = result.data;
 
-if (data.products.length === 0){
-    return Astro.redirect(`products?/page=${totalPages}`)
+// Transformación de productos con corrección de tipado
+const transformedProducts: ProductWithImages[] = products.map(product => ({
+  ...product,
+  images: product.images?.length ? product.images : ['no-image.png'],
+  piercing_name: typeof product.piercing_name === 'string' 
+    ? product.piercing_name.split(',').map((p: string) => p.trim()) 
+    : product.piercing_name || [],
+  cost: product.cost ?? 0,
+  description: product.description ?? '',
+  category: product.category ?? 'uncategorized',
+  hasVariants: product.hasVariants ?? false,
+  allowsEngraving: product.allowsEngraving ?? false,
+}));
+
+// ✅ Ya no necesitamos filtrar localmente - el backend ya filtra por stock > 0
+const displayProducts = transformedProducts;
+
+// Redirigir si la página está fuera de rango
+if (displayProducts.length === 0 && totalPages > 0 && pageParam > totalPages) {
+  const queryParams = new URLSearchParams(Astro.url.search);
+  queryParams.set('page', totalPages.toString());
+  return Astro.redirect(`/products?${queryParams.toString()}`);
 }
 
+const filterState = {
+  selectedCat: categoryParam,
+  price: maxPriceParam,
+  inStock: stockFilterParam !== 'out',
+  search: search,
+  piercing: piercingParam
+};
 
+// Contar filtros activos para el badge
+const activeFilters = [
+  categoryParam !== 'all',
+  piercingParam !== '' && piercingParam !== 'all',
+  maxPriceParam < 5000,
+  search !== ''
+].filter(Boolean).length;
 ---
 
-<ProductsLayout>
-  
-    <ProductList products={products} client:idle/>
-    <Pagination totalPages={totalPages}/>
-  
+<ProductsLayout title="Nuestra Colección | Joyería Premium">
+  <section class="products-page">
+    <!-- Decoración de fondo -->
+    <div class="bg-decoration" aria-hidden="true">
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+      <div class="glow glow-3"></div>
+      <div class="grid-pattern"></div>
+    </div>
 
+    <div class="products-container">
+      <!-- Encabezado de la página -->
+      <header class="page-header">
+        <div class="header-badge">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span>Colección Premium</span>
+        </div>
+        
+        <h1 class="page-title">
+          Nuestra <span class="gradient-text">Joyería</span>
+        </h1>
+        
+        <p class="page-description">
+          Explora nuestra colección exclusiva de piercings y joyería de alta calidad.
+          Materiales premium y diseños únicos para cada estilo.
+        </p>
+
+        <!-- Estadísticas rápidas -->
+        <div class="quick-stats">
+          <div class="stat-item">
+            <span class="stat-value">{displayProducts.length}</span>
+            <span class="stat-label">Resultados</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-value">Premium</span>
+            <span class="stat-label">Calidad</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Cabecera móvil (Filtros) -->
+      <div class="mobile-header">
+        <div class="mobile-results">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span><strong>{displayProducts.length}</strong> productos</span>
+        </div>
+        <button id="open-filters-btn" class="mobile-filter-btn">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+          </svg>
+          <span>Filtros</span>
+          {activeFilters > 0 && (
+            <span class="filter-badge">{activeFilters}</span>
+          )}
+        </button>
+      </div>
+
+      <!-- Layout Principal -->
+      <div class="content-layout">
+        <!-- Sidebar Escritorio -->
+        <aside class="sidebar-column">
+          <FilterSidebar client:only="react" initialValues={filterState} />
+        </aside>
+
+        <!-- Drawer Móvil de Filtros -->
+        <div id="filters-drawer" class="filters-drawer">
+          <div class="drawer-backdrop" id="drawer-backdrop"></div>
+          <div class="drawer-content" id="drawer-content">
+            <div class="drawer-header">
+              <h3>Filtros</h3>
+              <button id="close-filters-btn" class="drawer-close" aria-label="Cerrar filtros">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="drawer-body">
+              <FilterSidebar client:only="react" initialValues={filterState} />
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna de Productos -->
+        <main class="products-column">
+          {displayProducts.length > 0 ? (
+            <ProductList products={displayProducts} client:only="react" />
+          ) : (
+            <div class="empty-state">
+              <div class="empty-icon">
+                <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+              </div>
+              <h3 class="empty-title">Sin resultados</h3>
+              <p class="empty-description">No encontramos productos con los filtros seleccionados.</p>
+              <a href="/products" class="empty-btn">Limpiar todos los filtros</a>
+            </div>
+          )}
+
+          <!-- Paginación -->
+          {totalPages > 1 && (
+            <div class="pagination-container">
+              <Pagination 
+                client:load
+                currentPage={pageParam}
+                totalPages={totalPages}
+                searchParams={{
+                  category: categoryParam,
+                  maxPrice: maxPriceParam.toString(),
+                  search: search,
+                  piercing: piercingParam
+                }}
+              />
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  </section>
 </ProductsLayout>
+
+<style>
+  .products-page {
+    position: relative;
+    min-height: 100vh;
+    padding: 40px 0 80px;
+    background: linear-gradient(180deg, #fafafa 0%, #fff 30%, #fafafa 100%);
+    overflow: hidden;
+  }
+
+  /* Decoraciones de Fondo */
+  .bg-decoration { position: absolute; inset: 0; pointer-events: none; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.6; }
+  .glow-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(234, 179, 8, 0.15), transparent 70%); top: -200px; right: -100px; }
+  .glow-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(234, 179, 8, 0.1), transparent 70%); bottom: 100px; left: -150px; }
+  .grid-pattern { position: absolute; inset: 0; background-image: linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 40px 40px; }
+
+  /* Contenedor */
+  .products-container { position: relative; z-index: 10; max-width: 1440px; margin: 0 auto; padding: 0 24px; }
+
+  /* Encabezado */
+  .page-header { text-align: center; margin-bottom: 56px; }
+  .header-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 100px; color: #b45309; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .page-title { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; color: #111; margin-bottom: 16px; line-height: 1.1; }
+  .gradient-text { background: linear-gradient(135deg, #b45309, #d97706, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .page-description { font-size: 1.125rem; color: #555; max-width: 600px; margin: 0 auto 32px; line-height: 1.6; }
+
+  /* Stats */
+  .quick-stats { display: inline-flex; align-items: center; gap: 32px; padding: 16px 40px; background: white; border-radius: 20px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); }
+  .stat-item { display: flex; flex-direction: column; align-items: center; }
+  .stat-value { font-size: 1.5rem; font-weight: 800; color: #111; }
+  .stat-label { font-size: 0.75rem; color: #888; text-transform: uppercase; font-weight: 600; }
+  .stat-divider { width: 1px; height: 32px; background: #eee; }
+
+  /* Layout */
+  .content-layout { display: grid; grid-template-columns: 320px 1fr; gap: 48px; }
+  /* El panel hace scroll por dentro: así el buscador (fijo arriba) nunca
+     se pierde y no queda contenido cortado cuando se abren los filtros. */
+  .sidebar-column {
+    position: sticky; top: 100px; height: fit-content;
+    max-height: calc(100vh - 116px); overflow-y: auto; overscroll-behavior: contain;
+    border-radius: 24px;
+    scrollbar-width: thin; scrollbar-color: rgba(234,179,8,0.35) transparent;
+  }
+  .sidebar-column::-webkit-scrollbar { width: 6px; }
+  .sidebar-column::-webkit-scrollbar-thumb { background: rgba(234,179,8,0.35); border-radius: 999px; }
+  .pagination-container { margin-top: 64px; display: flex; justify-content: center; }
+
+  /* Cabecera Móvil */
+  .mobile-header { display: none; justify-content: space-between; align-items: center; padding: 16px 0; margin-bottom: 24px; border-bottom: 1px solid #eee; }
+  .mobile-filter-btn { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: #111; color: white; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+  .mobile-filter-btn:hover { background: #333; }
+  .filter-badge { background: #eab308; color: #000; font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
+
+  /* Drawer de Filtros */
+  .filters-drawer { position: fixed; inset: 0; z-index: 1000; visibility: hidden; }
+  .filters-drawer.open { visibility: visible; }
+  .drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); opacity: 0; transition: 0.3s; }
+  .filters-drawer.open .drawer-backdrop { opacity: 1; }
+  .drawer-content { position: absolute; left: 0; top: 0; bottom: 0; width: 320px; background: #fff; transform: translateX(-100%); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+  .filters-drawer.open .drawer-content { transform: translateX(0); }
+  .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #eee; }
+  .drawer-close { background: #f5f5f5; border: none; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+  /* Estado Vacío */
+  .empty-state { text-align: center; padding: 80px 24px; background: #fff; border-radius: 24px; border: 1px dashed #ddd; }
+  .empty-icon { color: #b45309; margin-bottom: 24px; }
+  .empty-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; color: #111; }
+  .empty-description { color: #666; font-size: 0.95rem; }
+  .empty-btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111; color: #fff; border-radius: 12px; text-decoration: none; font-weight: 600; transition: 0.2s; }
+  .empty-btn:hover { background: #eab308; color: #000; }
+
+  /* Media Queries */
+  @media (max-width: 1024px) {
+    .content-layout { grid-template-columns: 1fr; }
+    .sidebar-column { display: none; }
+    .mobile-header { display: flex; }
+    .page-title { font-size: 2.5rem; }
+  }
+</style>
+
+<script>
+  function setupFilterDrawer() {
+    const openBtn = document.getElementById('open-filters-btn');
+    const closeBtn = document.getElementById('close-filters-btn');
+    const drawer = document.getElementById('filters-drawer');
+    const backdrop = document.getElementById('drawer-backdrop');
+
+    if (!openBtn || !closeBtn || !drawer || !backdrop) return;
+
+    const openDrawer = () => {
+      drawer.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeDrawer = () => {
+      drawer.classList.remove('open');
+      document.body.style.overflow = '';
+    };
+
+    openBtn.addEventListener('click', openDrawer);
+    closeBtn.addEventListener('click', closeDrawer);
+    backdrop.addEventListener('click', closeDrawer);
+  }
+
+  // Ejecutar en la carga inicial y tras navegaciones de Astro
+  document.addEventListener('astro:page-load', setupFilterDrawer);
+</script>

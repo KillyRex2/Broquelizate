@@ -1,0 +1,1460 @@
+---
+// src/pages/admin/pos.astro
+import { actions } from 'astro:actions';
+import type { ProductForPOS } from '@/interfaces';
+import { Icon } from 'astro-icon/components';
+
+const { data: allProducts = [], error } = await Astro.callAction(actions.getAllProductsWithImages, undefined);
+const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
+---
+
+<div class="pos-container flex bg-gray-100 font-sans text-gray-800 rounded-lg relative h-screen overflow-hidden" data-astro-transition-persist="pos-main">
+  <!-- Backdrop del carrito móvil -->
+  <div id="cart-backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 hidden lg:hidden transition-opacity duration-300"></div>
+
+  <main class="flex-1 flex flex-col p-3 md:p-4 lg:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
+    <header class="mb-3 flex flex-col gap-3 flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <h1 class="text-xl md:text-2xl font-bold text-gray-900">Broqueventa</h1>
+          <span id="product-count" class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+            0 productos
+          </span>
+        </div>
+        <!-- Botón carrito móvil -->
+        <button id="mobile-cart-toggle" class="lg:hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 font-semibold hover:shadow-xl transition-all duration-300 active:scale-95">
+          <Icon name="mdi:cart" class="h-5 w-5" />
+          <span id="mobile-cart-count" class="bg-white text-amber-600 rounded-full px-2 py-0.5 text-xs font-bold min-w-[1.5rem]">0</span>
+        </button>
+      </div>
+      
+      <!-- Filtros con data-astro-transition-persist para mantener estado -->
+      <div class="flex flex-col sm:flex-row gap-2 md:gap-3" data-astro-transition-persist="pos-filters">
+        <div class="relative flex-grow group">
+          <Icon name="mdi:magnify" class="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Buscar producto o SKU..."
+            autocomplete="off"
+            class="w-full rounded-xl border-2 border-gray-200 bg-white py-2.5 md:py-3 pl-10 md:pl-12 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 shadow-sm hover:border-gray-300"
+          />
+          <!-- Botón limpiar búsqueda -->
+          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden transition-colors p-1 rounded-full hover:bg-gray-100">
+            <Icon name="mdi:close-circle" class="h-5 w-5" />
+          </button>
+        </div>
+        
+        <div class="relative">
+          <select id="category-filter" class="appearance-none rounded-xl border-2 border-gray-200 bg-white py-2.5 md:py-3 pl-4 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 cursor-pointer shadow-sm hover:border-gray-300 min-w-[180px]">
+            <option value="all">Todas las categorías</option>
+            {categories.map(category => (
+              <option value={category}>{category}</option>
+            ))}
+          </select>
+          <Icon name="mdi:chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+        </div>
+        
+        <!-- Botón reset filtros -->
+        <button id="reset-filters" class="hidden sm:flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <Icon name="mdi:filter-remove" class="h-4 w-4" />
+          <span class="hidden md:inline">Limpiar</span>
+        </button>
+      </div>
+      
+      <!-- Chips de filtros activos -->
+      <div id="active-filters" class="hidden flex-wrap gap-2"></div>
+    </header>
+    
+    <!-- Contenedor de productos con scroll -->
+    <div class="flex-1 min-h-0 rounded-xl bg-white border border-gray-200 overflow-hidden shadow-sm">
+      <!-- Estado vacío -->
+      <div id="empty-state" class="hidden h-full flex-col items-center justify-center text-center p-8">
+        <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+          <Icon name="mdi:package-variant" class="h-10 w-10 text-gray-400" />
+        </div>
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">No se encontraron productos</h3>
+        <p class="text-gray-500 text-sm mb-4">Intenta con otros términos de búsqueda</p>
+        <button id="clear-filters-empty" class="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
+          Limpiar filtros
+        </button>
+      </div>
+      
+      <!-- Grid de productos -->
+      <div id="product-grid"
+           class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-3 overflow-y-auto h-full product-scroll"
+           style="align-content: start;">
+      </div>
+    </div>
+  </main>
+  
+  <!-- Modal de Variantes Responsive -->
+  <div id="variant-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-3 md:p-4 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] md:max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
+      <!-- Header -->
+      <div class="p-4 md:p-6 border-b bg-gradient-to-r from-amber-50 to-orange-50">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <h2 class="text-lg md:text-2xl font-bold text-gray-900 truncate" id="modal-product-name">Seleccionar Variante</h2>
+            <p class="text-xs md:text-sm text-gray-600 mt-1" id="modal-product-description">Elige la variante</p>
+          </div>
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 p-2 hover:bg-white/50 rounded-full">
+            <Icon name="mdi:close" class="h-5 w-5 md:h-6 md:w-6" />
+          </button>
+        </div>
+      </div>
+      
+      <!-- Contenido -->
+      <div class="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-8rem)] md:max-h-[60vh] bg-gray-50 product-scroll">
+        <div id="variant-list" class="grid gap-3 md:gap-4"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Carrito Lateral -->
+  <aside id="cart-drawer" class="fixed lg:relative right-0 top-0 lg:top-auto flex w-full sm:w-96 lg:w-full lg:max-w-sm flex-col border-l border-gray-200 bg-white shadow-2xl lg:shadow-lg overflow-hidden z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out" style="height: 100vh; max-height: 100vh;">
+    <!-- Header del carrito -->
+    <div class="flex flex-col border-b bg-white sticky top-0 z-10 shadow-sm">
+      <div class="flex items-center justify-between p-3 md:p-4">
+        <div class="flex items-center gap-2">
+          <h2 class="text-lg md:text-xl font-bold text-gray-800">Orden Actual</h2>
+          <span id="cart-item-count" class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="admin-clear-cart-btn-desktop" class="hidden lg:flex items-center gap-1 text-xs md:text-sm font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-1 hover:bg-red-50 rounded-lg">
+            <Icon name="mdi:delete-outline" class="h-4 w-4" />
+            Vaciar
+          </button>
+          <button id="close-cart-mobile" class="lg:hidden text-gray-500 hover:text-gray-700 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <Icon name="mdi:close" class="h-6 w-6" />
+          </button>
+        </div>
+      </div>
+      
+      <!-- Botones móvil -->
+      <div class="lg:hidden border-t border-gray-100 grid grid-cols-2 gap-2 p-2">
+        <button id="back-to-products-mobile" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
+          <Icon name="mdi:arrow-left" class="h-5 w-5" />
+          <span>Seguir</span>
+        </button>
+        <button id="admin-clear-cart-btn" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+          <Icon name="mdi:delete-outline" class="h-5 w-5" />
+          <span>Vaciar</span>
+        </button>
+      </div>
+    </div>
+    
+    <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-gray-50 product-scroll">
+      <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400 py-12">
+        <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+          <Icon name="mdi:cart-outline" class="h-8 w-8" />
+        </div>
+        <p class="text-sm md:text-base font-medium">Carrito vacío</p>
+        <p class="text-xs text-gray-400 mt-1">Agrega productos para comenzar</p>
+      </div>
+    </ul>
+    
+    <div class="border-t bg-white p-3 md:p-4 sticky bottom-0 shadow-up">
+      <div class="space-y-2 text-sm md:text-base">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Subtotal</span>
+          <span id="subtotal-amount" class="font-medium text-gray-800">$0.00</span>
+        </div>
+
+        <!-- Montos adicionales (servicios, cargos extra…). Puede haber varios -->
+        <div class="flex justify-between items-center">
+          <span id="extra-label" class="text-gray-600">Monto adicional</span>
+          <button id="add-extra-btn" type="button" class="text-xs md:text-sm font-semibold text-amber-600 hover:text-amber-700 hover:underline">
+            + Agregar monto
+          </button>
+        </div>
+        <ul id="extra-list" class="hidden space-y-1.5 max-h-32 overflow-y-auto product-scroll"></ul>
+        <div class="flex justify-between text-base md:text-lg pt-2 border-t border-gray-100">
+          <span class="font-bold text-gray-900">Total</span>
+          <span id="total-amount" class="font-bold text-amber-600">$0.00</span>
+        </div>
+      </div>
+      <button
+        id="checkout-button"
+        class="mt-3 md:mt-4 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 md:py-3.5 text-sm md:text-base font-bold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none active:scale-[0.98]"
+        disabled>
+        <span class="flex items-center justify-center gap-2">
+          <Icon name="mdi:credit-card-outline" class="h-5 w-5" />
+          Ir al Pago
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Modal: monto adicional con descripción -->
+  <dialog id="extra-dialog" class="extra-dialog">
+    <form id="extra-form" class="bg-white rounded-2xl p-6 shadow-2xl w-full space-y-4" novalidate>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="extra-dialog-title" class="text-lg font-bold text-gray-900">Agregar monto</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Servicio o cargo extra. Se suma al total y aparece en el ticket.</p>
+        </div>
+        <button type="button" id="extra-cancel-x" aria-label="Cerrar" class="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+          <Icon name="mdi:close" class="h-5 w-5" />
+        </button>
+      </div>
+
+      <label class="block">
+        <span class="text-sm font-semibold text-gray-700">Monto <span class="text-red-500">*</span></span>
+        <div class="relative mt-1">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <input id="extra-amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00"
+            class="w-full rounded-xl border-2 border-gray-200 py-2.5 pl-7 pr-3 text-gray-900 focus:border-amber-500 focus:ring-0 outline-none" />
+        </div>
+      </label>
+
+      <label class="block">
+        <span class="text-sm font-semibold text-gray-700">Descripción</span>
+        <input id="extra-desc" name="description" type="text" maxlength="120" autocomplete="off"
+          placeholder="Ej. Perforación de hélix, cambio de joya…"
+          class="mt-1 w-full rounded-xl border-2 border-gray-200 py-2.5 px-3 text-gray-900 focus:border-amber-500 focus:ring-0 outline-none" />
+        <span class="mt-1 flex justify-between text-xs text-gray-400">
+          <span>Opcional · se imprime en el ticket</span>
+          <span id="extra-desc-count">0/120</span>
+        </span>
+      </label>
+
+      <p id="extra-error" class="hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+
+      <div class="flex gap-2 pt-1">
+        <button type="button" id="extra-cancel" class="flex-1 rounded-xl border-2 border-gray-200 py-2.5 font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
+        <button type="submit" class="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 font-bold text-white shadow hover:from-amber-600 hover:to-orange-600">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<div id="all-products-data" style="display: none;">{JSON.stringify(allProducts)}</div>
+
+<script>
+import type { ProductForPOS, VariantOption } from '@/interfaces';
+import { navigate } from 'astro:transitions/client';
+// Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
+import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+import { readPosExtras, savePosExtras, clearPosExtras, extrasTotal, POS_EXTRA_DESCRIPTION_MAX, POS_EXTRA_MAX_ITEMS, type PosExtraCharge } from '@/utils/pos-extra';
+
+// Estado global del POS
+const POSState = {
+  searchTerm: '',
+  category: 'all',
+  cart: [] as CartItem[],
+  isInitialized: false,
+  cleanupFunction: null as (() => void) | null
+};
+
+type CartItem = {
+  productId: string;
+  variantId?: string;
+  name: string;
+  variantName?: string;
+  price: number;
+  quantity: number;
+  images: string[];
+  stock: number;
+  sku?: string;
+  outOfStock?: boolean;
+};
+
+// Restaurar estado de filtros desde sessionStorage
+function restoreFilterState() {
+  const savedSearch = sessionStorage.getItem('pos-search');
+  const savedCategory = sessionStorage.getItem('pos-category');
+  
+  if (savedSearch) POSState.searchTerm = savedSearch;
+  if (savedCategory) POSState.category = savedCategory;
+}
+
+// Guardar estado de filtros en sessionStorage
+function saveFilterState() {
+  sessionStorage.setItem('pos-search', POSState.searchTerm);
+  sessionStorage.setItem('pos-category', POSState.category);
+}
+
+// Debounce utility
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return function(...args: Parameters<T>) {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+function initializePOS() {
+  // Evitar múltiples inicializaciones
+  if (POSState.isInitialized) {
+    return;
+  }
+
+  // Limpiar inicialización anterior
+  if (POSState.cleanupFunction) {
+    POSState.cleanupFunction();
+    POSState.cleanupFunction = null;
+  }
+
+  // Restaurar estado de filtros
+  restoreFilterState();
+
+  const allProductsDataElement = document.getElementById('all-products-data');
+  if (!allProductsDataElement) {
+    console.error('Elemento de datos de productos no encontrado.');
+    return;
+  }
+  
+  const allProducts: ProductForPOS[] = JSON.parse(allProductsDataElement.textContent || '[]');
+
+  // Referencias a elementos del DOM
+  const productGrid = document.getElementById('product-grid');
+  const emptyState = document.getElementById('empty-state');
+  const productCount = document.getElementById('product-count');
+  const cartItemsList = document.getElementById('cart-items-list');
+  const cartPlaceholder = document.getElementById('cart-placeholder');
+  const cartItemCount = document.getElementById('cart-item-count');
+  const subtotalAmount = document.getElementById('subtotal-amount');
+  const totalAmount = document.getElementById('total-amount');
+  const checkoutButton = document.getElementById('checkout-button') as HTMLButtonElement;
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const clearSearchBtn = document.getElementById('clear-search');
+  const categoryFilter = document.getElementById('category-filter') as HTMLSelectElement;
+  const resetFiltersBtn = document.getElementById('reset-filters');
+  const clearFiltersEmptyBtn = document.getElementById('clear-filters-empty');
+  const activeFiltersContainer = document.getElementById('active-filters');
+  const clearCartBtn = document.getElementById('admin-clear-cart-btn');
+  const clearCartBtnDesktop = document.getElementById('admin-clear-cart-btn-desktop');
+  const variantModal = document.getElementById('variant-modal');
+  const closeModalBtn = document.getElementById('close-modal');
+  const modalProductName = document.getElementById('modal-product-name');
+  const modalProductDescription = document.getElementById('modal-product-description');
+  const variantList = document.getElementById('variant-list');
+  const cartDrawer = document.getElementById('cart-drawer');
+  const cartBackdrop = document.getElementById('cart-backdrop');
+  const mobileCartToggle = document.getElementById('mobile-cart-toggle');
+  const closeCartMobile = document.getElementById('close-cart-mobile');
+  const mobileCartCount = document.getElementById('mobile-cart-count');
+  const backToProductsMobile = document.getElementById('back-to-products-mobile');
+
+  // Restaurar valores en inputs
+  if (searchInput) searchInput.value = POSState.searchTerm;
+  if (categoryFilter) categoryFilter.value = POSState.category;
+
+  // Cargar carrito desde localStorage
+  POSState.cart = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
+
+  const formatCurrency = (value: number) => `$${Number(value).toFixed(2)}`;
+
+  // ==========================================
+  // MONTOS ADICIONALES (antes estaba en el checkout del admin, y era uno solo)
+  // ==========================================
+  const extraLabel = document.getElementById('extra-label');
+  const extraList = document.getElementById('extra-list');
+  const addExtraBtn = document.getElementById('add-extra-btn');
+  const extraDialog = document.getElementById('extra-dialog') as HTMLDialogElement | null;
+  const extraDialogTitle = document.getElementById('extra-dialog-title');
+  const extraForm = document.getElementById('extra-form') as HTMLFormElement | null;
+  const extraAmountInput = document.getElementById('extra-amount') as HTMLInputElement | null;
+  const extraDescInput = document.getElementById('extra-desc') as HTMLInputElement | null;
+  const extraDescCount = document.getElementById('extra-desc-count');
+  const extraError = document.getElementById('extra-error');
+  const extraCancelBtns = [document.getElementById('extra-cancel'), document.getElementById('extra-cancel-x')];
+
+  /** Índice del monto que se está editando; null = agregando uno nuevo */
+  let editingExtra: number | null = null;
+
+  function renderExtras(extras: PosExtraCharge[] = readPosExtras()) {
+    if (!extraList) return;
+    extraList.classList.toggle('hidden', extras.length === 0);
+    if (extraLabel) {
+      extraLabel.textContent = extras.length > 1
+        ? `Montos adicionales (${formatCurrency(extrasTotal(extras))})`
+        : 'Monto adicional';
+    }
+    if (addExtraBtn) addExtraBtn.classList.toggle('hidden', extras.length >= POS_EXTRA_MAX_ITEMS);
+
+    // Se arma con DOM (no innerHTML) porque la descripción la escribe el usuario
+    extraList.replaceChildren(...extras.map((x, i) => {
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-2 rounded-lg bg-green-50 pl-2 pr-1 py-1';
+
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.dataset.extraEdit = String(i);
+      edit.title = 'Editar monto';
+      edit.className = 'flex min-w-0 flex-1 items-center justify-between gap-2 text-left';
+      const desc = document.createElement('span');
+      desc.className = `truncate text-xs ${x.description ? 'text-gray-700' : 'italic text-gray-400'}`;
+      desc.textContent = x.description || 'Sin descripción';
+      desc.title = x.description;
+      const amount = document.createElement('span');
+      amount.className = 'flex-shrink-0 text-xs md:text-sm font-semibold text-green-700';
+      amount.textContent = `+${formatCurrency(x.amount)}`;
+      edit.append(desc, amount);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.dataset.extraRemove = String(i);
+      remove.setAttribute('aria-label', `Quitar ${x.description || 'monto'}`);
+      remove.className = 'flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors';
+      remove.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+      li.append(edit, remove);
+      return li;
+    }));
+  }
+
+  function updateExtraCount() {
+    if (extraDescCount && extraDescInput) extraDescCount.textContent = `${extraDescInput.value.length}/${POS_EXTRA_DESCRIPTION_MAX}`;
+  }
+
+  function openExtraDialog(index: number | null) {
+    if (!extraDialog) return;
+    const current = index != null ? readPosExtras()[index] : undefined;
+    editingExtra = current ? index : null;
+    if (extraDialogTitle) extraDialogTitle.textContent = current ? 'Editar monto' : 'Agregar monto';
+    if (extraAmountInput) extraAmountInput.value = current ? String(current.amount) : '';
+    if (extraDescInput) extraDescInput.value = current?.description ?? '';
+    extraError?.classList.add('hidden');
+    updateExtraCount();
+    extraDialog.showModal();
+    setTimeout(() => extraAmountInput?.focus(), 50);
+  }
+
+  const handleOpenExtra = (e: Event) => { e.preventDefault(); openExtraDialog(null); };
+
+  const handleExtraListClick = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const editBtn = target.closest<HTMLElement>('[data-extra-edit]');
+    const removeBtn = target.closest<HTMLElement>('[data-extra-remove]');
+    if (editBtn) {
+      openExtraDialog(Number(editBtn.dataset.extraEdit));
+    } else if (removeBtn) {
+      const extras = readPosExtras();
+      const [removed] = extras.splice(Number(removeBtn.dataset.extraRemove), 1);
+      savePosExtras(extras);
+      renderCart();
+      if (removed) Toast.info('Monto quitado', removed.description || formatCurrency(removed.amount));
+    }
+  };
+
+  const handleSaveExtra = (e: Event) => {
+    e.preventDefault();
+    const amount = Math.round((parseFloat(extraAmountInput?.value || '') || 0) * 100) / 100;
+    if (!(amount > 0) || amount > 100000) {
+      if (extraError) {
+        extraError.textContent = 'Ingresa un monto mayor a $0.';
+        extraError.classList.remove('hidden');
+      }
+      extraAmountInput?.focus();
+      return;
+    }
+    const description = (extraDescInput?.value || '').trim();
+    const extras = readPosExtras();
+    const isEdit = editingExtra != null && extras[editingExtra] !== undefined;
+    if (isEdit) extras[editingExtra!] = { amount, description };
+    else extras.push({ amount, description });
+    savePosExtras(extras);
+    editingExtra = null;
+    extraDialog?.close();
+    renderCart();
+    Toast.success(isEdit ? 'Monto actualizado' : 'Monto agregado', `${formatCurrency(amount)}${description ? ` · ${description}` : ''}`);
+  };
+
+  const handleCancelExtra = () => { editingExtra = null; extraDialog?.close(); };
+  const handleExtraBackdrop = (e: Event) => { if (e.target === extraDialog) handleCancelExtra(); };
+
+  // ==========================================
+  // FUNCIONES DE CARRITO MÓVIL
+  // ==========================================
+  
+  function openMobileCart() {
+    if (window.innerWidth < 1024) {
+      cartDrawer?.classList.remove('translate-x-full');
+      cartBackdrop?.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeMobileCart() {
+    if (window.innerWidth < 1024) {
+      cartDrawer?.classList.add('translate-x-full');
+      cartBackdrop?.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+  }
+
+  function updateMobileCartCount() {
+    const totalItems = POSState.cart.reduce((sum, item) => sum + item.quantity, 0);
+    if (mobileCartCount) mobileCartCount.textContent = totalItems.toString();
+    if (cartItemCount) cartItemCount.textContent = totalItems.toString();
+  }
+
+  // ==========================================
+  // FUNCIONES DE FILTRADO
+  // ==========================================
+
+  function updateActiveFilters() {
+    if (!activeFiltersContainer) return;
+    
+    const hasFilters = POSState.searchTerm || POSState.category !== 'all';
+    
+    if (hasFilters) {
+      activeFiltersContainer.classList.remove('hidden');
+      activeFiltersContainer.classList.add('flex');
+      
+      let chips = '';
+      
+      if (POSState.searchTerm) {
+        chips += `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            "${POSState.searchTerm}"
+            <button class="remove-filter hover:text-amber-900 ml-1" data-type="search">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+          </span>
+        `;
+      }
+      
+      if (POSState.category !== 'all') {
+        chips += `
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            ${POSState.category}
+            <button class="remove-filter hover:text-indigo-900 ml-1" data-type="category">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+          </span>
+        `;
+      }
+      
+      activeFiltersContainer.innerHTML = chips;
+    } else {
+      activeFiltersContainer.classList.add('hidden');
+      activeFiltersContainer.classList.remove('flex');
+    }
+    
+    // Mostrar/ocultar botón limpiar búsqueda
+    if (clearSearchBtn) {
+      clearSearchBtn.classList.toggle('hidden', !POSState.searchTerm);
+    }
+  }
+
+  // Quita acentos y pasa a minúsculas para comparar sin importar tildes ni #
+  function normalizeText(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD')               // separa la letra de su acento
+      .replace(/[\u0300-\u036f]/g, '') // elimina los acentos
+      .trim();
+  }
+
+  function filterProducts(): ProductForPOS[] {
+    const searchNorm = normalizeText(POSState.searchTerm);
+    
+    return allProducts.filter(p => {
+      const matchesSearch = !searchNorm || 
+        normalizeText(p.name).includes(searchNorm) || 
+        (p.variantOptions?.some(v => v.sku && normalizeText(v.sku).includes(searchNorm)));
+      
+      const matchesCategory = POSState.category === 'all' || p.category === POSState.category;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }
+
+  function renderProductGrid(productsToRender: ProductForPOS[]) {
+    if (!productGrid || !emptyState) return;
+    
+    // Actualizar contador
+    if (productCount) {
+      productCount.textContent = `${productsToRender.length} producto${productsToRender.length !== 1 ? 's' : ''}`;
+    }
+    
+    // Mostrar estado vacío si no hay productos
+    if (productsToRender.length === 0) {
+      productGrid.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      emptyState.classList.add('flex');
+      return;
+    }
+    
+    productGrid.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+    emptyState.classList.remove('flex');
+    
+    productGrid.innerHTML = productsToRender.map((product: ProductForPOS) => {
+      // Miniatura de Cloudinary del tamaño de la tarjeta (antes se bajaba la foto original)
+      const imageUrl = optimizeImage(product.images?.[0], IMG_WIDTH.pos) || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
+      
+      const outOfStockBadge = product.stock <= 0
+        ? `<span class="absolute top-1.5 left-1.5 inline-flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10">
+             <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+             AGOTADO
+           </span>`
+        : '';
+
+      const variantBadge = product.hasVariants && product.variantOptions && product.variantOptions.length > 0
+        ? `<span class="absolute top-1.5 right-1.5 inline-flex items-center gap-1 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10">
+             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+               <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
+             </svg>
+             ${product.variantOptions.length}
+           </span>`
+        : '';
+
+      let priceDisplay = formatCurrency(product.price);
+      if (product.hasVariants && product.variantOptions && product.variantOptions.length > 0) {
+        const prices = product.variantOptions.map(v => v.finalPrice);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        if (minPrice !== maxPrice) {
+          priceDisplay = `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
+        }
+      }
+
+      let stockIndicator = '';
+      if (product.stock <= 0) {
+        stockIndicator = `<span class="text-red-600 font-semibold">Sin stock</span>`;
+      } else if (product.stock <= 5) {
+        stockIndicator = `<span class="text-amber-600 font-semibold">¡Solo ${product.stock}!</span>`;
+      } else {
+        stockIndicator = `<span class="text-green-600">${product.stock} disp.</span>`;
+      }
+
+      return `
+        <article
+          class="product-card group cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg border-2 border-gray-100 hover:border-amber-400 transition-all duration-200 overflow-hidden flex flex-col"
+          style="height: 280px;"
+          data-product-id="${product.id}"
+          data-has-variants="${product.hasVariants}"
+        >
+          <div class="relative bg-gray-50 flex-shrink-0" style="height: 140px;">
+            ${outOfStockBadge}
+            ${variantBadge}
+            <img
+              src="${imageUrl}"
+              alt="${product.name}"
+              class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+              decoding="async"
+              width="160"
+              height="140"
+              onerror="this.src='https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen'"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+          </div>
+          
+          <div class="flex flex-col flex-1 p-2.5 border-t border-gray-100">
+            <h3 class="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight group-hover:text-amber-700 transition-colors">${product.name}</h3>
+            <p class="text-[10px] text-amber-600 font-medium mt-0.5">${product.category || 'Sin categoría'}</p>
+            <div class="flex-1"></div>
+            <div class="mt-1.5 pt-1.5 border-t border-gray-50">
+              <p class="text-sm font-bold text-gray-900">${priceDisplay}</p>
+              <p class="text-[10px]">${stockIndicator}</p>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function filterAndRender() {
+    saveFilterState();
+    updateActiveFilters();
+    const filtered = filterProducts();
+    renderProductGrid(filtered);
+  }
+
+  function resetFilters() {
+    POSState.searchTerm = '';
+    POSState.category = 'all';
+    if (searchInput) searchInput.value = '';
+    if (categoryFilter) categoryFilter.value = 'all';
+    filterAndRender();
+  }
+
+  // ==========================================
+  // MODAL DE VARIANTES
+  // ==========================================
+
+  function showVariantModal(product: ProductForPOS) {
+    if (!variantModal || !modalProductName || !variantList || !modalProductDescription) return;
+    
+    modalProductName.textContent = product.name;
+    modalProductDescription.textContent = `${product.variantOptions?.length || 0} opciones disponibles`;
+    
+    variantList.innerHTML = product.variantOptions?.map(variant => {
+      const variantOriginal = variant.images?.[0] || product.images?.[0];
+      const variantImage = optimizeImage(variantOriginal, 400) || 'https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen';
+      const variantFull = optimizeImage(variantOriginal, IMG_WIDTH.full) || variantImage;
+      const hasNoStock = variant.stock <= 0;
+      const hasDiscount = variant.priceAdjustment < 0;
+      
+      return `
+        <div class="variant-card cursor-pointer bg-white border-2 border-gray-200 rounded-xl p-3 md:p-4 transition-all duration-200 hover:border-amber-400 hover:shadow-lg active:scale-[0.98]"
+             data-variant-id="${variant.id}"
+             data-product-id="${product.id}"
+             data-no-stock="${hasNoStock}">
+          <div class="flex flex-col sm:flex-row gap-3 md:gap-4">
+            <div class="relative flex-shrink-0">
+              <img src="${variantImage}" 
+                   alt="${variant.name}" 
+                   class="w-full sm:w-28 md:w-36 h-44 sm:h-28 md:h-36 object-cover rounded-xl shadow-md bg-gray-50 cursor-zoom-in variant-zoom-img"
+                   loading="lazy"
+                   decoding="async"
+                   data-full-image="${variantFull}"
+                   onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
+              ${hasDiscount ? `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">Oferta</span>` : ''}
+              ${hasNoStock ? `<span class="absolute -bottom-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full shadow">Sin Stock</span>` : ''}
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold text-gray-900 text-base md:text-lg truncate">${variant.name}</h3>
+              ${variant.sku ? `<p class="text-xs text-gray-500 mb-1">SKU: ${variant.sku}</p>` : ''}
+              <div class="flex items-center gap-2 mt-2">
+                <p class="text-xl md:text-2xl font-bold text-amber-600">${formatCurrency(variant.finalPrice)}</p>
+                ${hasDiscount ? `<span class="text-sm line-through text-gray-400">${formatCurrency(product.price)}</span>` : ''}
+              </div>
+              <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mt-3">
+                <p class="text-sm ${variant.stock > 10 ? 'text-green-600' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
+                  ${variant.stock > 0 ? `${variant.stock} disponibles` : 'Sin stock'}
+                </p>
+                <button class="add-variant-btn w-full sm:w-auto sm:ml-auto px-4 py-2 bg-gradient-to-r ${hasNoStock ? 'from-orange-500 to-amber-500' : 'from-amber-500 to-orange-500'} text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm active:scale-95">
+                  ${hasNoStock ? 'Agregar (sin stock)' : 'Agregar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p class="text-center text-gray-500 py-8">No hay variantes disponibles</p>';
+    
+    variantModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hideVariantModal() {
+    if (variantModal) {
+      variantModal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+  }
+
+  // ==========================================
+  // FUNCIONES DE CARRITO
+  // ==========================================
+
+  function addToCart(productId: string, variantId?: string, forceAdd: boolean = false) {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+
+    let cartItem: CartItem;
+    
+    if (variantId && product.variantOptions) {
+      const variant = product.variantOptions.find(v => v.id === variantId);
+      if (!variant) return;
+      
+      const hasNoStock = variant.stock <= 0;
+      
+      if (hasNoStock && !forceAdd) {
+        Confirm.show({
+          title: 'Sin stock en sistema',
+          message: '¿Confirma que está disponible físicamente?',
+          confirmText: 'Sí, agregar',
+          cancelText: 'Cancelar',
+          type: 'warning'
+        }).then((confirmed) => {
+          if (confirmed) addToCart(productId, variantId, true);
+        });
+        return;
+      }
+      
+      const existingItem = POSState.cart.find(i => i.productId === productId && i.variantId === variantId);
+      
+      if (existingItem) {
+        existingItem.quantity++;
+      } else {
+        cartItem = {
+          productId: product.id,
+          variantId: variant.id,
+          name: product.name,
+          variantName: variant.name,
+          price: variant.finalPrice,
+          quantity: 1,
+          images: variant.images.length > 0 ? variant.images : product.images,
+          stock: variant.stock || 999,
+          sku: variant.sku,
+          outOfStock: hasNoStock
+        };
+        POSState.cart.push(cartItem);
+      }
+    } else {
+      const hasNoStock = product.stock <= 0;
+      
+      if (hasNoStock && !forceAdd) {
+        Confirm.show({
+          title: 'Sin stock en sistema',
+          message: '¿Confirma que está disponible físicamente?',
+          confirmText: 'Sí, agregar',
+          cancelText: 'Cancelar',
+          type: 'warning'
+        }).then((confirmed) => {
+          if (confirmed) addToCart(productId, undefined, true);
+        });
+        return;
+      }
+      
+      const existingItem = POSState.cart.find(i => i.productId === productId && !i.variantId);
+      
+      if (existingItem) {
+        existingItem.quantity++;
+      } else {
+        cartItem = {
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          images: product.images,
+          stock: product.stock || 999,
+          outOfStock: hasNoStock
+        };
+        POSState.cart.push(cartItem);
+      }
+    }
+    
+    updateAndSaveCart();
+    hideVariantModal();
+    
+    if (window.innerWidth < 1024 && cartDrawer?.classList.contains('translate-x-full')) {
+      openMobileCart();
+    }
+    
+    const addedItem = variantId ? 
+      POSState.cart.find(i => i.productId === productId && i.variantId === variantId) :
+      POSState.cart.find(i => i.productId === productId && !i.variantId);
+    
+    const addedName = `${addedItem?.name ?? ''}${addedItem?.variantName ? ` - ${addedItem.variantName}` : ''}`;
+    const addedDesc = `${addedName} · Cantidad: ${addedItem?.quantity ?? 1}`;
+    if (addedItem?.outOfStock) Toast.warning('Agregado (sin stock en sistema)', addedDesc);
+    else Toast.success('Agregado', addedDesc);
+  }
+
+  function renderCart() {
+    if (!cartItemsList || !cartPlaceholder || !checkoutButton || !subtotalAmount || !totalAmount) return;
+    
+    if (POSState.cart.length > 0) {
+      cartPlaceholder.style.display = 'none';
+      cartItemsList.innerHTML = POSState.cart.map((item: CartItem, index: number) => {
+        const imageUrl = optimizeImage(item.images?.[0], IMG_WIDTH.thumb) || 'https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen';
+        const displayName = item.variantName ? `${item.name} - ${item.variantName}` : item.name;
+        
+        return `
+          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2.5 md:p-3 rounded-xl transition-all duration-200 border-2 ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white hover:border-gray-200'} shadow-sm">
+            <div class="h-14 w-14 md:h-16 md:w-16 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
+              <img src="${imageUrl}" 
+                   alt="${displayName}" 
+                   class="max-h-full max-w-full object-contain"
+                   onerror="this.src='https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen'" />
+            </div>
+            <div class="flex-grow min-w-0">
+              <p class="font-medium text-gray-800 line-clamp-2 text-xs md:text-sm">${displayName}</p>
+              ${item.sku ? `<p class="text-[10px] md:text-xs text-gray-500 truncate">SKU: ${item.sku}</p>` : ''}
+              ${item.outOfStock ? `<p class="text-[10px] md:text-xs text-orange-600 font-medium">⚠️ Sin stock</p>` : ''}
+              <div class="flex items-center gap-1.5 md:gap-2 mt-2">
+                <button data-action="decr" data-index="${index}" class="qty-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 md:h-3 md:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                  </svg>
+                </button>
+                <input type="number" 
+                       value="${item.quantity}" 
+                       min="1" 
+                       data-index="${index}" 
+                       class="w-10 md:w-14 border-2 rounded-lg bg-white text-center font-medium qty-input text-xs md:text-sm" />
+                <button data-action="incr" data-index="${index}" class="qty-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 md:h-3 md:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="font-bold text-gray-900 text-xs md:text-sm">${formatCurrency(item.price * item.quantity)}</p>
+              <p class="text-[10px] md:text-xs text-gray-500">${formatCurrency(item.price)} c/u</p>
+            </div>
+            <button data-action="remove" data-index="${index}" class="remove-btn text-gray-400 hover:text-red-500 p-0.5 md:p-1 transition-colors flex-shrink-0 hover:bg-red-50 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </li>
+        `;
+      }).join('');
+      checkoutButton.disabled = false;
+    } else {
+      cartItemsList.innerHTML = '';
+      cartPlaceholder.style.display = 'flex';
+      checkoutButton.disabled = true;
+    }
+    
+    const subtotal = POSState.cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+    const extras = readPosExtras();
+    subtotalAmount.textContent = formatCurrency(subtotal);
+    totalAmount.textContent = formatCurrency(subtotal + extrasTotal(extras));
+    renderExtras(extras);
+    
+    updateMobileCartCount();
+  }
+
+  function updateQuantity(index: number, newQuantity: string | number) {
+    const item = POSState.cart[index];
+    if (!item) return;
+    
+    const qty = parseInt(String(newQuantity));
+    if (isNaN(qty) || qty < 0) { 
+      renderCart(); 
+      return; 
+    }
+    
+    if (qty === 0) {
+      POSState.cart.splice(index, 1);
+    } else {
+      item.quantity = qty;
+    }
+    
+    updateAndSaveCart();
+  }
+
+  async function clearCart() {
+    const confirmed = await Confirm.show({
+      title: '¿Vaciar carrito?',
+      message: 'Se eliminarán todos los productos',
+      confirmText: 'Sí, vaciar',
+      cancelText: 'Cancelar',
+      type: 'warning'
+    });
+
+    if (confirmed) {
+      POSState.cart = [];
+      clearPosExtras(); // los montos adicionales son de esta venta
+      updateAndSaveCart();
+      Toast.success('Carrito vaciado');
+    }
+  }
+
+  function updateAndSaveCart() {
+    renderCart();
+    localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
+  }
+
+  // ==========================================
+  // EVENT HANDLERS
+  // ==========================================
+
+  const debouncedFilterAndRender = debounce(filterAndRender, 250);
+
+  const handleSearchInput = (e: Event) => {
+    e.preventDefault();
+    POSState.searchTerm = (e.target as HTMLInputElement).value;
+    debouncedFilterAndRender();
+  };
+
+  const handleCategoryChange = (e: Event) => {
+    e.preventDefault();
+    POSState.category = (e.target as HTMLSelectElement).value;
+    filterAndRender();
+  };
+
+  const handleClearSearch = (e: Event) => {
+    e.preventDefault();
+    POSState.searchTerm = '';
+    if (searchInput) searchInput.value = '';
+    filterAndRender();
+    searchInput?.focus();
+  };
+
+  const handleResetFilters = (e: Event) => {
+    e.preventDefault();
+    resetFilters();
+  };
+
+  const handleRemoveFilter = (e: Event) => {
+    const btn = (e.target as HTMLElement).closest('.remove-filter') as HTMLButtonElement;
+    if (!btn) return;
+    
+    e.preventDefault();
+    const type = btn.dataset.type;
+    
+    if (type === 'search') {
+      POSState.searchTerm = '';
+      if (searchInput) searchInput.value = '';
+    } else if (type === 'category') {
+      POSState.category = 'all';
+      if (categoryFilter) categoryFilter.value = 'all';
+    }
+    
+    filterAndRender();
+  };
+
+  const handleProductClick = (e: Event) => {
+    const card = (e.target as HTMLElement).closest('[data-product-id]') as HTMLElement;
+    if (card) {
+      e.preventDefault();
+      const productId = card.dataset.productId!;
+      const hasVariants = card.dataset.hasVariants === 'true';
+      const product = allProducts.find(p => p.id === productId);
+      
+      if (!product) return;
+      
+      if (hasVariants && product.variantOptions && product.variantOptions.length > 0) {
+        showVariantModal(product);
+      } else {
+        addToCart(productId);
+      }
+    }
+  };
+
+  const handleVariantClick = (e: Event) => {
+    const addBtn = (e.target as HTMLElement).closest('.add-variant-btn');
+    if (addBtn) {
+      e.preventDefault();
+      const variantCard = addBtn.closest('.variant-card') as HTMLElement;
+      if (variantCard) {
+        const productId = variantCard.dataset.productId!;
+        const variantId = variantCard.dataset.variantId!;
+        addToCart(productId, variantId, false);
+      }
+    }
+  };
+
+  const handleVariantZoom = (e: Event) => {
+    const img = (e.target as HTMLElement).closest('.variant-zoom-img') as HTMLImageElement;
+    if (!img) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const fullSrc = img.dataset.fullImage || img.src;
+    ImageViewer.show(fullSrc, 'Imagen de variante');
+  };
+
+  const handleCartClick = (e: Event) => {
+    const button = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement;
+    if (!button) return;
+    
+    e.preventDefault();
+    const { action, index: indexStr } = button.dataset;
+    if (!indexStr) return;
+    
+    const index = parseInt(indexStr);
+    const item = POSState.cart[index];
+    if (!item) return;
+    
+    if (action === 'remove') {
+      updateQuantity(index, 0);
+      Toast.info('Eliminado del carrito');
+    }
+    if (action === 'incr') updateQuantity(index, item.quantity + 1);
+    if (action === 'decr') updateQuantity(index, item.quantity - 1);
+  };
+
+  const handleQuantityInput = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (input.matches('.qty-input')) {
+      e.preventDefault();
+      const index = parseInt(input.dataset.index || '');
+      if (!isNaN(index)) {
+        updateQuantity(index, input.value);
+      }
+    }
+  };
+
+  const handleCloseModal = (e: Event) => {
+    e.preventDefault();
+    hideVariantModal();
+  };
+
+  const handleModalBackdrop = (e: Event) => {
+    if (e.target === variantModal) {
+      e.preventDefault();
+      hideVariantModal();
+    }
+  };
+  
+  const handleClearCart = (e: Event) => {
+    e.preventDefault();
+    clearCart();
+  };
+  
+  const handleCheckout = (e: Event) => {
+    e.preventDefault();
+    if (POSState.cart.length > 0) {
+      const hasOutOfStockItems = POSState.cart.some(item => item.outOfStock);
+      if (hasOutOfStockItems) {
+        Confirm.show({
+          title: 'Productos sin stock',
+          message: '¿Confirma que están disponibles físicamente?',
+          confirmText: 'Sí, continuar',
+          cancelText: 'Revisar',
+          type: 'warning'
+        }).then((confirmed) => {
+          if (confirmed) {
+            localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
+            navigate('/admin/checkout');
+          }
+        });
+      } else {
+        localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
+        navigate('/admin/checkout');
+      }
+    }
+  };
+  
+  const handleKeyboard = (e: KeyboardEvent) => {
+    // Con el modal de monto abierto, Escape solo cierra ese modal
+    if (e.key === 'Escape' && !extraDialog?.open) {
+      if (!variantModal?.classList.contains('hidden')) {
+        hideVariantModal();
+      } else if (window.innerWidth < 1024 && !cartDrawer?.classList.contains('translate-x-full')) {
+        closeMobileCart();
+      }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput?.focus();
+    }
+  };
+
+  const handleMobileCartToggle = (e: Event) => {
+    e.preventDefault();
+    openMobileCart();
+  };
+
+  const handleCloseCartMobile = (e: Event) => {
+    e.preventDefault();
+    closeMobileCart();
+  };
+
+  const handleBackToProducts = (e: Event) => {
+    e.preventDefault();
+    closeMobileCart();
+  };
+
+  const handleBackdropClick = (e: Event) => {
+    e.preventDefault();
+    closeMobileCart();
+  };
+
+  const handleResize = () => {
+    if (window.innerWidth >= 1024) {
+      closeMobileCart();
+    }
+  };
+
+  // ==========================================
+  // REGISTRAR EVENT LISTENERS
+  // ==========================================
+
+  searchInput?.addEventListener('input', handleSearchInput);
+  searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+  clearSearchBtn?.addEventListener('click', handleClearSearch);
+  categoryFilter?.addEventListener('change', handleCategoryChange);
+  resetFiltersBtn?.addEventListener('click', handleResetFilters);
+  clearFiltersEmptyBtn?.addEventListener('click', handleResetFilters);
+  activeFiltersContainer?.addEventListener('click', handleRemoveFilter);
+  productGrid?.addEventListener('click', handleProductClick);
+  variantList?.addEventListener('click', handleVariantClick);
+  variantList?.addEventListener('click', handleVariantZoom);
+  closeModalBtn?.addEventListener('click', handleCloseModal);
+  variantModal?.addEventListener('click', handleModalBackdrop);
+  cartItemsList?.addEventListener('click', handleCartClick);
+  cartItemsList?.addEventListener('change', handleQuantityInput);
+  clearCartBtn?.addEventListener('click', handleClearCart);
+  clearCartBtnDesktop?.addEventListener('click', handleClearCart);
+  checkoutButton?.addEventListener('click', handleCheckout);
+  addExtraBtn?.addEventListener('click', handleOpenExtra);
+  extraList?.addEventListener('click', handleExtraListClick);
+  extraForm?.addEventListener('submit', handleSaveExtra);
+  extraDescInput?.addEventListener('input', updateExtraCount);
+  extraDialog?.addEventListener('click', handleExtraBackdrop);
+  extraCancelBtns.forEach(b => b?.addEventListener('click', handleCancelExtra));
+  document.addEventListener('keydown', handleKeyboard);
+  mobileCartToggle?.addEventListener('click', handleMobileCartToggle);
+  closeCartMobile?.addEventListener('click', handleCloseCartMobile);
+  backToProductsMobile?.addEventListener('click', handleBackToProducts);
+  cartBackdrop?.addEventListener('click', handleBackdropClick);
+  window.addEventListener('resize', handleResize);
+
+  // Función de limpieza
+  POSState.cleanupFunction = () => {
+    searchInput?.removeEventListener('input', handleSearchInput);
+    clearSearchBtn?.removeEventListener('click', handleClearSearch);
+    categoryFilter?.removeEventListener('change', handleCategoryChange);
+    resetFiltersBtn?.removeEventListener('click', handleResetFilters);
+    clearFiltersEmptyBtn?.removeEventListener('click', handleResetFilters);
+    activeFiltersContainer?.removeEventListener('click', handleRemoveFilter);
+    productGrid?.removeEventListener('click', handleProductClick);
+    variantList?.removeEventListener('click', handleVariantClick);
+    variantList?.removeEventListener('click', handleVariantZoom);
+    closeModalBtn?.removeEventListener('click', handleCloseModal);
+    variantModal?.removeEventListener('click', handleModalBackdrop);
+    cartItemsList?.removeEventListener('click', handleCartClick);
+    cartItemsList?.removeEventListener('change', handleQuantityInput);
+    clearCartBtn?.removeEventListener('click', handleClearCart);
+    clearCartBtnDesktop?.removeEventListener('click', handleClearCart);
+    checkoutButton?.removeEventListener('click', handleCheckout);
+    addExtraBtn?.removeEventListener('click', handleOpenExtra);
+    extraList?.removeEventListener('click', handleExtraListClick);
+    extraForm?.removeEventListener('submit', handleSaveExtra);
+    extraDescInput?.removeEventListener('input', updateExtraCount);
+    extraDialog?.removeEventListener('click', handleExtraBackdrop);
+    extraCancelBtns.forEach(b => b?.removeEventListener('click', handleCancelExtra));
+    if (extraDialog?.open) extraDialog.close();
+    document.removeEventListener('keydown', handleKeyboard);
+    mobileCartToggle?.removeEventListener('click', handleMobileCartToggle);
+    closeCartMobile?.removeEventListener('click', handleCloseCartMobile);
+    backToProductsMobile?.removeEventListener('click', handleBackToProducts);
+    cartBackdrop?.removeEventListener('click', handleBackdropClick);
+    window.removeEventListener('resize', handleResize);
+    
+    document.body.style.overflow = '';
+    POSState.isInitialized = false;
+  };
+
+  POSState.isInitialized = true;
+
+  // ==========================================
+  // INICIALIZAR
+  // ==========================================
+  
+  renderCart();
+  filterAndRender();
+}
+
+// Cleanup antes de navegación
+document.addEventListener('astro:before-preparation', () => {
+  if (POSState.cleanupFunction) {
+    POSState.cleanupFunction();
+    POSState.cleanupFunction = null;
+  }
+  POSState.isInitialized = false;
+});
+
+// Inicializar en carga de página
+document.addEventListener('astro:page-load', initializePOS);
+
+// Fallback para carga inicial sin View Transitions
+if (document.readyState === 'complete') {
+  initializePOS();
+} else {
+  document.addEventListener('DOMContentLoaded', initializePOS);
+}
+</script>
+
+<style is:global>
+  /* Modal de monto adicional */
+  .extra-dialog { border: none; padding: 0; background: transparent; width: min(92vw, 420px); max-height: 92vh; }
+  .extra-dialog::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px); }
+/* =============================================
+   SCROLLBAR PERSONALIZADO
+   ============================================= */
+
+.product-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #f59e0b #f3f4f6;
+}
+
+.product-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.product-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.product-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 4px;
+}
+
+.product-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #d97706 0%, #b45309 100%);
+}
+
+/* =============================================
+   TARJETAS DE PRODUCTO
+   ============================================= */
+
+.product-card {
+  transition: all 0.2s ease;
+  will-change: transform, box-shadow;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+}
+
+.product-card:active {
+  transform: scale(0.98);
+}
+
+/* =============================================
+   BOTONES DE CANTIDAD
+   ============================================= */
+
+.qty-btn { 
+  height: 1.75rem; 
+  width: 1.75rem; 
+  border-radius: 0.5rem; 
+  background-color: #f3f4f6; 
+  color: #374151; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+  cursor: pointer; 
+  transition: all 0.15s ease; 
+  border: 2px solid #e5e7eb;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.qty-btn:hover { 
+  background-color: #fef3c7; 
+  border-color: #f59e0b;
+  transform: scale(1.05);
+}
+
+.qty-btn:active { 
+  transform: scale(0.95);
+}
+
+.qty-input { 
+  border: 2px solid #e5e7eb; 
+  border-radius: 0.5rem; 
+  text-align: center; 
+  font-weight: 600; 
+  padding: 0.25rem; 
+  transition: all 0.15s ease;
+  -moz-appearance: textfield; 
+}
+
+.qty-input:focus { 
+  border-color: #f59e0b; 
+  outline: none; 
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); 
+}
+
+input[type="number"]::-webkit-inner-spin-button, 
+input[type="number"]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+/* =============================================
+   ANIMACIONES
+   ============================================= */
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* =============================================
+   VARIANTES MODAL
+   ============================================= */
+
+.variant-card {
+  transition: all 0.2s ease;
+}
+
+.variant-card:hover {
+  transform: translateY(-2px);
+}
+
+/* =============================================
+   UTILIDADES
+   ============================================= */
+
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shadow-up {
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* =============================================
+   CARRITO MÓVIL
+   ============================================= */
+
+#cart-drawer {
+  will-change: transform;
+}
+
+/* =============================================
+   FOCUS STATES
+   ============================================= */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+/* =============================================
+   TOUCH FEEDBACK
+   ============================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  .product-card:active {
+    transform: scale(0.97);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .qty-btn:active {
+    transform: scale(0.9);
+  }
+}
+</style>

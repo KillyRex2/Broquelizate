@@ -1,158 +1,973 @@
 ---
-import {
-  FaFacebookF,
-  FaInstagram,
-  FaSearch,
-  FaShoppingBag,
-  FaBars,
-  FaTimes,
-  FaChevronDown,
-  FaChevronUp,
-} from "react-icons/fa";
-import { CartCounter } from "../cart/CartCounter";
+import { CartCounter } from '@/components';
+
+const { isLoggedIn, isAdmin, user } = Astro.locals;
+
+// Umbral de envío gratis. Debe coincidir con el de la ficha de producto.
+const FREE_SHIPPING_THRESHOLD = 1099;
+
+// ⚠️ Verifica que estos valores existan en tu BD:
+//    type   → Anillos, Broqueles, Cadenas, Pulseras, Piercings...
+//    Si "Piercings" no es un type, cambia el href por el que aplique.
+// Perforaciones del mega-menú.
+// `value` DEBE coincidir con validPiercings de get-products-by-page.action.ts;
+// `label` es lo que ve el cliente (puede ser más coloquial).
+const piercingMenu = [
+  {
+    zone: 'Oreja',
+    items: [
+      { label: 'Lóbulo', value: 'Lóbulo' },
+      { label: 'Lóbulo Superior', value: 'Lóbulo Superior' },
+      { label: 'Hélix', value: 'Hélix' },
+      { label: 'Antihélix', value: 'Antihelix' },
+      { label: 'Tragus', value: 'Tragus' },
+      { label: 'Antitragus', value: 'Antitragus' },
+      { label: 'Rook', value: 'Rook' },
+      { label: 'Conch', value: 'Conch' },
+      { label: 'Daith', value: 'Daith' },
+      { label: 'Industrial', value: 'Industrial' },
+      { label: 'Flat', value: 'Flat' },
+    ],
+  },
+  {
+    zone: 'Nariz',
+    items: [
+      { label: 'Séptum', value: 'Séptum' },
+      { label: 'Nóstril', value: 'Nóstril' },
+    ],
+  },
+  {
+    zone: 'Cuerpo',
+    items: [
+      { label: 'Ombligo', value: 'Navel' },
+    ],
+  },
+];
+
+const navLinks = [
+  { href: '/products', label: 'Catálogo', menu: false },
+  { href: '/products?type=Piercings', label: 'Piercings', menu: true },
+  { href: '/products?engraving=true', label: 'Joyería personalizada', menu: false },
+  { href: '/#services', label: 'Ayuda', menu: false },
+];
 ---
 
-<!-- Navbar.astro -->
-<script is:inline>
-  // Toggle dropdown and mobile menus
-  document.addEventListener('DOMContentLoaded', () => {
-    // User menu dropdown
-    const userBtn = document.getElementById('user-btn');
-    const userMenu = document.getElementById('user-menu');
-    userBtn?.addEventListener('click', () => {
-      userMenu?.classList.toggle('hidden');
-    });
+<div class="header-stack" id="header-stack">
+  <!-- 📣 Barra de envío gratis -->
+  <div class="announcement-bar">
+    <svg width="15" height="15" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
+    </svg>
+    <span>Envíos nacionales <strong>GRATIS</strong> en compras mayores a ${FREE_SHIPPING_THRESHOLD} MXN</span>
+  </div>
 
-    // Products dropdown desktop
-    const prodBtn = document.getElementById('products-btn');
-    const prodMenu = document.getElementById('products-menu');
-    prodBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      prodMenu?.classList.toggle('hidden');
-    });
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <!-- Izquierda: hamburguesa (móvil) + enlaces (escritorio) -->
+      <div class="nav-left">
+        <button id="menu-btn" class="mobile-menu-btn" aria-label="Menú" aria-expanded="false">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
 
-    // Click fuera para cerrar menús
-    document.addEventListener('click', (e) => {
-      // Cerrar menú de productos si existen ambos elementos
-      if (
-        prodBtn && prodMenu &&
-        !prodBtn.contains(e.target) &&
-        !prodMenu.contains(e.target)
-      ) {
-        prodMenu.classList.add('hidden');
-      }
-      // Cerrar menú de usuario si existen ambos elementos
-      if (
-        userBtn && userMenu &&
-        !userBtn.contains(e.target) &&
-        !userMenu.contains(e.target)
-      ) {
-        userMenu.classList.add('hidden');
-      }
-    });
+        <ul class="nav-links">
+          {navLinks.map(link => (
+            <li class={link.menu ? 'has-mega' : ''}>
+              <a href={link.href} class="nav-link">
+                {link.label}
+                {link.menu && (
+                  <svg class="nav-caret" width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                )}
+                <span class="link-underline"></span>
+              </a>
 
-    // Mobile menu
-    const mobileToggle = document.getElementById('mobile-toggle');
+              {link.menu && (
+                <div class="mega">
+                  <div class="mega-inner">
+                    {piercingMenu.map(group => (
+                      <div class="mega-col">
+                        <p class="mega-zone">{group.zone}</p>
+                        <ul class="mega-list">
+                          {group.items.map(p => (
+                            <li>
+                              <a href={`/products?piercing=${encodeURIComponent(p.value)}`} class="mega-link">{p.label}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                    <div class="mega-foot">
+                      <a href="/products?type=Piercings" class="mega-all">
+                        Ver todos los piercings
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Centro: logo -->
+      <a href="/" class="nav-logo" aria-label="Broquelizate — inicio">
+        <img
+          src="/assets/Broquelizate-logos/logo-blanco.png"
+          alt="Broquelizate, joyería y piercings"
+          class="logo-image"
+        />
+      </a>
+
+      <!-- Derecha: buscar, carrito, cuenta -->
+      <div class="nav-right">
+        <button class="search-btn" aria-label="Buscar" id="search-btn">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <span>Buscar</span>
+        </button>
+
+        <div class="cart-wrapper">
+          <CartCounter client:load transition:persist />
+        </div>
+
+        {!isLoggedIn ? (
+          <a href="/login" class="login-btn">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            <span>Ingresar</span>
+          </a>
+        ) : (
+          <div class="profile-menu">
+            <button id="profile-btn" class="profile-btn" aria-label="Menú de usuario">
+              <div class="profile-avatar">
+                {user?.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <span class="profile-name">{user?.name?.split(' ')[0] || 'Mi cuenta'}</span>
+              <svg class="profile-arrow" id="profile-arrow" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+
+            <!-- Dropdown -->
+            <div id="profile-dropdown" class="profile-dropdown">
+              <div class="dropdown-header">
+                <div class="dropdown-avatar">
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div class="dropdown-user-info">
+                  <p class="dropdown-name">{user?.name || 'Usuario'}</p>
+                  <p class="dropdown-email">{user?.email}</p>
+                </div>
+              </div>
+
+              <div class="dropdown-divider"></div>
+
+              <ul class="dropdown-menu">
+                <li>
+                  <a href="/account/my-orders" class="dropdown-item">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    </svg>
+                    <span>Mis Pedidos</span>
+                    <svg class="item-arrow" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="/account/perfil" class="dropdown-item">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <span>Mi Perfil</span>
+                    <svg class="item-arrow" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="/account/user-data" class="dropdown-item">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span>Direcciones</span>
+                    <svg class="item-arrow" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </a>
+                </li>
+                {isAdmin && (
+                  <li>
+                    <a href="/admin/dashboard" class="dropdown-item admin-item">
+                      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                      <span>Panel Admin</span>
+                      <svg class="item-arrow" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </a>
+                  </li>
+                )}
+              </ul>
+
+              <div class="dropdown-divider"></div>
+
+              <button id="logout" class="logout-btn">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- Mobile Menu — fuera del <nav> a proposito: .navbar usa
+       backdrop-filter, y eso crea un bloque contenedor que rompe
+       el position:fixed de este panel. -->
+  <div id="mobile-menu" class="mobile-menu">
+    <div class="mobile-menu-content">
+        <ul class="mobile-links">
+          {navLinks.map(link => (
+            <li>
+              <a href={link.href} class="mobile-link">{link.label}</a>
+              {link.menu && (
+                <div class="mobile-sub">
+                  {piercingMenu.map(group => (
+                    <div class="mobile-zone">
+                      <p class="mobile-zone-title">{group.zone}</p>
+                      <div class="mobile-chips">
+                        {group.items.map(p => (
+                          <a href={`/products?piercing=${encodeURIComponent(p.value)}`} class="mobile-sublink">{p.label}</a>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+
+      <div class="mobile-divider"></div>
+
+      {!isLoggedIn ? (
+        <a href="/login" class="mobile-login-btn">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <span>Ingresar a mi cuenta</span>
+        </a>
+      ) : (
+        <div class="mobile-user-section">
+          <div class="mobile-user-header">
+            <div class="mobile-avatar">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div class="mobile-user-info">
+              <p class="mobile-user-name">{user?.name || 'Usuario'}</p>
+              <p class="mobile-user-email">{user?.email}</p>
+            </div>
+          </div>
+
+          <ul class="mobile-user-links">
+            <li>
+              <a href="/account/my-orders" class="mobile-user-link">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                </svg>
+                <span>Mis Pedidos</span>
+              </a>
+            </li>
+            <li>
+              <a href="/account/perfil" class="mobile-user-link">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                <span>Mi Perfil</span>
+              </a>
+            </li>
+            <li>
+              <a href="/account/user-data" class="mobile-user-link">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span>Direcciones</span>
+              </a>
+            </li>
+            {isAdmin && (
+              <li>
+                <a href="/admin/dashboard" class="mobile-user-link admin">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span>Panel Admin</span>
+                </a>
+              </li>
+            )}
+          </ul>
+
+          <button id="logout-mobile" class="mobile-logout-btn">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
+      )}
+
+      <div class="mobile-footer">
+        <p>© 2024 Broquelizate</p>
+        <div class="mobile-social">
+          <a href="#" aria-label="Instagram">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+          </a>
+          <a href="#" aria-label="Facebook">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </a>
+          <a href="#" aria-label="WhatsApp">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Modal -->
+  <div id="search-modal" class="search-modal">
+    <div class="search-modal-content">
+      <div class="search-header">
+        <div class="search-input-wrapper">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input type="text" id="search-input" placeholder="Buscar productos..." autocomplete="off" />
+        </div>
+        <button id="close-search" class="close-search-btn" aria-label="Cerrar búsqueda">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="search-suggestions">
+        <p class="suggestions-title">Búsquedas populares</p>
+        <div class="suggestions-tags">
+          <a href="/products?search=titanio" class="suggestion-tag">Titanio</a>
+          <a href="/products?search=oro" class="suggestion-tag">Oro</a>
+          <a href="/products?search=helix" class="suggestion-tag">Hélix</a>
+          <a href="/products?search=argolla" class="suggestion-tag">Argollas</a>
+          <a href="/products?search=broquel" class="suggestion-tag">Broqueles</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Spacer para compensar el header fijo -->
+<div class="navbar-spacer"></div>
+
+<style>
+  /* Alturas en variables: el spacer y el menú móvil dependen de ellas */
+  .header-stack {
+    --bar-h: 36px;
+    --nav-h: 80px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  .navbar-spacer {
+    height: calc(36px + 80px);
+  }
+
+  /* 📣 Barra de envío */
+  .announcement-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    height: var(--bar-h);
+    padding: 0 16px;
+    background: linear-gradient(90deg, #0a0a0a, #1a1508 50%, #0a0a0a);
+    border-bottom: 1px solid rgba(234, 179, 8, 0.15);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+
+  .announcement-bar svg { color: #eab308; flex-shrink: 0; }
+  .announcement-bar strong { color: #eab308; font-weight: 700; }
+
+  /* Base Navbar */
+  .navbar {
+    background: linear-gradient(180deg, #0a0a0a 0%, #111111 100%);
+    border-bottom: 1px solid rgba(234, 179, 8, 0.1);
+    backdrop-filter: blur(20px);
+  }
+
+  /* Tres columnas: enlaces · logo · acciones */
+  .nav-container {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+    height: var(--nav-h);
+  }
+
+  .nav-left { display: flex; align-items: center; min-width: 0; }
+
+  /* Logo centrado */
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    justify-self: center;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .nav-logo:hover { opacity: 0.85; }
+
+  .logo-image {
+    height: 44px;
+    width: auto;
+    max-width: 240px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+    transition: filter 0.3s ease;
+  }
+
+  .nav-logo:hover .logo-image {
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 12px rgba(234, 179, 8, 0.35));
+  }
+
+  /* Enlaces */
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .nav-link:hover { color: #fff; }
+
+  .link-underline {
+    position: absolute;
+    bottom: 4px;
+    left: 14px;
+    right: 14px;
+    height: 1.5px;
+    background: linear-gradient(90deg, #eab308, #f59e0b);
+    border-radius: 1px;
+    transform: scaleX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-link:hover .link-underline { transform: scaleX(1); }
+
+  /* Derecha */
+  .nav-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .search-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .search-btn:hover { color: #eab308; }
+
+  .cart-wrapper { display: flex; align-items: center; }
+
+  .login-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: transparent;
+    border: 1px solid rgba(234, 179, 8, 0.35);
+    border-radius: 999px;
+    color: #eab308;
+    text-decoration: none;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .login-btn:hover {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.6);
+  }
+
+  /* Profile Menu */
+  .profile-menu { position: relative; }
+
+  .profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px 6px 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .profile-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(234, 179, 8, 0.3);
+  }
+
+  .profile-avatar {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    border-radius: 50%;
+    color: #000;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .profile-name {
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .profile-arrow { color: rgba(255, 255, 255, 0.5); transition: transform 0.2s; }
+  .profile-arrow.rotate { transform: rotate(180deg); }
+
+  /* Profile Dropdown */
+  .profile-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 280px;
+    background: #111;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+
+  .profile-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
+
+  .dropdown-header { display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(255, 255, 255, 0.02); }
+  .dropdown-avatar { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #eab308, #f59e0b); border-radius: 10px; color: #000; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
+  .dropdown-user-info { overflow: hidden; }
+  .dropdown-name { color: #fff; font-weight: 600; font-size: 0.95rem; margin: 0; }
+  .dropdown-email { color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dropdown-divider { height: 1px; background: rgba(255, 255, 255, 0.08); }
+  .dropdown-menu { list-style: none; margin: 0; padding: 8px; }
+  .dropdown-item { display: flex; align-items: center; gap: 12px; padding: 12px; color: rgba(255, 255, 255, 0.7); text-decoration: none; font-size: 0.9rem; border-radius: 10px; transition: all 0.2s; }
+  .dropdown-item:hover { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+  .dropdown-item span { flex: 1; }
+  .item-arrow { opacity: 0; transform: translateX(-4px); transition: all 0.2s; }
+  .dropdown-item:hover .item-arrow { opacity: 1; transform: translateX(0); }
+  .dropdown-item.admin-item { color: #a78bfa; }
+  .dropdown-item.admin-item:hover { background: rgba(139, 92, 246, 0.1); color: #c4b5fd; }
+  .logout-btn { display: flex; align-items: center; gap: 12px; width: calc(100% - 16px); margin: 8px; padding: 12px; background: transparent; border: none; border-radius: 10px; color: #f87171; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+  .logout-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+  /* ── Mega-menú de perforaciones ── */
+  .has-mega { position: relative; }
+  .nav-caret { margin-left: 5px; opacity: 0.55; transition: transform 0.25s, opacity 0.25s; }
+  .has-mega:hover .nav-caret { transform: rotate(180deg); opacity: 1; }
+
+  .mega {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    min-width: 540px;
+    padding-top: 14px; /* puente invisible: el menú no se cierra al bajar el mouse */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.22s;
+    z-index: 60;
+  }
+
+  .has-mega:hover .mega,
+  .has-mega:focus-within .mega {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .mega-inner {
+    display: grid;
+    grid-template-columns: 1.7fr 0.65fr 0.65fr;
+    gap: 4px 26px;
+    padding: 22px 26px 18px;
+    background: #101010;
+    border: 1px solid rgba(234, 179, 8, 0.15);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.85);
+  }
+
+  .mega-zone {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #eab308;
+    margin-bottom: 10px;
+  }
+
+  .mega-list { list-style: none; margin: 0; padding: 0; }
+  .mega-col:first-child .mega-list { columns: 2; column-gap: 18px; }
+
+  .mega-link {
+    display: block;
+    padding: 6px 10px;
+    margin-left: -10px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.68);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    transition: background 0.18s, color 0.18s;
+    break-inside: avoid;
+  }
+  .mega-link:hover { background: rgba(234, 179, 8, 0.12); color: #fff; }
+
+  .mega-foot {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+  .mega-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #eab308;
+    text-decoration: none;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: gap 0.2s;
+  }
+  .mega-all:hover { gap: 12px; }
+
+  /* Sin mouse no hay hover: en táctil el enlace lleva al catálogo
+     y la lista completa vive en el menú móvil. */
+  @media (hover: none) {
+    .mega { display: none; }
+  }
+
+  /* Sublista del menú móvil */
+  .mobile-sub { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 16px; }
+  .mobile-zone-title { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #eab308; margin-bottom: 8px; }
+  .mobile-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mobile-sublink { padding: 8px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 999px; color: rgba(255, 255, 255, 0.72); text-decoration: none; font-size: 0.8rem; font-weight: 400; letter-spacing: 0; text-transform: none; transition: all 0.2s; }
+  .mobile-sublink:active, .mobile-sublink:hover { color: #eab308; border-color: rgba(234, 179, 8, 0.35); background: rgba(234, 179, 8, 0.1); }
+
+  /* Botón hamburguesa */
+  .mobile-menu-btn {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 40px;
+    height: 40px;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hamburger-line { width: 100%; height: 1.5px; background: #fff; border-radius: 1px; transition: all 0.3s; }
+  .mobile-menu-btn.active .hamburger-line:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .mobile-menu-btn.active .hamburger-line:nth-child(2) { opacity: 0; }
+  .mobile-menu-btn.active .hamburger-line:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  /* Mobile Menu */
+  .mobile-menu {
+    position: fixed;
+    z-index: 1001;
+    top: calc(var(--bar-h) + var(--nav-h));
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #0a0a0a;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  .mobile-menu.open { opacity: 1; visibility: visible; }
+  .mobile-menu-content { padding: 24px; min-height: 100%; display: flex; flex-direction: column; }
+  .mobile-links { list-style: none; margin: 0; padding: 0; }
+  .mobile-link { display: block; padding: 16px 0; color: #fff; text-decoration: none; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid rgba(255, 255, 255, 0.06); transition: color 0.2s; }
+  .mobile-link:hover { color: #eab308; }
+  .mobile-divider { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 24px 0; }
+  .mobile-login-btn { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; background: linear-gradient(135deg, #eab308, #f59e0b); border-radius: 999px; color: #000; text-decoration: none; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.2s; }
+  .mobile-login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(234, 179, 8, 0.3); }
+
+  .mobile-user-section { display: flex; flex-direction: column; gap: 20px; }
+  .mobile-user-header { display: flex; align-items: center; gap: 16px; padding: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; }
+  .mobile-avatar { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #eab308, #f59e0b); border-radius: 12px; color: #000; font-weight: 700; font-size: 1.25rem; flex-shrink: 0; }
+  .mobile-user-info { overflow: hidden; }
+  .mobile-user-name { color: #fff; font-weight: 600; font-size: 1.1rem; margin: 0; }
+  .mobile-user-email { color: rgba(255, 255, 255, 0.5); font-size: 0.85rem; margin: 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-user-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .mobile-user-link { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; color: rgba(255, 255, 255, 0.8); text-decoration: none; font-size: 0.95rem; transition: all 0.2s; }
+  .mobile-user-link:hover { background: rgba(234, 179, 8, 0.1); border-color: rgba(234, 179, 8, 0.2); color: #eab308; }
+  .mobile-user-link.admin { color: #a78bfa; }
+  .mobile-user-link.admin:hover { background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+  .mobile-logout-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; color: #f87171; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 8px; }
+  .mobile-logout-btn:hover { background: rgba(239, 68, 68, 0.15); }
+
+  .mobile-footer { margin-top: auto; padding-top: 24px; text-align: center; }
+  .mobile-footer p { color: rgba(255, 255, 255, 0.4); font-size: 0.8rem; margin-bottom: 16px; }
+  .mobile-social { display: flex; justify-content: center; gap: 16px; }
+  .mobile-social a { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; color: rgba(255, 255, 255, 0.6); transition: all 0.2s; }
+  .mobile-social a:hover { background: rgba(234, 179, 8, 0.1); border-color: rgba(234, 179, 8, 0.3); color: #eab308; }
+
+  /* Search Modal */
+  .search-modal { position: fixed; inset: 0; z-index: 1100; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(16px); opacity: 0; visibility: hidden; transition: all 0.3s; }
+  .search-modal.open { opacity: 1; visibility: visible; }
+  .search-modal-content { max-width: 640px; margin: 120px auto 0; padding: 24px; background: #111111; border: 1px solid rgba(234, 179, 8, 0.15); border-radius: 20px; box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04); }
+  .search-header { display: flex; align-items: center; gap: 12px; }
+  .search-input-wrapper { flex: 1; display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; transition: all 0.2s; }
+  .search-input-wrapper svg { color: rgba(255, 255, 255, 0.6); flex-shrink: 0; }
+  .search-input-wrapper:focus-within { border-color: #eab308; background: rgba(234, 179, 8, 0.06); box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.12); }
+  .search-input-wrapper:focus-within svg { color: #eab308; }
+  #search-input { flex: 1; background: transparent; border: none; color: #fff; font-size: 1.05rem; outline: none; }
+  #search-input::placeholder { color: rgba(255, 255, 255, 0.45); }
+  .close-search-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; color: rgba(255, 255, 255, 0.8); cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+  .close-search-btn:hover { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
+  .search-suggestions { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .suggestions-title { color: rgba(255, 255, 255, 0.55); font-size: 0.8rem; font-weight: 600; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .suggestions-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .suggestion-tag { padding: 8px 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 999px; color: rgba(255, 255, 255, 0.8); text-decoration: none; font-size: 0.875rem; font-weight: 500; transition: all 0.2s; }
+  .suggestion-tag:hover { background: rgba(234, 179, 8, 0.12); border-color: rgba(234, 179, 8, 0.4); color: #eab308; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1180px) {
+    .nav-link { padding: 10px 10px; font-size: 0.7rem; letter-spacing: 0.08em; }
+    .search-btn span { display: none; }
+    .search-btn { padding: 10px; }
+  }
+
+  @media (max-width: 1024px) {
+    .nav-links { display: none; }
+    .mobile-menu-btn { display: flex; }
+  }
+
+  @media (max-width: 768px) {
+    .header-stack { --nav-h: 66px; --bar-h: 34px; }
+    .navbar-spacer { height: calc(34px + 66px); }
+    .nav-container { padding: 0 12px; gap: 8px; }
+    .announcement-bar { font-size: 0.68rem; gap: 7px; }
+    .logo-image { height: 34px; max-width: 160px; }
+    .profile-name { display: none; }
+    .login-btn span { display: none; }
+    .login-btn { padding: 9px 12px; }
+    .nav-right { gap: 4px; }
+  }
+
+  @media (max-width: 400px) {
+    .announcement-bar span { font-size: 0.63rem; }
+    .announcement-bar svg { display: none; }
+    .logo-image { height: 28px; max-width: 130px; }
+  }
+
+  @media (max-width: 640px) {
+    .search-modal-content { margin: 80px 16px 0; padding: 16px; border-radius: 16px; }
+  }
+</style>
+
+<script>
+  const { signOut } = await import('auth-astro/client');
+  import { navigate } from "astro:transitions/client";
+
+  document.addEventListener('astro:page-load', () => {
+    // Mobile Menu Toggle
+    const menuBtn = document.getElementById('menu-btn');
     const mobileMenu = document.getElementById('mobile-menu');
-    const mobileProdBtn = document.getElementById('mobile-products-btn');
-    const mobileProdMenu = document.getElementById('mobile-products-menu');
 
-    mobileToggle?.addEventListener('click', () => {
-      mobileMenu?.classList.toggle('hidden');
+    if (menuBtn && mobileMenu) {
+      menuBtn.addEventListener('click', () => {
+        const open = mobileMenu.classList.toggle('open');
+        menuBtn.classList.toggle('active', open);
+        menuBtn.setAttribute('aria-expanded', String(open));
+        document.body.style.overflow = open ? 'hidden' : '';
+      });
+    }
+
+    // Profile Dropdown
+    const profileBtn = document.getElementById('profile-btn');
+    const profileDropdown = document.getElementById('profile-dropdown');
+    const profileArrow = document.getElementById('profile-arrow');
+
+    if (profileBtn && profileDropdown) {
+      profileBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        profileDropdown.classList.toggle('open');
+        profileArrow?.classList.toggle('rotate');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!profileBtn.contains(e.target as Node) && !profileDropdown.contains(e.target as Node)) {
+          profileDropdown.classList.remove('open');
+          profileArrow?.classList.remove('rotate');
+        }
+      });
+    }
+
+    // Search Modal
+    const searchBtn = document.getElementById('search-btn');
+    const searchModal = document.getElementById('search-modal');
+    const closeSearch = document.getElementById('close-search');
+    const searchInput = document.getElementById('search-input') as HTMLInputElement;
+
+    if (searchBtn && searchModal) {
+      searchBtn.addEventListener('click', () => {
+        searchModal.classList.add('open');
+        searchInput?.focus();
+        document.body.style.overflow = 'hidden';
+      });
+
+      closeSearch?.addEventListener('click', () => {
+        searchModal.classList.remove('open');
+        document.body.style.overflow = '';
+      });
+
+      searchModal.addEventListener('click', (e) => {
+        if (e.target === searchModal) {
+          searchModal.classList.remove('open');
+          document.body.style.overflow = '';
+        }
+      });
+
+      searchInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && searchInput.value.trim()) {
+          navigate(`/products?search=${encodeURIComponent(searchInput.value.trim())}`);
+          searchModal.classList.remove('open');
+          document.body.style.overflow = '';
+        }
+      });
+    }
+
+    // Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        mobileMenu?.classList.remove('open');
+        menuBtn?.classList.remove('active');
+        menuBtn?.setAttribute('aria-expanded', 'false');
+        profileDropdown?.classList.remove('open');
+        profileArrow?.classList.remove('rotate');
+        searchModal?.classList.remove('open');
+        document.body.style.overflow = '';
+      }
     });
-    mobileProdBtn?.addEventListener('click', () => {
-      mobileProdMenu?.classList.toggle('hidden');
+
+    // Logout
+    const logoutBtn = document.getElementById('logout');
+    const logoutMobile = document.getElementById('logout-mobile');
+
+    const handleLogout = async () => {
+      await signOut();
+      navigate('/');
+    };
+
+    logoutBtn?.addEventListener('click', handleLogout);
+    logoutMobile?.addEventListener('click', handleLogout);
+
+    // Cerrar menú móvil al navegar
+    document.querySelectorAll('.mobile-link, .mobile-sublink, .mobile-user-link').forEach(link => {
+      link.addEventListener('click', () => {
+        mobileMenu?.classList.remove('open');
+        menuBtn?.classList.remove('active');
+        menuBtn?.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      });
     });
   });
 </script>
-
-<nav class="fixed top-0 left-0 w-full z-50 text-white">
-  <!-- Brown stripe -->
-  <div class="bg-[#8B3F17] text-sm py-2 px-12 flex justify-between items-center">
-    <span>Envío gratuito en pedidos superiores a $500</span>
-    <div class="flex items-center space-x-4 text-sm relative">
-      <img src="/assets/Broquelizate-logos/person.svg" alt="Avatar" class="w-6 h-6" />
-      {Astro.locals.isLoggedIn ? (
-        <div class="relative">
-          <button id="user-btn" class="focus:outline-none hover:underline">
-            {Astro.locals.user || 'Usuario'}
-          </button>
-          <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-white text-black rounded-lg shadow-lg z-10">
-            <a href="/profile" class="block px-4 py-2 hover:bg-gray-200">Perfil</a>
-            <a href="#" id="logout-btn" class="block px-4 py-2 hover:bg-gray-200">Logout</a>
-          </div>
-        </div>
-      ) : (
-        <a href="/login" class="hover:underline">Iniciar sesión</a>
-      )}
-      <a href="#" class="hover:text-gray-300"><FaFacebookF /></a>
-      <a href="#" class="hover:text-gray-300"><FaInstagram /></a>
-    </div>
-  </div>
-
-  <!-- Main black bar -->
-  <div class="bg-black px-12 py-4 flex justify-between items-center">
-    <!-- Logo -->
-    <a href="/" class="flex items-center space-x-2">
-      <img src="/assets/Broquelizate-logos/icono relleno.svg" alt="Logo" class="h-10 w-auto rounded-lg" />
-      <span class="text-xl font-bold text-[#EAB308]">Broquelizate</span>
-    </a>
-
-    <!-- Desktop nav -->
-    <ul class="hidden md:flex space-x-8 font-semibold text-sm">
-      <li><a href="#inicio" class="text-[#EAB308] hover:text-[#EAB308]">Inicio</a></li>
-      <li class="relative">
-        <button id="products-btn" class="hover:text-[#EAB308]">Productos</button>
-        <div id="products-menu" class="hidden absolute top-full left-0 mt-2 w-40 bg-black border border-[#EAB308]/30 rounded-md shadow-lg z-50">
-          <a href="/products" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Anillos</a>
-          <a href="/productos/broqueles" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Broqueles</a>
-          <a href="/productos/pulseras" class="block px-4 py-2 text-[#EAB308] hover:bg-[#EAB308]/10">Pulseras</a>
-        </div>
-      </li>
-      <li><a href="#perforaciones" class="hover:text-[#EAB308]">Perforaciones</a></li>
-      <li><a href="#nosotros" class="hover:text-[#EAB308]">Nosotros</a></li>
-      <li><a href="#contacto" class="hover:text-[#EAB308]">Contacto</a></li>
-    </ul>
-
-    <!-- Icons and mobile toggle -->
-    <div class="flex items-center space-x-4 md:space-x-6 text-xl">
-      <button class="hover:text-[#EAB308]"><FaSearch /></button>
-      <CartCounter/>
-      <button id="mobile-toggle" class="md:hidden text-2xl">
-        <FaBars />
-      </button>
-    </div>
-  </div>
-
-  <!-- Mobile menu -->
-  <div id="mobile-menu" class="hidden bg-black md:hidden px-6 py-4 space-y-4 font-semibold text-sm">
-    <a href="#inicio" class="block text-[#EAB308] hover:text-[#EAB308]">Inicio</a>
-    <div>
-      <button id="mobile-products-btn" class="w-full flex justify-between items-center hover:text-[#EAB308]">
-        <span>Productos</span>
-        <FaChevronDown />
-      </button>
-      <div id="mobile-products-menu" class="hidden ml-4 mt-2 space-y-2 text-sm font-normal">
-        <a href="/productos/anillos" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Anillos</a>
-        <a href="/productos/broqueles" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Broqueles</a>
-        <a href="/productos/aretes" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Aretes</a>
-        <a href="/productos/pulseras" class="block text-[#EAB308] hover:bg-[#EAB308]/10 px-3 py-1 rounded">Pulseras</a>
-      </div>
-    </div>
-    {Astro.locals.isLoggedIn
-      ? <a href="#" id="logout-btn" class="font-semibold text-gray-700">Logout</a>
-      : <a href="/login" class="font-semibold text-gray-700">Sign In</a>
-    }
-  </div>
-
-  <script is:inline>
-    // Ajustar padding-top del body para que el contenido no quede oculto bajo el nav fijo
-    function adjustBodyPadding() {
-      const nav = document.querySelector('nav.fixed');
-      if (!nav) return;
-      document.body.style.paddingTop = nav.offsetHeight + 'px';
-    }
-    window.addEventListener('load', adjustBodyPadding);
-    window.addEventListener('resize', adjustBodyPadding);
-  </script>
-</nav>

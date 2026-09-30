@@ -1,13 +1,193 @@
 ---
+import Categories from "@/components/Categories.astro";
 import HeroSection from "@/components/HeroSection.astro";
 import MainLayout from "@/layouts/MainLayout.astro";
+import FeaturedProducts from "@/components/FeaturedProducts.astro";
+import Services from "@/components/Services.astro";
+import Testimonials from "@/components/Testimonials.astro";
+import BroquelizateSection from "@/components/BroquelizateSection.astro";
+import Newsletter from "@/components/Newsletter.astro";
+import HomeCollections from "@/components/HomeCollections.astro";
+import { getHomeCarousels } from "@/utils/collections";
+import { db, eq, and, inArray, Product, ProductImage } from 'astro:db';
 
+const [heroRows, carousels] = await Promise.all([
+  db
+    .select({
+      id: Product.id,
+      name: Product.name,
+      price: Product.price,
+      slug: Product.slug,
+      coverImageId: Product.coverImageId,
+    })
+    .from(Product)
+    .where(and(eq(Product.isFeatured, true), eq(Product.isDeleted, false)))
+    .limit(4),
+  getHomeCarousels(),
+]);
 
+const heroIds = heroRows.map(p => p.id);
+let heroImages: Array<{ id: string; productId: string; image: string }> = [];
+if (heroIds.length > 0) {
+  heroImages = await db
+    .select({ id: ProductImage.id, productId: ProductImage.productId, image: ProductImage.image })
+    .from(ProductImage)
+    .where(inArray(ProductImage.productId, heroIds));
+}
+
+const heroProducts = heroRows.map(p => {
+  const coverImg = p.coverImageId
+    ? heroImages.find(i => i.id === p.coverImageId)
+    : null;
+  const firstImg = coverImg || heroImages.find(i => i.productId === p.id);
+  return {
+    name: p.name,
+    price: p.price,
+    image: firstImg?.image || 'https://placehold.co/400x400/1a1a1a/eab308?text=Sin+Imagen',
+    slug: p.slug,
+  };
+});
 ---
 
-<MainLayout>
-  
-  <HeroSection />
+<MainLayout title="Broquelizate Web">
+  <main class="w-full">
+    <HeroSection products={heroProducts} />
+    <HomeCollections collections={carousels} />
+    <Categories/>
+    <FeaturedProducts/>
+
+    <!-- Carruseles que el admin administra desde /admin/collections -->
+    
+
+    <Services/>
+    <Testimonials/>
+    <BroquelizateSection/>
+    <Newsletter/>
+  </main>
 </MainLayout>
 
+<style is:global>
+  /* ===== Scroll reveal — estilo joyería (dark/gold) ===== */
 
+  /* Solo se ocultan las secciones que están FUERA del viewport inicial.
+     La clase la agrega el JS, así que sin JS todo es visible. */
+  .reveal {
+    position: relative;
+    opacity: 0;
+    transform: translateY(26px);
+    transition:
+      opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .reveal.reveal-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Línea dorada que se "dibuja" al entrar cada sección */
+  .reveal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 1px;
+    width: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(234, 179, 8, 0.9),
+      transparent
+    );
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+    pointer-events: none;
+  }
+
+  .reveal.reveal-visible::before {
+    width: min(340px, 70%);
+  }
+
+  /* Destello sutil que recorre la línea una sola vez */
+  .reveal::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 50%;
+    width: 3px;
+    height: 3px;
+    border-radius: 9999px;
+    background: #facc15;
+    box-shadow: 0 0 8px 2px rgba(250, 204, 21, 0.55);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .reveal.reveal-visible::after {
+    animation: gold-spark 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.15s 1 both;
+  }
+
+  @keyframes gold-spark {
+    0%   { opacity: 0; transform: translateX(-50%); }
+    15%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { opacity: 0; transform: translateX(calc(min(340px, 35vw) / 2 - 50%)); }
+  }
+
+  /* Accesibilidad: sin movimiento para quien lo prefiera */
+  @media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .reveal::before,
+    .reveal::after {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      animation: none;
+    }
+    .reveal::before {
+      width: min(340px, 70%);
+    }
+    .reveal::after {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  function initReveal() {
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>('main > *')
+    );
+
+    // Sin soporte de IntersectionObserver: no se oculta nada.
+    if (!('IntersectionObserver' in window)) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('reveal-visible');
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      // threshold 0: con un solo píxel visible se revela,
+      // sin importar qué tan alta sea la sección.
+      { threshold: 0, rootMargin: '0px 0px -40px 0px' }
+    );
+
+    for (const el of sections) {
+      // Lo que ya está en pantalla al cargar NUNCA se oculta
+      // (el Hero siempre visible desde el primer paint).
+      const rect = el.getBoundingClientRect();
+      const inView = rect.top < window.innerHeight && rect.bottom > 0;
+      if (inView) continue;
+
+      el.classList.add('reveal');
+      observer.observe(el);
+    }
+  }
+
+  initReveal();
+  document.addEventListener('astro:page-load', initReveal);
+</script>

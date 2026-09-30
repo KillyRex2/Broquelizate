@@ -1,43 +1,74 @@
 ---
 import NavBar from '@/components/shared/NavBar.astro';
-
-
-
-import '@/assets/styles/global.css'
+import '@/assets/styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+import ToasterProvider from '@/components/shared/ToasterProvider';
+import Footer from '@/components/shared/Footer.astro';
 
 interface Props {
-    title?: string;
-	description?: string;
-	image?: string;
+  title?: string;
+  description?: string;
+  image?: string;
 }
 
-const {title = 'Auth Astro app'} = Astro.props;
-
+const { 
+  title = 'Productos', 
+  description = 'Broquelizate', 
+  image = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Ficono%20relleno.svg?alt=media&token=0ab9a46f-70c5-4136-9bec-d2db45fc1108' 
+} = Astro.props;
 ---
 
 <html lang="es">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
-	</head>
-	<body>
-        <NavBar/>
-		<main class="container mx-auto px-4 pt-12">
-			<slot />
-		</main>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <ClientRouter />
+
+    <meta name="title" content={title} />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:url" content={Astro.url} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={image} />
+  </head>
+  <body class="bg-[#1E1E1E] text-white selection:bg-yellow-500/30">
+    <NavBar />
+
+    <!-- Eliminamos el container restrictivo aquí para manejarlo dentro de la página -->
+    <main class="min-height-screen">
+      <slot />
+    </main>
+
+    <Footer />
+  	<!-- Toasts de @/utils/alerts (sonner). Persiste entre navegaciones -->
+  	<ToasterProvider client:load transition:persist="toaster" />
+  </body>
 </html>
 
 <style is:global>
   html {
-    font-family: system-ui, sans-serif;
-    background: #1E1E1E;
-    color-scheme: dark light;
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #1E1E1E;
+    color-scheme: dark;
+    scroll-behavior: smooth;
   }
-  body {
-  padding-top: 3rem; /* o 48px, ajusta al valor exacto de tu header */
-}
+  
+  /* Scrollbar personalizado estilo lujo */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1E1E1E; }
+  ::-webkit-scrollbar-thumb { 
+    background: #333; 
+    border-radius: 10px; 
+    border: 2px solid #1E1E1E;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #d4af37; }
+
+  .divider-gold {
+    border: none;
+    border-top: 1px solid rgba(212, 175, 55, 0.3);
+  }
 </style>

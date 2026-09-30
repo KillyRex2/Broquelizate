@@ -1,140 +1,945 @@
 ---
+// src/components/HeroSectionSimple.astro
+// Hero Section Premium - Imagen de fondo completa y visible
 
+interface Props {
+  products?: Array<{
+    name: string;
+    price: number;
+    image: string;
+    slug: string;
+  }>;
+}
+
+const { products = [] } = Astro.props;
+
+const displayProducts = products.length > 0 ? products : [
+  { name: "Arete Ramita", price: 299, image: "/images/products/ramita-verde.jpg", slug: "arete-ramita" },
+  { name: "Arete Trébol", price: 320, image: "/images/products/trebol.jpg", slug: "arete-trebol" },
+  { name: "Collar Colibrí", price: 330, image: "/images/products/colibri.jpg", slug: "colibri" },
+  { name: "Arete Abeja", price: 360, image: "/images/products/abejita.jpg", slug: "arete-abejita" },
+];
 ---
-<section class="hero-background w-full">
-  <div class="hero-content">
-    <h1 class="hero-title p-5">
-      <span>Arte</span> en cada pieza
-    </h1>
-    <p class="hero-subtitle">
-      Descubre nuestra colección exclusiva de joyería y servicios de perforación
-    </p>
-    <div class="hero-buttons">
-      <a
-        href="/products"
-        class="btn-primary"
-      >
-        Ver Colección
-      </a>
-      <a
-        href="#contact"
-        class="btn-outline"
-      >
-        Servicios de Perforación
-      </a>
+
+<section class="hero">
+  <!-- FONDO CON IMAGEN COMPLETA Y VISIBLE -->
+  <div class="hero-bg">
+    <img 
+      src="/assets/hero-bg-jewelry.jpg" 
+      alt="Joyería Broquelizate" 
+      class="hero-bg-image"
+      loading="eager"
+      fetchpriority="high"
+    />
+    
+    <!-- Overlay muy sutil -->
+    <div class="hero-overlay"></div>
+    
+    <!-- Brillo dorado -->
+    <div class="hero-glow"></div>
+    
+    <!-- Destellos -->
+    <div class="hero-sparkles"></div>
+  </div>
+
+  <!-- Contenido principal -->
+  <div class="hero-container">
+    <!-- Columna izquierda - Texto -->
+    <div class="hero-content">
+      <div class="content-wrapper">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          <span>Nueva Colección 2026</span>
+        </div>
+        
+        <h1 class="hero-title">
+          <span class="gradient-text">Arte</span> en cada
+          <span class="block">pieza única</span>
+        </h1>
+        
+        <p class="hero-subtitle">
+          Joyería artesanal y servicios de perforación profesional. 
+          Materiales hipoalergénicos de la más alta calidad.
+        </p>
+
+        <!-- Indicadores de confianza -->
+        <div class="trust-row">
+          <div class="trust-item">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>100% Hipoalergénico</span>
+          </div>
+          <div class="trust-item">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+            </svg>
+            <span>Envío gratis +$1099</span>
+          </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="hero-actions">
+          <a href="/products" class="btn-primary">
+            Explorar Colección
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </a>
+          <a href="#services" class="btn-secondary">
+            Servicios
+          </a>
+        </div>
+
+        <!-- Stats mini -->
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <strong>500+</strong>
+            <span>Clientes</span>
+          </div>
+          <div class="mini-stat">
+            <strong>4.9★</strong>
+            <span>Rating</span>
+          </div>
+          <div class="mini-stat">
+            <strong>3 años</strong>
+            <span>Experiencia</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna derecha - Productos -->
+    <div class="hero-showcase">
+      <div class="showcase-label">
+        <span class="label-text">Productos Destacados</span>
+        <a href="/products" class="see-all">
+          Ver todo
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="products-showcase">
+        {displayProducts.slice(0, 4).map((product, i) => (
+          <a 
+            href={`/products/${product.slug}`} 
+            class="showcase-card"
+            style={`animation-delay: ${i * 0.15}s`}
+          >
+            <div class="card-image">
+              <img 
+                src={product.image} 
+                alt={product.name}
+                loading={i < 2 ? "eager" : "lazy"}
+                onerror="this.src='https://placehold.co/400x400/1a1a1a/eab308?text=Sin+Imagen'"
+              />
+              <div class="card-hover">
+                <span class="quick-view">Ver producto</span>
+              </div>
+            </div>
+            <div class="card-details">
+              <h3>{product.name}</h3>
+              <span class="price">${product.price.toLocaleString('es-MX')}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      <!-- Garantías -->
+      <div class="guarantees">
+        <div class="guarantee">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Garantía de satisfacción
+        </div>
+        <div class="guarantee">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Materiales certificados
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- Scroll hint -->
+  <button class="scroll-down" onclick="window.scrollTo({top: window.innerHeight, behavior: 'smooth'})">
+    <span>Descubre más</span>
+    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+    </svg>
+  </button>
 </section>
 
 <style>
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 100px 0 80px;
+    overflow: hidden;
+    /* Fondo oscuro por si la imagen no cubre todo */
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  }
 
-body, html {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Poppins', sans-serif;
-}
+  /* ========================================
+     FONDO - IMAGEN COMPLETA Y ALEJADA
+     ======================================== */
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.hero-background {
-  position: relative;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden; /* Asegura que los pseudo elementos no se desborden */
-}
+  /* IMAGEN MÁS ALEJADA - sin zoom, centrada */
+  .hero-bg-image {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    /* SIN ZOOM - imagen a tamaño real/completo */
+    object-fit: cover;
+    /* Centrar la imagen para mostrar la joyería */
+    object-position: center center;
+    /* Sin transformación de escala */
+    transform: scale(1);
+    /* Imagen brillante y con colores vivos */
+    filter: brightness(1.1) saturate(1.25) contrast(1.02);
+    /* Animación muy sutil, casi imperceptible */
+    animation: subtleMove 20s ease-in-out infinite alternate;
+  }
 
-.hero-background::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('/assets/brokefondo.avif') center center / cover no-repeat;
-  transform: scale(1.2); /* Zoom */
-  filter: brightness(0.4); /* Oscurecer imagen */
-  z-index: -2;
-}
+  @keyframes subtleMove {
+    0% { 
+      transform: scale(1) translateY(0); 
+    }
+    100% { 
+      transform: scale(1.02) translateY(-5px); 
+    }
+  }
 
-.hero-background::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.1); /* Overlay */
-  z-index: -1;
-}
+  /* Overlay MÍNIMO - solo donde hay texto */
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: 
+      /* Gradiente lateral izquierdo MUY sutil */
+      linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.6) 0%,
+        rgba(0, 0, 0, 0.35) 20%,
+        rgba(0, 0, 0, 0.1) 40%,
+        transparent 55%
+      ),
+      /* Bordes superior e inferior sutiles */
+      linear-gradient(
+        180deg,
+        rgba(0, 0, 0, 0.25) 0%,
+        transparent 15%,
+        transparent 85%,
+        rgba(0, 0, 0, 0.3) 100%
+      );
+    z-index: 1;
+  }
 
-.hero-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* Centrado horizontal */
-  justify-content: center; /* Centrado vertical */
-  text-align: center; /* Para textos multi-línea */
-  height: 100%; /* Ocupa toda la altura del contenedor padre */
-}
+  /* Brillo dorado que realza la joyería */
+  .hero-glow {
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(
+        ellipse 90% 80% at 55% 50%,
+        rgba(255, 215, 0, 0.06) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 70% 60%,
+        rgba(234, 179, 8, 0.08) 0%,
+        transparent 50%
+      );
+    z-index: 2;
+    mix-blend-mode: overlay;
+    animation: glowPulse 6s ease-in-out infinite alternate;
+  }
 
-.hero-title {
-  font-size: 3rem;
-  font-weight: bold;
-  background: linear-gradient(90deg, #FFD700, #B8860B);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
-}
+  @keyframes glowPulse {
+    0% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
 
-.hero-title span {
-  color: white;
-}
+  /* Destellos como brillo de joyas */
+  .hero-sparkles {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      radial-gradient(2px 2px at 25% 35%, rgba(255, 255, 255, 0.7) 50%, transparent 50%),
+      radial-gradient(2.5px 2.5px at 45% 65%, rgba(255, 215, 0, 0.6) 50%, transparent 50%),
+      radial-gradient(2px 2px at 65% 25%, rgba(255, 255, 255, 0.8) 50%, transparent 50%),
+      radial-gradient(2px 2px at 80% 50%, rgba(234, 179, 8, 0.5) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 70% 75%, rgba(255, 255, 255, 0.6) 50%, transparent 50%),
+      radial-gradient(2px 2px at 35% 80%, rgba(255, 215, 0, 0.5) 50%, transparent 50%);
+    z-index: 3;
+    animation: sparkle 3s ease-in-out infinite;
+    pointer-events: none;
+  }
 
-.hero-subtitle {
-  font-size: 1.25rem;
-  margin-top: 1rem;
-  margin-bottom: 2rem;
-  color: #ddd;
-}
+  @keyframes sparkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
 
-.hero-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
+  /* ========================================
+     CONTENIDO PRINCIPAL
+     ======================================== */
 
-/* Botones primarios y outline */
-.btn-primary,
-.btn-outline {
-  background: linear-gradient(90deg, #FFD700, #B8860B);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
+  .hero-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 60px;
+    align-items: center;
+  }
 
-  border: 2px solid #FFD700;
-  padding: 0.75rem 1.5rem;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-  border-radius: 5px;
-  background-color: transparent;
-  transition: all 0.3s ease;
-}
+  /* Contenido texto con glass card */
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    animation: slideInLeft 0.8s ease-out;
+  }
 
-.btn-primary:hover,
-.btn-outline:hover {
-  background: linear-gradient(90deg, #B8860B, #FFD700);
-  border-color: #B8860B;
-  transform: scale(1.05);
+  .content-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 36px;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 
+      0 25px 50px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
 
-  -webkit-background-clip: unset;
-  -webkit-text-fill-color: black;
-  background-clip: unset;
-  color: black;
-  font-weight: 700;
-}
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: rgba(234, 179, 8, 0.2);
+    border: 1px solid rgba(234, 179, 8, 0.5);
+    border-radius: 50px;
+    width: fit-content;
+  }
 
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.7);
+  }
+
+  .hero-badge span:last-child {
+    color: #eab308;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .hero-title {
+    font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #fff;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #eab308 0%, #fbbf24 50%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 10px rgba(234, 179, 8, 0.5));
+  }
+
+  .block {
+    display: block;
+  }
+
+  .hero-subtitle {
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.7;
+    max-width: 420px;
+  }
+
+  /* Trust row */
+  .trust-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.95);
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .trust-item svg {
+    color: #22c55e;
+    flex-shrink: 0;
+  }
+
+  /* Botones */
+  .hero-actions {
+    display: flex;
+    gap: 14px;
+    padding-top: 8px;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 30px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.5);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 35px rgba(234, 179, 8, 0.6);
+  }
+
+  .btn-primary svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-primary:hover svg {
+    transform: translateX(4px);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.6);
+    color: #eab308;
+  }
+
+  /* Mini stats */
+  .mini-stats {
+    display: flex;
+    gap: 28px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .mini-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mini-stat strong {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .mini-stat span {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ========================================
+     SHOWCASE PRODUCTOS - más transparente
+     ======================================== */
+  .hero-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: slideInRight 0.8s ease-out 0.2s both;
+  }
+
+  .showcase-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px;
+  }
+
+  .label-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  }
+
+  .see-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #eab308;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: gap 0.3s ease;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  }
+
+  .see-all:hover {
+    gap: 10px;
+  }
+
+  /* Grid de productos - más transparentes */
+  .products-showcase {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .showcase-card {
+    position: relative;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    transition: all 0.4s ease;
+    animation: fadeInUp 0.6s ease-out both;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .showcase-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(234, 179, 8, 0.6);
+    box-shadow: 
+      0 20px 45px rgba(0, 0, 0, 0.5),
+      0 0 40px rgba(234, 179, 8, 0.15);
+  }
+
+  .card-image {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+  }
+
+  .card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+  }
+
+  .showcase-card:hover .card-image img {
+    transform: scale(1.1);
+  }
+
+  .card-hover {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 16px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .showcase-card:hover .card-hover {
+    opacity: 1;
+  }
+
+  .quick-view {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    color: #000;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 50px;
+    transform: translateY(15px);
+    transition: transform 0.3s ease;
+  }
+
+  .showcase-card:hover .quick-view {
+    transform: translateY(0);
+  }
+
+  .card-details {
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+  }
+
+  .card-details h3 {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55%;
+  }
+
+  .price {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #eab308;
+  }
+
+  /* Garantías */
+  .guarantees {
+    display: flex;
+    gap: 18px;
+    padding: 14px 8px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .guarantee {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  }
+
+  .guarantee svg {
+    color: #22c55e;
+    flex-shrink: 0;
+  }
+
+  /* Scroll button */
+  .scroll-down {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    padding: 10px 18px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: fadeIn 0.6s ease-out 1s both;
+    z-index: 10;
+  }
+
+  .scroll-down:hover {
+    color: #eab308;
+    border-color: rgba(234, 179, 8, 0.5);
+  }
+
+  .scroll-down span {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .scroll-down svg {
+    width: 20px;
+    height: 20px;
+    animation: bounce 2s ease-in-out infinite;
+  }
+
+  /* Animaciones */
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-50px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(50px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(5px); }
+  }
+
+  /* ========================================
+     RESPONSIVE
+     ======================================== */
+  @media (max-width: 1200px) {
+    .hero-container {
+      gap: 40px;
+    }
+
+    .content-wrapper {
+      padding: 30px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .hero-container {
+      grid-template-columns: 1fr;
+      text-align: center;
+      gap: 40px;
+    }
+
+    .hero-content {
+      align-items: center;
+    }
+
+    .content-wrapper {
+      align-items: center;
+      max-width: 550px;
+      margin: 0 auto;
+    }
+
+    .hero-subtitle {
+      max-width: 100%;
+    }
+
+    .trust-row {
+      justify-content: center;
+    }
+
+    .hero-actions {
+      justify-content: center;
+    }
+
+    .mini-stats {
+      justify-content: center;
+    }
+
+    .products-showcase {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .card-details {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 12px;
+    }
+
+    .card-details h3 {
+      max-width: 100%;
+    }
+
+    .hero-bg-image {
+      object-position: 50% center;
+    }
+
+    .hero-overlay {
+      background: 
+        linear-gradient(
+          180deg,
+          rgba(0, 0, 0, 0.4) 0%,
+          rgba(0, 0, 0, 0.15) 30%,
+          rgba(0, 0, 0, 0.15) 70%,
+          rgba(0, 0, 0, 0.4) 100%
+        );
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero {
+      padding: 80px 0 100px;
+    }
+
+    .hero-container {
+      padding: 0 16px;
+    }
+
+    .content-wrapper {
+      padding: 26px 22px;
+    }
+
+    .hero-title {
+      font-size: 1.9rem;
+    }
+
+    .trust-row {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .trust-item {
+      justify-content: center;
+    }
+
+    .hero-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .mini-stats {
+      gap: 20px;
+    }
+
+    .products-showcase {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .guarantees {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scroll-down {
+      display: none;
+    }
+
+    .hero-overlay {
+      background: 
+        linear-gradient(
+          180deg,
+          rgba(0, 0, 0, 0.5) 0%,
+          rgba(0, 0, 0, 0.2) 40%,
+          rgba(0, 0, 0, 0.2) 60%,
+          rgba(0, 0, 0, 0.5) 100%
+        );
+    }
+  }
+
+  @media (max-width: 480px) {
+    .content-wrapper {
+      padding: 22px 18px;
+    }
+
+    .hero-badge {
+      padding: 8px 14px;
+    }
+
+    .hero-badge span:last-child {
+      font-size: 10px;
+    }
+
+    .hero-title {
+      font-size: 1.65rem;
+    }
+
+    .hero-subtitle {
+      font-size: 0.92rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      padding: 14px 22px;
+      font-size: 0.88rem;
+    }
+
+    .mini-stat strong {
+      font-size: 1.05rem;
+    }
+
+    .products-showcase {
+      gap: 10px;
+    }
+
+    .card-details {
+      padding: 10px;
+    }
+
+    .card-details h3 {
+      font-size: 0.8rem;
+    }
+
+    .price {
+      font-size: 0.92rem;
+    }
+
+    .hero-bg-image {
+      object-position: 55% center;
+    }
+  }
+
+  /* Soporte para usuarios que prefieren menos movimiento */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-bg-image,
+    .hero-glow,
+    .hero-sparkles,
+    .pulse-dot,
+    .scroll-down svg {
+      animation: none;
+    }
+    
+    .hero-bg-image {
+      transform: scale(1);
+    }
+  }
 </style>

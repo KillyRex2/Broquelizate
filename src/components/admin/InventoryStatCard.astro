@@ -1,0 +1,16 @@
+---
+interface Props {
+  title: string;
+  value: string | number;
+  // Prop opcional para cambiar el color del valor (ej: "text-green-400")
+  valueColorClass?: string; 
+}
+
+const { title, value, valueColorClass = 'text-white' } = Astro.props;
+---
+<div class="bg-gray-800 p-5 rounded-2xl shadow-lg border border-gray-700">
+  <h3 class="text-sm font-medium text-yellow-400">{title}</h3>
+  <p class:list={["text-2xl font-bold mt-1", valueColorClass]}>
+    {value}
+  </p>
+</div>

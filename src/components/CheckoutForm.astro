@@ -1,0 +1,1017 @@
+---
+// src/components/CheckoutForm.astro
+import { Formatter } from '../utils';
+import { actions } from 'astro:actions';
+import { getSession } from 'auth-astro/server';
+import ShippingCalculator from '@/components/ShippingCalculator.astro';
+import CheckoutProgress from '@/components/shared/CheckoutProgressBar.astro'; 
+import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+import { STORE_PICKUP, storeAddressLine, pickupReadyText } from '@/utils/store';
+
+const session = await getSession(Astro.request);
+const userEmail = session?.user?.email || '';
+const userName = session?.user?.name || '';
+const isAuthenticated = !!session?.user;
+
+const cartCookie = Astro.cookies.get('cart');
+let cartItems: Array<{ productId: string; quantity: number; variantId?: string; combinationId?: string; engraving?: { id: string; imageUrl: string; notes: string } }> = [];
+try {
+  if (cartCookie?.value) {
+    cartItems = JSON.parse(cartCookie.value);
+  }
+} catch (e) {
+  cartItems = [];
+}
+
+const { data: products, error } = await Astro.callAction(actions.loadProductsFromCart, cartItems);
+if (error || !products) return Astro.redirect('/');
+
+const subtotal = products.reduce((sum, p) => sum + (p.variantPrice ?? p.price) * p.quantity, 0);
+const tax = 0;
+const total = subtotal;
+const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
+
+// Dirección que se guarda en la orden cuando el cliente recoge en tienda
+const pickupAddress = {
+  streetAddress: STORE_PICKUP.street, neighborhood: STORE_PICKUP.neighborhood,
+  city: STORE_PICKUP.city, state: STORE_PICKUP.state, postalCode: STORE_PICKUP.postalCode,
+  country: STORE_PICKUP.country,
+};
+
+const productsData = products.map(p => {
+  const cartItem = cartItems.find(ci => ci.productId === p.productId && ci.variantId === p.variantId && ci.combinationId === p.combinationId);
+  return { 
+    id: p.productId, name: p.name, price: p.variantPrice ?? p.price, quantity: p.quantity,
+    image: p.variantImage || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null,
+    engraving: cartItem?.engraving || null,
+    // El servidor recalcula el precio con esto (combinación o variante suelta)
+    combinationId: p.combinationId || null,
+    variantId: p.variantId || null,
+  };
+});
+---
+
+<div class="checkout-wrapper">
+  <div class="bg-decoration">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+    <div class="grid-pattern"></div>
+  </div>
+
+  <div class="checkout-container">
+    <!-- Progress Steps -->
+    <CheckoutProgress cartCount={totalItems} />
+
+    <!-- Auth Status -->
+    {isAuthenticated ? (
+      <div class="auth-status success">
+        <div class="auth-icon"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+        <div class="auth-content">
+          <span class="auth-title">Comprando como {userName}</span>
+          <span class="auth-subtitle">{userEmail} · Tu pedido se guardará en "Mis Pedidos"</span>
+        </div>
+      </div>
+    ) : (
+      <div class="auth-status warning">
+        <div class="auth-icon"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg></div>
+        <div class="auth-content">
+          <span class="auth-title">Comprando como invitado</span>
+          <span class="auth-subtitle"><a href="/auth/login" class="auth-link">Inicia sesión</a> para guardar tu pedido y dar seguimiento</span>
+        </div>
+      </div>
+    )}
+
+    <!-- Shipping Warning -->
+    <div id="shipping-warning" class="shipping-warning hidden">
+      <div class="warning-icon">...</div>
+      <div class="warning-content">
+        <span class="warning-title">Elige cómo recibir tu pedido</span>
+        <span class="warning-subtitle">{STORE_PICKUP.enabled ? 'Cotiza el envío con tu código postal o elige recoger en tienda antes de pagar.' : 'Ingresa tu código postal abajo para ver opciones de envío antes de pagar.'}</span>
+      </div>
+    </div>
+
+    <!-- Shipping Calculator (componente reutilizable) -->
+    <div class="sc-fix" id="delivery-method">
+      <ShippingCalculator subtotal={subtotal} totalItems={totalItems} />
+    </div>
+
+    <div class="checkout-grid">
+      <!-- Main Form Column -->
+      <div class="form-column">
+        <!-- Shipping Section -->
+        <section class="checkout-section">
+          <div class="section-header">
+            <div class="section-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+            <div><h2 class="section-title" id="address-section-title">Dirección de envío</h2><p class="section-subtitle" id="address-section-subtitle">¿A dónde enviamos tu pedido?</p></div>
+          </div>
+
+          <div id="shipping-info-display" class="shipping-display hidden">
+            <div class="shipping-display-content">
+              <div class="shipping-display-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg></div>
+              <div class="shipping-display-info"><span id="display-carrier" class="shipping-carrier">-</span><span id="display-delivery" class="shipping-delivery">-</span></div>
+              <div class="shipping-display-price"><span id="display-shipping-price" class="price-value">-</span><a href="#delivery-method" class="change-link">Cambiar</a></div>
+            </div>
+          </div>
+
+          <div id="pickup-info" class="pickup-info hidden">
+            <span class="pickup-info-icon">🏬</span>
+            <div class="pickup-info-text">
+              <span class="pickup-info-title">Recoges en {STORE_PICKUP.name}</span>
+              <span class="pickup-info-line">{storeAddressLine()}</span>
+              <span class="pickup-info-line">🕒 {STORE_PICKUP.hours} · {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group full-width pickup-only hidden"><label class="form-label">Nombre de quien recoge <span class="required">*</span></label><input type="text" id="pickup-name" class="form-input" value={userName} placeholder="Nombre completo (se pedirá identificación)" autocomplete="name" /></div>
+            <div class="form-group address-only"><label class="form-label">Calle y número <span class="required">*</span></label><input type="text" id="street-address" class="form-input" placeholder="Ej: Av. Reforma 123" required /></div>
+            <div class="form-group address-only"><label class="form-label">Colonia <span class="required">*</span></label><input type="text" id="neighborhood" class="form-input" placeholder="Ej: Centro" required /></div>
+            <div class="form-group address-only"><label class="form-label">Ciudad <span class="required">*</span></label><input type="text" id="city" class="form-input" placeholder="Ej: Ciudad de México" required /></div>
+            <div class="form-group address-only"><label class="form-label">Estado <span class="required">*</span></label><input type="text" id="state" class="form-input" placeholder="Ej: CDMX" required /></div>
+            <div class="form-group address-only"><label class="form-label">Código Postal <span class="required">*</span></label><input type="text" id="postal-code" class="form-input" placeholder="Ej: 06600" maxlength="5" required /></div>
+            <div class="form-group address-only"><label class="form-label">País</label><input type="text" id="country" value="México" class="form-input readonly" readonly /></div>
+            <div class="form-group full-width"><label class="form-label">Correo Electrónico <span class="required">*</span></label><input type="email" id="email" value={userEmail} class:list={["form-input", isAuthenticated && "readonly"]} placeholder="tu@email.com" readonly={isAuthenticated} required />{isAuthenticated && <span class="form-hint">Este es el email de tu cuenta</span>}</div>
+            <div class="form-group full-width"><label class="form-label">Teléfono de contacto <span class="required">*</span></label><input type="tel" id="phone" class="form-input" placeholder="Ej: 55 1234 5678" required /></div>
+            <div class="form-group full-width address-only"><label class="form-label">Notas de entrega (opcional)</label><textarea id="delivery-notes" class="form-textarea" rows="2" placeholder="Ej: Dejar con el portero, timbre 2B..."></textarea></div>
+          </div>
+        </section>
+
+        <label class="privacy-check">
+        <input type="checkbox" id="accept-privacy" />
+        <span>
+          He leído y acepto el <a href="/aviso-de-privacidad" target="_blank" rel="noopener">aviso de privacidad</a>,
+          los <a href="/terminos-y-condiciones" target="_blank" rel="noopener">términos y condiciones</a> y la
+          <a href="/cambios-y-devoluciones" target="_blank" rel="noopener">política de cambios y devoluciones</a>.
+        </span>
+      </label>
+
+      <label class="privacy-check optional">
+        <input type="checkbox" id="accept-marketing" />
+        <span>Quiero recibir promociones y novedades por correo <em>(opcional)</em></span>
+      </label>
+
+        <!-- Payment Section -->
+        <section class="checkout-section">
+          <div class="section-header">
+            <div class="section-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg></div>
+            <div><h2 class="section-title">Método de pago</h2><p class="section-subtitle">Elige cómo deseas pagar</p></div>
+          </div>
+
+          <div class="payment-methods">
+            <label class="payment-option">
+              <input id="card" type="radio" name="payment-method" class="payment-radio" />
+              <div class="payment-option-content">
+                <div class="payment-option-main">
+                  <div class="payment-icons"><img src="https://readymadeui.com/images/visa.webp" alt="Visa" class="payment-brand" /><img src="https://readymadeui.com/images/master.webp" alt="Mastercard" class="payment-brand" /></div>
+                  <span class="payment-label">Tarjeta de crédito/débito</span>
+                </div>
+                <div class="payment-check"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+              </div>
+            </label>
+            <label class="payment-option">
+              <input id="paypal" type="radio" name="payment-method" class="payment-radio" />
+              <div class="payment-option-content">
+                <div class="payment-option-main"><img src="https://readymadeui.com/images/paypal.webp" alt="PayPal" class="payment-brand paypal" /><span class="payment-label">PayPal</span></div>
+                <div class="payment-check"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+              </div>
+            </label>
+            <label class="payment-option">
+          <input id="mercadopago" type="radio" name="payment-method" class="payment-radio" />
+          <div class="payment-option-content">
+            <div class="payment-option-main">
+              <span class="mp-logo">Mercado Pago</span>
+              <span class="mp-badge">Tarjetas · OXXO · SPEI · MSI</span>
+            </div>
+            <div class="payment-check"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>
+          </div>
+      </label>
+          </div>
+
+          <div id="card-form" class="card-form hidden">
+            <form id="payment-form">
+              <div class="form-group"><label class="form-label">Nombre del titular <span class="required">*</span></label><input type="text" id="card-holder-name" class="form-input" placeholder="Como aparece en la tarjeta" required /></div>
+              <div class="form-group"><label class="form-label">Datos de la tarjeta <span class="required">*</span></label><div id="card-element" class="stripe-element"></div></div>
+              <div id="card-errors" class="card-errors" role="alert"></div>
+              <button type="button" id="submit-card-payment" class="pay-button" disabled>
+                <span class="pay-button-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></span>
+                <span id="card-btn-text">Pagar ahora</span>
+                <span class="pay-button-amount" id="pay-button-amount">{Formatter.currency(total)}</span>
+              </button>
+            </form>
+          </div>
+
+          <div id="paypal-container" class="paypal-container hidden"><div id="paypal-button-container" class="paypal-buttons"></div></div>
+          <div id="mercadopago-container" class="mercadopago-container hidden">
+          <p class="mp-helper">Serás redirigido a Mercado Pago para completar tu pago de forma segura. Puedes pagar con tarjeta, efectivo en OXXO, transferencia SPEI o a meses sin intereses.</p>
+          <button type="button" id="submit-mp-payment" class="mp-button">
+            <span>Pagar con Mercado Pago</span>
+            <span class="pay-button-amount" id="mp-button-amount">{Formatter.currency(total)}</span>
+          </button>
+        </div>
+        </section>
+
+        <div class="security-badges">
+          <div class="security-item"><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg><span>Pago seguro SSL</span></div>
+          <div class="security-item"><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg><span>Datos protegidos</span></div>
+          <div class="security-item"><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><span>Compra garantizada</span></div>
+        </div>
+      </div>
+
+      <!-- Summary Column -->
+      <aside class="summary-column">
+        <div class="summary-card">
+          <div class="summary-header">
+            <h2 class="summary-title"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Resumen del pedido</h2>
+            <span class="summary-count">{totalItems} {totalItems === 1 ? 'producto' : 'productos'}</span>
+          </div>
+
+          <div class="summary-products">
+            {products.map((p, index) => (
+              <div class="summary-product" style={`animation-delay: ${index * 0.05}s`}>
+                <div class="product-image-mini">
+                  {(p.variantImage || p.image) ? <img src={optimizeImage(p.variantImage || p.image, IMG_WIDTH.thumb)} alt={p.name} decoding="async" /> : <div class="product-placeholder"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg></div>}
+                  <span class="product-qty-badge">{p.quantity}</span>
+                </div>
+                <div class="product-info-mini"><span class="product-name-mini">{p.name}</span>{p.variantCombination && <span class="product-variant-mini">{p.variantCombination}</span>}</div>
+                <span class="product-price-mini">{Formatter.currency((p.variantPrice ?? p.price) * p.quantity)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div class="summary-divider"></div>
+
+          <div class="summary-totals">
+            <div class="summary-row"><span class="row-label">Subtotal</span><span class="row-value">{Formatter.currency(subtotal)}</span></div>
+            <div class="summary-row"><span class="row-label" id="summary-shipping-label">Envío</span><span id="summary-shipping" class="row-value muted">Por calcular</span></div>
+            <div id="shipping-summary-details" class="shipping-summary hidden"><span class="shipping-icon" id="summary-carrier-icon">📦</span><div class="shipping-info-mini"><span id="summary-carrier-name" class="carrier-name">-</span><span id="summary-delivery-days" class="delivery-days">-</span></div></div>
+            <div class="summary-divider"></div>
+            <div class="summary-row total"><span class="row-label">Total a pagar</span><span id="summary-total" class="row-value">{Formatter.currency(total)}</span></div>
+          </div>
+
+          <a href="/cart" class="back-to-cart"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg><span>Volver al carrito</span></a>
+        </div>
+
+        <div class="trust-card">
+          <div class="trust-item"><div class="trust-icon"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3z"/></svg></div><div class="trust-text"><span class="trust-title">Envío asegurado</span><span class="trust-desc">Con número de rastreo</span></div></div>
+          <div class="trust-item"><div class="trust-icon"><svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div><div class="trust-text"><span class="trust-title">Entrega rápida</span><span class="trust-desc">2-5 días hábiles</span></div></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ============================================================
+   src/components/CheckoutForm.astro
+   Reemplaza TODO el contenido del bloque <style> por esto.
+
+   OJO: las reglas de .progress-steps / .step / .step-line ya no
+   estan aqui. Ese bloque de markup se borra y se sustituye por
+   <CheckoutProgress /> (el componente trae sus propios estilos).
+   ============================================================ */
+
+.privacy-check { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0 0; font-size: 0.82rem; color: var(--txt-2); line-height: 1.55; cursor: pointer; }
+.privacy-check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--gold-2); flex-shrink: 0; cursor: pointer; }
+.privacy-check a { color: var(--gold-deep); text-decoration: underline; text-underline-offset: 2px; }
+.privacy-check a:hover { color: var(--gold-2); }
+.privacy-check.optional { margin-top: 10px; color: var(--txt-3); }
+.privacy-check.optional em { font-style: normal; color: var(--txt-3); }
+
+.checkout-wrapper {
+  --lg-tint: rgba(255, 255, 255, 0.34);
+  --lg-tint-strong: rgba(255, 255, 255, 0.46);
+  --lg-blur: blur(6px) saturate(200%) brightness(1.04);
+  --lg-radius: 28px;
+
+  --lg-thickness:
+    inset 1.5px 1.5px 0 -0.5px rgba(255, 255, 255, 1),
+    inset -1.5px -1.5px 0 -0.5px rgba(255, 255, 255, 0.7),
+    inset 0 0 16px -4px rgba(255, 255, 255, 0.75),
+    inset 0 -14px 24px -18px rgba(0, 0, 0, 0.16),
+    0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  --lg-drop: 0 6px 16px -8px rgba(0, 0, 0, 0.16), 0 20px 46px -22px rgba(0, 0, 0, 0.22);
+
+  --txt: #1c1c1e;
+  --txt-2: #55555c;
+  --txt-3: #85858c;
+  --gold: #eab308;
+  --gold-2: #f59e0b;
+  --gold-deep: #a16207;
+
+  position: relative;
+  min-height: 100vh;
+  padding: 32px 0 80px;
+  overflow: hidden;
+  background: #fdfcfa;
+}
+
+/* Fondo champan */
+.bg-decoration { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.glow { position: absolute; border-radius: 50%; filter: blur(100px); }
+.glow-1 { width: 720px; height: 720px; background: radial-gradient(circle, rgba(234, 179, 8, 0.16), transparent 66%); top: -200px; right: -140px; }
+.glow-2 { width: 640px; height: 640px; background: radial-gradient(circle, rgba(180, 83, 9, 0.07), transparent 66%); bottom: 40px; left: -200px; }
+.glow-3 { display: none; }
+.grid-pattern { position: absolute; inset: 0; background-image: linear-gradient(180deg, rgba(250, 246, 238, 0.9) 0%, transparent 30%, rgba(250, 246, 238, 0.7) 100%), linear-gradient(rgba(0, 0, 0, 0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.022) 1px, transparent 1px); background-size: 100% 100%, 46px 46px, 46px 46px; }
+
+/* ── El material (sin contenedores de imagen) ── */
+.checkout-section,
+.summary-card,
+.trust-card,
+.auth-status,
+.shipping-warning,
+.shipping-display,
+.summary-product,
+.section-icon,
+.back-to-cart {
+  position: relative;
+  isolation: isolate;
+  background: var(--lg-tint);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+  border: none;
+  box-shadow: var(--lg-thickness), var(--lg-drop);
+}
+
+/* Anillo de refraccion */
+.checkout-section::after,
+.summary-card::after,
+.trust-card::after,
+.auth-status::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 9px;
+  backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+  -webkit-backdrop-filter: blur(6px) brightness(1.22) saturate(150%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Reflejo especular */
+.checkout-section::before,
+.summary-card::before,
+.trust-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(140deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 26%, transparent 52%, rgba(255,255,255,0.18) 100%);
+  pointer-events: none;
+}
+.checkout-section > *, .summary-card > *, .trust-card > *, .auth-status > * { position: relative; z-index: 3; }
+
+@supports (corner-shape: squircle) {
+  .checkout-section, .summary-card, .trust-card, .auth-status,
+  .shipping-warning, .shipping-display, .section-icon { corner-shape: squircle; }
+}
+
+/* ── Estructura ── */
+.checkout-container { position: relative; z-index: 10; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* Estado de sesion */
+.auth-status { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-radius: 20px; margin-bottom: 24px; animation: fadeIn 0.5s ease-out 0.1s both; }
+.auth-status.success { background: rgba(34, 197, 94, 0.14); }
+.auth-status.warning { background: rgba(234, 179, 8, 0.16); }
+.auth-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); flex-shrink: 0; }
+.auth-status.success .auth-icon { color: #15803d; }
+.auth-status.warning .auth-icon { color: var(--gold-deep); }
+.auth-content { display: flex; flex-direction: column; gap: 2px; }
+.auth-title { font-size: 0.95rem; font-weight: 600; color: var(--txt); }
+.auth-subtitle { font-size: 0.85rem; color: var(--txt-2); }
+.auth-link { color: var(--gold-deep); text-decoration: underline; transition: color 0.2s; }
+.auth-link:hover { color: var(--gold-2); }
+
+.shipping-warning { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; background: rgba(239, 68, 68, 0.12); border-radius: 20px; margin-bottom: 24px; }
+.shipping-warning.hidden { display: none; }
+.warning-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.5); box-shadow: var(--lg-thickness); border-radius: 14px; color: #b91c1c; flex-shrink: 0; }
+.warning-content { display: flex; flex-direction: column; gap: 4px; }
+.warning-title { font-size: 0.95rem; font-weight: 600; color: #b91c1c; }
+.warning-subtitle { font-size: 0.85rem; color: #a33a3a; }
+.warning-link { color: #b91c1c; text-decoration: underline; }
+
+.checkout-grid { display: grid; grid-template-columns: 1fr 400px; gap: 40px; align-items: start; position: relative; z-index: 10; }
+.form-column { display: flex; flex-direction: column; gap: 32px; }
+.checkout-section { border-radius: var(--lg-radius); padding: 28px; animation: fadeInUp 0.5s ease-out both; }
+.checkout-section:nth-child(2) { animation-delay: 0.1s; }
+.section-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.6); }
+.section-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 18px; color: var(--gold-deep); flex-shrink: 0; }
+.section-title { font-size: 1.25rem; font-weight: 800; color: var(--txt); letter-spacing: -0.02em; }
+.section-subtitle { font-size: 0.9rem; color: var(--txt-2); margin-top: 2px; }
+
+.address-only.hidden, .pickup-only.hidden, .pickup-info.hidden { display: none; }
+.pickup-info { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 24px; padding: 16px 20px; background: rgba(234, 179, 8, 0.14); box-shadow: var(--lg-thickness); border-radius: 20px; }
+.pickup-info-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; }
+.pickup-info-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pickup-info-title { font-size: 0.95rem; font-weight: 700; color: var(--txt); }
+.pickup-info-line { font-size: 0.82rem; color: var(--txt-2); line-height: 1.45; }
+
+.shipping-display { margin-bottom: 24px; padding: 16px 20px; background: rgba(234, 179, 8, 0.14); border-radius: 20px; }
+.shipping-display.hidden { display: none; }
+.shipping-display-content { display: flex; align-items: center; gap: 14px; }
+.shipping-display-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); border-radius: 16px; color: var(--gold-deep); flex-shrink: 0; }
+.shipping-display-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.shipping-carrier { font-size: 0.95rem; font-weight: 600; color: var(--txt); }
+.shipping-delivery { font-size: 0.8rem; color: var(--txt-2); }
+.shipping-display-price { text-align: right; display: flex; flex-direction: column; gap: 4px; }
+.shipping-display-price .price-value { font-size: 1.1rem; font-weight: 800; color: var(--gold-deep); }
+.change-link { font-size: 0.75rem; color: var(--txt-2); transition: color 0.2s; }
+.change-link:hover { color: var(--gold-deep); }
+
+/* Formulario */
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.form-group.full-width { grid-column: span 2; }
+.form-label { font-size: 0.85rem; font-weight: 600; color: var(--txt-2); }
+.required { color: #dc2626; }
+.form-input, .form-textarea { padding: 14px 16px; background: rgba(255, 255, 255, 0.6); border: none; box-shadow: var(--lg-thickness); border-radius: 16px; color: var(--txt); font-size: 0.95rem; transition: all 0.2s; }
+.form-input::placeholder, .form-textarea::placeholder { color: var(--txt-3); }
+.form-input:focus, .form-textarea:focus { outline: 2px solid rgba(234, 179, 8, 0.6); outline-offset: 1px; background: rgba(255, 255, 255, 0.85); }
+.form-input.readonly { background: rgba(255, 255, 255, 0.35); color: var(--txt-2); cursor: not-allowed; }
+.form-textarea { resize: none; min-height: 80px; }
+.form-hint { font-size: 0.75rem; color: var(--txt-3); }
+
+/* Metodos de pago */
+.payment-methods { display: flex; flex-direction: column; gap: 12px; }
+.payment-option { display: block; cursor: pointer; }
+.payment-radio { position: absolute; opacity: 0; pointer-events: none; }
+.payment-option-content { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; background: rgba(255, 255, 255, 0.45); border: none; box-shadow: var(--lg-thickness); border-radius: 20px; transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1); }
+.payment-option-content:hover { background: rgba(255, 255, 255, 0.7); transform: translateY(-1px); }
+.payment-radio:checked + .payment-option-content { background: rgba(234, 179, 8, 0.18); box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.5); }
+.payment-option-main { display: flex; align-items: center; gap: 14px; }
+.payment-icons { display: flex; gap: 8px; }
+.payment-brand { height: 24px; object-fit: contain; }
+.payment-brand.paypal { height: 20px; }
+.payment-label { font-size: 0.95rem; font-weight: 500; color: var(--txt); }
+.payment-check { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: transparent; transition: all 0.2s; }
+.payment-radio:checked + .payment-option-content .payment-check { color: var(--gold-deep); }
+
+.card-form { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.6); }
+.card-form.hidden { display: none; }
+.stripe-element { padding: 16px; background: rgba(255, 255, 255, 0.75); border: none; box-shadow: var(--lg-thickness); border-radius: 16px; min-height: 48px; transition: all 0.2s; }
+.stripe-element:focus-within { box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.5); }
+.card-errors { color: #b91c1c; font-size: 0.85rem; margin-top: 8px; min-height: 20px; }
+
+.pay-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 32px; margin-top: 24px; background: linear-gradient(140deg, rgba(255,255,255,0.5), transparent 45%), linear-gradient(135deg, var(--gold) 0%, var(--gold-2) 100%); border: none; border-radius: 999px; color: #2a1f04; font-size: 1rem; font-weight: 800; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.4, 0.64, 1); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.85), inset -1px -1px 0 rgba(255,255,255,0.35), 0 10px 26px -12px rgba(234, 179, 8, 0.95); }
+.pay-button:hover:not(:disabled) { transform: translateY(-3px) scale(1.01); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.85), 0 18px 34px -14px rgba(234, 179, 8, 1); }
+.pay-button:active:not(:disabled) { transform: scale(0.98); }
+.pay-button:disabled { background: rgba(255, 255, 255, 0.45); color: var(--txt-3); cursor: not-allowed; box-shadow: var(--lg-thickness); }
+.pay-button-icon { display: flex; align-items: center; }
+.pay-button-amount { padding: 4px 12px; background: rgba(0, 0, 0, 0.12); border-radius: 999px; font-size: 0.9rem; }
+
+.paypal-container { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.6); }
+.paypal-container.hidden { display: none; }
+.mercadopago-container { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.6); }
+.mercadopago-container.hidden { display: none; }
+.mp-logo { font-size: 0.95rem; font-weight: 600; color: #0077aa; }
+.mp-badge { font-size: 0.7rem; color: #0077aa; padding: 4px 10px; background: rgba(0, 158, 227, 0.14); border-radius: 999px; }
+.mp-helper { font-size: 0.85rem; color: var(--txt-2); margin-bottom: 16px; line-height: 1.5; }
+.mp-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 18px 32px; background: linear-gradient(140deg, rgba(255,255,255,0.35), transparent 45%), #009ee3; border: none; border-radius: 999px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.4, 0.64, 1); box-shadow: inset 1.5px 1.5px 0 -0.5px rgba(255,255,255,0.5), 0 10px 26px -12px rgba(0, 158, 227, 0.95); }
+.mp-button:hover:not(:disabled) { transform: translateY(-3px) scale(1.01); background: linear-gradient(140deg, rgba(255,255,255,0.35), transparent 45%), #00b1ea; }
+.mp-button:active:not(:disabled) { transform: scale(0.98); }
+.paypal-buttons { min-height: 150px; }
+
+.security-badges { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; position: relative; z-index: 10; }
+.security-item { display: flex; align-items: center; gap: 8px; color: var(--txt-2); font-size: 0.85rem; }
+.security-item svg { color: #15803d; }
+
+/* Resumen */
+.summary-column { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 24px; }
+.summary-card { border-radius: var(--lg-radius); padding: 24px; background: var(--lg-tint-strong); animation: fadeInRight 0.5s ease-out; }
+.summary-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.6); }
+.summary-title { display: flex; align-items: center; gap: 10px; font-size: 1.1rem; font-weight: 700; color: var(--txt); }
+.summary-title svg { color: var(--gold-deep); }
+.summary-count { font-size: 0.8rem; color: var(--txt-2); padding: 5px 12px; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); border-radius: 999px; }
+.summary-products { display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; padding-right: 8px; }
+.summary-products::-webkit-scrollbar { width: 4px; }
+.summary-products::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.04); border-radius: 2px; }
+.summary-products::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.5); border-radius: 2px; }
+.summary-product { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; animation: fadeIn 0.3s ease-out both; }
+
+/* Miniatura: fondo solido, sin vidrio ni squircle (rompen el <img>) */
+.product-image-mini { position: relative; z-index: 3; isolation: isolate; width: 50px; height: 50px; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.06); corner-shape: normal; flex-shrink: 0; }
+.product-image-mini img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.product-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--txt-3); }
+.product-qty-badge { position: absolute; top: -4px; right: -4px; z-index: 4; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--gold), var(--gold-2)); border-radius: 50%; box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6); color: #2a1f04; font-size: 0.7rem; font-weight: 700; }
+.product-info-mini { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.product-name-mini { font-size: 0.85rem; font-weight: 600; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.product-variant-mini { font-size: 0.75rem; color: var(--txt-3); }
+.product-price-mini { font-size: 0.9rem; font-weight: 700; color: var(--txt); white-space: nowrap; }
+
+.summary-divider { height: 1px; background: rgba(0, 0, 0, 0.07); margin: 16px 0; }
+.summary-totals { display: flex; flex-direction: column; gap: 12px; }
+.summary-row { display: flex; justify-content: space-between; align-items: center; }
+.row-label { font-size: 0.9rem; color: var(--txt-2); }
+.row-value { font-size: 0.95rem; font-weight: 600; color: var(--txt); }
+.row-value.muted { color: var(--txt-3); }
+.summary-row.total .row-label { font-size: 1rem; font-weight: 700; color: var(--txt); }
+.summary-row.total .row-value { font-size: 1.5rem; font-weight: 900; background: linear-gradient(135deg, #b45309, #eab308); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.shipping-summary { display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(255, 255, 255, 0.5); box-shadow: var(--lg-thickness); border-radius: 14px; }
+.shipping-summary.hidden { display: none; }
+.shipping-icon { font-size: 1.5rem; }
+.shipping-info-mini { display: flex; flex-direction: column; gap: 2px; }
+.carrier-name { font-size: 0.85rem; font-weight: 600; color: var(--txt); }
+.delivery-days { font-size: 0.75rem; color: var(--txt-3); }
+
+.back-to-cart { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px; margin-top: 16px; border-radius: 999px; color: var(--txt-2); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: all 0.2s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.back-to-cart:hover { background: rgba(255, 255, 255, 0.65); color: var(--txt); }
+.back-to-cart:active { transform: scale(0.98); }
+
+.trust-card { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 24px; animation: fadeInRight 0.5s ease-out 0.1s both; }
+.trust-item { display: flex; align-items: center; gap: 12px; }
+.trust-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.55); box-shadow: var(--lg-thickness); border-radius: 14px; color: var(--gold-deep); flex-shrink: 0; }
+.trust-text { display: flex; flex-direction: column; gap: 2px; }
+.trust-title { font-size: 0.85rem; font-weight: 600; color: var(--txt); }
+.trust-desc { font-size: 0.75rem; color: var(--txt-3); }
+
+/* Sin backdrop-filter */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .checkout-section, .summary-card, .trust-card, .auth-status, .shipping-warning,
+  .shipping-display, .summary-product, .section-icon, .back-to-cart { background: rgba(255, 255, 255, 0.93); }
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .checkout-section, .summary-card, .trust-card, .auth-status, .summary-product { animation: none; }
+  .pay-button, .mp-button, .payment-option-content, .back-to-cart { transition: none; }
+}
+
+@media (max-width: 1024px) {
+  .checkout-grid { grid-template-columns: 1fr; }
+  .summary-column { position: static; order: -1; }
+}
+@media (max-width: 768px) {
+  .checkout-wrapper { padding: 20px 0 60px; }
+  .checkout-container { padding: 0 16px; }
+  .checkout-section { padding: 20px; border-radius: 22px; }
+  .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-group.full-width { grid-column: span 1; }
+  .security-badges { gap: 16px; }
+  .security-item { font-size: 0.8rem; }
+}
+@media (max-width: 480px) {
+  .auth-status { flex-direction: column; text-align: center; padding: 20px; }
+  .shipping-display-content { flex-wrap: wrap; }
+  .shipping-display-price { width: 100%; flex-direction: row; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.6); }
+  .payment-option-content { flex-direction: column; gap: 12px; text-align: center; }
+  .payment-check { display: none; }
+}
+
+/* Modales SweetAlert en claro */
+:global(.swal2-container) { z-index: 99999 !important; }
+:global(.swal2-popup) { background: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); color: #1c1c1e !important; border: none; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.06), 0 30px 60px -30px rgba(0,0,0,0.4); border-radius: 28px; }
+:global(.swal2-title) { color: #1c1c1e !important; }
+:global(.swal2-html-container) { color: #55555c !important; }
+.sc-fix { position: relative; isolation: isolate; z-index: 10; margin-bottom: 24px; padding: 22px; border-radius: var(--lg-radius); background: var(--lg-tint); backdrop-filter: var(--lg-blur); -webkit-backdrop-filter: var(--lg-blur); box-shadow: var(--lg-thickness), var(--lg-drop); color: var(--txt); }
+
+/* Oscurece el texto pero respeta lo que tenga fondo propio (badges) */
+.sc-fix :global(h1), .sc-fix :global(h2), .sc-fix :global(h3), .sc-fix :global(h4),
+.sc-fix :global(p), .sc-fix :global(label), .sc-fix :global(li), .sc-fix :global(td),
+.sc-fix :global(div:not([class*="badge"]):not([class*="tag"]):not([class*="pill"])),
+.sc-fix :global(span:not([class*="badge"]):not([class*="tag"]):not([class*="pill"])) { color: var(--txt) !important; }
+
+.sc-fix :global(input) { width: 100% !important; padding: 14px 44px 14px 18px !important; background: rgba(255,255,255,0.75) !important; border: none !important; box-shadow: var(--lg-thickness) !important; border-radius: 999px !important; color: var(--txt) !important; }
+.sc-fix :global(input::placeholder) { color: var(--txt-3) !important; }
+.sc-fix :global(svg) { color: var(--gold-deep) !important; }
+
+@media (max-width: 640px) {
+  .sc-fix { padding: 16px; border-radius: 22px; }
+  .sc-fix :global(button) { width: 100% !important; }
+}
+</style>
+
+<script>
+  import { CartCookiesClient } from '@/utils/cart-cookies';
+  import { loadScript } from '@paypal/paypal-js';
+  import { loadStripe } from '@stripe/stripe-js';
+  import type { Stripe, StripeCardElement } from '@stripe/stripe-js';
+  import { Alert, Toast } from '@/utils/alerts';
+  import { navigate } from 'astro:transitions/client';
+  import { actions } from 'astro:actions';
+
+  type DeliveryMethod = 'delivery' | 'pickup';
+  interface SelectedShipping {
+    method?: DeliveryMethod;   // selecciones viejas no lo traen → 'delivery'
+    carrier: string; service: string; price: number; carrierRate?: number;
+    deliveryDays: number; postalCode: string; cartKey?: string; savedAt?: number;
+    quoteId?: string;          // cotización guardada en el servidor (envío a domicilio)
+  }
+  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; combinationId?: string | null; variantId?: string | null; }
+
+  const Formatter = { currency: (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value) };
+  function getCarrierIcon(c: string): string { const i: Record<string, string> = { 'fedex': '🚚', 'dhl': '📦', 'estafeta': '📫', 'redpack': '🔴', 'ups': '🟤', 'paquetexpress': '📬', '99minutos': '⚡', 'sendex': '✉️' }; return i[c.toLowerCase()] || '📦'; }
+  const $ = <T extends HTMLElement = HTMLInputElement>(id: string) => document.getElementById(id) as T | null;
+  const val = (id: string) => ($(id)?.value || '').trim();
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+  let stripe: Stripe | null = null, cardElement: StripeCardElement | null = null, selectedShipping: SelectedShipping | null = null, subtotalValue = 0;
+  let isProcessing = false;
+  let windowListenersBound = false;
+
+  const isPickup = () => selectedShipping?.method === 'pickup';
+  const deliveryMethod = (): DeliveryMethod => (isPickup() ? 'pickup' : 'delivery');
+
+  // ── Modo de entrega: muestra/oculta la dirección ──
+  function applyDeliveryMode() {
+    const pickup = isPickup();
+    document.querySelectorAll('.address-only').forEach(el => el.classList.toggle('hidden', pickup));
+    document.querySelectorAll('.pickup-only').forEach(el => el.classList.toggle('hidden', !pickup));
+    $('pickup-info')?.classList.toggle('hidden', !pickup);
+    const t = $('address-section-title'), st = $('address-section-subtitle'), sl = $('summary-shipping-label');
+    if (t) t.textContent = pickup ? 'Datos para recoger' : 'Dirección de envío';
+    if (st) st.textContent = pickup ? '¿Quién pasará por tu pedido?' : '¿A dónde enviamos tu pedido?';
+    if (sl) sl.textContent = pickup ? 'Entrega' : 'Envío';
+  }
+
+  function loadShippingInfo() {
+    let p: SelectedShipping | null = null;
+    try { p = JSON.parse(localStorage.getItem('selectedShipping') || 'null'); } catch {}
+
+    // La selección debe corresponder al carrito actual (lo marca el ShippingCalculator)
+    const cartKey = ($('calc-cart-key') as HTMLInputElement | null)?.value;
+    if (p && p.cartKey && cartKey && p.cartKey !== cartKey) p = null;
+    if (p && (typeof p.price !== 'number' || !p.carrier)) p = null;
+    // Selecciones de antes de guardar cotizaciones en el servidor: el calculador re-cotiza solo
+    if (p && (p.method ?? 'delivery') === 'delivery' && !p.quoteId) p = null;
+
+    const warn = $('shipping-warning'), infoDisp = $('shipping-info-display'), summaryDet = $('shipping-summary-details');
+    selectedShipping = p ? { ...p, method: p.method || 'delivery' } : null;
+    applyDeliveryMode();
+
+    if (!selectedShipping) {
+      warn?.classList.remove('hidden');
+      infoDisp?.classList.add('hidden');
+      summaryDet?.classList.add('hidden');
+      updateTotals();
+      return;
+    }
+
+    const s = selectedShipping;
+    const pickup = s.method === 'pickup';
+    warn?.classList.add('hidden');
+
+    if (infoDisp) {
+      infoDisp.classList.remove('hidden');
+      const dc = $('display-carrier'), dd = $('display-delivery'), dp = $('display-shipping-price');
+      if (dc) dc.textContent = pickup ? `Recoger en tienda · ${s.service}` : `${s.carrier} - ${s.service}`;
+      if (dd) dd.textContent = pickup
+        ? (s.deliveryDays <= 0 ? 'Listo el mismo día' : `Listo en ${plural(s.deliveryDays, 'día hábil', 'días hábiles')}`)
+        : `Entrega en ${plural(s.deliveryDays, 'día hábil', 'días hábiles')}`;
+      if (dp) dp.textContent = s.price === 0 ? 'Gratis' : Formatter.currency(s.price);
+    }
+    if (summaryDet) {
+      summaryDet.classList.remove('hidden');
+      const sci = $('summary-carrier-icon'), scn = $('summary-carrier-name'), sdd = $('summary-delivery-days');
+      if (sci) sci.textContent = pickup ? '🏬' : getCarrierIcon(s.carrier);
+      if (scn) scn.textContent = pickup ? 'Recoger en tienda' : s.carrier;
+      if (sdd) sdd.textContent = pickup
+        ? (s.deliveryDays <= 0 ? 'Mismo día' : `Listo en ${plural(s.deliveryDays, 'día', 'días')}`)
+        : plural(s.deliveryDays, 'día', 'días');
+    }
+
+    // Auto-completa el CP en el form de dirección (solo envío a domicilio)
+    const pci = $('postal-code');
+    if (!pickup && pci && s.postalCode && !pci.value) pci.value = s.postalCode;
+
+    updateTotals();
+  }
+
+  function updateTotals() {
+    subtotalValue = parseFloat($('subtotal-data')?.textContent || '0');
+    const sp = selectedShipping?.price || 0, t = subtotalValue + sp;
+    const ss = $('summary-shipping');
+    if (ss) {
+      ss.textContent = !selectedShipping ? 'Por calcular' : sp === 0 ? 'Gratis' : Formatter.currency(sp);
+      ss.className = selectedShipping ? 'row-value' : 'row-value muted';
+    }
+    const st = $('summary-total'); if (st) st.textContent = Formatter.currency(t);
+    const pba = $('pay-button-amount'); if (pba) pba.textContent = Formatter.currency(t);
+    const mba = $('mp-button-amount'); if (mba) mba.textContent = Formatter.currency(t);
+    const td = $('total-data'); if (td) td.textContent = t.toString();
+  }
+
+  // ── Datos del cliente y dirección según el modo ──
+  function getCustomerName(fallback?: string) {
+    if (isPickup()) return val('pickup-name');
+    let userData: any = {};
+    try { userData = JSON.parse($('user-data')?.textContent || '{}'); } catch {}
+    return fallback || userData.name || val('email');
+  }
+
+  /** Dirección que viaja a la orden. En tienda: la de la tienda + quién recoge. */
+  function getShippingAddress() {
+    const phone = val('phone');
+    if (isPickup()) {
+      let store: any = {};
+      try { store = JSON.parse($('pickup-address-data')?.textContent || '{}'); } catch {}
+      const pickupName = val('pickup-name');
+      return { ...store, name: pickupName, pickupName, phone, deliveryNotes: `RECOGER EN TIENDA · Recoge: ${pickupName}` };
+    }
+    return {
+      streetAddress: val('street-address'), neighborhood: val('neighborhood'), city: val('city'),
+      state: val('state'), postalCode: val('postal-code'), country: 'México', phone,
+      deliveryNotes: ($('delivery-notes') as HTMLTextAreaElement | null)?.value || '',
+    };
+  }
+
+  function getShippingInfo() {
+    const cs = selectedShipping;
+    return cs ? { method: deliveryMethod(), quoteId: cs.quoteId ?? null, carrier: cs.carrier, service: cs.service, price: cs.price, deliveryDays: cs.deliveryDays } : null;
+  }
+
+  async function initStripe() {
+    const ce = $<HTMLDivElement>('card-element'); if (!ce || (cardElement && ce.querySelector('.StripeElement'))) return;
+    try {
+      ce.innerHTML = '<div style="color:#85858c;font-size:0.9rem;">Cargando...</div>';
+      if (!stripe) { const pk = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY; if (!pk) throw new Error('Sin clave Stripe'); const si = await loadStripe(pk); if (!si) throw new Error('Error Stripe'); stripe = si; }
+      const el = stripe.elements({ locale: 'es' }); cardElement = el.create('card', { style: { base: { color: '#1c1c1e', fontFamily: 'Inter,sans-serif', fontSize: '16px', '::placeholder': { color: '#85858c' }, iconColor: '#a16207' }, invalid: { color: '#b91c1c', iconColor: '#b91c1c' } }, hidePostalCode: true });
+      ce.innerHTML = ''; cardElement.mount(ce);
+      cardElement.on('change', (e) => { const err = $('card-errors'); if (err) err.textContent = e.error ? e.error.message : ''; const btn = $<HTMLButtonElement>('submit-card-payment'); if (btn) btn.disabled = !e.complete; });
+    } catch { ce.innerHTML = '<div style="color:#f87171;font-size:0.9rem;">Error al cargar pasarela</div>'; }
+  }
+
+  async function processCard(): Promise<void> {
+    if (isProcessing) return;
+    if (!stripe || !cardElement) { await Alert.error('Error', 'Pasarela no está lista'); return; }
+
+    const v = validateForm();
+    if (!v.valid) { await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return; }
+
+    const email = val('email'), chn = val('card-holder-name'), ph = val('phone');
+    if (!chn) { await Alert.warning('Nombre requerido', 'Ingresa el nombre del titular'); return; }
+
+    const d = getCheckoutData();
+    if (!d) { await Alert.error('Error', 'Sin datos del pedido'); return; }
+
+    const addr = getShippingAddress();
+    const sc = d.shippingValue, sub = d.totalValue - sc;
+    const btn = $<HTMLButtonElement>('submit-card-payment'), txt = $('card-btn-text'), orig = txt?.textContent || 'Pagar';
+
+    isProcessing = true;
+    if (btn) btn.disabled = true;
+    if (txt) txt.textContent = 'Procesando...';
+    const loadingId = Toast.loading('Procesando tu pago...');
+
+    try {
+      const r = await fetch('/api/create-payment-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        products: d.productsData, subtotal: sub, shippingCost: sc, total: d.totalValue,
+        customerEmail: email, customerName: chn,
+        deliveryMethod: deliveryMethod(),
+        shippingAddress: { line1: addr.streetAddress, line2: addr.neighborhood, city: addr.city, state: addr.state, postal_code: addr.postalCode, country: 'MX', phone: ph },
+        shippingInfo: getShippingInfo(),
+      }) });
+      if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error pago'); }
+      const { clientSecret } = await r.json();
+
+      // En tienda no mandamos la dirección de la tienda como domicilio de facturación
+      const billing_details = isPickup()
+        ? { name: chn, email, phone: ph || undefined }
+        : { name: chn, email, phone: ph || undefined, address: { line1: addr.streetAddress, line2: addr.neighborhood || undefined, city: addr.city, state: addr.state, postal_code: addr.postalCode, country: 'MX' } };
+      const { error: se, paymentIntent: pi } = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: cardElement, billing_details } });
+      if (se) throw new Error(se.message || 'Error tarjeta');
+      if (pi?.status !== 'succeeded') throw new Error('Pago no completado');
+
+      // El stock lo descuenta el servidor al registrar el pedido (tras verificar el pago)
+      const o = await createOrder('card', pi.id);
+      CartCookiesClient.clearCart();
+      localStorage.removeItem('selectedShipping');
+
+      Toast.dismiss(loadingId);
+      Toast.success('¡Pago exitoso!', `Orden #${o.orderNumber} procesada`);
+      setTimeout(() => navigate(`/order-success?order_id=${o.id}`), 1000);
+    } catch (e) {
+      Toast.dismiss(loadingId);
+      await Alert.error('Error en el pago', e instanceof Error ? e.message : 'Error desconocido');
+    } finally {
+      isProcessing = false;
+      if (btn) btn.disabled = false;
+      if (txt) txt.textContent = orig;
+    }
+  }
+
+  async function processMercadoPago(): Promise<void> {
+    if (isProcessing) return;
+
+    const v = validateForm();
+    if (!v.valid) { await Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return; }
+
+    const d = getCheckoutData();
+    if (!d) { await Alert.error('Error', 'Sin datos del pedido'); return; }
+
+    const email = val('email');
+    const addr = getShippingAddress();
+
+    isProcessing = true;
+    const loadingId = Toast.loading('Redirigiendo a Mercado Pago...');
+    try {
+      const res = await fetch('/api/create-mercadopago-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: 'online',
+          customerEmail: email,
+          customerName: getCustomerName(),
+          phone: addr.phone,
+          deliveryMethod: deliveryMethod(),
+          shippingCost: d.shippingValue,
+          shippingAddress: addr,
+          shippingInfo: getShippingInfo(),
+          // El servidor recalcula precios y totales desde la base:
+          // aquí solo viaja qué y cuánto, nunca a qué precio.
+          products: d.productsData.map((p: CartProduct) => ({
+            productId: p.id,
+            quantity: p.quantity,
+            combinationId: p.combinationId ?? null,
+            variantId: p.variantId ?? null,
+            variantCombination: p.variantCombination ?? null,
+            variantSku: p.variantSku ?? null,
+            image: p.image,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.initPoint) throw new Error(data.error || 'No se pudo iniciar Mercado Pago');
+
+      Toast.dismiss(loadingId);
+      window.location.href = data.initPoint; // redirige a Checkout Pro
+    } catch (e) {
+      Toast.dismiss(loadingId);
+      isProcessing = false;
+      await Alert.error('Error', e instanceof Error ? e.message : 'Error al iniciar Mercado Pago');
+    }
+  }
+
+  function getCheckoutData() {
+    const pd = $('products-data'), pi = $('products-images'), txd = $('tax-data'), td = $('total-data');
+    if (!pd || !txd || !td) return null;
+    const rpd = JSON.parse(pd.textContent || '[]'), pim = pi ? JSON.parse(pi.textContent || '[]') : [], txv = parseFloat(txd.textContent || '0'), tv = parseFloat(td.textContent || '0'), sv = selectedShipping?.price || 0;
+    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null }));
+    return { productsData: pdata, taxValue: txv, totalValue: tv, shippingValue: sv };
+  }
+
+  function validateForm(): { valid: boolean; missingFields: string[] } {
+    const mf: string[] = [];
+    if (!selectedShipping) mf.push('Método de entrega');
+    if (!val('email')) mf.push('Email');
+    if (!val('phone')) mf.push('Teléfono');
+
+    if (isPickup()) {
+      if (!val('pickup-name')) mf.push('Nombre de quien recoge');
+    } else {
+      if (!val('street-address')) mf.push('Calle');
+      if (!val('neighborhood')) mf.push('Colonia');
+      if (!val('city')) mf.push('Ciudad');
+      if (!val('state')) mf.push('Estado');
+      if (!val('postal-code')) mf.push('CP');
+      // El envío se cotizó para un CP: la dirección debe ser de ese mismo CP
+      else if (selectedShipping && val('postal-code') !== selectedShipping.postalCode) {
+        mf.push(`CP de la dirección igual al que cotizaste (${selectedShipping.postalCode}), o vuelve a cotizar`);
+      }
+    }
+
+    // Consentimiento: obligatorio y por acto afirmativo (casilla desmarcada por defecto)
+    if (!$('accept-privacy')?.checked) mf.push('Aceptar el aviso de privacidad');
+
+    return { valid: mf.length === 0, missingFields: mf };
+  }
+
+  function setupFormValidation() {
+    ['email', 'street-address', 'neighborhood', 'city', 'state', 'postal-code', 'phone', 'pickup-name'].forEach(id => {
+      const f = $(id);
+      f?.addEventListener('blur', () => {
+        f.style.outline = f.value.trim() ? '' : '2px solid rgba(239, 68, 68, 0.6)';
+      });
+    });
+  }
+
+  function updatePaymentVis() {
+    const sm = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement; if (!sm) return;
+    const cf = $('card-form'), pc = $('paypal-container'), mp = $('mercadopago-container');
+    cf?.classList.add('hidden'); pc?.classList.add('hidden'); mp?.classList.add('hidden');
+    if (sm.id === 'card') { cf?.classList.remove('hidden'); initStripe(); }
+    else if (sm.id === 'paypal') { pc?.classList.remove('hidden'); initPayPal(); }
+    else if (sm.id === 'mercadopago') { mp?.classList.remove('hidden'); }
+  }
+
+  async function createOrder(pm: string, piid?: string) {
+    const d = getCheckoutData(); if (!d) throw new Error('Sin datos');
+    const od = {
+      customerEmail: val('email'),
+      customerName: getCustomerName(val('card-holder-name')),
+      deliveryMethod: deliveryMethod(),
+      shippingAddress: getShippingAddress(),
+      shippingInfo: getShippingInfo(),
+      products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null })),
+      subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue,
+      paymentMethod: pm, paymentIntentId: piid || null, clientId: null,
+      channel: 'online',
+    };
+    const r = await fetch('/api/create-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(od) });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Error'); } return await r.json();
+  }
+
+  function validatePaypal() {
+    const v = validateForm();
+    if (!v.valid) { Alert.warning('Campos incompletos', `Faltan: ${v.missingFields.join(', ')}`); return null; }
+    const d = getCheckoutData();
+    if (!d?.totalValue) { Alert.error('Error', 'Sin total'); return null; }
+    // El servidor calcula el monto con esto; `total` solo sirve para avisar si cambió
+    return {
+      total: d.totalValue,
+      products: d.productsData.map((p: CartProduct) => ({ id: p.id, quantity: p.quantity, combinationId: p.combinationId ?? null, variantId: p.variantId ?? null })),
+      deliveryMethod: deliveryMethod(),
+      shippingInfo: getShippingInfo(),
+      postalCode: isPickup() ? undefined : val('postal-code'),
+    };
+  }
+
+  async function initPayPal() {
+    const c = $('paypal-button-container'); if (!c) return; c.innerHTML = '<div style="text-align:center;padding:20px;color:#85858c;">Cargando PayPal...</div>';
+    try {
+      const pp = await loadScript({ clientId: import.meta.env.PUBLIC_PAYPAL_CLIENT_ID || "AcBeVZggGRidpLZa0RrTje-kNfh0Q6vhNY1H4qTVjFxaEHrF-ltd1D3erIxPNbjVrtUXjHM-5qsa8-3y", currency: "MXN", intent: "capture", commit: true, vault: false, components: "buttons", disableFunding: "venmo,giropay,sofort,sepa", locale: "es_MX" });
+      if (pp?.Buttons) renderPayPal(pp); else c.innerHTML = '<div style="color:#f87171;text-align:center;">PayPal no disponible</div>';
+    } catch { c.innerHTML = '<div style="color:#f87171;text-align:center;">Error PayPal</div>'; }
+  }
+
+  function renderPayPal(pp: any) {
+    pp.Buttons({
+      style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' },
+      createOrder: async () => {
+        const d = validatePaypal();
+        if (!d) return Promise.reject('Val fail');
+        try {
+          const r = await actions.createPaypalOrder(d);
+          if (r.error) throw new Error(r.error.message);
+          return r.data.orderId;
+        } catch (e) {
+          Alert.error('Error', e instanceof Error ? e.message : 'Error');
+          return Promise.reject(e);
+        }
+      },
+      onApprove: async (data: any) => {
+        const loadingId = Toast.loading('Procesando pago con PayPal...');
+        try {
+          const r = await actions.capturePaypalOrder({ orderId: data.orderID });
+          if (r.error) throw new Error(r.error.message);
+          // Se manda el id de la orden de PayPal: el servidor verifica el pago con él
+          const o = await createOrder('paypal', data.orderID);
+          CartCookiesClient.clearCart();
+          localStorage.removeItem('selectedShipping');
+          Toast.dismiss(loadingId);
+          Toast.success('¡Pago exitoso!', `Orden #${o.orderNumber}`);
+          setTimeout(() => navigate(`/order-success?order_id=${o.id}`), 1000);
+        } catch (e) {
+          Toast.dismiss(loadingId);
+          Alert.error('Error', e instanceof Error ? e.message : 'Error');
+        }
+      },
+      onError: () => Alert.error('Error', 'Error con PayPal'),
+      onCancel: () => Toast.info('Pago cancelado')
+    }).render('#paypal-button-container');
+  }
+
+  function init() {
+    const root = $('products-data');
+    if (!root) return;
+    // DOMContentLoaded y astro:page-load disparan ambos en la primera carga:
+    // sin este guard se duplicaban los listeners (y los clics de pago).
+    if (root.dataset.bound === '1') return;
+    root.dataset.bound = '1';
+
+    loadShippingInfo();
+    setupFormValidation();
+    document.querySelectorAll('input[name="payment-method"]').forEach(r => r.addEventListener('change', updatePaymentVis));
+    $('submit-card-payment')?.addEventListener('click', e => { e.preventDefault(); processCard(); });
+    $('submit-mp-payment')?.addEventListener('click', e => { e.preventDefault(); processMercadoPago(); });
+    updatePaymentVis();
+
+    // Los listeners de window sobreviven a las navegaciones: se registran una sola vez
+    if (!windowListenersBound) {
+      windowListenersBound = true;
+      window.addEventListener('shipping:selected', () => { if ($('products-data')) loadShippingInfo(); });
+      window.addEventListener('shipping:cleared', () => { if ($('products-data')) loadShippingInfo(); });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  document.addEventListener('astro:page-load', init);
+</script>
+
+
+<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId, variantId: p.variantId })))}</div>
+<div id="products-images" class="hidden">{JSON.stringify(products.map(p => p.variantImage || p.image || ''))}</div>
+<div id="tax-data" class="hidden">{tax}</div>
+<div id="total-data" class="hidden">{total}</div>
+<div id="subtotal-data" class="hidden">{subtotal}</div>
+<div id="pickup-address-data" class="hidden">{JSON.stringify(pickupAddress)}</div>
+<div id="user-data" class="hidden">{JSON.stringify({ email: userEmail, name: userName, isAuthenticated })}</div>

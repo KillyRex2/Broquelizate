@@ -1,0 +1,1597 @@
+---
+import ProductSlideshow from '@/components/products/ProductSlideshow.astro';
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { actions } from 'astro:actions';
+
+// Definir tipos para las imágenes y el producto
+interface ProductImage {
+  id: string;
+  image: string;
+  productId?: string;
+  variantId?: string | null;
+}
+
+interface ProductData {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  cost: number | null;
+  stock: number;
+  category: string;
+  type: string;
+  piercing_name: string[] | string;
+  hasVariants: boolean;
+  allowsEngraving: boolean;
+  user?: string;
+}
+
+// Determinar si es creación o edición
+const slugs = Astro.params.slug?.split('/') || [];
+const isCreate = slugs[0] === 'new';
+const productSlug = !isCreate ? slugs.join('/') : '';
+
+let product: ProductData | null = null;
+let initialImages: ProductImage[] = [];
+let variantData = null;
+
+
+if (!isCreate) {
+  const { data: productData, error } = await Astro.callAction(actions.getProductBySlug, productSlug);
+  
+  if (error) {
+    return Astro.redirect('/404');
+  }
+  
+  product = {
+    ...productData.product,
+    hasVariants: productData.product.hasVariants ?? false,
+    allowsEngraving: (productData.product as any).allowsEngraving ?? false,
+    cost: productData.product.cost ?? 0,
+    piercing_name: Array.isArray(productData.product.piercing_name)
+      ? productData.product.piercing_name
+      : productData.product.piercing_name
+        ? productData.product.piercing_name.split(',').map((p: string) => p.trim())
+        : []
+  } as ProductData;
+  
+  initialImages = productData.images || [];
+  
+  if (product.hasVariants) {
+    const { data: variants } = await Astro.callAction(actions.getGroupedProductVariants, product.id);
+    variantData = variants;
+  }
+} else {
+  product = {
+    id: '',
+    name: 'Broquel Perron',
+    slug: 'nuevo-producto',
+    description: 'Elegante [inserte nombre] que realza tu estilo con sofisticación y calidad excepcional.',
+    price: 0,
+    cost: 0,
+    stock: 0,
+    category: 'Titanio',
+    type: 'Broqueles',
+    piercing_name: [],
+    hasVariants: false,
+    allowsEngraving: false
+  };
+}
+const coverImageId = (product as any)?.coverImageId || '';
+// Parsear campos de personalización existentes
+let existingCustomizationFields: any[] = [];
+try {
+  existingCustomizationFields = JSON.parse((product as any)?.customizationFields || '[]');
+} catch { existingCustomizationFields = []; }
+
+const pageTitle = isCreate ? 'Crear Nuevo Producto' : `Editando: ${product.name}`;
+
+const initialPiercingValue = Array.isArray(product.piercing_name) 
+  ? product.piercing_name.join(',') 
+  : product.piercing_name || '';
+---
+
+<AdminLayout title={pageTitle}>
+  <section class="p-2 md:p-4 lg:p-8 text-gray-800">
+    <header class="mb-4 md:mb-8">
+      <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight text-yellow-600">
+        {isCreate ? 'Crear Producto' : product.name}
+      </h1>
+      <a 
+        href="/admin/products" 
+        id="back-to-products" 
+        class="group inline-flex items-center gap-2 mt-3 md:mt-4 px-4 py-2.5 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-slate-800 hover:to-slate-700 text-black hover:text-white rounded-full text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+      >
+        <svg class="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        <span>Inventario</span>
+      </a>
+    </header> 
+
+    <form id="product-form" class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 pb-20 md:pb-24" enctype="multipart/form-data">
+      {!isCreate && <input type="hidden" name="id" value={product.id} />}
+      <input type="hidden" name="piercing_name" id="piercing_name_hidden" value={initialPiercingValue} />
+
+      <div class="lg:col-span-2 space-y-4 md:space-y-8">
+        <!-- Datos Generales -->
+        <div class="card">
+          <h2 class="card-title">Datos Generales</h2>
+          <div class="space-y-4 md:space-y-6">
+            <div>
+              <label for="name" class="form-label">Nombre</label>
+              <input id="name" name="name" type="text" value={product.name} required class="form-input" />
+            </div>
+            <div>
+              <label for="slug" class="form-label">Slug</label>
+              <input id="slug" name="slug" type="text" value={product.slug} required class="form-input" />
+            </div>
+            <div>
+              <label for="description" class="form-label">Descripción</label>
+              <textarea id="description" name="description" rows="4" required class="form-input">{product.description}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Precio y Categorización -->
+        <div class="card">
+          <h2 class="card-title">Precio y Categorización</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-x-6 md:gap-y-8">
+            <div>
+              <label for="price" class="form-label">Precio</label>
+              <input id="price" name="price" type="number" step="0.01" value={product.price} required class="form-input" />
+            </div>
+            <div>
+              <label for="cost" class="form-label">Costo</label>
+              <input id="cost" name="cost" type="number" step="0.01" value={product.cost || 0} required class="form-input" />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="stock" class="form-label">Inventario Base</label>
+              <input id="stock" name="stock" type="number" value={product.stock} required class="form-input" />
+              <span class="text-xs text-slate-500 mt-1 block">Stock general del producto sin variantes</span>
+            </div>
+            <div>
+              <label for="category" class="form-label">Material</label>
+              <select id="category" name="category" required class="form-input">
+                {['Titanio','Acero Quirúrgico','Oro 10k','Oro 14k','Oro 18k','Chapa de Oro 14K','Chapa de Oro 18K','Acero Inoxidable','Plástico','Plata','Rodio','Otros'].map(c => (
+                  <option value={c} selected={c === product.category}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label for="type" class="form-label">Tipo de Joya</label>
+              <select id="type" name="type" required class="form-input">
+                {['Anillos','Broqueles','Pulseras','Cadenas','Otros'].map(t => (
+                  <option value={t} selected={t === product.type}>{t}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Imágenes (móvil) -->
+        <div class="card lg:hidden">
+          <h2 class="card-title">Imágenes</h2>
+          {!isCreate && initialImages.length > 0 && (
+            <div id="slideshow-container-mobile" class="mb-4">
+              <ProductSlideshow images={initialImages.map(i => i.image)} />
+            </div>
+          )}
+          <div class="mt-4">
+            <label for="file-upload-mobile" class="form-label">
+              {isCreate ? 'Agregar imágenes' : 'Añadir nuevas'}
+            </label>
+            <div id="drop-zone-mobile" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer bg-white hover:bg-slate-50 hover:border-yellow-600 transition-colors">
+              <svg class="w-8 h-8 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+              </svg>
+              <p class="text-xs text-slate-500">Click para subir</p>
+              <input id="file-upload-mobile" type="file" accept="image/*" multiple class="hidden" />
+            </div>
+          </div>
+          <div id="new-images-preview-mobile" class="mt-3 grid grid-cols-3 gap-2"></div>
+          {!isCreate && initialImages.length > 0 && (
+            <>
+              <h3 class="form-label mt-4 mb-2">Imágenes Actuales</h3>
+              <ul id="image-list-container-mobile" class="space-y-2">
+                {initialImages.map(i => (
+                  <li data-id={i.id} class="flex items-center justify-between bg-slate-50 p-2 rounded gap-2">
+                    <div class="flex items-center gap-2">
+                      <img src={i.image} alt="imagen actual" class="h-12 w-12 object-cover rounded" />
+                      {i.id === coverImageId && (
+                        <span class="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-semibold">Portada</span>
+                      )}
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button type="button" data-id={i.id} data-product-id={product.id} class={`set-cover-btn ${i.id === coverImageId ? 'text-yellow-500 cursor-default' : 'text-slate-400 hover:text-yellow-500'}`} title="Establecer como portada">
+                        <svg class="w-5 h-5" fill={i.id === coverImageId ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                      </button>
+                      <button type="button" data-id={i.id} class="text-red-600 hover:underline text-sm delete-existing">Eliminar</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+        <!-- Personalización del Producto -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-sm md:text-base font-bold text-slate-800 mb-0">Personalización</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Configura los campos que el cliente llenará al comprar</p>
+              </div>
+            </div>
+            <button type="button" id="add-customization-field" class="btn-secondary text-xs md:text-sm">+ Agregar campo</button>
+          </div>
+
+          <input type="hidden" name="customizationFields" id="customization-fields-json" value={JSON.stringify(existingCustomizationFields)} />
+          <!-- Mantener allowsEngraving sincronizado automáticamente -->
+          <input type="hidden" name="allowsEngraving" id="allows-engraving-hidden" value={existingCustomizationFields.length > 0 ? 'on' : ''} />
+
+          <div id="customization-fields-list" class="space-y-3">
+            {existingCustomizationFields.length === 0 && (
+              <div id="no-fields-placeholder" class="text-center py-8 text-slate-400">
+                <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                <p class="text-sm">Sin campos de personalización</p>
+                <p class="text-xs mt-1">Agrega campos de texto, imagen o selección</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <!-- Configuración de Variantes -->
+        <div class="card">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6 gap-3">
+            <h2 class="card-title mb-0">Variantes</h2>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="hasVariants" name="hasVariants" checked={product.hasVariants} class="h-5 w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" />
+              <span class="font-medium text-slate-700 text-sm md:text-base">Habilitar variantes</span>
+            </label>
+          </div>
+          <div id="variants-container" class={product.hasVariants ? '' : 'hidden'}>
+            <div class="space-y-4">
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4">
+                <p class="text-xs md:text-sm text-amber-800">Las variantes permiten ofrecer diferentes versiones del producto (ej: colores, tamaños).</p>
+              </div>
+              {!isCreate && (
+                <div class="flex flex-col sm:flex-row gap-2 md:gap-3">
+                  <button type="button" id="add-variant-btn" class="btn-secondary text-sm md:text-base">+ Agregar Variante</button>
+                  <button type="button" id="generate-combinations-btn" class="btn-secondary text-sm md:text-base">⚡ Generar Combinaciones</button>
+                </div>
+              )}
+              <div id="variants-list" class="space-y-3">
+                {variantData?.groupedVariants && Object.entries(variantData.groupedVariants).map(([variantName, group]: [string, any]) => (
+                  <div class="border border-slate-200 rounded-lg p-3 md:p-4 bg-slate-50 variant-group" data-variant-name={variantName}>
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="font-semibold text-slate-800 text-sm md:text-base">{variantName}</h4>
+                      <div class="flex items-center gap-2">
+                        <button 
+                          type="button" 
+                          class="edit-variant-group text-blue-600 hover:text-blue-800 text-xs md:text-sm font-medium" 
+                          data-variant-name={variantName}
+                          data-product-id={product.id}
+                          data-variants={JSON.stringify(group.options)}
+                        >
+                          Editar Grupo
+                        </button>
+                        <button type="button" class="delete-variant-group text-red-600 hover:text-red-800 text-xs md:text-sm font-medium" data-variant-name={variantName}>Eliminar</button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                      {group.options.map((option: any) => {
+                        const variantImage = initialImages.find(img => img.variantId === option.id);
+                        return (
+                          <div class="flex items-center gap-3 bg-white rounded px-2 md:px-3 py-2 border border-slate-200 variant-item" data-variant-id={option.id}>
+                            <div class="flex-shrink-0">
+                              {variantImage ? ( 
+                                <div class="relative group">
+                                  <img src={variantImage.image} alt={option.value} class="w-12 h-12 md:w-16 md:h-16 object-cover rounded border-2 border-yellow-500" />
+                                  <button type="button" class="delete-variant-image absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity" data-variant-id={option.id}>×</button>
+                                </div>
+                              ) : (
+                                <div class="w-12 h-12 md:w-16 md:h-16 bg-slate-100 rounded border-2 border-dashed border-slate-300 flex items-center justify-center">
+                                  <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                </div>
+                              )}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <span class="text-xs md:text-sm font-medium truncate block">{option.value}</span>
+                              <div class="flex items-center gap-2 mt-1 text-xs text-slate-600 flex-wrap">
+                                {option.priceAdjustment !== 0 && (<span class={option.priceAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>{option.priceAdjustment > 0 ? '+' : ''}${option.priceAdjustment}</span>)}
+                                <span>Stock: {option.stock}</span>
+                                {option.sku && <span class="truncate">SKU: {option.sku}</span>}
+                              </div>
+                            </div>
+                            <div class="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                              <label class="cursor-pointer">
+                                <input type="file" accept="image/*" class="hidden variant-image-input" data-variant-id={option.id} data-product-id={product.id} />
+                                <div class="upload-variant-image p-1 text-purple-600 hover:text-purple-800" title="Subir imagen">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                </div>
+                              </label>
+                              <button type="button" class="edit-variant text-blue-600 hover:text-blue-800 p-1" data-variant-id={option.id} data-variant-name={variantName} data-variant-value={option.value} data-price-adjustment={option.priceAdjustment} data-stock={option.stock} data-sku={option.sku || ''}>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              </button>
+                              <button type="button" class="delete-variant text-red-600 hover:text-red-800 p-1" data-variant-id={option.id}>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {variantData?.combinations && variantData.combinations.length > 0 && (
+                <div class="mt-6">
+                  <h3 class="font-semibold text-slate-800 mb-3 text-sm md:text-base">Combinaciones Activas</h3>
+                  <div class="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+                    <table class="min-w-full divide-y divide-slate-200 text-xs md:text-sm">
+                      <thead class="bg-slate-50">
+                        <tr>
+                          <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Imagen</th>
+                          <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Combinación</th>
+                          <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Precio</th>
+                          <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Stock</th>
+                          <th class="px-2 md:px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">SKU</th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-slate-200">
+                        {variantData.combinations.map((combo: any) => {
+                          const comboImage = variantData.combinationImages?.[combo.id];
+                          return (
+                            <tr>
+                              <td class="px-2 md:px-4 py-2">
+                                <div class="flex items-center gap-2">
+                                  {comboImage ? (
+                                    <div class="relative group">
+                                      <img src={comboImage.image} alt={combo.combinationName} class="w-10 h-10 md:w-12 md:h-12 object-cover rounded border-2 border-yellow-500" />
+                                      <button 
+                                        type="button" 
+                                        class="delete-combination-image absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                        data-combination-id={combo.id}
+                                      >×</button>
+                                    </div>
+                                  ) : (
+                                    <label class="cursor-pointer">
+                                      <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        class="hidden combination-image-input" 
+                                        data-combination-id={combo.id} 
+                                        data-product-id={product.id} 
+                                      />
+                                      <div class="w-10 h-10 md:w-12 md:h-12 bg-slate-100 rounded border-2 border-dashed border-slate-300 flex items-center justify-center hover:border-yellow-500 hover:bg-yellow-50 transition-colors">
+                                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                        </svg>
+                                      </div>
+                                    </label>
+                                  )}
+                                </div>
+                              </td>
+                              <td class="px-2 md:px-4 py-2">{combo.combinationName}</td>
+                              <td class="px-2 md:px-4 py-2">${combo.price}</td>
+                              <td class="px-2 md:px-4 py-2">
+                                <input type="number" value={combo.stock} data-combination-id={combo.id} class="w-16 md:w-20 px-1 md:px-2 py-1 border rounded combination-stock-input text-xs md:text-sm" />
+                              </td>
+                              <td class="px-2 md:px-4 py-2 truncate max-w-[80px]">{combo.sku || '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <!-- Tipos de Perforación -->
+        <div class="card">
+          <h2 class="card-title">Tipos de Perforación</h2>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            {['Lóbulo','Lóbulo Superior','Hélix','Antihelix','Tragus','Antitragus','Rook','Conch','Daith','Industrial','Séptum','Nóstril','Navel','Flat','Ninguno'].map(p => {
+              const piercingArray = Array.isArray(product.piercing_name) ? product.piercing_name : [];
+              const isChecked = piercingArray.includes(p);
+              return (
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="checkbox" value={p} checked={isChecked} class="piercing-checkbox h-4 w-4 md:h-5 md:w-5 rounded border-slate-400 text-yellow-600 focus:ring-yellow-600" />
+                  <span class="font-medium text-slate-700 text-sm md:text-base">{p}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna lateral derecha para imágenes (solo desktop) -->
+      <div class="hidden lg:block lg:col-span-1 space-y-8">
+        <div class="card">
+          <h2 class="card-title">Imágenes</h2>
+          {!isCreate && initialImages.length > 0 && (
+            <div id="slideshow-container" class="mb-6">
+              <ProductSlideshow images={initialImages.map(i => i.image)} />
+            </div>
+          )}
+          <div class="mt-6">
+            <label for="file-upload" class="form-label">{isCreate ? 'Agregar imágenes' : 'Añadir nuevas'}</label>
+            <div id="drop-zone" class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer bg-white hover:bg-slate-50 hover:border-yellow-600 transition-colors">
+              <svg class="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+              <p class="text-sm text-slate-500">Click o arrastra</p>
+              <input id="file-upload" type="file" accept="image/*" multiple class="hidden" />
+            </div>
+          </div>
+          <div id="new-images-preview" class="mt-4 grid grid-cols-3 gap-2"></div>
+          {!isCreate && initialImages.length > 0 && (
+            <>
+              <h3 class="form-label mt-6 mb-2">Imágenes Actuales</h3>
+              <ul id="image-list-container" class="space-y-2">
+                {initialImages.map(i => (
+                  <li data-id={i.id} class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                      <img src={i.image} alt="imagen actual" class="h-16 w-16 object-cover rounded" />
+                      {i.id === coverImageId && (
+                        <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-semibold">Portada</span>
+                      )}
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button type="button" data-id={i.id} data-product-id={product.id} class={`set-cover-btn text-xs font-medium ${i.id === coverImageId ? 'text-yellow-500 cursor-default' : 'text-slate-400 hover:text-yellow-500'}`} title="Establecer como portada">
+                        <svg class="w-5 h-5" fill={i.id === coverImageId ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                      </button>
+                      <button type="button" data-id={i.id} class="text-red-600 hover:underline text-sm delete-existing">Eliminar</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
+    </form>
+
+    <!-- Botón fijo responsive -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-200 p-3 md:p-4 z-50 lg:left-64">
+      <div class="max-w-6xl mx-auto flex justify-end">
+        <button type="submit" form="product-form" id="save-button" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-6 py-2 md:px-8 md:py-3 rounded-lg shadow-lg transition-transform hover:scale-105 text-sm md:text-base w-full sm:w-auto">
+          {isCreate ? 'Crear Producto' : 'Guardar'}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal para agregar variantes -->
+  <div id="variant-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 md:p-4">
+    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-4 md:p-6">
+        <h3 class="text-lg md:text-xl font-bold text-slate-800 mb-4">Agregar Nueva Variante</h3>
+        <form id="variant-form" class="space-y-4">
+          <div>
+            <label class="form-label">Tipo (Color, Tamaño)</label>
+            <input type="text" id="variant-name" class="form-input" placeholder="Color" required />
+          </div>
+          <div id="variant-options" class="space-y-3">
+            <label class="form-label">Opciones</label>
+            <div class="variant-option-row space-y-2">
+              <input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required />
+              <div class="grid grid-cols-3 gap-2">
+                <input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" />
+                <input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock"/>
+                <input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" />
+              </div>
+              <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>
+            </div>
+          </div>
+          <button type="button" id="add-option-btn" class="btn-secondary w-full text-sm md:text-base">+ Agregar opción</button>
+          <div class="flex flex-col sm:flex-row gap-3 mt-6">
+            <button type="button" id="cancel-variant-btn" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">Cancelar</button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para editar variante -->
+  <div id="edit-variant-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 md:p-4">
+    <div class="bg-white rounded-lg max-w-md w-full">
+      <div class="p-4 md:p-6">
+        <h3 class="text-lg md:text-xl font-bold text-slate-800 mb-4">Editar Variante</h3>
+        <form id="edit-variant-form" class="space-y-4">
+          <input type="hidden" id="edit-variant-id" />
+          <div><label class="form-label">Tipo</label><input type="text" id="edit-variant-name" class="form-input bg-slate-100 text-sm md:text-base" readonly /></div>
+          <div><label class="form-label">Valor</label><input type="text" id="edit-variant-value" class="form-input text-sm md:text-base" required /></div>
+          <div><label class="form-label">Ajuste de Precio</label><input type="number" id="edit-price-adjustment" step="0.01" class="form-input text-sm md:text-base" /></div>
+          <div><label class="form-label">Stock</label><input type="number" id="edit-stock" class="form-input text-sm md:text-base" /></div>
+          <div><label class="form-label">SKU (opcional)</label><input type="text" id="edit-sku" class="form-input text-sm md:text-base" /></div>
+          <div class="flex flex-col sm:flex-row gap-3 mt-6">
+            <button type="button" id="cancel-edit-variant" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">Cancelar</button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+<!-- Modal para editar grupo de variantes -->
+<div id="edit-group-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 md:p-4">
+  <div class="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div class="p-4 md:p-6">
+      <h3 class="text-lg md:text-xl font-bold text-slate-800 mb-4">Editar Grupo de Variantes</h3>
+      <form id="edit-group-form" class="space-y-4">
+        <input type="hidden" id="edit-group-product-id" />
+        <input type="hidden" id="edit-group-original-name" />
+        <div>
+          <label class="form-label">Nombre del grupo (ej: Color, Tamaño)</label>
+          <input type="text" id="edit-group-name" class="form-input" required />
+        </div>
+        <div>
+          <label class="form-label">Opciones</label>
+          <div id="edit-group-options" class="space-y-3"></div>
+        </div>
+        <button type="button" id="add-group-option-btn" class="btn-secondary w-full text-sm md:text-base">+ Agregar opción</button>
+        <div class="flex flex-col sm:flex-row gap-3 mt-6">
+          <button type="button" id="cancel-edit-group" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm md:text-base">Cancelar</button>
+          <button type="submit" class="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm md:text-base">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  import { actions } from "astro:actions";
+  import { Confirm, Alert, Toast } from '@/utils/alerts';
+  import { navigate } from 'astro:transitions/client';
+
+  const FILTERS_STORAGE_KEY = 'admin_products_filters';
+
+  function getProductsUrlWithFilters(): string {
+    try {
+      const saved = sessionStorage.getItem(FILTERS_STORAGE_KEY);
+      if (!saved) return '/admin/products';
+      const filters = JSON.parse(saved);
+      const url = new URL('/admin/products', window.location.origin);
+      if (filters.search) url.searchParams.set('search', filters.search);
+      if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category);
+      if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter);
+      if (filters.sortBy && filters.sortBy !== 'name') url.searchParams.set('sortBy', filters.sortBy);
+      if (filters.sortOrder && filters.sortOrder !== 'asc') url.searchParams.set('sortOrder', filters.sortOrder);
+      if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice);
+      if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice);
+      if (filters.limit && filters.limit !== '12') url.searchParams.set('limit', filters.limit);
+      if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page);
+      return url.pathname + url.search;
+    } catch (e) { return '/admin/products'; }
+  }
+
+  let isInitialized = false;
+
+  document.addEventListener('astro:page-load', () => {
+    const backButton = document.getElementById('back-to-products');
+    if (backButton) {
+      backButton.addEventListener('click', (e) => { e.preventDefault(); navigate(getProductsUrlWithFilters()); });
+    }
+
+    if (!window.location.pathname.startsWith('/admin/products/')) return;
+    if (window.location.pathname === '/admin/products/') return;
+    if (isInitialized) return;
+    isInitialized = true;
+
+    const form = document.getElementById('product-form') as HTMLFormElement;
+    if (!form) return;
+
+    const dropZones = [document.getElementById('drop-zone'), document.getElementById('drop-zone-mobile')].filter(Boolean);
+    const fileInputs = [document.getElementById('file-upload') as HTMLInputElement, document.getElementById('file-upload-mobile') as HTMLInputElement].filter(Boolean);
+    const previewContainers = [document.getElementById('new-images-preview'), document.getElementById('new-images-preview-mobile')].filter(Boolean);
+    const imageListContainers = [document.getElementById('image-list-container'), document.getElementById('image-list-container-mobile')].filter(Boolean);
+    const hasVariantsCheckbox = document.getElementById('hasVariants') as HTMLInputElement;
+    const variantsContainer = document.getElementById('variants-container');
+    const isCreate = !form.querySelector('input[name="id"]');
+    const piercingHiddenInput = document.getElementById('piercing_name_hidden') as HTMLInputElement;
+    
+    let newFiles: File[] = [];
+    let isProcessing = false;
+
+    // =====================================================
+    // PERSONALIZACIÓN DEL PRODUCTO (Builder)
+    // =====================================================
+    const customFieldsJson = document.getElementById('customization-fields-json') as HTMLInputElement;
+    const customFieldsList = document.getElementById('customization-fields-list');
+    const addCustomFieldBtn = document.getElementById('add-customization-field');
+    const allowsEngravingHidden = document.getElementById('allows-engraving-hidden') as HTMLInputElement;
+    
+    let customizationFields: any[] = [];
+    try {
+      customizationFields = JSON.parse(customFieldsJson?.value || '[]');
+    } catch { customizationFields = []; }
+
+    function generateFieldId(label: string): string {
+      return label.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'campo_' + Date.now();
+    }
+
+    function syncCustomizationFields(): void {
+      if (customFieldsJson) {
+        customFieldsJson.value = JSON.stringify(customizationFields);
+      }
+      if (allowsEngravingHidden) {
+        allowsEngravingHidden.value = customizationFields.length > 0 ? 'on' : '';
+      }
+    }
+
+    function renderCustomizationFields(): void {
+      if (!customFieldsList) return;
+      
+      if (customizationFields.length === 0) {
+        customFieldsList.innerHTML = `
+          <div id="no-fields-placeholder" class="text-center py-8 text-slate-400">
+            <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            <p class="text-sm">Sin campos de personalización</p>
+            <p class="text-xs mt-1">Agrega campos de texto, imagen o selección</p>
+          </div>`;
+        syncCustomizationFields();
+        return;
+      }
+
+      customFieldsList.innerHTML = customizationFields.map((field: any, index: number) => {
+        const typeLabels: Record<string, string> = { text: 'Texto', image: 'Imagen', select: 'Selección' };
+        const typeColors: Record<string, string> = { 
+          text: 'bg-blue-100 text-blue-700 border-blue-200', 
+          image: 'bg-purple-100 text-purple-700 border-purple-200', 
+          select: 'bg-green-100 text-green-700 border-green-200' 
+        };
+        const typeIcons: Record<string, string> = {
+          text: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>',
+          image: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>',
+          select: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>'
+        };
+
+        let configHtml = '';
+        
+        if (field.type === 'text') {
+          configHtml = `
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <label class="text-xs text-slate-500">Placeholder</label>
+                <input type="text" value="${field.placeholder || ''}" data-field-index="${index}" data-prop="placeholder" class="custom-field-prop w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" placeholder="Ej: Escribe tu texto aquí" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">Máx. caracteres</label>
+                <input type="number" value="${field.maxLength || 50}" data-field-index="${index}" data-prop="maxLength" class="custom-field-prop w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
+              </div>
+            </div>`;
+        } else if (field.type === 'image') {
+          configHtml = `
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <label class="text-xs text-slate-500">Máx. tamaño (MB)</label>
+                <input type="number" value="${field.maxSize || 10}" data-field-index="${index}" data-prop="maxSize" class="custom-field-prop w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">Formatos</label>
+                <p class="text-xs text-slate-400 mt-1">JPG, PNG, WEBP, GIF</p>
+              </div>
+            </div>`;
+        } else if (field.type === 'select') {
+          const currentOptions = field.options || [];
+          const optionTags = currentOptions.map((opt: string, oi: number) => 
+            `<span class="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 shadow-sm">
+              <span>${opt}</span>
+              <button type="button" class="remove-select-option text-slate-400 hover:text-red-500 transition-colors" data-field-index="${index}" data-option-index="${oi}">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </span>`
+          ).join('');
+          
+          configHtml = `
+            <div class="mt-2 space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-slate-500">Opciones (${currentOptions.length})</label>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="open-font-catalog inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors" data-field-index="${index}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    Catálogo de fuentes
+                  </button>
+                  <button type="button" class="add-manual-option inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors" data-field-index="${index}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Manual
+                  </button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-slate-50 rounded-lg border border-slate-200" data-options-container="${index}">
+                ${currentOptions.length > 0 ? optionTags : '<span class="text-xs text-slate-400 italic">Sin opciones — usa el catálogo o agrega manualmente</span>'}
+              </div>
+            </div>`;
+        }
+
+        return `
+          <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 customization-field-item" data-field-index="${index}">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border ${typeColors[field.type] || ''}">${typeIcons[field.type] || ''} ${typeLabels[field.type] || field.type}</span>
+                <div class="flex-1 min-w-0">
+                  <input type="text" value="${field.label || ''}" data-field-index="${index}" data-prop="label" class="custom-field-prop w-full px-2 py-1 text-sm font-semibold border border-transparent hover:border-slate-200 rounded bg-transparent focus:bg-white focus:border-yellow-400 focus:outline-none" placeholder="Nombre del campo" />
+                </div>
+              </div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <label class="flex items-center gap-1 cursor-pointer" title="Requerido">
+                  <input type="checkbox" ${field.required ? 'checked' : ''} data-field-index="${index}" data-prop="required" class="custom-field-check h-4 w-4 rounded border-slate-300 text-yellow-600 focus:ring-yellow-500" />
+                  <span class="text-xs text-slate-500">Req.</span>
+                </label>
+                ${index > 0 ? `<button type="button" class="move-field-up p-1 text-slate-400 hover:text-slate-600" data-field-index="${index}" title="Subir"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button>` : ''}
+                ${index < customizationFields.length - 1 ? `<button type="button" class="move-field-down p-1 text-slate-400 hover:text-slate-600" data-field-index="${index}" title="Bajar"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>` : ''}
+                <button type="button" class="remove-custom-field p-1 text-red-400 hover:text-red-600" data-field-index="${index}" title="Eliminar"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              </div>
+            </div>
+            ${configHtml}
+          </div>`;
+      }).join('');
+      
+      syncCustomizationFields();
+    }
+
+    // Agregar nuevo campo
+    addCustomFieldBtn?.addEventListener('click', () => {
+      const typeModal = document.createElement('div');
+      typeModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4';
+      typeModal.innerHTML = `
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
+          <h3 class="text-lg font-bold text-slate-800 mb-4">Agregar campo de personalización</h3>
+          <div class="space-y-2">
+            <button type="button" data-type="text" class="type-select-btn w-full flex items-center gap-3 p-3 rounded-lg border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-left">
+              <span class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              </span>
+              <div>
+                <p class="font-semibold text-slate-800 text-sm">Texto</p>
+                <p class="text-xs text-slate-500">El cliente escribe texto libre</p>
+              </div>
+            </button>
+            <button type="button" data-type="image" class="type-select-btn w-full flex items-center gap-3 p-3 rounded-lg border-2 border-slate-200 hover:border-purple-400 hover:bg-purple-50 transition-all text-left">
+              <span class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </span>
+              <div>
+                <p class="font-semibold text-slate-800 text-sm">Imagen</p>
+                <p class="text-xs text-slate-500">El cliente sube una imagen</p>
+              </div>
+            </button>
+            <button type="button" data-type="select" class="type-select-btn w-full flex items-center gap-3 p-3 rounded-lg border-2 border-slate-200 hover:border-green-400 hover:bg-green-50 transition-all text-left">
+              <span class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              </span>
+              <div>
+                <p class="font-semibold text-slate-800 text-sm">Selección</p>
+                <p class="text-xs text-slate-500">El cliente elige de una lista</p>
+              </div>
+            </button>
+          </div>
+          <button type="button" class="cancel-type-select mt-4 w-full py-2 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
+        </div>
+      `;
+      
+      document.body.appendChild(typeModal);
+      
+      typeModal.querySelectorAll('.type-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fieldType = (btn as HTMLElement).dataset.type!;
+          const defaultLabels: Record<string, string> = {
+            text: 'Texto personalizado',
+            image: 'Imagen para grabado',
+            select: 'Tipografía',
+          };
+
+          const newField: any = {
+            id: generateFieldId(defaultLabels[fieldType] + '_' + Date.now()),
+            type: fieldType,
+            label: defaultLabels[fieldType],
+            required: true,
+            order: customizationFields.length,
+          };
+
+          if (fieldType === 'text') {
+            newField.placeholder = 'Escribe aquí...';
+            newField.maxLength = 50;
+          } else if (fieldType === 'image') {
+            newField.maxSize = 10;
+            newField.accept = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+          } else if (fieldType === 'select') {
+            newField.options = ['Opción 1', 'Opción 2'];
+          }
+
+          customizationFields.push(newField);
+          renderCustomizationFields();
+          Toast.success('Campo agregado');
+          typeModal.remove();
+        });
+      });
+      
+      typeModal.querySelector('.cancel-type-select')?.addEventListener('click', () => typeModal.remove());
+      typeModal.addEventListener('click', (e) => { if (e.target === typeModal) typeModal.remove(); });
+    });
+
+    // Delegación de eventos para campos de personalización
+    customFieldsList?.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.classList.contains('custom-field-prop')) return;
+      
+      const index = parseInt(target.dataset.fieldIndex || '-1');
+      const prop = target.dataset.prop;
+      if (index < 0 || !prop || !customizationFields[index]) return;
+
+      if (prop === 'options') {
+        customizationFields[index][prop] = target.value.split(',').map((o: string) => o.trim()).filter(Boolean);
+      } else if (prop === 'maxLength' || prop === 'maxSize') {
+        customizationFields[index][prop] = parseInt(target.value) || 0;
+      } else if (prop === 'label') {
+        customizationFields[index][prop] = target.value;
+        if (!customizationFields[index]._idManual) {
+          customizationFields[index].id = generateFieldId(target.value);
+        }
+      } else {
+        customizationFields[index][prop] = target.value;
+      }
+      
+      syncCustomizationFields();
+    });
+
+    customFieldsList?.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.classList.contains('custom-field-check')) return;
+      
+      const index = parseInt(target.dataset.fieldIndex || '-1');
+      const prop = target.dataset.prop;
+      if (index < 0 || !prop || !customizationFields[index]) return;
+
+      customizationFields[index][prop] = target.checked;
+      syncCustomizationFields();
+    });
+
+    customFieldsList?.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const btn = target.closest('button');
+      if (!btn) return;
+
+      const index = parseInt(btn.dataset.fieldIndex || '-1');
+      if (index < 0) return;
+
+      if (btn.classList.contains('remove-custom-field')) {
+        customizationFields.splice(index, 1);
+        customizationFields.forEach((f: any, i: number) => f.order = i);
+        renderCustomizationFields();
+      } else if (btn.classList.contains('move-field-up') && index > 0) {
+        [customizationFields[index - 1], customizationFields[index]] = [customizationFields[index], customizationFields[index - 1]];
+        customizationFields.forEach((f: any, i: number) => f.order = i);
+        renderCustomizationFields();
+      } else if (btn.classList.contains('move-field-down') && index < customizationFields.length - 1) {
+        [customizationFields[index], customizationFields[index + 1]] = [customizationFields[index + 1], customizationFields[index]];
+        customizationFields.forEach((f: any, i: number) => f.order = i);
+        renderCustomizationFields();
+      }
+    });
+
+    // =====================================================
+    // CATÁLOGO DE FUENTES Y OPCIONES MANUALES
+    // =====================================================
+    const FONT_CATALOG = [
+      { name: 'Elegante', family: 'Playfair Display', fallback: 'serif', url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap' },
+      { name: 'Cursiva', family: 'Great Vibes', fallback: 'cursive', url: 'https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap' },
+      { name: 'Básica', family: 'Open Sans', fallback: 'sans-serif', url: 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap' },
+      { name: 'Máquina de Escribir', family: 'Courier Prime', fallback: 'monospace', url: 'https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap' },
+      { name: 'Bold', family: 'Oswald', fallback: 'sans-serif', url: 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap' },
+    ];
+
+    // Cargar fuentes de Google Fonts
+    const loadedFonts = new Set<string>();
+    function loadFont(font: typeof FONT_CATALOG[0]): void {
+      if (loadedFonts.has(font.family)) return;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = font.url;
+      document.head.appendChild(link);
+      loadedFonts.add(font.family);
+    }
+
+    // Eliminar opción individual de select
+    customFieldsList?.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const removeBtn = target.closest('.remove-select-option') as HTMLElement;
+      if (removeBtn) {
+        const fieldIdx = parseInt(removeBtn.dataset.fieldIndex || '-1');
+        const optIdx = parseInt(removeBtn.dataset.optionIndex || '-1');
+        if (fieldIdx >= 0 && optIdx >= 0 && customizationFields[fieldIdx]?.options) {
+          customizationFields[fieldIdx].options.splice(optIdx, 1);
+          syncCustomizationFields();
+          renderCustomizationFields();
+        }
+        return;
+      }
+
+      // Abrir catálogo de fuentes
+      const catalogBtn = target.closest('.open-font-catalog') as HTMLElement;
+      if (catalogBtn) {
+        const fieldIdx = parseInt(catalogBtn.dataset.fieldIndex || '-1');
+        if (fieldIdx < 0) return;
+        openFontCatalog(fieldIdx);
+        return;
+      }
+
+      // Agregar opción manual
+      const manualBtn = target.closest('.add-manual-option') as HTMLElement;
+      if (manualBtn) {
+        const fieldIdx = parseInt(manualBtn.dataset.fieldIndex || '-1');
+        if (fieldIdx < 0) return;
+        
+        const input = document.createElement('div');
+        input.className = 'fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4';
+        input.innerHTML = `
+          <div class="bg-white rounded-xl p-5 max-w-xs w-full shadow-2xl">
+            <h4 class="text-sm font-bold text-slate-800 mb-3">Agregar opción</h4>
+            <input type="text" id="manual-option-input" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 focus:outline-none" placeholder="Nombre de la opción" autofocus />
+            <div class="flex gap-2 mt-4">
+              <button type="button" class="cancel-manual flex-1 py-2 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">Cancelar</button>
+              <button type="button" class="confirm-manual flex-1 py-2 text-sm text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 font-semibold">Agregar</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(input);
+        
+        const inp = input.querySelector('#manual-option-input') as HTMLInputElement;
+        inp?.focus();
+        
+        const addOpt = () => {
+          const val = inp?.value.trim();
+          if (val) {
+            if (!customizationFields[fieldIdx].options) customizationFields[fieldIdx].options = [];
+            if (!customizationFields[fieldIdx].options.includes(val)) {
+              customizationFields[fieldIdx].options.push(val);
+              syncCustomizationFields();
+              renderCustomizationFields();
+            }
+          }
+          input.remove();
+        };
+        
+        inp?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); addOpt(); } });
+        input.querySelector('.confirm-manual')?.addEventListener('click', addOpt);
+        input.querySelector('.cancel-manual')?.addEventListener('click', () => input.remove());
+        input.addEventListener('click', (e) => { if (e.target === input) input.remove(); });
+        return;
+      }
+    });
+
+    function openFontCatalog(fieldIndex: number): void {
+      // Cargar todas las fuentes
+      FONT_CATALOG.forEach(f => loadFont(f));
+      
+      const currentOptions = customizationFields[fieldIndex]?.options || [];
+      
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4';
+      modal.innerHTML = `
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+          <div class="p-5 border-b border-slate-200 flex-shrink-0">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-slate-800">Catálogo de Fuentes</h3>
+                <p class="text-xs text-slate-500 mt-1">Selecciona las tipografías que ofrecerás al cliente</p>
+              </div>
+              <span class="text-xs font-semibold text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-full font-catalog-count">${currentOptions.length} seleccionadas</span>
+            </div>
+          </div>
+          <div class="overflow-y-auto flex-1 p-4" style="scrollbar-width: thin;">
+            <div class="grid gap-3" id="font-catalog-grid">
+              ${FONT_CATALOG.map(font => {
+                const isSelected = currentOptions.includes(font.name);
+                return `
+                  <label class="font-catalog-item flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${isSelected ? 'border-yellow-400 bg-yellow-50 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}" data-font-name="${font.name}">
+                    <input type="checkbox" class="font-catalog-check h-5 w-5 rounded border-slate-300 text-yellow-500 focus:ring-yellow-400 flex-shrink-0" data-font-name="${font.name}" ${isSelected ? 'checked' : ''} />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-bold text-slate-800">${font.name}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">${font.family}</span>
+                      </div>
+                      <p class="text-base text-slate-600 truncate" style="font-family: '${font.family}', ${font.fallback};">El arte de la joyería personalizada — ABCDEFG 0123456789</p>
+                    </div>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          </div>
+          <div class="p-4 border-t border-slate-200 flex-shrink-0 flex items-center justify-between gap-3 bg-slate-50">
+            <button type="button" class="font-catalog-cancel px-4 py-2.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-white transition-colors">Cancelar</button>
+            <button type="button" class="font-catalog-apply px-6 py-2.5 text-sm text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 font-bold shadow-sm transition-colors">Aplicar selección</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Manejar selección visual
+      modal.querySelectorAll('.font-catalog-check').forEach(check => {
+        check.addEventListener('change', () => {
+          const item = check.closest('.font-catalog-item') as HTMLElement;
+          const isChecked = (check as HTMLInputElement).checked;
+          if (isChecked) {
+            item.classList.remove('border-slate-200', 'hover:border-slate-300', 'hover:bg-slate-50');
+            item.classList.add('border-yellow-400', 'bg-yellow-50', 'shadow-sm');
+          } else {
+            item.classList.add('border-slate-200', 'hover:border-slate-300', 'hover:bg-slate-50');
+            item.classList.remove('border-yellow-400', 'bg-yellow-50', 'shadow-sm');
+          }
+          // Actualizar contador
+          const count = modal.querySelectorAll('.font-catalog-check:checked').length;
+          const countEl = modal.querySelector('.font-catalog-count');
+          if (countEl) countEl.textContent = `${count} seleccionadas`;
+        });
+      });
+      
+      // Aplicar
+      modal.querySelector('.font-catalog-apply')?.addEventListener('click', () => {
+        const selected: string[] = [];
+        modal.querySelectorAll('.font-catalog-check:checked').forEach(check => {
+          const name = (check as HTMLElement).dataset.fontName;
+          if (name) selected.push(name);
+        });
+        
+        // Mantener opciones manuales que no estén en el catálogo
+        const manualOptions = (customizationFields[fieldIndex].options || []).filter(
+          (opt: string) => !FONT_CATALOG.some(f => f.name === opt)
+        );
+        
+        customizationFields[fieldIndex].options = [...selected, ...manualOptions];
+        syncCustomizationFields();
+        renderCustomizationFields();
+        Toast.success(`${selected.length} fuentes seleccionadas`);
+        modal.remove();
+      });
+      
+      // Cancelar
+      modal.querySelector('.font-catalog-cancel')?.addEventListener('click', () => modal.remove());
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    }
+
+    // Renderizar campos existentes al cargar
+    if (customizationFields.length > 0) {
+      renderCustomizationFields();
+    }
+
+    // =====================================================
+    // PIERCINGS
+    // =====================================================
+    function updatePiercingHiddenField() {
+      const checkboxes = document.querySelectorAll('.piercing-checkbox:checked') as NodeListOf<HTMLInputElement>;
+      const selectedValues = Array.from(checkboxes).map(cb => cb.value);
+      if (piercingHiddenInput) { piercingHiddenInput.value = selectedValues.join(','); }
+    }
+    document.querySelectorAll('.piercing-checkbox').forEach(checkbox => { checkbox.addEventListener('change', updatePiercingHiddenField); });
+
+    // =====================================================
+    // MANEJO DE ARCHIVOS
+    // =====================================================
+    const handleNewFiles = (incomingFiles: FileList) => {
+      const uniqueFiles = Array.from(incomingFiles).filter(file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size));
+      if (uniqueFiles.length === 0) return;
+      newFiles = [...newFiles, ...uniqueFiles];
+      renderNewPreviews();
+      updateFileInput();
+    };
+
+    const renderNewPreviews = () => {
+      previewContainers.forEach(container => {
+        if (!container) return;
+        container.innerHTML = '';
+        newFiles.forEach((file, index) => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            if (!e.target?.result) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'relative group';
+            wrapper.innerHTML = `<img src="${e.target.result as string}" alt="${file.name}" class="h-20 md:h-24 w-full object-cover rounded-lg shadow-md" /><button type="button" data-index="${index}" class="remove-new-btn absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">×</button>`;
+            container.appendChild(wrapper);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    };
+
+    const updateFileInput = () => {
+      const dataTransfer = new DataTransfer();
+      newFiles.forEach(file => dataTransfer.items.add(file));
+      fileInputs.forEach(input => { if (input) input.files = dataTransfer.files; });
+    };
+
+    dropZones.forEach((dropZone, idx) => {
+      const fileInput = fileInputs[idx];
+      if (!dropZone || !fileInput) return;
+      dropZone.addEventListener('click', () => fileInput.click());
+      let changeTimeout: NodeJS.Timeout;
+      fileInput.addEventListener('change', () => { clearTimeout(changeTimeout); changeTimeout = setTimeout(() => { if (fileInput.files && fileInput.files.length > 0) handleNewFiles(fileInput.files); }, 100); });
+      const preventDefaults = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, preventDefaults));
+      ['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.add('border-yellow-600', 'bg-yellow-50')));
+      ['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.remove('border-yellow-600', 'bg-yellow-50')));
+      dropZone.addEventListener('drop', (e: DragEvent) => { if (e.dataTransfer?.files) handleNewFiles(e.dataTransfer.files); });
+    });
+
+    // =====================================================
+    // SUBIR IMAGEN DE VARIANTE
+    // =====================================================
+    document.addEventListener('change', async (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.classList.contains('variant-image-input') && target.files && target.files[0]) {
+        const file = target.files[0]; const variantId = target.dataset.variantId; const productId = target.dataset.productId;
+        if (!variantId || !productId) return;
+        if (!file.type.startsWith('image/')) { Toast.error('Error', 'Debe ser una imagen'); target.value = ''; return; }
+        if (file.size > 5 * 1024 * 1024) { Toast.error('Error', 'Imagen muy grande (máx 5MB)'); target.value = ''; return; }
+        const loadingId = Toast.loading('Subiendo imagen...');
+        try {
+          const formData = new FormData(); formData.append('variantId', variantId); formData.append('productId', productId); formData.append('imageFile', file);
+          const { data, error } = await actions.uploadVariantImage(formData);
+          if (error) throw new Error(error.message);
+          Toast.dismiss(loadingId); Toast.success('¡Imagen subida!'); setTimeout(() => window.location.reload(), 1000);
+        } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+        target.value = '';
+      }
+    });
+
+// =====================================================
+    // SUBIR IMAGEN DE COMBINACIÓN
+    // =====================================================
+    document.addEventListener('change', async (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.classList.contains('combination-image-input') && target.files && target.files[0]) {
+        const file = target.files[0];
+        const combinationId = target.dataset.combinationId;
+        const productId = target.dataset.productId;
+        if (!combinationId || !productId) return;
+        if (!file.type.startsWith('image/')) { Toast.error('Error', 'Debe ser una imagen'); target.value = ''; return; }
+        if (file.size > 5 * 1024 * 1024) { Toast.error('Error', 'Imagen muy grande (máx 5MB)'); target.value = ''; return; }
+        const loadingId = Toast.loading('Subiendo imagen de combinación...');
+        try {
+          const formData = new FormData();
+          formData.append('combinationId', combinationId);
+          formData.append('productId', productId);
+          formData.append('imageFile', file);
+          const { data, error } = await actions.uploadCombinationImage(formData);
+          if (error) throw new Error(error.message);
+          Toast.dismiss(loadingId);
+          Toast.success('¡Imagen subida!');
+          setTimeout(() => window.location.reload(), 1000);
+        } catch (err: any) {
+          Toast.dismiss(loadingId);
+          await Alert.error('Error', err.message);
+        }
+        target.value = '';
+      }
+    });
+
+    // =====================================================
+    // TOGGLE DE VARIANTES
+    // =====================================================
+    if (hasVariantsCheckbox && variantsContainer) {
+      hasVariantsCheckbox.addEventListener('change', () => { variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked); });
+    }
+
+    // =====================================================
+    // MODALES
+    // =====================================================
+    const variantModal = document.getElementById('variant-modal');
+    const editVariantModal = document.getElementById('edit-variant-modal');
+    const addVariantBtn = document.getElementById('add-variant-btn');
+    const cancelVariantBtn = document.getElementById('cancel-variant-btn');
+    const variantForm = document.getElementById('variant-form') as HTMLFormElement;
+    const editVariantForm = document.getElementById('edit-variant-form') as HTMLFormElement;
+    const addOptionBtn = document.getElementById('add-option-btn');
+    const variantOptions = document.getElementById('variant-options');
+
+    if (addVariantBtn && variantModal) { addVariantBtn.addEventListener('click', () => { variantModal.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }); }
+    if (cancelVariantBtn && variantModal) { cancelVariantBtn.addEventListener('click', () => { variantModal.classList.add('hidden'); document.body.style.overflow = ''; if (variantForm) variantForm.reset(); }); }
+
+    if (addOptionBtn && variantOptions) {
+      addOptionBtn.addEventListener('click', () => {
+        const newRow = document.createElement('div');
+        newRow.className = 'variant-option-row space-y-2 border-t border-slate-200 pt-3 mt-3';
+        newRow.innerHTML = `<input type="text" placeholder="Valor (ej: Dorado)" class="w-full px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-value" required /><div class="grid grid-cols-3 gap-2"><input type="number" placeholder="Precio" step="0.01" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-price" /><input type="number" placeholder="Stock" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-stock" /><input type="text" placeholder="SKU" class="px-3 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg variant-sku" /></div><button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-option">× Eliminar</button>`;
+        variantOptions.appendChild(newRow);
+      });
+    }
+
+    // =====================================================
+    // EDITAR GRUPO DE VARIANTES
+    // =====================================================
+    const editGroupModal = document.getElementById('edit-group-modal');
+    const editGroupForm = document.getElementById('edit-group-form') as HTMLFormElement;
+    const editGroupOptions = document.getElementById('edit-group-options');
+    let deletedVariantIdsInGroup: string[] = [];
+
+    function createGroupOptionRow(option?: { id: string; value: string; priceAdjustment: number; stock: number; sku?: string | null }) {
+      const row = document.createElement('div');
+      row.className = 'edit-group-option-row space-y-2 border border-slate-200 rounded-lg p-3 bg-slate-50';
+      if (option?.id) row.dataset.variantId = option.id;
+      
+      row.innerHTML = `
+        <input type="text" placeholder="Valor (ej: Dorado)" value="${option?.value || ''}" class="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg group-option-value" required />
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-xs text-slate-500">Ajuste Precio</label>
+            <input type="number" placeholder="0" step="0.01" value="${option?.priceAdjustment || 0}" class="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg group-option-price" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">Stock</label>
+            <input type="number" placeholder="0" value="${option?.stock || 0}" class="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg group-option-stock" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-500">SKU</label>
+            <input type="text" placeholder="SKU" value="${option?.sku || ''}" class="w-full px-3 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg group-option-sku" />
+          </div>
+        </div>
+        <button type="button" class="w-full text-red-600 hover:text-red-800 text-sm font-bold remove-group-option">× Eliminar opción</button>
+      `;
+      return row;
+    }
+
+    // Agregar nueva opción al grupo
+    document.getElementById('add-group-option-btn')?.addEventListener('click', () => {
+      if (editGroupOptions) {
+        editGroupOptions.appendChild(createGroupOptionRow());
+      }
+    });
+
+    // Eliminar opción del grupo
+    editGroupOptions?.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('remove-group-option')) {
+        const row = target.closest('.edit-group-option-row') as HTMLElement;
+        const allRows = editGroupOptions.querySelectorAll('.edit-group-option-row');
+        
+        if (allRows.length <= 1) {
+          Toast.warning('Atención', 'Debe haber al menos una opción');
+          return;
+        }
+        
+        const variantId = row?.dataset.variantId;
+        if (variantId) {
+          deletedVariantIdsInGroup.push(variantId);
+        }
+        row?.remove();
+      }
+    });
+
+    // Cancelar edición de grupo
+    document.getElementById('cancel-edit-group')?.addEventListener('click', () => {
+      editGroupModal?.classList.add('hidden');
+      document.body.style.overflow = '';
+      deletedVariantIdsInGroup = [];
+    });
+
+    // Guardar edición de grupo
+    editGroupForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (isProcessing) return;
+      isProcessing = true;
+      
+      const productId = (document.getElementById('edit-group-product-id') as HTMLInputElement).value;
+      const originalName = (document.getElementById('edit-group-original-name') as HTMLInputElement).value;
+      const newName = (document.getElementById('edit-group-name') as HTMLInputElement).value;
+      
+      const rows = editGroupOptions!.querySelectorAll('.edit-group-option-row');
+      const variants = Array.from(rows).map(row => ({
+        id: (row as HTMLElement).dataset.variantId || undefined,
+        variantValue: (row.querySelector('.group-option-value') as HTMLInputElement).value,
+        priceAdjustment: parseFloat((row.querySelector('.group-option-price') as HTMLInputElement).value) || 0,
+        stock: parseInt((row.querySelector('.group-option-stock') as HTMLInputElement).value) || 0,
+        sku: (row.querySelector('.group-option-sku') as HTMLInputElement).value || null,
+      }));
+      
+      const loadingId = Toast.loading('Actualizando grupo...');
+      
+      try {
+        const { data, error } = await actions.updateVariantGroup({
+          productId,
+          originalVariantName: originalName,
+          newVariantName: newName,
+          variants,
+          deletedVariantIds: deletedVariantIdsInGroup,
+        });
+        
+        if (error) throw new Error(error.message);
+        
+        Toast.dismiss(loadingId);
+        editGroupModal?.classList.add('hidden');
+        document.body.style.overflow = '';
+        Toast.success('Grupo actualizado');
+        
+        // Si se deben regenerar combinaciones
+        if (data?.shouldRegenerateCombinations) {
+          const variantGroups = document.querySelectorAll('.variant-group');
+          if (variantGroups.length >= 2) {
+            const regenConfirmed = await Confirm.show({
+              title: '¿Regenerar combinaciones?',
+              message: 'Las combinaciones anteriores fueron eliminadas. ¿Deseas generar las nuevas?',
+              confirmText: 'Sí, regenerar',
+              cancelText: 'No',
+              type: 'info'
+            });
+            if (regenConfirmed) {
+              const regenLoading = Toast.loading('Regenerando combinaciones...');
+              await actions.generateVariantCombinations(productId);
+              Toast.dismiss(regenLoading);
+            }
+          }
+        }
+        
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (err: any) {
+        Toast.dismiss(loadingId);
+        await Alert.error('Error', err.message);
+      } finally {
+        isProcessing = false;
+        deletedVariantIdsInGroup = [];
+      }
+    });
+
+    // =====================================================
+    // CLICK HANDLERS
+    // =====================================================
+    document.addEventListener('click', async (e) => {
+      if (isProcessing) return;
+      const target = e.target as HTMLElement;
+      const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+
+      // --- Abrir modal editar grupo ---
+      if (target.closest('.edit-variant-group')) {
+        const button = target.closest('.edit-variant-group') as HTMLElement;
+        const variantName = button.dataset.variantName || '';
+        const btnProductId = button.dataset.productId || '';
+        let variants: any[] = [];
+        
+        try {
+          variants = JSON.parse(button.dataset.variants || '[]');
+        } catch { variants = []; }
+        
+        if (editGroupModal && editGroupOptions) {
+          (document.getElementById('edit-group-product-id') as HTMLInputElement).value = btnProductId;
+          (document.getElementById('edit-group-original-name') as HTMLInputElement).value = variantName;
+          (document.getElementById('edit-group-name') as HTMLInputElement).value = variantName;
+          
+          editGroupOptions.innerHTML = '';
+          deletedVariantIdsInGroup = [];
+          
+          variants.forEach((opt: any) => {
+            editGroupOptions.appendChild(createGroupOptionRow(opt));
+          });
+          
+          editGroupModal.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
+        }
+        return;
+      }
+
+      // --- Establecer imagen de portada ---
+      if (target.closest('.set-cover-btn')) {
+        const button = target.closest('.set-cover-btn') as HTMLElement;
+        const imageId = button.dataset.id;
+        const btnProductId = button.dataset.productId;
+        if (!imageId || !btnProductId) return;
+        // Si ya es la portada, no hacer nada
+        if (button.classList.contains('cursor-default')) return;
+        isProcessing = true;
+        const loadingId = Toast.loading('Actualizando portada...');
+        try {
+          const { error } = await actions.setProductCoverImage({ productId: btnProductId, imageId });
+          if (error) throw new Error(error.message);
+          Toast.dismiss(loadingId);
+          Toast.success('Portada actualizada');
+          setTimeout(() => window.location.reload(), 800);
+        } catch (err: any) {
+          Toast.dismiss(loadingId);
+          await Alert.error('Error', err.message);
+        } finally { isProcessing = false; }
+        return;
+      }
+
+      // --- Eliminar imagen de combinación ---
+      if (target.closest('.delete-combination-image')) {
+        e.stopPropagation(); e.preventDefault();
+        const button = target.closest('.delete-combination-image') as HTMLElement;
+        const combinationId = button.dataset.combinationId;
+        if (!combinationId) return;
+        const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
+        if (confirmed) {
+          isProcessing = true;
+          const loadingId = Toast.loading('Eliminando imagen...');
+          try {
+            const { error } = await actions.deleteCombinationImage(combinationId);
+            if (error) throw new Error(error.message);
+            Toast.dismiss(loadingId); Toast.success('Imagen eliminada');
+            setTimeout(() => window.location.reload(), 1000);
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+          finally { isProcessing = false; }
+        }
+        return;
+      }
+
+      if (target.closest('.delete-variant-image')) {
+        e.stopPropagation(); e.preventDefault();
+        const button = target.closest('.delete-variant-image') as HTMLElement; const variantId = button.dataset.variantId; if (!variantId) return;
+        const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando imagen...');
+          try { const { error } = await actions.deleteVariantImage(variantId); if (error) throw new Error(error.message); Toast.dismiss(loadingId); Toast.success('Imagen eliminada'); setTimeout(() => window.location.reload(), 1000); } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+        } return;
+      }
+
+      if (target.closest('.edit-variant')) {
+        const button = target.closest('.edit-variant') as HTMLElement;
+        if (editVariantModal) {
+          (document.getElementById('edit-variant-id') as HTMLInputElement).value = button.dataset.variantId || '';
+          (document.getElementById('edit-variant-name') as HTMLInputElement).value = button.dataset.variantName || '';
+          (document.getElementById('edit-variant-value') as HTMLInputElement).value = button.dataset.variantValue || '';
+          (document.getElementById('edit-price-adjustment') as HTMLInputElement).value = button.dataset.priceAdjustment || '0';
+          (document.getElementById('edit-stock') as HTMLInputElement).value = button.dataset.stock || '0';
+          (document.getElementById('edit-sku') as HTMLInputElement).value = button.dataset.sku || '';
+          editVariantModal.classList.remove('hidden'); document.body.style.overflow = 'hidden';
+        }
+      }
+
+      if (target.closest('.delete-variant')) {
+        const button = target.closest('.delete-variant') as HTMLElement; const variantId = button.dataset.variantId;
+        const confirmed = await Confirm.show({ title: '¿Eliminar variante?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando variante...');
+          try {
+            const { data, error } = await actions.deleteVariant(variantId!); if (error) throw new Error(error.message);
+            Toast.dismiss(loadingId); button.closest('.variant-item')?.remove();
+            if (data?.shouldRegenerateCombinations && productId) {
+              const regenConfirmed = await Confirm.show({ title: '¿Regenerar combinaciones?', message: 'Se actualizarán las combinaciones de variantes.', confirmText: 'Sí, regenerar', cancelText: 'No', type: 'info' });
+              if (regenConfirmed) { const regenLoading = Toast.loading('Regenerando combinaciones...'); await actions.generateVariantCombinations(productId); Toast.dismiss(regenLoading); setTimeout(() => window.location.reload(), 1000); }
+            }
+            const variantGroup = button.closest('.variant-group');
+            if (variantGroup && variantGroup.querySelectorAll('.variant-item').length === 0) variantGroup.remove();
+            Toast.success('Variante eliminada');
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+        }
+      }
+
+      if (target.closest('.delete-variant-group')) {
+        const button = target.closest('.delete-variant-group') as HTMLElement; const variantName = button.dataset.variantName;
+        const confirmed = await Confirm.show({ title: `¿Eliminar "${variantName}"?`, message: 'Se eliminarán todas las opciones de esta variante.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando grupo...');
+          try {
+            if (!productId) throw new Error('ID de producto no encontrado');
+            const { error } = await actions.deleteVariantGroup({ productId, variantName: variantName! }); if (error) throw new Error(error.message);
+            Toast.dismiss(loadingId); button.closest('.variant-group')?.remove();
+            if (document.querySelectorAll('.variant-group').length === 0 && hasVariantsCheckbox) { hasVariantsCheckbox.checked = false; variantsContainer?.classList.add('hidden'); }
+            Toast.success('Grupo eliminado');
+          } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+        }
+      }
+
+      if (target.classList.contains('remove-option')) {
+        const allRows = document.querySelectorAll('.variant-option-row');
+        if (allRows.length > 1) { target.closest('.variant-option-row')?.remove(); }
+        else { Toast.warning('Atención', 'Debe haber al menos una opción'); }
+      }
+    });
+
+    document.getElementById('cancel-edit-variant')?.addEventListener('click', () => { editVariantModal?.classList.add('hidden'); document.body.style.overflow = ''; editVariantForm?.reset(); });
+
+    editVariantForm?.addEventListener('submit', async (e) => {
+      e.preventDefault(); if (isProcessing) return; isProcessing = true;
+      const loadingId = Toast.loading('Actualizando variante...');
+      try {
+        const { error } = await actions.updateVariant({
+          variantId: (document.getElementById('edit-variant-id') as HTMLInputElement).value,
+          variantValue: (document.getElementById('edit-variant-value') as HTMLInputElement).value,
+          priceAdjustment: parseFloat((document.getElementById('edit-price-adjustment') as HTMLInputElement).value) || 0,
+          stock: parseInt((document.getElementById('edit-stock') as HTMLInputElement).value) || 0,
+          sku: (document.getElementById('edit-sku') as HTMLInputElement).value || null
+        });
+        if (error) throw new Error(error.message);
+        Toast.dismiss(loadingId); editVariantModal?.classList.add('hidden'); document.body.style.overflow = ''; Toast.success('Variante actualizada'); setTimeout(() => window.location.reload(), 1000);
+      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+    });
+
+    variantForm?.addEventListener('submit', async (e) => {
+      e.preventDefault(); if (isProcessing) return;
+      const productId = form.querySelector('input[name="id"]')?.getAttribute('value');
+      if (!productId) { await Alert.warning('Atención', 'Primero guarda el producto'); return; }
+      const variantName = (document.getElementById('variant-name') as HTMLInputElement).value;
+      const rows = document.querySelectorAll('.variant-option-row');
+      const variants = Array.from(rows).map(row => ({ variantName, variantValue: (row.querySelector('.variant-value') as HTMLInputElement).value, priceAdjustment: parseFloat((row.querySelector('.variant-price') as HTMLInputElement).value) || 0, stock: parseInt((row.querySelector('.variant-stock') as HTMLInputElement).value) || 0, sku: (row.querySelector('.variant-sku') as HTMLInputElement).value || undefined }));
+      isProcessing = true; const loadingId = Toast.loading('Creando variantes...');
+      try { const { error } = await actions.createBatchVariants({ productId, variants }); if (error) throw new Error(error.message); Toast.dismiss(loadingId); variantModal?.classList.add('hidden'); document.body.style.overflow = ''; Toast.success('Variantes creadas'); setTimeout(() => window.location.reload(), 1000); }
+      catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+    });
+
+    document.getElementById('generate-combinations-btn')?.addEventListener('click', async () => {
+      if (isProcessing) return; const productId = form.querySelector('input[name="id"]')?.getAttribute('value'); if (!productId) return;
+      const confirmed = await Confirm.show({ title: '¿Generar combinaciones?', message: 'Se crearán todas las combinaciones posibles de variantes.', confirmText: 'Sí, generar', cancelText: 'Cancelar', type: 'info' });
+      if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Generando combinaciones...');
+        try { 
+          const { data, error } = await actions.generateVariantCombinations(productId); 
+          if (error) throw new Error(error.message); 
+          Toast.dismiss(loadingId); 
+          if (data && !data.success) {
+            await Alert.warning('Atención', data.message || 'No se pudieron generar combinaciones');
+          } else {
+            Toast.success('Combinaciones generadas'); 
+            setTimeout(() => window.location.reload(), 1000); 
+          }
+        }
+        catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+      }
+    });
+
+    document.querySelectorAll('.combination-stock-input').forEach(input => {
+      let timeout: NodeJS.Timeout;
+      input.addEventListener('change', async (e) => { clearTimeout(timeout); const target = e.target as HTMLInputElement; const combinationId = target.dataset.combinationId; if (!combinationId) return;
+        timeout = setTimeout(async () => { try { const { error } = await actions.updateCombinationStock({ combinationId, newStock: parseInt(target.value) }); if (error) throw new Error(error.message); target.classList.add('border-green-500'); setTimeout(() => target.classList.remove('border-green-500'), 1000); } catch (err: any) { target.classList.add('border-red-500'); setTimeout(() => target.classList.remove('border-red-500'), 1000); } }, 500);
+      });
+    });
+
+    imageListContainers.forEach(container => {
+      container?.addEventListener('click', async (e) => { if (isProcessing) return; const target = e.target as HTMLButtonElement; if (!target.classList.contains('delete-existing')) return; const id = target.dataset.id; if (!id) return;
+        const confirmed = await Confirm.show({ title: '¿Eliminar imagen?', message: 'Esta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger' });
+        if (confirmed) { isProcessing = true; const loadingId = Toast.loading('Eliminando imagen...');
+          try { const { error } = await actions.deleteProductImage(id); if (error) throw new Error(error.message); Toast.dismiss(loadingId); imageListContainers.forEach(c => c?.querySelector(`[data-id="${id}"]`)?.remove()); Toast.success('Imagen eliminada'); }
+          catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); } finally { isProcessing = false; }
+        }
+      });
+    });
+
+    previewContainers.forEach(container => {
+      container?.addEventListener('click', e => { const target = e.target as HTMLElement; if (target.classList.contains('remove-new-btn')) { const index = parseInt(target.dataset.index || '-1'); if (index > -1) { newFiles.splice(index, 1); renderNewPreviews(); updateFileInput(); } } });
+    });
+
+    const nameInput = document.getElementById('name') as HTMLInputElement;
+    const slugInput = document.getElementById('slug') as HTMLInputElement;
+    if (nameInput && slugInput && isCreate) { nameInput.addEventListener('input', () => { slugInput.value = nameInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }); }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault(); if (isProcessing) return;
+      const saveButton = document.getElementById('save-button') as HTMLButtonElement; if (!saveButton) return;
+      isProcessing = true; saveButton.disabled = true; saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
+      const loadingId = Toast.loading(isCreate ? 'Creando producto...' : 'Guardando cambios...');
+      try {
+        updatePiercingHiddenField(); const formData = new FormData(form); formData.delete('imageFiles'); newFiles.forEach(file => formData.append('imageFiles', file));
+        const { data, error } = await actions.crateUpdateProduct(formData); if (error) throw new Error(error.message);
+        Toast.dismiss(loadingId); Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!'); setTimeout(() => navigate(getProductsUrlWithFilters()), 1000);
+      } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
+      finally { isProcessing = false; saveButton.disabled = false; saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar'; }
+    });
+  });
+
+  document.addEventListener('astro:before-preparation', () => { isInitialized = false; document.body.style.overflow = ''; });
+  </script>
+
+  <style>
+    .card { @apply bg-white p-4 md:p-6 rounded-xl md:rounded-2xl shadow-lg ring-1 ring-slate-100; }
+    .card-title { @apply text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 border-b border-slate-200 pb-3 md:pb-4; }
+    .form-label { @apply block text-xs md:text-sm font-bold text-slate-600 mb-2; }
+    .form-input { @apply w-full px-3 md:px-4 py-2 md:py-3 bg-slate-50 text-slate-900 border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors text-sm md:text-base; }
+    .btn-secondary { @apply px-3 md:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium; }
+  </style>
+
+  <script is:inline>
+  (function() {
+    var FILTERS_STORAGE_KEY = 'admin_products_filters';
+    function getProductsUrlWithFilters() { try { var saved = sessionStorage.getItem(FILTERS_STORAGE_KEY); if (!saved) return '/admin/products'; var filters = JSON.parse(saved); var url = new URL('/admin/products', window.location.origin); if (filters.search) url.searchParams.set('search', filters.search); if (filters.category && filters.category !== 'all') url.searchParams.set('category', filters.category); if (filters.stockFilter && filters.stockFilter !== 'all') url.searchParams.set('stockFilter', filters.stockFilter); if (filters.sortBy && filters.sortBy !== 'name') url.searchParams.set('sortBy', filters.sortBy); if (filters.sortOrder && filters.sortOrder !== 'asc') url.searchParams.set('sortOrder', filters.sortOrder); if (filters.minPrice && filters.minPrice !== '0') url.searchParams.set('minPrice', filters.minPrice); if (filters.maxPrice && filters.maxPrice !== '99999') url.searchParams.set('maxPrice', filters.maxPrice); if (filters.limit && filters.limit !== '12') url.searchParams.set('limit', filters.limit); if (filters.page && filters.page !== '1') url.searchParams.set('page', filters.page); return url.pathname + url.search; } catch (e) { return '/admin/products'; } }
+    function setupBackButton() { var backButton = document.getElementById('back-to-products'); if (backButton && !backButton.hasAttribute('data-listener-attached')) { backButton.setAttribute('data-listener-attached', 'true'); backButton.addEventListener('click', function(e) { e.preventDefault(); var returnUrl = getProductsUrlWithFilters(); if (typeof window.navigation !== 'undefined' && window.navigation.navigate) { window.navigation.navigate(returnUrl); } else { window.location.href = returnUrl; } }); } }
+    setupBackButton(); document.addEventListener('astro:page-load', setupBackButton);
+  })();
+  </script>
+</AdminLayout>

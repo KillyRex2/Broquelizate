@@ -1,0 +1,170 @@
+---
+// src/pages/terminos-y-condiciones.astro
+//
+// ⚠️ Los valores entre corchetes son DECISIONES DE NEGOCIO.
+// Confírmalas con el cliente antes de publicar: lo que quede
+// escrito aquí es lo que te van a reclamar después.
+
+import LegalLayout from '@/layouts/LegalLayout.astro';
+
+const EMPRESA = 'Yureni Pinedo P';
+const RFC = 'YUPP880101HMCNRL09';
+const DOMICILIO = 'Calle 5 de Mayo #123, Colonia Centro, Ciudad de México, C.P. 06000';
+const CORREO = 'broquelizatelaguna@gmail.com';
+const WHATSAPP = '528714617696';
+const DIAS_PREPARACION = '[2 a 3]';         // días hábiles para preparar
+const DIAS_PERSONALIZADO = '[5 a 7]';       // días hábiles para grabado
+const ENVIO_GRATIS = 1099;
+---
+
+<LegalLayout
+  title="Términos y condiciones"
+  description="Condiciones de compra en la tienda en línea de Broquelizate."
+  lastUpdated="31-08-2026"
+>
+  <h2>1. Quiénes somos</h2>
+  <p>
+    Este sitio es operado por <strong>{EMPRESA}</strong>, con RFC{' '}
+    <strong>{RFC}</strong> y domicilio en <strong>{DOMICILIO}</strong>.
+  </p>
+  <p>
+    Al realizar una compra aceptas estos términos. Te sugerimos leerlos antes de
+    completar tu pedido.
+  </p>
+
+  <h2>2. Productos y disponibilidad</h2>
+  <p>
+    Procuramos que las fotografías reflejen fielmente cada pieza. Sin embargo, el
+    color puede variar según la pantalla desde la que veas el sitio, y algunas piezas
+    artesanales presentan variaciones mínimas entre unidades.
+  </p>
+  <p>
+    La disponibilidad se actualiza automáticamente. Si por un error de inventario un
+    producto que compraste ya no estuviera disponible, te contactaremos para ofrecerte
+    una alternativa o el reembolso completo.
+  </p>
+
+  <h2>3. Precios y pagos</h2>
+  <ul>
+    <li>Todos los precios están en <strong>pesos mexicanos (MXN)</strong> e incluyen impuestos.</li>
+    <li>El costo de envío se calcula por separado, según tu código postal, antes de pagar.</li>
+    <li>Los precios pueden cambiar sin previo aviso, pero nunca después de que confirmaste tu pedido.</li>
+  </ul>
+  <p>Aceptamos pago con tarjeta de crédito y débito, Mercado Pago y PayPal.</p>
+  <p>
+    Tu pedido se confirma cuando la plataforma de pago aprueba la transacción. Si el
+    pago queda pendiente —por ejemplo, un pago en efectivo en tienda de conveniencia—
+    el pedido se prepara hasta que se acredite.
+  </p>
+
+  <h2>4. Envíos</h2>
+  <div class="destacado">
+    <p>
+      <strong>Envío gratis</strong> en compras mayores a ${ENVIO_GRATIS} MXN a
+      todo México.
+    </p>
+  </div>
+  <p>
+    Preparamos y entregamos tu pedido a la paquetería en un plazo de{' '}
+    <strong>{DIAS_PREPARACION} días hábiles</strong>. A partir de ahí, el tiempo de
+    tránsito depende de la paquetería y del destino, normalmente entre 2 y 7 días
+    hábiles.
+  </p>
+  <p>
+    Los productos <strong>personalizados o con grabado</strong> requieren{' '}
+    <strong>{DIAS_PERSONALIZADO} días hábiles</strong> adicionales de elaboración.
+  </p>
+  <p>
+    En cuanto se genere tu guía te enviaremos el número de rastreo. Es tu
+    responsabilidad proporcionar una dirección completa y correcta: si el paquete se
+    devuelve por dirección errónea o por no encontrar a nadie tras los intentos de
+    entrega, el reenvío tiene costo adicional.
+  </p>
+
+  <h2>5. Cambios y devoluciones</h2>
+  <p>
+    Las condiciones completas están en nuestra política de{' '}
+    <a href="/cambios-y-devoluciones">cambios y devoluciones</a>.
+  </p>
+  <div class="destacado">
+    <p>
+      <strong>Importante:</strong> por razones de higiene y salud,{' '}
+      <strong>los piercings y la joyería de perforación no admiten cambio ni
+      devolución</strong> una vez abierto su empaque sellado. Tampoco se aceptan
+      devoluciones de piezas personalizadas o con grabado.
+    </p>
+  </div>
+
+  <h2>6. Servicio de perforación</h2>
+  <p>
+    Nuestro servicio de perforación se realiza en el establecimiento, con material
+    estéril y de un solo uso.
+  </p>
+  <ul>
+    <li>
+      <strong>Menores de edad:</strong> se requiere la presencia del padre, madre o
+      tutor, con identificación oficial de ambos y firma de autorización.
+    </li>
+    <li>
+      Antes del procedimiento se llena un formato con información de salud relevante
+      (alergias, padecimientos, medicamentos). Si consideramos que existe algún riesgo,
+      podemos negarnos a realizar el servicio.
+    </li>
+    <li>
+      Los cuidados posteriores son responsabilidad de la persona. Entregamos las
+      indicaciones por escrito; seguirlas es indispensable para una buena cicatrización.
+    </li>
+  </ul>
+
+  <h2>7. Uso del sitio y de tu cuenta</h2>
+  <p>
+    Eres responsable de mantener la confidencialidad de tu contraseña y de la actividad
+    que ocurra en tu cuenta. Avísanos de inmediato si detectas un uso no autorizado.
+  </p>
+  <p>Al usar este sitio te comprometes a no:</p>
+  <ul>
+    <li>Proporcionar información falsa o suplantar a otra persona</li>
+    <li>Intentar vulnerar la seguridad del sitio o acceder a áreas restringidas</li>
+    <li>Usar el sitio con fines fraudulentos o para revender sin autorización</li>
+  </ul>
+  <p>Podemos cancelar pedidos o suspender cuentas cuando detectemos un uso indebido.</p>
+
+  <h2>8. Propiedad intelectual</h2>
+  <p>
+    El nombre Broquelizate, su logotipo, las fotografías de producto y los textos de
+    este sitio son propiedad de {EMPRESA}. No pueden reproducirse ni utilizarse con
+    fines comerciales sin autorización por escrito.
+  </p>
+
+  <h2>9. Limitación de responsabilidad</h2>
+  <p>
+    Nuestra responsabilidad se limita al valor del producto adquirido. No respondemos
+    por reacciones alérgicas derivadas de sensibilidades no informadas, por daños
+    ocasionados por uso indebido de las piezas, ni por retrasos atribuibles a la
+    paquetería o a causas de fuerza mayor.
+  </p>
+
+  <h2>10. Protección de datos</h2>
+  <p>
+    El tratamiento de tus datos personales se rige por nuestro{' '}
+    <a href="/aviso-de-privacidad">aviso de privacidad</a>.
+  </p>
+
+  <h2>11. Cambios a estos términos</h2>
+  <p>
+    Podemos actualizar estos términos. La versión aplicable a tu compra es la vigente
+    al momento en que la realizaste.
+  </p>
+
+  <h2>12. Ley aplicable y contacto</h2>
+  <p>
+    Estos términos se rigen por las leyes de los Estados Unidos Mexicanos. Para
+    cualquier controversia, las partes se someten a los tribunales competentes de{' '}
+    <strong>[CIUDAD, ESTADO]</strong>, sin perjuicio de los derechos que la
+    Procuraduría Federal del Consumidor (PROFECO) reconoce a los consumidores.
+  </p>
+  <p>
+    Contacto: <a href={`mailto:${CORREO}`}>{CORREO}</a> ·{' '}
+    <a href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noopener">WhatsApp</a>
+  </p>
+</LegalLayout>

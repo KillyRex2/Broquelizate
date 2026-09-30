@@ -1,0 +1,295 @@
+---
+// src/components/admin/AdminProductSlideshow.astro
+// Slideshow dedicado para la página de edición de producto en el admin
+interface Props {
+  images: string[];
+  id?: string;
+}
+
+const { images, id = 'admin-slideshow' } = Astro.props;
+
+const fullImages = images.map(image =>
+  image.startsWith('http') ? image : `/images/products/${image}`
+);
+---
+
+<div class="admin-slideshow" id={id}>
+  {fullImages.length === 0 ? (
+    <div class="empty-state">
+      <svg class="w-12 h-12 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      <p class="text-slate-400 text-sm">Sin imágenes</p>
+    </div>
+  ) : (
+    <>
+      <div class="main-image-wrapper">
+        <img
+          src={fullImages[0]}
+          alt="Producto"
+          class="main-image"
+          id={`${id}-main-img`}
+        />
+        {fullImages.length > 1 && (
+          <>
+            <button type="button" class="nav-btn nav-prev" data-dir="prev" aria-label="Anterior">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button type="button" class="nav-btn nav-next" data-dir="next" aria-label="Siguiente">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        )}
+        <span class="counter-badge" id={`${id}-counter`}>
+          1 / {fullImages.length}
+        </span>
+      </div>
+
+      {fullImages.length > 1 && (
+        <div class="thumbs-row">
+          {fullImages.map((img, i) => (
+            <button
+              type="button"
+              class={`thumb ${i === 0 ? 'active' : ''}`}
+              data-index={i}
+            >
+              <img src={img} alt={`Miniatura ${i + 1}`} loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</div>
+
+<style>
+  .admin-slideshow {
+    width: 100%;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 2px dashed #e2e8f0;
+  }
+
+  .main-image-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    max-height: 380px;
+    background: #0f172a;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .main-image {
+    max-width: 88%;
+    max-height: 88%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    transition: opacity 0.25s ease;
+  }
+
+  .main-image.fading {
+    opacity: 0;
+  }
+
+  /* Flechas de navegación */
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+    z-index: 2;
+  }
+
+  .main-image-wrapper:hover .nav-btn {
+    opacity: 1;
+  }
+
+  .nav-btn:hover {
+    background: rgba(234, 179, 8, 0.85);
+  }
+
+  .nav-prev { left: 8px; }
+  .nav-next { right: 8px; }
+
+  /* Contador */
+  .counter-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(15, 23, 42, 0.85);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    pointer-events: none;
+  }
+
+  /* Miniaturas */
+  .thumbs-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .thumb {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: all 0.2s ease;
+    padding: 0;
+    background: #f1f5f9;
+  }
+
+  .thumb.active {
+    border-color: #eab308;
+    opacity: 1;
+  }
+
+  .thumb:hover:not(.active) {
+    opacity: 0.85;
+    border-color: #94a3b8;
+  }
+
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (max-width: 768px) {
+    .main-image-wrapper {
+      max-height: 280px;
+    }
+    .nav-btn {
+      opacity: 1;
+      width: 28px;
+      height: 28px;
+    }
+    .thumb {
+      width: 44px;
+      height: 44px;
+    }
+  }
+</style>
+
+<script>
+  function initAdminSlideshows() {
+    document.querySelectorAll<HTMLElement>('.admin-slideshow').forEach(root => {
+      // Evitar doble inicialización
+      if (root.dataset.init === '1') return;
+      root.dataset.init = '1';
+
+      const mainImg = root.querySelector<HTMLImageElement>('.main-image');
+      const counter = root.querySelector<HTMLElement>('.counter-badge');
+      const thumbs = root.querySelectorAll<HTMLButtonElement>('.thumb');
+      const navBtns = root.querySelectorAll<HTMLButtonElement>('.nav-btn');
+
+      if (!mainImg || thumbs.length === 0) return;
+
+      // Construir lista de imágenes desde los thumbs
+      const images: string[] = [];
+      thumbs.forEach(t => {
+        const img = t.querySelector('img');
+        if (img) images.push(img.src);
+      });
+
+      let current = 0;
+
+      function goTo(index: number) {
+        if (index < 0) index = images.length - 1;
+        if (index >= images.length) index = 0;
+        current = index;
+
+        // Fade transition
+        mainImg!.classList.add('fading');
+        setTimeout(() => {
+          mainImg!.src = images[current];
+          mainImg!.classList.remove('fading');
+        }, 150);
+
+        // Actualizar thumbs
+        thumbs.forEach((t, i) => t.classList.toggle('active', i === current));
+
+        // Actualizar contador
+        if (counter) counter.textContent = `${current + 1} / ${images.length}`;
+      }
+
+      // Click en miniaturas
+      thumbs.forEach((t, i) => t.addEventListener('click', () => goTo(i)));
+
+      // Click en flechas
+      navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          goTo(btn.dataset.dir === 'next' ? current + 1 : current - 1);
+        });
+      });
+
+      // Swipe en móvil
+      let startX = 0;
+      const wrapper = root.querySelector<HTMLElement>('.main-image-wrapper');
+      if (wrapper) {
+        wrapper.addEventListener('touchstart', (e) => { startX = e.changedTouches[0].screenX; }, { passive: true });
+        wrapper.addEventListener('touchend', (e) => {
+          const diff = e.changedTouches[0].screenX - startX;
+          if (Math.abs(diff) > 50) goTo(diff < 0 ? current + 1 : current - 1);
+        }, { passive: true });
+      }
+    });
+  }
+
+  // Astro View Transitions
+  document.addEventListener('astro:page-load', () => {
+    // Limpiar flags de init para re-inicializar tras navegación
+    document.querySelectorAll<HTMLElement>('.admin-slideshow').forEach(el => {
+      el.dataset.init = '0';
+    });
+    initAdminSlideshows();
+  });
+
+  // Primera carga
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdminSlideshows, { once: true });
+  } else {
+    initAdminSlideshows();
+  }
+</script>

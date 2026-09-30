@@ -1,0 +1,207 @@
+---
+// src/pages/aviso-de-privacidad.astro
+import LegalLayout from '@/layouts/LegalLayout.astro';
+
+// ⚠️ Reemplaza los datos entre corchetes antes de publicar.
+const EMPRESA = 'Yureni Pinedo P';
+const RFC = 'YUPP880101HMCNRL09';
+const DOMICILIO = 'Calle 5 de Mayo #123, Colonia Centro, Ciudad de México, C.P. 06000';
+const CORREO = 'broquelizatelaguna@gmail.com';
+const DOMINIO = 'https://www.broquelizatelaguna.com';
+---
+
+<LegalLayout
+  title="Aviso de privacidad"
+  description="Cómo Broquelizate trata y protege tus datos personales."
+  lastUpdated="31-08-2026"
+>
+  <h2>1. Identidad y domicilio del responsable</h2>
+  <p>
+    <strong>{EMPRESA}</strong>, con RFC <strong>{RFC}</strong> y domicilio en
+    <strong>{DOMICILIO}</strong>, en adelante "Broquelizate", es responsable del
+    tratamiento de tus datos personales, conforme a la Ley Federal de Protección
+    de Datos Personales en Posesión de los Particulares.
+  </p>
+  <p>
+    Sitio web: {DOMINIO}<br />
+    Correo para asuntos de privacidad: <a href={`mailto:${CORREO}`}>{CORREO}</a>
+  </p>
+
+  <h2>2. Datos personales que tratamos</h2>
+
+  <h3>Datos de identificación y contacto</h3>
+  <p>Nombre completo, correo electrónico, número de teléfono.</p>
+
+  <h3>Datos de entrega</h3>
+  <p>Calle y número, colonia, ciudad, estado, código postal, referencias o indicaciones de entrega.</p>
+
+  <h3>Datos de la cuenta</h3>
+  <p>Correo y contraseña. La contraseña se almacena cifrada; nadie de Broquelizate puede leerla.</p>
+
+  <h3>Datos de navegación</h3>
+  <p>Dirección IP, tipo de navegador y dispositivo, páginas visitadas.</p>
+
+  <h3>Datos de pago</h3>
+  <p>
+    Broquelizate <strong>no almacena</strong> números de tarjeta ni datos bancarios.
+    Los pagos se procesan directamente en las plataformas de Stripe, Mercado Pago y
+    PayPal, que reciben esa información sin que pase por nuestros sistemas. Solo
+    conservamos el monto, el método utilizado y un identificador de la transacción.
+  </p>
+
+  <!-- ⚠️ Borra este bloque si no ofreces servicio de perforación -->
+  <h3>Datos de salud</h3>
+  <div class="destacado">
+    <p>
+      Para el servicio de perforación podemos solicitar información sobre alergias,
+      condiciones de la piel, padecimientos o medicamentos. Esta información es un
+      <strong>dato personal sensible</strong> y su tratamiento requiere tu
+      consentimiento expreso y por escrito. Se recaba únicamente en el
+      establecimiento, mediante formato firmado, y se usa solo para evaluar si el
+      procedimiento es seguro para ti.
+    </p>
+  </div>
+
+  <h2>3. Finalidades del tratamiento</h2>
+
+  <h3>Finalidades necesarias</h3>
+  <p>Sin estos datos no podemos darte el servicio:</p>
+  <ul>
+    <li>Procesar, confirmar y dar seguimiento a tu pedido</li>
+    <li>Cobrar el importe de tu compra</li>
+    <li>Calcular el costo de envío y generar la guía de paquetería</li>
+    <li>Entregarte el producto en el domicilio que indiques</li>
+    <li>Enviarte confirmaciones, comprobantes y avisos sobre tu pedido</li>
+    <li>Atender dudas, aclaraciones, cambios y devoluciones</li>
+    <li>Crear y administrar tu cuenta si decides registrarte</li>
+    <li>Cumplir con obligaciones fiscales y contables</li>
+    <li>Prevenir fraudes y usos indebidos del sitio</li>
+  </ul>
+
+  <h3>Finalidades voluntarias</h3>
+  <p>Puedes negarte a estas sin que afecte tu compra:</p>
+  <ul>
+    <li>Enviarte promociones, novedades y contenido comercial</li>
+    <li>Invitarte a encuestas de satisfacción</li>
+    <li>Mostrarte recomendaciones de producto según lo que has visto o comprado</li>
+  </ul>
+  <p>
+    Si no quieres que usemos tus datos para estas finalidades, escríbenos a
+    <a href={`mailto:${CORREO}`}>{CORREO}</a> o usa el enlace para darte de baja
+    incluido en cada correo promocional.
+  </p>
+
+  <h2>4. Con quién compartimos tus datos</h2>
+  <p>
+    Trabajamos con proveedores que tratan datos por cuenta nuestra y bajo nuestras
+    instrucciones, únicamente para poder operar la tienda:
+  </p>
+  <ul>
+    <li>Stripe, Mercado Pago y PayPal, para procesar tu pago</li>
+    <li>Envia.com y las empresas de paquetería, para cotizar, generar la guía y entregar tu pedido</li>
+    <li>Proveedores de alojamiento y base de datos, para mantener el sitio y resguardar la información</li>
+    <li>Proveedor de correo transaccional, para enviarte la confirmación de tu pedido</li>
+  </ul>
+  <p>
+    Algunos de estos proveedores están fuera de México. En todos los casos están
+    obligados contractualmente a proteger tu información y a usarla solo para el
+    servicio contratado.
+  </p>
+  <p><strong>No vendemos tus datos personales a nadie.</strong></p>
+  <p>
+    Además, podemos entregar información cuando lo exija una autoridad competente
+    mediante orden judicial, resolución o mandato fundado y motivado.
+  </p>
+
+  <h2>5. Cómo ejercer tus derechos ARCO</h2>
+  <p>
+    Tienes derecho a <strong>Acceder</strong> a tus datos,
+    <strong>Rectificarlos</strong> si están incorrectos,
+    <strong>Cancelarlos</strong> cuando ya no sean necesarios y
+    <strong>Oponerte</strong> a que los usemos para fines específicos.
+  </p>
+  <p>Para ejercerlos, envía un correo a <a href={`mailto:${CORREO}`}>{CORREO}</a> con:</p>
+  <ol>
+    <li>Tu nombre completo y un correo o teléfono para responderte</li>
+    <li>Copia de una identificación oficial (INE, pasaporte o cédula)</li>
+    <li>Qué derecho quieres ejercer y sobre qué datos</li>
+    <li>Si pides una rectificación, indica el dato correcto y adjunta el documento que lo respalde</li>
+  </ol>
+  <p>
+    Te responderemos en un plazo máximo de <strong>20 días hábiles</strong>. Si
+    procede, se hará efectivo dentro de los <strong>15 días hábiles</strong>
+    siguientes. El trámite es gratuito; solo se cobrarían los gastos de envío o
+    copiado si pides la información en un formato que los genere.
+  </p>
+
+  <h2>6. Revocar tu consentimiento</h2>
+  <p>
+    Puedes retirar en cualquier momento el consentimiento que nos diste, escribiendo
+    a <a href={`mailto:${CORREO}`}>{CORREO}</a>.
+  </p>
+  <p>
+    Ten en cuenta que hay información que debemos conservar por obligación legal
+    aunque revoques tu consentimiento, por ejemplo los registros de tus compras, que
+    la ley fiscal nos obliga a guardar por cinco años.
+  </p>
+
+  <h2>7. Limitar el uso o divulgación</h2>
+  <p>
+    Si solo quieres dejar de recibir publicidad, usa el enlace "cancelar suscripción"
+    al pie de cualquier correo promocional, o escríbenos a
+    <a href={`mailto:${CORREO}`}>{CORREO}</a> con el asunto "Baja de publicidad".
+  </p>
+
+  <h2>8. Cookies y tecnologías similares</h2>
+  <p>El sitio usa cookies y almacenamiento local para:</p>
+  <ul>
+    <li>Mantener tu carrito de compras entre visitas</li>
+    <li>Recordar tu sesión si iniciaste cuenta</li>
+    <li>Guardar el código postal que capturaste para cotizar envío</li>
+    <li>Medir cómo se usa el sitio y mejorarlo</li>
+  </ul>
+  <p>
+    Puedes bloquear o borrar las cookies desde la configuración de tu navegador. Si
+    lo haces, es probable que el carrito y el inicio de sesión dejen de funcionar
+    correctamente.
+  </p>
+
+  <h2>9. Menores de edad</h2>
+  <p>
+    Este sitio está dirigido a mayores de 18 años. No recabamos intencionalmente
+    datos de menores sin el consentimiento de quien ejerza la patria potestad.
+  </p>
+  <p>
+    Para servicios de perforación a menores de edad se requiere la presencia y
+    autorización del padre, madre o tutor, así como identificación oficial de ambos.
+  </p>
+
+  <h2>10. Seguridad</h2>
+  <p>
+    Aplicamos medidas administrativas, técnicas y físicas para proteger tu
+    información: conexión cifrada (HTTPS), contraseñas almacenadas de forma cifrada,
+    acceso restringido al panel administrativo y procesamiento de pagos a través de
+    plataformas certificadas.
+  </p>
+  <p>
+    Ningún sistema es infalible. Si ocurriera una vulneración que afecte
+    significativamente tus datos, te lo notificaremos.
+  </p>
+
+  <h2>11. Cambios a este aviso</h2>
+  <p>
+    Podemos actualizar este aviso. La versión vigente siempre estará publicada en
+    {DOMINIO}/aviso-de-privacidad, con su fecha de actualización.
+  </p>
+  <p>
+    Si el cambio implica usar tus datos para una finalidad distinta a las aquí
+    señaladas, te lo comunicaremos y solicitaremos tu consentimiento nuevamente.
+  </p>
+
+  <h2>12. Autoridad</h2>
+  <p>
+    Si consideras que tu derecho a la protección de datos ha sido vulnerado, puedes
+    acudir a la <strong>Secretaría de Anticorrupción y Buen Gobierno</strong>, que es
+    la autoridad en la materia en México.
+  </p>
+</LegalLayout>
