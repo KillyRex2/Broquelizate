@@ -97,14 +97,34 @@ export const handler = async ({
       filters.push(lte(Product.price, maxPrice));
     }
     
+    // Stock real. En productos con variantes el inventario vive en las
+    // combinaciones (activas) o en las variantes, no en Product.stock, que se
+    // desincroniza tras ventas en el POS. Antes el filtro y el conteo usaban
+    // Product.stock y la card el stock real: se contaban productos que luego
+    // la lista ocultaba por estar agotados ("16 resultados" / "15 productos").
+    // Ahora filtro, conteo, paginación, orden y card usan este mismo valor.
+    // SQL escrito a mano con alias: Drizzle deja las columnas sin el nombre de
+    // la tabla dentro del SELECT, y en la subconsulta "productId = id" terminaba
+    // comparando la tabla de combinaciones consigo misma (stock = 0).
+    const effectiveStock = sql<number>`${sql.raw(`(CASE
+      WHEN "Product"."hasVariants" = 1 THEN (CASE
+        WHEN EXISTS (SELECT 1 FROM "ProductVariantCombination" pvc WHERE pvc."productId" = "Product"."id")
+          THEN (SELECT COALESCE(SUM(pvc."stock"), 0) FROM "ProductVariantCombination" pvc
+                WHERE pvc."productId" = "Product"."id" AND pvc."isActive" = 1)
+        WHEN EXISTS (SELECT 1 FROM "ProductVariant" pv WHERE pv."productId" = "Product"."id")
+          THEN (SELECT COALESCE(SUM(pv."stock"), 0) FROM "ProductVariant" pv
+                WHERE pv."productId" = "Product"."id")
+        ELSE 0 END)
+      ELSE COALESCE("Product"."stock", 0) END)`)}`;
+
      // Stock: uno o varios rangos, unidos con OR.
     // "out,low" = agotados O con 1–5 piezas.
     const stockConds: Record<string, any> = {
-      inStock:   gt(Product.stock, 0),
-      out:       lte(Product.stock, 0),                                  // incluye negativos del POS
-      low:       and(gt(Product.stock, 0), lte(Product.stock, 5)),
-      available: and(gt(Product.stock, 5), lte(Product.stock, 20)),
-      high:      gt(Product.stock, 20),
+      inStock:   sql`${effectiveStock} > 0`,
+      out:       sql`${effectiveStock} <= 0`,                            // incluye negativos del POS
+      low:       sql`(${effectiveStock} > 0 AND ${effectiveStock} <= 5)`,
+      available: sql`(${effectiveStock} > 5 AND ${effectiveStock} <= 20)`,
+      high:      sql`${effectiveStock} > 20`,
     };
 
     const pickedStock = stockFilter && stockFilter !== 'all'
@@ -169,7 +189,7 @@ export const handler = async ({
       switch (sortBy) {
         case 'name': return Product.name;
         case 'price': return Product.price;
-        case 'stock': return Product.stock;
+        case 'stock': return effectiveStock;
         case 'category': return Product.category;
         default: return Product.name;
       }
@@ -188,7 +208,7 @@ export const handler = async ({
         category: Product.category,
         slug: Product.slug,
         type: Product.type,
-        stock: Product.stock,
+        stock: effectiveStock.mapWith(Number),
         piercing_name: Product.piercing_name,
         cost: Product.cost,
         coverImageId: Product.coverImageId,
@@ -197,7 +217,9 @@ export const handler = async ({
         allowsEngraving: Product.allowsEngraving,
       })
       .from(Product)
-      .orderBy(orderFn(sortColumn))
+      // Desempate por id: con nombres repetidos ("Piercing acero" ×7) el orden
+      // entre páginas no estaba garantizado y podía repetir o saltar productos
+      .orderBy(orderFn(sortColumn), asc(Product.id))
       .limit(limit)
       .offset((page - 1) * limit);
     
@@ -205,46 +227,9 @@ export const handler = async ({
       baseProductsQuery.where(and(...filters));
     }
     
+    // `stock` ya viene como stock real (effectiveStock), igual que el filtro
     const products = await baseProductsQuery;
 
-    // Stock real para productos con variantes: el inventario vive en las
-    // variantes/combinaciones, no en Product.stock (que queda desincronizado
-    // tras ventas en el POS). Así la card nunca muestra "disponible" algo agotado.
-    const variantProductIds = products.filter(p => p.hasVariants).map(p => p.id);
-    const realStockMap = new Map<string, number>();
-
-    if (variantProductIds.length > 0) {
-      const [pageVariants, pageCombos] = await Promise.all([
-        db.select().from(ProductVariant).where(inArray(ProductVariant.productId, variantProductIds)),
-        db.select().from(ProductVariantCombination).where(inArray(ProductVariantCombination.productId, variantProductIds)),
-      ]);
-
-      const combosByProduct = new Map<string, typeof pageCombos>();
-      for (const c of pageCombos) {
-        if (!combosByProduct.has(c.productId)) combosByProduct.set(c.productId, []);
-        combosByProduct.get(c.productId)!.push(c);
-      }
-      const varsByProduct = new Map<string, typeof pageVariants>();
-      for (const v of pageVariants) {
-        if (!varsByProduct.has(v.productId)) varsByProduct.set(v.productId, []);
-        varsByProduct.get(v.productId)!.push(v);
-      }
-
-      for (const pid of variantProductIds) {
-        const combos = combosByProduct.get(pid) || [];
-        const vars = varsByProduct.get(pid) || [];
-        let total: number;
-        if (combos.length > 0) {
-          total = combos.filter(c => c.isActive).reduce((sum, c) => sum + (c.stock || 0), 0);
-        } else if (vars.length > 0) {
-          total = vars.reduce((sum, v) => sum + (v.stock || 0), 0);
-        } else {
-          total = 0;
-        }
-        realStockMap.set(pid, total);
-      }
-    }
-    
     // Obtener IDs de productos para buscar imágenes
     const productIds = products.map(p => p.id);
     
@@ -303,7 +288,6 @@ export const handler = async ({
       
       return {
         ...product,
-        stock: realStockMap.has(product.id) ? realStockMap.get(product.id)! : product.stock,
         images
       };
     });
