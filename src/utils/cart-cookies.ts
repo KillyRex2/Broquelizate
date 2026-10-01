@@ -5,7 +5,18 @@ import { updateCartStore, clearCartStore } from '@/store';
 
 export class CartCookiesClient {
     static getCart(): CartItem[] {
-        return JSON.parse(Cookies.get('cart') ?? '[]');
+        // Una cookie 'cart' vacía ("") o dañada hacía tronar JSON.parse: no se
+        // podía añadir al carrito y el contador del menú se desmontaba. El
+        // `?? '[]'` solo cubría "no existe", no "vacía". Con una cookie válida
+        // el resultado es el mismo de antes.
+        const raw = Cookies.get('cart');
+        if (!raw) return [];
+        try {
+            const cart = JSON.parse(raw);
+            return Array.isArray(cart) ? cart : [];
+        } catch {
+            return [];
+        }
     }
 
     static addItem(cartItem: CartItem): CartItem[] {
