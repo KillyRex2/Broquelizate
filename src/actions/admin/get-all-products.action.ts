@@ -64,6 +64,8 @@ export const getAllProductsWithImages = defineAction({
 
       // Imágenes por producto, por variante y por combinación
       const imagesByProduct = new Map<string, string[]>();
+      // Imágenes generales: las que no pertenecen a una variante ni a una combinación
+      const generalImagesByProduct = new Map<string, string[]>();
       const imagesByVariant = new Map<string, string[]>();
       const imagesByCombination = new Map<string, string[]>();
       
@@ -84,6 +86,13 @@ export const getAllProductsWithImages = defineAction({
             imagesByProduct.set(image.productId, []);
           }
           imagesByProduct.get(image.productId)!.push(image.image);
+
+          if (!image.variantId && !(image as any).combinationId) {
+            if (!generalImagesByProduct.has(image.productId)) {
+              generalImagesByProduct.set(image.productId, []);
+            }
+            generalImagesByProduct.get(image.productId)!.push(image.image);
+          }
         }
         
         // Imágenes por combinación
@@ -109,8 +118,11 @@ export const getAllProductsWithImages = defineAction({
         const productVariants = variantsByProduct.get(product.id) || [];
         const productCombinations = combinationsByProduct.get(product.id) || [];
         
-        // Obtener todas las imágenes del producto, portada primero
-        let productImages = imagesByProduct.get(product.id) || [];
+        // Obtener todas las imágenes del producto: portada, luego las generales
+        // y al final las de variantes/combinaciones (así la primera nunca es la
+        // foto de una variante cuando el producto tiene fotos propias)
+        const generalImages = generalImagesByProduct.get(product.id) || [];
+        let productImages = [...new Set([...generalImages, ...(imagesByProduct.get(product.id) || [])])];
         
         const coverId = coverImageByProduct.get(product.id);
         if (coverId) {
@@ -139,6 +151,12 @@ export const getAllProductsWithImages = defineAction({
         if (productImages.length === 0) {
           productImages = ['https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'];
         }
+
+        // Imágenes por variante, igual que en el inventario (la primera con su variantId)
+        const variantsWithImages = productVariants.map(variant => ({
+          ...variant,
+          images: imagesByVariant.get(variant.id) || [],
+        }));
         
         // Calcular stock total
         let totalStock = 0;
@@ -177,7 +195,7 @@ export const getAllProductsWithImages = defineAction({
           images: productImages,
           hasVariants: product.hasVariants,
           // Los tipos ya coinciden correctamente con la DB
-          productVariants: productVariants,
+          productVariants: variantsWithImages as any,
           combinations: productCombinations as any,
           customizationFields: (product as any).customizationFields || [],
           allowsEngraving: (product as any).allowsEngraving || false
@@ -197,10 +215,22 @@ export const getAllProductsWithImages = defineAction({
               combinationName = variantNames || null;
             }
             
+            // Igual que el inventario: la imagen con el combinationId de la combinación
+            // (si hubiera varias, el inventario muestra la última).
+            let comboImages = [...(imagesByCombination.get(combo.id) || [])].reverse();
+
+            // Sin foto propia: usar la foto de alguna de sus variantes, si tiene
+            if (comboImages.length === 0) {
+              for (const item of comboItems) {
+                const vImages = imagesByVariant.get(item.variantId) || [];
+                if (vImages.length > 0) { comboImages = vImages; break; }
+              }
+            }
+
             return {
               ...combo,
               combinationName,
-              images: imagesByCombination.get(combo.id) || [],
+              images: comboImages,
             } as any;
           });
         }
