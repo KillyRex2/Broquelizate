@@ -17,6 +17,7 @@
 
 import { db, eq, inArray, sql, Product, ProductVariant, ProductVariantCombination, orders, order_items } from 'astro:db';
 import type { DeliveryMethod } from '@/utils/store';
+import { parseCustomizationFields, getCustomizationExtra } from '@/utils/customization';
 
 export interface IncomingItem {
   productId: string;
@@ -98,9 +99,19 @@ export async function priceItems(items: IncomingItem[]): Promise<PricedItem[]> {
     const refId = item.combinationId || item.variantId || null;
     const combo = refId ? comboById.get(refId) : null;
     const variant = !combo && refId ? variantById.get(refId) : null;
-    const unitPrice = combo
+    const basePrice = combo
       ? toNum(combo.price)
       : toNum(product.price) + (variant ? toNum(variant.priceAdjustment) : 0);
+
+    // Personalización con costo (número de piezas/dijes). La configuración
+    // y el precio por pieza salen de la base; del navegador solo se toma
+    // cuántas piezas eligió.
+    const custom = getCustomizationExtra(
+      parseCustomizationFields((product as any).customizationFields),
+      item.customizationData
+    );
+    if (custom.error) throw new Error(`${product.name}: ${custom.error}`);
+    const unitPrice = basePrice + custom.extra;
 
     // 💡 Cuando entre el sistema de ofertas, el descuento se aplica aquí:
     //    const { price: unitPrice } = getPrice({ price: basePrice, ...product });

@@ -11,6 +11,7 @@ import {
   ProductVariantCombination,
   VariantCombinationItem 
 } from 'astro:db';
+import { parseCustomizationFields, getCustomizationExtra } from '@/utils/customization';
 
 export const loadProductsFromCart = defineAction({
     input: z.any().optional(),
@@ -179,6 +180,14 @@ export const loadProductsFromCart = defineAction({
                 variantPrice = finalPrice;
             }
 
+            // Costo extra por personalización (número de piezas/dijes), igual
+            // que lo cobra el servidor en el checkout. Si el valor no es válido
+            // aquí no se suma nada; el checkout lo rechaza con su mensaje.
+            const { extra } = getCustomizationExtra(
+                parseCustomizationFields((dbProduct as any).customizationFields),
+                item.customizationValues
+            );
+
             // ✅ RETORNAR OBJETO COMPLETO CON IMAGEN DE VARIANTE
             return {
                 productId: item.productId,
@@ -193,8 +202,8 @@ export const loadProductsFromCart = defineAction({
                 // ✅ Imagen de variante (opcional)
                 variantImage: formattedVariantImage,
                 
-                price: basePrice,
-                variantPrice: variantPrice,
+                price: basePrice + extra,
+                variantPrice: variantPrice !== undefined ? variantPrice + extra : undefined,
                 
                 variantId: item.variantId,
                 combinationId: item.combinationId,

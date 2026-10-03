@@ -14,7 +14,7 @@ const userName = session?.user?.name || '';
 const isAuthenticated = !!session?.user;
 
 const cartCookie = Astro.cookies.get('cart');
-let cartItems: Array<{ productId: string; quantity: number; variantId?: string; combinationId?: string; engraving?: { id: string; imageUrl: string; notes: string } }> = [];
+let cartItems: Array<{ productId: string; quantity: number; variantId?: string; combinationId?: string; customizationValues?: Array<{ fieldId: string; label: string; type: string; value: string }>; engraving?: { id: string; imageUrl: string; notes: string } }> = [];
 try {
   if (cartCookie?.value) {
     cartItems = JSON.parse(cartCookie.value);
@@ -44,6 +44,11 @@ const productsData = products.map(p => {
     id: p.productId, name: p.name, price: p.variantPrice ?? p.price, quantity: p.quantity,
     image: p.variantImage || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null,
     engraving: cartItem?.engraving || null,
+    // Personalización elegida (texto, tipografía, número de piezas...). Llega
+    // al pedido y el servidor cobra con ella las piezas extra.
+    customizationData: Array.isArray(cartItem?.customizationValues) && cartItem.customizationValues.length > 0
+      ? cartItem.customizationValues
+      : null,
     // El servidor recalcula el precio con esto (combinación o variante suelta)
     combinationId: p.combinationId || null,
     variantId: p.variantId || null,
@@ -606,7 +611,7 @@ const productsData = products.map(p => {
     deliveryDays: number; postalCode: string; cartKey?: string; savedAt?: number;
     quoteId?: string;          // cotización guardada en el servidor (envío a domicilio)
   }
-  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; combinationId?: string | null; variantId?: string | null; }
+  interface CartProduct { id: string; name: string; price: number; quantity: number; image?: string; variantCombination?: string; variantSku?: string; engraving?: { id: string; imageUrl: string; notes: string } | null; combinationId?: string | null; variantId?: string | null; customizationData?: unknown[] | null; }
 
   const Formatter = { currency: (value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value) };
   function getCarrierIcon(c: string): string { const i: Record<string, string> = { 'fedex': '🚚', 'dhl': '📦', 'estafeta': '📫', 'redpack': '🔴', 'ups': '🟤', 'paquetexpress': '📬', '99minutos': '⚡', 'sendex': '✉️' }; return i[c.toLowerCase()] || '📦'; }
@@ -835,6 +840,7 @@ const productsData = products.map(p => {
             variantId: p.variantId ?? null,
             variantCombination: p.variantCombination ?? null,
             variantSku: p.variantSku ?? null,
+            customizationData: p.customizationData ?? null,
             image: p.image,
           })),
         }),
@@ -855,7 +861,7 @@ const productsData = products.map(p => {
     const pd = $('products-data'), pi = $('products-images'), txd = $('tax-data'), td = $('total-data');
     if (!pd || !txd || !td) return null;
     const rpd = JSON.parse(pd.textContent || '[]'), pim = pi ? JSON.parse(pi.textContent || '[]') : [], txv = parseFloat(txd.textContent || '0'), tv = parseFloat(td.textContent || '0'), sv = selectedShipping?.price || 0;
-    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null }));
+    const pdata: CartProduct[] = rpd.map((p: any, i: number) => ({ id: p.id || '', name: p.name || '', price: p.price || 0, quantity: p.quantity || 1, image: pim[i] || p.image || '', variantCombination: p.variantCombination || null, variantSku: p.variantSku || null, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null, customizationData: p.customizationData || null }));
     return { productsData: pdata, taxValue: txv, totalValue: tv, shippingValue: sv };
   }
 
@@ -911,7 +917,7 @@ const productsData = products.map(p => {
       deliveryMethod: deliveryMethod(),
       shippingAddress: getShippingAddress(),
       shippingInfo: getShippingInfo(),
-      products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null })),
+      products: d.productsData.map((p: CartProduct) => ({ id: p.id, name: p.name, price: p.price, quantity: p.quantity, variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId || null, variantId: p.variantId || null, customizationData: p.customizationData || null })),
       subtotal: d.totalValue - d.shippingValue, shippingCost: d.shippingValue, tax: d.taxValue, total: d.totalValue,
       paymentMethod: pm, paymentIntentId: piid || null, clientId: null,
       channel: 'online',
@@ -928,7 +934,7 @@ const productsData = products.map(p => {
     // El servidor calcula el monto con esto; `total` solo sirve para avisar si cambió
     return {
       total: d.totalValue,
-      products: d.productsData.map((p: CartProduct) => ({ id: p.id, quantity: p.quantity, combinationId: p.combinationId ?? null, variantId: p.variantId ?? null })),
+      products: d.productsData.map((p: CartProduct) => ({ id: p.id, quantity: p.quantity, combinationId: p.combinationId ?? null, variantId: p.variantId ?? null, customizationData: p.customizationData ?? null })),
       deliveryMethod: deliveryMethod(),
       shippingInfo: getShippingInfo(),
       postalCode: isPickup() ? undefined : val('postal-code'),
@@ -1008,7 +1014,7 @@ const productsData = products.map(p => {
 </script>
 
 
-<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId, variantId: p.variantId })))}</div>
+<div id="products-data" class="hidden">{JSON.stringify(productsData.map(p => ({ id: p.id || "", name: p.name, price: p.price, quantity: p.quantity, image: p.image || '', variantCombination: p.variantCombination, variantSku: p.variantSku, engraving: p.engraving || null, combinationId: p.combinationId, variantId: p.variantId, customizationData: p.customizationData })))}</div>
 <div id="products-images" class="hidden">{JSON.stringify(products.map(p => p.variantImage || p.image || ''))}</div>
 <div id="tax-data" class="hidden">{tax}</div>
 <div id="total-data" class="hidden">{total}</div>
