@@ -149,7 +149,11 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <div class="sm:col-span-2">
               <label for="stock" class="form-label">Inventario Base</label>
               <input id="stock" name="stock" type="number" value={product.stock} required class="form-input" />
-              <span class="text-xs text-slate-500 mt-1 block">Stock general del producto sin variantes</span>
+              <span id="stock-help" class={`text-xs text-slate-500 mt-1 block ${product.hasVariants ? 'hidden' : ''}`}>Stock general del producto sin variantes</span>
+              <div id="stock-variants-warning" role="note" class={`mt-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs md:text-sm text-amber-900 ${product.hasVariants ? '' : 'hidden'}`}>
+                <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <p class="m-0">Este producto tiene variantes: <strong>en la tienda cuenta el stock de cada combinación</strong> (o de cada variante), no este número. Cámbialo en <a href="#variants-container" class="font-semibold underline">Variantes → Combinaciones</a>.</p>
+              </div>
             </div>
             <div>
               <label for="category" class="form-label">Material</label>
@@ -1259,6 +1263,11 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     // =====================================================
     if (hasVariantsCheckbox && variantsContainer) {
       hasVariantsCheckbox.addEventListener('change', () => { variantsContainer.classList.toggle('hidden', !hasVariantsCheckbox.checked); });
+      // Aviso junto al Inventario Base: con variantes ese número no se usa en la tienda
+      hasVariantsCheckbox.addEventListener('change', () => {
+        document.getElementById('stock-variants-warning')?.classList.toggle('hidden', !hasVariantsCheckbox.checked);
+        document.getElementById('stock-help')?.classList.toggle('hidden', hasVariantsCheckbox.checked);
+      });
     }
 
     // =====================================================
@@ -1635,8 +1644,55 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const slugInput = document.getElementById('slug') as HTMLInputElement;
     if (nameInput && slugInput && isCreate) { nameInput.addEventListener('input', () => { slugInput.value = nameInput.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }); }
 
+    // ── Aviso: cambiar solo el Inventario Base de un producto con variantes ──
+    // Con variantes, la tienda usa el stock de las combinaciones (o de la
+    // variante, si hay un solo grupo). Cambiar solo el Inventario Base no
+    // cambia nada de cara al cliente y el producto puede seguir "Agotado".
+    const baseStockInput = document.getElementById('stock') as HTMLInputElement | null;
+    const initialBaseStock = baseStockInput?.value ?? '';
+    let variantStockTouched = false;
+    document.querySelectorAll('.combination-stock-input').forEach(input => {
+      input.addEventListener('change', () => { variantStockTouched = true; });
+    });
+
+    /** Stock que verá el cliente según las variantes (mismo criterio que la tienda). */
+    function variantStockTotal(): number | null {
+      const combos = Array.from(document.querySelectorAll<HTMLInputElement>('.combination-stock-input'));
+      if (combos.length > 0) return combos.reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+      const groups = Array.from(document.querySelectorAll<HTMLElement>('.edit-variant-group'));
+      if (groups.length === 0) return null;
+      if (groups.length > 1) return 0; // varios grupos sin combinaciones generadas
+      try {
+        const options = JSON.parse(groups[0].dataset.variants || '[]');
+        return options.reduce((s: number, o: any) => s + (Number(o.stock) || 0), 0);
+      } catch { return null; }
+    }
+
+    async function confirmBaseStockOnly(): Promise<boolean> {
+      if (isCreate || !hasVariantsCheckbox?.checked || !baseStockInput) return true;
+      if (baseStockInput.value === initialBaseStock || variantStockTouched) return true;
+
+      const total = variantStockTotal();
+      const totalText = total === null ? '' : ` (hoy suman ${total})`;
+      const soldOut = total === 0 ? ' Así como está, en la tienda se verá <strong>agotado</strong>.' : '';
+      const ok = await Confirm.show({
+        title: 'Solo cambiaste el Inventario Base',
+        message: `Este producto tiene variantes: la tienda usa el stock de sus combinaciones${totalText}, no el Inventario Base.${soldOut} Actualiza el stock en Variantes → Combinaciones.`,
+        confirmText: 'Guardar de todos modos',
+        cancelText: 'Ir a combinaciones',
+        type: 'warning',
+      });
+      if (!ok) {
+        const target = document.querySelector<HTMLInputElement>('.combination-stock-input') || document.getElementById('variants-container');
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (target instanceof HTMLInputElement) setTimeout(() => target.focus(), 400);
+      }
+      return ok;
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault(); if (isProcessing) return;
+      if (!(await confirmBaseStockOnly())) return;
       const saveButton = document.getElementById('save-button') as HTMLButtonElement; if (!saveButton) return;
       isProcessing = true; saveButton.disabled = true; saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
       const loadingId = Toast.loading(isCreate ? 'Creando producto...' : 'Guardando cambios...');
