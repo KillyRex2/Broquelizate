@@ -45,7 +45,7 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           priceAdjustment: combo.price - product.price,
           cost: combo.cost || null,
           stock: combo.stock,
-          images: (combo as any).images || product.images,
+          images: (combo as any).images?.length ? (combo as any).images : product.images,
           finalPrice: combo.price
         });
       }
@@ -61,7 +61,7 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           priceAdjustment: variant.priceAdjustment,
           cost: variant.cost ?? null,
           stock: variant.stock,
-          images: product.images,
+          images: (variant as any).images?.length ? (variant as any).images : product.images,
           finalPrice: product.price + variant.priceAdjustment
         });
       });
