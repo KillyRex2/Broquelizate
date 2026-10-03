@@ -6,7 +6,7 @@
 // Renderiza campos de texto, imagen y selección configurados por el admin
 
 import type { CustomizationField } from '@/utils/customization';
-import { parseCustomizationFields } from '@/utils/customization';
+import { parseCustomizationFields, findPiecesField, piecesConfig } from '@/utils/customization';
 
 interface Props {
   productId: string;
@@ -23,6 +23,13 @@ if (fields.length === 0) return null;
 const hasImageFields = fields.some(f => f.type === 'image');
 const hasTextFields = fields.some(f => f.type === 'text');
 const hasSelectFields = fields.some(f => f.type === 'select');
+
+// Número de piezas/dijes: solo cuenta el primer campo de ese tipo
+const piecesField = findPiecesField(fields);
+const pieces = piecesField ? piecesConfig(piecesField) : null;
+const pieceOptions = pieces ? Array.from({ length: pieces.max - pieces.min + 1 }, (_, i) => pieces.min + i) : [];
+const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: n % 1 ? 2 : 0 }).format(n);
+const pieceWord = (n: number) => (n === 1 ? 'pieza' : 'piezas');
 
 // Catálogo de fuentes — debe coincidir con el del admin
 const FONT_MAP: Record<string, { family: string; fallback: string; url: string }> = {
@@ -108,12 +115,37 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
               </svg>
             )}
+            {field.type === 'pieces' && (
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="6" cy="12" r="2.5" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke-width="2"/><circle cx="18" cy="12" r="2.5" stroke-width="2"/>
+              </svg>
+            )}
             <span>{field.label}</span>
             {field.required && <span class="req-star">*</span>}
           </label>
 
           {/* Campo de texto */}
-          {field.type === 'text' && (
+          {field.type === 'text' && field.perPiece && pieces && (
+            <div class="piece-inputs" data-piece-inputs-for={field.id}>
+              {Array.from({ length: pieces.max }, (_, i) => (
+                <label class={`piece-input-row ${i >= pieces.min ? 'hidden' : ''}`} data-piece-row={i + 1}>
+                  <span class="piece-input-tag">{i + 1}</span>
+                  <input
+                    type="text"
+                    class="cust-text-input cust-piece-input"
+                    data-field-id={field.id}
+                    data-piece={i + 1}
+                    placeholder={field.placeholder || `Texto de la pieza ${i + 1}`}
+                    maxlength={field.maxLength || 100}
+                    aria-label={`${field.label} · pieza ${i + 1}`}
+                  />
+                </label>
+              ))}
+              <p class="piece-inputs-hint">Máx. {field.maxLength || 100} caracteres por pieza</p>
+            </div>
+          )}
+
+          {field.type === 'text' && !(field.perPiece && pieces) && (
             <div class="text-field-wrap">
               <input 
                 type="text" 
@@ -213,6 +245,33 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Número de piezas / dijes: cada pieza extra suma al precio */}
+          {field.type === 'pieces' && field === piecesField && pieces && (
+            <div class="pieces-field-wrap">
+              <div class="pieces-options" role="radiogroup" aria-label={field.label} data-pieces-for={field.id}>
+                {pieceOptions.map(n => (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={n === pieces.min ? 'true' : 'false'}
+                    class={`pieces-btn ${n === pieces.min ? 'selected' : ''}`}
+                    data-field-id={field.id}
+                    data-pieces={n}
+                  >
+                    <span class="pieces-num">{n}</span>
+                    <span class="pieces-price">
+                      {n === pieces.min || pieces.price === 0 ? 'Incluido' : `+${money((n - pieces.min) * pieces.price)}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p class="pieces-note">
+                El precio incluye {pieces.min} {pieceWord(pieces.min)}
+                {pieces.price > 0 && <> · cada pieza extra <strong>+{money(pieces.price)}</strong></>}
+              </p>
             </div>
           )}
 
@@ -429,6 +488,25 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
 .select-dot { width: 18px; height: 18px; border: 2px solid rgba(0, 0, 0, 0.18); border-radius: 50%; flex-shrink: 0; position: relative; transition: all 0.2s; background: rgba(255,255,255,0.8); }
 .select-option-btn.selected .select-dot { border-color: var(--gold-2); background: linear-gradient(135deg, var(--gold), var(--gold-2)); }
 .select-option-btn.selected .select-dot::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 7px; height: 7px; background: #fff; border-radius: 50%; }
+/* --- Pieces (número de dijes) --- */
+.pieces-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.pieces-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 64px; padding: 10px 14px; background: rgba(255, 255, 255, 0.55); border: none; box-shadow: var(--lg-thickness); border-radius: 16px; color: var(--txt); cursor: pointer; font-family: inherit; transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1); }
+.pieces-btn:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-2px); }
+.pieces-btn:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
+.pieces-btn.selected { background: rgba(234, 179, 8, 0.2); box-shadow: var(--lg-thickness), 0 0 0 2px rgba(234, 179, 8, 0.6); }
+.pieces-num { font-size: 1.15rem; font-weight: 700; line-height: 1.1; }
+.pieces-price { font-size: 0.68rem; font-weight: 600; color: var(--txt-3); white-space: nowrap; }
+.pieces-btn.selected .pieces-price { color: var(--gold-deep); }
+.pieces-note { font-size: 0.76rem; color: var(--txt-2); margin: 10px 0 0; }
+.pieces-note strong { color: var(--gold-deep); }
+
+/* Texto por pieza */
+.piece-inputs { display: flex; flex-direction: column; gap: 8px; }
+.piece-input-row { display: flex; align-items: center; gap: 10px; animation: cust-fadeIn 0.3s ease-out; }
+.piece-input-row.hidden { display: none; }
+.piece-input-tag { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(234, 179, 8, 0.18); color: var(--gold-deep); font-size: 0.78rem; font-weight: 700; }
+.piece-inputs-hint { font-size: 0.7rem; color: var(--txt-3); margin: 2px 0 0; text-align: right; }
+
 /* --- Field Error --- */
 .field-error { font-size: 0.78rem; color: #b91c1c; margin: 8px 0 0; padding: 0 4px; }
 .field-error.hidden { display: none; }
@@ -450,7 +528,8 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .select-option-btn, .img-change-btn, .img-remove-btn, .img-drop-zone, .img-upload-icon { transition: none; }
+  .select-option-btn, .img-change-btn, .img-remove-btn, .img-drop-zone, .img-upload-icon, .pieces-btn { transition: none; }
+  .piece-input-row { animation: none; }
 }
 
 /* --- Responsive --- */
@@ -472,6 +551,7 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
 <script>
   import { actions } from "astro:actions";
   import type { CustomizationField, CustomizationValue } from "@/utils/customization";
+  import { findPiecesField, piecesConfig } from "@/utils/customization";
 
   function setupCustomization(): void {
     const section = document.getElementById('customization-section');
@@ -494,9 +574,25 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
     const uploadedImages: Record<string, string> = {};
     let isUploading = false;
 
+    // --- Número de piezas ---
+    const piecesField = findPiecesField(fields);
+    const piecesCfg = piecesField ? piecesConfig(piecesField) : null;
+    let currentPieces = piecesCfg ? piecesCfg.min : 1;
+
+    // Avisa a la ficha del producto cuánto suma la personalización al precio.
+    // Solo cuenta con "Personalizar" activado (si no, no se manda nada al carrito).
+    function emitExtra(): void {
+      const extra = toggleCheck.checked && piecesCfg
+        ? (currentPieces - piecesCfg.min) * piecesCfg.price
+        : 0;
+      section!.dataset.extra = String(extra);
+      section!.dispatchEvent(new CustomEvent('cust:extra', { bubbles: true, detail: { extra } }));
+    }
+
     // --- Toggle ---
     toggleCheck.addEventListener('change', () => {
       content.classList.toggle('collapsed', !toggleCheck.checked);
+      emitExtra();
     });
 
     // --- Sync ---
@@ -506,7 +602,7 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
     }
 
     // --- TEXT FIELDS ---
-    document.querySelectorAll('.cust-text-input').forEach(input => {
+    document.querySelectorAll('.cust-text-input:not(.cust-piece-input)').forEach(input => {
       const el = input as HTMLInputElement;
       const fieldId = el.dataset.fieldId!;
       const field = fields.find(f => f.id === fieldId);
@@ -519,6 +615,57 @@ fields.filter(f => f.type === 'select' && f.options).forEach(f => {
         syncValues();
       });
     });
+
+    // --- TEXT POR PIEZA ---
+    // Un input por pieza; se guarda en un solo valor: "Pieza 1: Ana | Pieza 2: Luis"
+    function syncPieceText(field: CustomizationField): void {
+      const parts: string[] = [];
+      section!.querySelectorAll<HTMLInputElement>(`.cust-piece-input[data-field-id="${field.id}"]`).forEach(inp => {
+        const n = Number(inp.dataset.piece);
+        const text = inp.value.trim();
+        if (n <= currentPieces && text) parts.push(`Pieza ${n}: ${text}`);
+      });
+      if (parts.length > 0) values[field.id] = { fieldId: field.id, label: field.label, type: 'text', value: parts.join(' | ') };
+      else delete values[field.id];
+    }
+
+    const perPieceFields = piecesCfg ? fields.filter(f => f.type === 'text' && f.perPiece) : [];
+    perPieceFields.forEach(field => {
+      section!.querySelectorAll<HTMLInputElement>(`.cust-piece-input[data-field-id="${field.id}"]`).forEach(inp => {
+        inp.addEventListener('input', () => { syncPieceText(field); syncValues(); });
+      });
+    });
+
+    // --- PIECES FIELD ---
+    if (piecesField && piecesCfg) {
+      values[piecesField.id] = { fieldId: piecesField.id, label: piecesField.label, type: 'pieces', value: String(currentPieces) };
+
+      section.querySelectorAll<HTMLButtonElement>(`.pieces-btn[data-field-id="${piecesField.id}"]`).forEach(btn => {
+        btn.addEventListener('click', () => {
+          const n = Number(btn.dataset.pieces);
+          if (!Number.isFinite(n)) return;
+          currentPieces = n;
+
+          section!.querySelectorAll('.pieces-btn').forEach(b => {
+            const on = b === btn;
+            b.classList.toggle('selected', on);
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+          });
+
+          // Mostrar tantos campos de texto como piezas
+          section!.querySelectorAll<HTMLElement>('.piece-input-row').forEach(row => {
+            row.classList.toggle('hidden', Number(row.dataset.pieceRow) > currentPieces);
+          });
+
+          values[piecesField.id] = { fieldId: piecesField.id, label: piecesField.label, type: 'pieces', value: String(n) };
+          perPieceFields.forEach(syncPieceText);
+          syncValues();
+          emitExtra();
+        });
+      });
+      syncValues();
+    }
+    emitExtra();
 
     // --- SELECT FIELDS ---
     document.querySelectorAll('.select-option-btn').forEach(btn => {

@@ -5,6 +5,7 @@ import { db, orders, order_items } from 'astro:db';
 import { eq } from 'drizzle-orm';
 import { actions } from 'astro:actions';
 import { normalizeExtras } from '@/utils/pos-extra';
+import { parseCustomizationData } from '@/utils/customization';
 
 interface ShippingAddress {
   streetAddress: string;
@@ -31,7 +32,12 @@ const items = rawItems.map(item => {
         : (item as any).engraving;
     } catch (e) { console.warn('Error parseando engraving:', e); }
   }
-  return { ...item, engraving: engravingData };
+  // Personalización que eligió el cliente (texto, tipografía, número de piezas...)
+  const customization = parseCustomizationData((item as any).customizationData)
+    .filter(cv => cv && String(cv.value ?? '').trim() !== '')
+    // la imagen del grabado ya se muestra en su propio bloque
+    .filter(cv => !(cv.type === 'image' && engravingData?.imageUrl === cv.value));
+  return { ...item, engraving: engravingData, customization };
 });
 
 const engravingItems = items.filter(i => i.engraving);
@@ -189,6 +195,18 @@ const statusLabels: Record<string, string> = {
                     </div>
                     <a href={item.engraving.imageUrl} target="_blank" class="engrave-link">Ver imagen</a>
                   </div>
+                )}
+                {item.customization.length > 0 && (
+                  <ul class="cust-list">
+                    {item.customization.map(cv => (
+                      <li class="cust-row">
+                        <span class="cust-label">{cv.label}:</span>
+                        {cv.type === 'image'
+                          ? <a href={cv.value} target="_blank" rel="noopener" class="cust-link">Ver imagen</a>
+                          : <span class="cust-value">{cv.type === 'pieces' ? `${cv.value} ${cv.value === '1' ? 'pieza' : 'piezas'}` : cv.value}</span>}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </li>
             ))}
@@ -653,6 +671,11 @@ const statusLabels: Record<string, string> = {
     .item-total { font-weight: 700; color: var(--txt); margin: 0; }
     .item-unit { font-size: 0.8rem; color: var(--txt-faint); margin: 2px 0 0; }
 
+    .cust-list { list-style: none; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.18); display: flex; flex-direction: column; gap: 4px; }
+    .cust-row { display: flex; gap: 6px; font-size: 0.82rem; line-height: 1.35; }
+    .cust-label { color: var(--txt-faint); flex-shrink: 0; }
+    .cust-value { color: var(--txt); font-weight: 600; overflow-wrap: anywhere; }
+    .cust-link { color: var(--gold-soft); font-weight: 700; }
     .engrave-chip { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px; border-radius: 12px; background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.18); }
     .engrave-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234,179,8,0.3); flex-shrink: 0; }
     .engrave-info { flex: 1; min-width: 0; }

@@ -33,6 +33,9 @@ export class CartCookiesClient {
             // Si existe el mismo producto con la misma variante, actualizar cantidad
             cart[existingIndex].quantity = cartItem.quantity;
             cart[existingIndex].engraving = cartItem.engraving; 
+            // La personalización también se reemplaza por la última elegida
+            // (si no, el número de piezas y su precio quedaban con el valor viejo)
+            cart[existingIndex].customizationValues = cartItem.customizationValues;
         } else {
             // Si no existe o es una variante diferente, agregar como nuevo item
             cart.push(cartItem);

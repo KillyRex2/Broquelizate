@@ -1023,10 +1023,27 @@ let relatedProducts: any[] = [];
     let selectedVariants: Record<string, string> = {};
     let isAddingToCart = false;
 
+    // Lo que suma la personalización (piezas/dijes extra). Lo calcula
+    // ProductCustomization y avisa con el evento 'cust:extra'.
+    const custSection = document.getElementById('customization-section');
+    let customizationExtra = Number(custSection?.dataset.extra) || 0;
+
     // Utilidades
     const formatCurrency = (value: number): string => {
       return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
     };
+
+    function renderPrice(): void {
+      if (!priceElement) return;
+      const unit = hasVariants && currentCombination ? currentCombination.price : basePrice;
+      priceElement.textContent = formatCurrency(unit + customizationExtra);
+    }
+
+    custSection?.addEventListener('cust:extra', (e) => {
+      customizationExtra = Number((e as CustomEvent).detail?.extra) || 0;
+      renderPrice();
+    });
+    if (customizationExtra) renderPrice();
 
     function showMessage(message: string, type: 'info' | 'error' | 'success' = 'info'): void {
       if (!variantMessage) return;
@@ -1098,7 +1115,7 @@ let relatedProducts: any[] = [];
         sku: combo.sku,
       };
 
-      if (priceElement) priceElement.textContent = formatCurrency(combo.price);
+      renderPrice();
 
       if (stockLine) {
         const isInStock = combo.stock > 0;
