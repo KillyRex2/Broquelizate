@@ -2,6 +2,46 @@
 // No se necesita lógica aquí, es un componente de presentación.
 ---
 
+<style is:global>
+/* --- Notificaciones (global: los avisos se pintan con JS y no llevan
+   el atributo de estilos con alcance de Astro) --- */
+.notif-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 1.15rem; height: 1.15rem; padding: 0 0.3rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9999px; background: #ef4444; color: #fff;
+  font-size: 0.68rem; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 0 2px #1E1E1E;
+}
+.notif-badge.hidden { display: none; }
+.notif-badge.pulse { animation: notif-pulse 1.2s ease-out 2; }
+@keyframes notif-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+.notif-panel {
+  position: absolute; right: 0; top: calc(100% + 10px);
+  width: 22rem; max-width: calc(100vw - 1.5rem);
+  background: #1E1E1E; color: #fff;
+  border: 1px solid rgba(243, 212, 38, 0.45); border-radius: 14px;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  overflow: hidden; z-index: 60;
+}
+.notif-panel.hidden { display: none; }
+.notif-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.85rem; font-weight: 700; }
+.notif-all { color: #F3D426; font-size: 0.78rem; font-weight: 600; }
+.notif-all:hover { text-decoration: underline; }
+.notif-list { max-height: 22rem; overflow-y: auto; margin: 0; padding: 4px 0; list-style: none; }
+.notif-empty { padding: 22px 14px; text-align: center; font-size: 0.82rem; color: rgba(255, 255, 255, 0.55); }
+.notif-item { display: flex; gap: 10px; padding: 10px 14px; text-decoration: none; color: inherit; transition: background 0.15s; }
+.notif-item:hover, .notif-item:focus-visible { background: rgba(243, 212, 38, 0.1); outline: none; }
+.notif-icon { width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(243, 212, 38, 0.15); color: #F3D426; }
+.notif-icon.pickup { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-title { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; }
+.notif-new { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+.notif-sub { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-time { font-size: 0.7rem; color: rgba(255, 255, 255, 0.4); margin-top: 2px; }
+</style>
+
 <style>
 .switch {
   position: relative;
@@ -86,12 +126,33 @@
     
     <!-- Iconos y Avatar -->
     <div class="flex items-center space-x-2 md:space-x-6">
-      <!-- Botón de notificaciones - Oculto en móvil pequeño -->
-      <button class="hidden sm:block p-2 rounded-full bg-[#1E1E1E] text-white hover:bg-[#333333] transition-shadow shadow-lg">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-      </button>
+      <!-- Notificaciones: compras en línea que esperan guía / preparación -->
+      <div class="relative" id="notif-root">
+        <button
+          id="notif-btn"
+          type="button"
+          class="relative block p-2 rounded-full bg-[#1E1E1E] text-white hover:bg-[#333333] transition-shadow shadow-lg"
+          aria-label="Notificaciones"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="notif-panel"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span id="notif-badge" class="notif-badge hidden" aria-live="polite"></span>
+        </button>
+
+        <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Notificaciones">
+          <div class="notif-head">
+            <span>Pedidos por atender</span>
+            <a href="/admin/orders" class="notif-all">Ver pedidos</a>
+          </div>
+          <ul id="notif-list" class="notif-list">
+            <li class="notif-empty">Cargando…</li>
+          </ul>
+        </div>
+      </div>
       
       <button class="flex items-center focus:outline-none space-x-1 md:space-x-3">
         <img 
@@ -104,3 +165,203 @@
     </div>
   </div>
 </header>
+<script>
+  import { actions } from 'astro:actions';
+  import { navigate } from 'astro:transitions/client';
+  import { toast } from 'sonner';
+
+  type Notif = { id: string; orderNumber: string; createdAt: string; total: number; customer: string; kind: 'label' | 'pickup' };
+
+  const POLL_MS = 60_000;
+  const SEEN_KEY = 'admin-notif-seen';     // abiertos en la campanita (por navegador)
+  const KNOWN_KEY = 'admin-notif-known';   // ya avisados con toast (por sesión)
+
+  let timer: number | undefined;
+  let listeners: AbortController | undefined;
+
+  const readSet = (store: Storage, key: string): Set<string> => {
+    try { return new Set(JSON.parse(store.getItem(key) || '[]')); } catch { return new Set(); }
+  };
+  const writeSet = (store: Storage, key: string, set: Set<string>) => {
+    try { store.setItem(key, JSON.stringify([...set].slice(-200))); } catch {}
+  };
+
+  const money = (n: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+  const ago = (iso: string) => {
+    const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (min < 1) return 'hace un momento';
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `hace ${h} h`;
+    const d = Math.round(h / 24);
+    return `hace ${d} ${d === 1 ? 'día' : 'días'}`;
+  };
+
+  const ICON_BOX = '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>';
+  const ICON_STORE = '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1-5h16l1 5M3 9h18M3 9v11h18V9M9 20v-6h6v6"/></svg>';
+
+  function render(items: Notif[]) {
+    const list = document.getElementById('notif-list');
+    const badge = document.getElementById('notif-badge');
+    if (!list || !badge) return;
+
+    const seen = readSet(localStorage, SEEN_KEY);
+    const unseen = items.filter(i => !seen.has(i.id)).length;
+
+    // El número es lo pendiente; se ve aunque ya lo hayas abierto, hasta que generes la guía
+    badge.textContent = items.length > 9 ? '9+' : String(items.length);
+    badge.classList.toggle('hidden', items.length === 0);
+    badge.setAttribute('aria-label', `${items.length} pedidos por atender${unseen ? `, ${unseen} nuevos` : ''}`);
+
+    list.replaceChildren();
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'notif-empty';
+      li.textContent = 'Todo al día: no hay pedidos esperando guía.';
+      list.append(li);
+      return;
+    }
+
+    for (const n of items) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.className = 'notif-item';
+      a.href = `/admin/orders/${encodeURIComponent(n.id)}`;
+
+      const icon = document.createElement('span');
+      icon.className = `notif-icon ${n.kind === 'pickup' ? 'pickup' : ''}`;
+      icon.innerHTML = n.kind === 'pickup' ? ICON_STORE : ICON_BOX; // SVG fijo, sin datos del cliente
+
+      const body = document.createElement('div');
+      body.className = 'notif-body';
+
+      const title = document.createElement('div');
+      title.className = 'notif-title';
+      if (!seen.has(n.id)) {
+        const dot = document.createElement('span');
+        dot.className = 'notif-new';
+        title.append(dot);
+      }
+      title.append(n.kind === 'pickup' ? 'Preparar para recoger' : 'Generar guía de envío');
+
+      // textContent: el nombre lo escribe el cliente, no se mete como HTML
+      const sub = document.createElement('div');
+      sub.className = 'notif-sub';
+      sub.textContent = `${n.orderNumber} · ${n.customer} · ${money(n.total)}`;
+
+      const time = document.createElement('div');
+      time.className = 'notif-time';
+      time.textContent = ago(n.createdAt);
+
+      body.append(title, sub, time);
+      a.append(icon, body);
+      li.append(a);
+      list.append(li);
+    }
+  }
+
+  function announceNew(items: Notif[]) {
+    const known = readSet(sessionStorage, KNOWN_KEY);
+    const firstRun = known.size === 0 && sessionStorage.getItem(KNOWN_KEY) === null;
+    const seen = readSet(localStorage, SEEN_KEY);
+
+    // Al abrir el admin se avisa de lo que aún no has visto; después, solo de lo nuevo
+    const fresh = items.filter(i => !known.has(i.id) && (!firstRun || !seen.has(i.id)));
+    items.forEach(i => known.add(i.id));
+    writeSet(sessionStorage, KNOWN_KEY, known);
+    if (fresh.length === 0) return;
+
+    document.getElementById('notif-badge')?.classList.add('pulse');
+    if (fresh.length === 1) {
+      const n = fresh[0];
+      toast(n.kind === 'pickup' ? '🛍️ Nueva compra para recoger en tienda' : '📦 Nueva compra: genera la guía', {
+        description: `${n.orderNumber} · ${n.customer} · ${money(n.total)}`,
+        duration: 10000,
+        action: { label: 'Ver pedido', onClick: () => navigate(`/admin/orders/${encodeURIComponent(n.id)}`) },
+      });
+    } else {
+      toast(`📦 ${fresh.length} compras nuevas por atender`, {
+        description: 'Abre la campanita para generar sus guías.',
+        duration: 10000,
+      });
+    }
+  }
+
+  async function refresh() {
+    try {
+      const { data, error } = await actions.getAdminNotifications();
+      if (error || !data) return;
+      render(data.items);
+      announceNew(data.items);
+    } catch {
+      // Sin red: se intenta en la siguiente vuelta
+    }
+  }
+
+  function setup() {
+    const root = document.getElementById('notif-root');
+    const btn = document.getElementById('notif-btn');
+    const panel = document.getElementById('notif-panel');
+    if (!root || !btn || !panel || root.dataset.ready) return;
+    root.dataset.ready = '1';
+
+    const close = () => {
+      panel.classList.add('hidden');
+      btn.setAttribute('aria-expanded', 'false');
+    };
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const opening = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !opening);
+      btn.setAttribute('aria-expanded', String(opening));
+      document.getElementById('notif-badge')?.classList.remove('pulse');
+      if (!opening) {
+        // Al cerrar: lo que estaba en la lista ya se vio (se quitan los puntos rojos)
+        const seen = readSet(localStorage, SEEN_KEY);
+        document.querySelectorAll<HTMLAnchorElement>('#notif-list .notif-item').forEach(a => {
+          const id = decodeURIComponent(a.pathname.split('/').pop() || '');
+          if (id) seen.add(id);
+        });
+        writeSet(localStorage, SEEN_KEY, seen);
+        refresh();
+      }
+    });
+
+    panel.addEventListener('click', (e) => {
+      const link = (e.target as HTMLElement).closest('a.notif-item') as HTMLAnchorElement | null;
+      if (!link) return;
+      const seen = readSet(localStorage, SEEN_KEY);
+      seen.add(decodeURIComponent(link.pathname.split('/').pop() || ''));
+      writeSet(localStorage, SEEN_KEY, seen);
+      close();
+    });
+
+    // Escuchas del documento: se quitan al cambiar de página (el header se vuelve a pintar)
+    listeners?.abort();
+    listeners = new AbortController();
+    const { signal } = listeners;
+    document.addEventListener('click', (e) => {
+      if (!root.contains(e.target as Node)) close();
+    }, { signal });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.classList.contains('hidden')) { close(); btn.focus(); }
+    }, { signal });
+
+    // Pequeña espera para que el Toaster (isla de React) ya esté montado
+    window.setTimeout(refresh, 800);
+    window.clearInterval(timer);
+    timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, POLL_MS);
+  }
+
+  document.addEventListener('astro:page-load', setup);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && document.getElementById('notif-root')) refresh();
+  });
+  document.addEventListener('astro:before-swap', () => {
+    window.clearInterval(timer);
+    listeners?.abort();
+  });
+</script>
