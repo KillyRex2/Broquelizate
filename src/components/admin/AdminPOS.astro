@@ -237,6 +237,7 @@ import { navigate } from 'astro:transitions/client';
 // Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
 import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
 import { optimizeImage, IMG_WIDTH } from '@/utils/images';
+import { normalizeSearch } from '@/utils/search';
 import { readPosExtras, savePosExtras, clearPosExtras, extrasTotal, POS_EXTRA_DESCRIPTION_MAX, POS_EXTRA_MAX_ITEMS, type PosExtraCharge } from '@/utils/pos-extra';
 
 // Estado global del POS
@@ -551,14 +552,10 @@ function initializePOS() {
     }
   }
 
-  // Quita acentos y pasa a minúsculas para comparar sin importar tildes ni #
-  function normalizeText(text: string): string {
-    return (text || '')
-      .toLowerCase()
-      .normalize('NFD')               // separa la letra de su acento
-      .replace(/[\u0300-\u036f]/g, '') // elimina los acentos
-      .trim();
-  }
+  // Quita acentos y pasa a minúsculas. Es el mismo criterio que usan las
+  // busquedas contra la base (@/utils/search), para que el POS y el
+  // inventario encuentren exactamente lo mismo.
+  const normalizeText = normalizeSearch;
 
   function filterProducts(): ProductForPOS[] {
     const searchNorm = normalizeText(POSState.searchTerm);
