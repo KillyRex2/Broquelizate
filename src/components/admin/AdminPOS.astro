@@ -708,16 +708,16 @@ function initializePOS() {
              data-product-id="${product.id}"
              data-no-stock="${hasNoStock}">
           <div class="flex flex-col sm:flex-row gap-3 md:gap-4">
-            <div class="relative flex-shrink-0">
+            <div class="relative flex-shrink-0 w-full sm:w-28 md:w-36">
               <img src="${variantImage}" 
                    alt="${variant.name}" 
-                   class="w-full sm:w-28 md:w-36 h-44 sm:h-28 md:h-36 object-cover rounded-xl shadow-md bg-gray-50 cursor-zoom-in variant-zoom-img"
+                   class="w-full h-44 sm:h-28 md:h-36 object-contain p-1.5 rounded-xl shadow-sm bg-white ring-1 ring-gray-200 cursor-zoom-in variant-zoom-img"
                    loading="lazy"
                    decoding="async"
                    data-full-image="${variantFull}"
                    onerror="this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'">
-              ${hasDiscount ? `<span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">Oferta</span>` : ''}
-              ${hasNoStock ? `<span class="absolute -bottom-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full shadow">Sin Stock</span>` : ''}
+              ${hasDiscount ? `<span class="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm">Oferta</span>` : ''}
+              ${hasNoStock ? `<span class="absolute bottom-1.5 left-1.5 bg-orange-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm">Sin Stock</span>` : ''}
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-semibold text-gray-900 text-base md:text-lg truncate">${variant.name}</h3>

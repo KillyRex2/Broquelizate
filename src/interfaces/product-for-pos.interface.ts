@@ -35,6 +35,14 @@ export interface ProductForPOS {
 export function convertToProductForPOS(product: ProductWithVariants): ProductForPOS {
   const variantOptions: VariantOption[] = [];
 
+  // Foto que usa una variante que no tiene la suya. Preferimos fallbackImages
+  // (solo fotos generales del producto); product.images incluye las fotos de
+  // las variantes, así que usarlo aquí hacía que todas las variantes de un
+  // producto sin fotos generales mostraran la imagen de la primera variante.
+  const fallback = product.fallbackImages?.length
+    ? product.fallbackImages
+    : product.images;
+
   if (product.combinations && product.combinations.length > 0) {
     product.combinations.forEach(combo => {
       if (combo.isActive) {
@@ -45,7 +53,7 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           priceAdjustment: combo.price - product.price,
           cost: combo.cost || null,
           stock: combo.stock,
-          images: (combo as any).images?.length ? (combo as any).images : product.images,
+          images: combo.images?.length ? combo.images : fallback,
           finalPrice: combo.price
         });
       }
@@ -61,7 +69,7 @@ export function convertToProductForPOS(product: ProductWithVariants): ProductFor
           priceAdjustment: variant.priceAdjustment,
           cost: variant.cost ?? null,
           stock: variant.stock,
-          images: (variant as any).images?.length ? (variant as any).images : product.images,
+          images: variant.images?.length ? variant.images : fallback,
           finalPrice: product.price + variant.priceAdjustment
         });
       });

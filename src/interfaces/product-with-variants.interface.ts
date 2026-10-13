@@ -14,6 +14,8 @@ export interface ProductVariant {
   isDefault: boolean;
   isActive: boolean;
   createdAt: Date;
+  /** Fotos propias de esta variante (ProductImage.variantId). */
+  images?: string[];
 }
  
 export interface ProductVariantInfo {
@@ -50,6 +52,15 @@ export interface ProductWithImages {
   allowsEngraving: boolean;
  
   variants?: ProductVariantInfo[];
+ 
+  /**
+   * Fotos que puede usar una variante que NO tiene foto propia.
+   * Solo contiene las imagenes generales del producto (+ portada).
+   * Nunca la foto de otra variante: de lo contrario, en un producto sin
+   * fotos generales todas las variantes terminaban mostrando la misma
+   * imagen (la de la primera variante).
+   */
+  fallbackImages?: string[];
 }
  
 export interface ProductVariantCombination {
@@ -57,11 +68,14 @@ export interface ProductVariantCombination {
   productId: string;
   combinationName: string | null;
   price: number;
-  cost: number | null;
+  /** La tabla ProductVariantCombination no guarda costo: solo ProductVariant. */
+  cost?: number | null;
   stock: number;
   sku: string | null;
   isActive: boolean;
   createdAt: Date;
+  /** Fotos propias de esta combinacion (ProductImage.combinationId). */
+  images?: string[];
 }
  
 export interface VariantCombinationItem {

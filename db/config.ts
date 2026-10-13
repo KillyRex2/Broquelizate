@@ -47,7 +47,13 @@ const Product = defineTable({
     isDeleted: column.boolean({ default: false }),
 
     user: column.text({ references: () => User.columns.id })
-  }
+  },
+  indexes: [
+    { on: ['isDeleted'] },
+    { on: ['isFeatured', 'isDeleted'] },
+    { on: ['category'] },
+    { on: ['type'] },
+  ],
 })
 
 const ProductImage = defineTable({
@@ -63,7 +69,12 @@ const ProductImage = defineTable({
       optional: true
     }),
     image: column.text(),
-  }
+  },
+  indexes: [
+    { on: ['productId'] },
+    { on: ['variantId'] },
+    { on: ['combinationId'] },
+  ],
 })
 
 const ProductVariant = defineTable({
@@ -79,7 +90,10 @@ const ProductVariant = defineTable({
     isDefault: column.boolean({ default: false }),
     isActive: column.boolean({ default: true }),
     createdAt: column.date({ default: new Date() })
-  }
+  },
+  indexes: [
+    { on: ['productId'] },
+  ],
 })
 
 const ProductVariantCombination = defineTable({
@@ -92,7 +106,10 @@ const ProductVariantCombination = defineTable({
     sku: column.text({ unique: true, optional: true }),
     isActive: column.boolean({ default: true }),
     createdAt: column.date({ default: new Date() })
-  }
+  },
+  indexes: [
+    { on: ['productId'] },
+  ],
 })
 
 const VariantCombinationItem = defineTable({
@@ -100,7 +117,11 @@ const VariantCombinationItem = defineTable({
     id: column.text({ primaryKey: true }),
     combinationId: column.text({ references: () => ProductVariantCombination.columns.id }),
     variantId: column.text({ references: () => ProductVariant.columns.id })
-  }
+  },
+  indexes: [
+    { on: ['combinationId'] },
+    { on: ['variantId'] },
+  ],
 })
 
 const orders = defineTable({
@@ -132,7 +153,13 @@ const orders = defineTable({
     deliveryMethod: column.text({ default: 'delivery' }),
     // Lo que costó la guía en Envia. shippingCost es lo que pagó el cliente.
     labelCost: column.number({ optional: true })
-  }
+  },
+  indexes: [
+    { on: ['externalReference'] },
+    { on: ['status'] },
+    { on: ['createdAt'] },
+    { on: ['clientId'] },
+  ],
 });
 
 /**
@@ -172,7 +199,11 @@ const order_items = defineTable({
 
     // ⚠️ DEPRECADO: Mantener temporalmente hasta migrar todo el código
     engraving: column.text({ optional: true }),
-  }
+  },
+  indexes: [
+    { on: ['orderId'] },
+    { on: ['productId'] },
+  ],
 });
 
 const Client = defineTable({

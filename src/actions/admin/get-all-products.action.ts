@@ -152,6 +152,22 @@ export const getAllProductsWithImages = defineAction({
           productImages = ['https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'];
         }
 
+        // Fallback para variantes/combinaciones SIN foto propia.
+        // Importante: solo imágenes GENERALES del producto (+ portada).
+        // Nunca la foto de otra variante — ese era el bug por el que, en un
+        // producto sin fotos generales, Dorado y Plateado mostraban la misma
+        // imagen: product.images arrancaba con la foto de la primera variante.
+        let fallbackImages = [...generalImages];
+        if (coverId) {
+          const coverUrl = imageUrlById.get(coverId);
+          if (coverUrl && fallbackImages.includes(coverUrl)) {
+            fallbackImages = [coverUrl, ...fallbackImages.filter(url => url !== coverUrl)];
+          }
+        }
+        if (fallbackImages.length === 0) {
+          fallbackImages = ['https://placehold.co/400x400/e2e8f0/4a5568?text=Sin+Imagen'];
+        }
+
         // Imágenes por variante, igual que en el inventario (la primera con su variantId)
         const variantsWithImages = productVariants.map(variant => ({
           ...variant,
@@ -193,10 +209,11 @@ export const getAllProductsWithImages = defineAction({
           cost: product.cost ?? undefined,
           piercing_name: piercingNamesArray,
           images: productImages,
+          fallbackImages,
           hasVariants: product.hasVariants,
           // Los tipos ya coinciden correctamente con la DB
-          productVariants: variantsWithImages as any,
-          combinations: productCombinations as any,
+          productVariants: variantsWithImages,
+          combinations: productCombinations,
           customizationFields: (product as any).customizationFields || [],
           allowsEngraving: (product as any).allowsEngraving || false
         };
@@ -219,19 +236,22 @@ export const getAllProductsWithImages = defineAction({
             // (si hubiera varias, el inventario muestra la última).
             let comboImages = [...(imagesByCombination.get(combo.id) || [])].reverse();
 
-            // Sin foto propia: usar la foto de alguna de sus variantes, si tiene
+            // Sin foto propia: juntar las fotos de sus variantes (en orden de
+            // los items, para que la combinación muestre su propio color y no
+            // la portada del producto).
             if (comboImages.length === 0) {
+              const fromVariants: string[] = [];
               for (const item of comboItems) {
-                const vImages = imagesByVariant.get(item.variantId) || [];
-                if (vImages.length > 0) { comboImages = vImages; break; }
+                fromVariants.push(...(imagesByVariant.get(item.variantId) || []));
               }
+              comboImages = [...new Set(fromVariants)];
             }
 
             return {
               ...combo,
               combinationName,
               images: comboImages,
-            } as any;
+            };
           });
         }
 
