@@ -119,12 +119,15 @@ const link = (href: string) => [base, isActive(href) ? on : off];
 </div>
 
 <script>
-  const { signOut } = await import('auth-astro/client');
-
+  // Nada de `await` a nivel de modulo: partia la ejecucion y el
+  // addEventListener de abajo no se registraba hasta que el import terminaba
+  // de descargar. Si astro:page-load se disparaba antes, el boton de cerrar
+  // sesion quedaba muerto hasta recargar la pagina.
   document.addEventListener('astro:page-load', () => {
     const logoutElem = document.querySelector<HTMLButtonElement>('#logout');
     if (logoutElem) {
       logoutElem.addEventListener('click', async () => {
+        const { signOut } = await import('auth-astro/client');
         await signOut();
         window.location.href = '/';
       });
