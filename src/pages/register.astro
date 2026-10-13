@@ -486,6 +486,8 @@ if (isLoggedIn) {
   import { navigate } from "astro:transitions/client";
   import Swal from "sweetalert2";
   import { signIn } from "auth-astro/client";
+  import { actions } from "astro:actions";
+  import { signInWithCredentials } from "@/utils/auth-client";
 
   document.addEventListener('astro:page-load', () => {
     const form = document.getElementById('register-form') as HTMLFormElement | null;
@@ -581,6 +583,10 @@ if (isLoggedIn) {
       } else if (password.length < 8) {
         showFieldError(passwordInput, passwordError, 'Mínimo 8 caracteres');
         isValid = false;
+      } else if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+        // Mismas reglas que el servidor (antes se aceptaba aquí y allá se rechazaba)
+        showFieldError(passwordInput, passwordError, 'Usa al menos una mayúscula, una minúscula y un número');
+        isValid = false;
       } else {
         clearFieldError(passwordInput, passwordError);
       }
@@ -622,7 +628,7 @@ if (isLoggedIn) {
     googleBtn?.addEventListener('click', async () => {
       if (googleBtn) googleBtn.disabled = true;
       try {
-        await signIn('google');
+        await signIn('google', { callbackUrl: window.location.origin + '/' });
       } catch (error) {
         console.error("Error al registrarse con Google:", error);
         Swal.fire({
@@ -648,34 +654,49 @@ if (isLoggedIn) {
       btnSubmit.classList.add('loading');
       if (btnText) btnText.textContent = 'Creando cuenta...';
 
+      let leaving = false;
       try {
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: nameInput.value.trim(),
-            email: emailInput.value.trim(),
-            password: passwordInput.value
-          })
-        });
+        // Antes se mandaba a /api/auth/register, que no existe (esa ruta la
+        // atiende Auth.js y respondía error): ninguna cuenta se creaba.
+        const email = emailInput.value.trim().toLowerCase();
+        const password = passwordInput.value;
+        const formData = new FormData();
+        formData.append('name', nameInput.value.trim());
+        formData.append('email', email);
+        formData.append('password', password);
 
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Error al crear la cuenta');
+        const { error } = await actions.registerUser(formData);
+        if (error) {
+          const fieldErrors = (error as any).fields as Record<string, string[] | undefined> | undefined;
+          const firstFieldError = fieldErrors && Object.values(fieldErrors).flat().find(Boolean);
+          throw new Error(firstFieldError || error.message || 'Error al crear la cuenta');
         }
 
-        // Éxito
-        await Swal.fire({
-          icon: 'success',
-          title: '¡Cuenta creada!',
-          text: 'Tu cuenta ha sido creada exitosamente. Ahora puedes iniciar sesión.',
-          confirmButtonColor: '#eab308',
-          background: '#1a1a1a',
-          color: '#fff'
-        });
-
-        navigate('/login');
+        // Cuenta creada: se inicia sesión de una vez
+        const login = await signInWithCredentials(email, password);
+        leaving = true;
+        if (login.ok) {
+          await Swal.fire({
+            icon: 'success',
+            title: '¡Cuenta creada!',
+            text: 'Ya iniciaste sesión.',
+            confirmButtonColor: '#eab308',
+            background: '#1a1a1a',
+            color: '#fff',
+            timer: 1800,
+          });
+          window.location.assign('/');
+        } else {
+          await Swal.fire({
+            icon: 'success',
+            title: '¡Cuenta creada!',
+            text: 'Tu cuenta ha sido creada. Ahora inicia sesión.',
+            confirmButtonColor: '#eab308',
+            background: '#1a1a1a',
+            color: '#fff'
+          });
+          navigate('/login');
+        }
 
       } catch (error: any) {
         console.error('Error de registro:', error);
@@ -689,9 +710,11 @@ if (isLoggedIn) {
           color: '#fff'
         });
       } finally {
-        btnSubmit.disabled = false;
-        btnSubmit.classList.remove('loading');
-        if (btnText) btnText.textContent = 'Crear cuenta';
+        if (!leaving) {
+          btnSubmit.disabled = false;
+          btnSubmit.classList.remove('loading');
+          if (btnText) btnText.textContent = 'Crear cuenta';
+        }
       }
     });
   });

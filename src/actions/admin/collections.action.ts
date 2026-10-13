@@ -6,6 +6,7 @@
 // ============================================================
 
 import { defineAction, ActionError } from 'astro:actions';
+import { likePattern, unaccentSqlExpr } from '@/utils/search';
 import { z } from 'astro:schema';
 import {
   db, eq, asc, desc, inArray, sql,
@@ -212,7 +213,7 @@ export const searchAdminProducts = defineAction({
       .from(Product)
       .where(
         q
-          ? sql`${Product.isDeleted} = 0 AND ${Product.name} LIKE ${'%' + q + '%'}`
+          ? sql`${Product.isDeleted} = 0 AND ${sql.raw(unaccentSqlExpr('"Product"."name"'))} LIKE ${likePattern(q)}`
           : eq(Product.isDeleted, false)
       )
       .limit(limit);

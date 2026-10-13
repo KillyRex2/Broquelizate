@@ -1,8 +1,7 @@
 import type { MiddlewareNext } from "astro";
 import { defineMiddleware } from "astro:middleware";
 import { getSession } from 'auth-astro/server';
-import { db, User } from 'astro:db';
-import { eq } from 'drizzle-orm';
+import { db, User, sql } from 'astro:db';
 
 const privateRoutes = ['/protected'];
 const notAuthenticatedRoutes = ['/login', '/register'];
@@ -22,10 +21,11 @@ export const onRequest = defineMiddleware(
     if (user && user.email) {
         try {
             // Obtener datos completos del usuario desde la BD
+            // Sin distinguir mayúsculas (igual que el login)
             const fullUser = await db
                 .select()
                 .from(User)
-                .where(eq(User.email, user.email))
+                .where(sql`lower(${User.email}) = ${user.email.trim().toLowerCase()}`)
                 .get();
 
             if (fullUser) {
@@ -65,7 +65,8 @@ export const onRequest = defineMiddleware(
 
     // Proteger rutas de cuenta (requieren estar logueado)
     if (!isLoggedIn && url.pathname.startsWith('/account')) {
-        return redirect('/login');
+        // Al entrar, regresa a donde iba
+        return redirect(`/login?redirect=${encodeURIComponent(url.pathname + url.search)}`);
     }
     
     // Redirigir usuarios autenticados de páginas de login/register

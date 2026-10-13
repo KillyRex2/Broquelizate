@@ -2,6 +2,7 @@ import type { ProductWithImages } from "@/interfaces";
 import { defineAction } from "astro:actions";
 import { and, or, count, db, eq, gt, inArray, lte, Product, ProductImage, ProductVariant, ProductVariantCombination, sql, asc, desc } from "astro:db";
 import { z } from "astro:schema";
+import { likePattern, unaccentSqlExpr } from "@/utils/search";
 
 // Lista de categorías válidas
 const validCategories = [
@@ -150,11 +151,15 @@ export const handler = async ({
     }
 
     // FILTRO POR BÚSQUEDA
+    // Se normalizan los dos lados (termino y columna) para que "opalo"
+    // encuentre "Ópalo". SQLite no quita acentos y su LOWER() es solo ASCII:
+    // LOWER('Ópalo') devuelve 'Ópalo', asi que '%opalo%' no casaba nunca.
     if (search && search.trim() !== '') {
-      console.log(`Filtrando por término de búsqueda: ${search}`);
-      const searchPattern = `%${search.toLowerCase()}%`;
+      const searchPattern = likePattern(search);
+      const nameExpr = unaccentSqlExpr('"Product"."name"');
+      const descExpr = unaccentSqlExpr('"Product"."description"');
       filters.push(
-        sql`(LOWER(${Product.name}) LIKE ${searchPattern} OR LOWER(${Product.description}) LIKE ${searchPattern})`
+        sql`(${sql.raw(nameExpr)} LIKE ${searchPattern} OR ${sql.raw(descExpr)} LIKE ${searchPattern})`
       );
     }
     

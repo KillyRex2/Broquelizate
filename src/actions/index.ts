@@ -13,6 +13,7 @@ import { createBatchVariants, generateVariantCombinations, updateCombinationStoc
 import {createShippingLabel, trackShipment, getUserShipments, getShippingRates, updateOrderStatus, updateOrderShippingAddress, updateShippingAddress, getUserProfile, updateUserProfile, getUserProfileByEmail} from './envia/envia.action';
 import { getSalesStats } from "./admin/get-sales-stats.action";
 import { getAllUsers, updateUserRole } from "./admin/get-all-users";
+import { getAdminNotifications } from "./admin/notifications.action";
 import { createCollection, updateCollection, toggleCollection, deleteCollection, reorderCollections, getCollectionProducts, setCollectionProducts, listCollections, searchAdminProducts, getProductsByIds, getFilterOptions } from "./admin/collections.action"
 import type { set } from "date-fns";
 
@@ -51,6 +52,7 @@ export const server = {
 
     // Admin Users
     getAllUsers,
+    getAdminNotifications,
     updateUserRole,
 
     // Admin Client

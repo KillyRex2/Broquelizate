@@ -864,10 +864,65 @@ const navLinks = [
 </style>
 
 <script>
-  const { signOut } = await import('auth-astro/client');
   import { navigate } from "astro:transitions/client";
 
+  // OJO: nada de `await` a nivel de modulo aqui.
+  // Antes esto arrancaba con `const { signOut } = await import('auth-astro/client')`,
+  // lo que partia la ejecucion del modulo: el addEventListener de abajo no se
+  // registraba hasta que ese import terminaba de descargar. Si astro:page-load
+  // se disparaba primero, el navbar se quedaba sin ningun listener y no
+  // respondia hasta recargar. signOut ahora se importa dentro de handleLogout,
+  // que es el unico lugar donde hace falta.
+
+  // Listeners a nivel document: se registran UNA sola vez.
+  // Si se registran dentro de astro:page-load se van acumulando en cada
+  // navegacion y las copias viejas apuntan a nodos que ya no existen.
+  let globalsBound = false;
+
+  function closeAllMenus() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    const menuBtn = document.getElementById('menu-btn');
+    const profileDropdown = document.getElementById('profile-dropdown');
+    const profileArrow = document.getElementById('profile-arrow');
+    const searchModal = document.getElementById('search-modal');
+
+    mobileMenu?.classList.remove('open');
+    menuBtn?.classList.remove('active');
+    menuBtn?.setAttribute('aria-expanded', 'false');
+    profileDropdown?.classList.remove('open');
+    profileArrow?.classList.remove('rotate');
+    searchModal?.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function bindGlobalListeners() {
+    if (globalsBound) return;
+    globalsBound = true;
+
+    // Cerrar el dropdown de perfil al hacer clic fuera.
+    // Los elementos se buscan en el momento del evento, no se capturan en el
+    // closure: asi sigue funcionando despues de cada swap de View Transitions.
+    document.addEventListener('click', (e) => {
+      const profileBtn = document.getElementById('profile-btn');
+      const profileDropdown = document.getElementById('profile-dropdown');
+      const profileArrow = document.getElementById('profile-arrow');
+      if (!profileBtn || !profileDropdown) return;
+
+      const target = e.target as Node;
+      if (!profileBtn.contains(target) && !profileDropdown.contains(target)) {
+        profileDropdown.classList.remove('open');
+        profileArrow?.classList.remove('rotate');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAllMenus();
+    });
+  }
+
   document.addEventListener('astro:page-load', () => {
+    bindGlobalListeners();
+
     // Mobile Menu Toggle
     const menuBtn = document.getElementById('menu-btn');
     const mobileMenu = document.getElementById('mobile-menu');
@@ -893,12 +948,6 @@ const navLinks = [
         profileArrow?.classList.toggle('rotate');
       });
 
-      document.addEventListener('click', (e) => {
-        if (!profileBtn.contains(e.target as Node) && !profileDropdown.contains(e.target as Node)) {
-          profileDropdown.classList.remove('open');
-          profileArrow?.classList.remove('rotate');
-        }
-      });
     }
 
     // Search Modal
@@ -935,24 +984,12 @@ const navLinks = [
       });
     }
 
-    // Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        mobileMenu?.classList.remove('open');
-        menuBtn?.classList.remove('active');
-        menuBtn?.setAttribute('aria-expanded', 'false');
-        profileDropdown?.classList.remove('open');
-        profileArrow?.classList.remove('rotate');
-        searchModal?.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-    });
-
     // Logout
     const logoutBtn = document.getElementById('logout');
     const logoutMobile = document.getElementById('logout-mobile');
 
     const handleLogout = async () => {
+      const { signOut } = await import('auth-astro/client');
       await signOut();
       navigate('/');
     };

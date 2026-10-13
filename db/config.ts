@@ -47,7 +47,16 @@ const Product = defineTable({
     isDeleted: column.boolean({ default: false }),
 
     user: column.text({ references: () => User.columns.id })
-  }
+  },
+  // OJO: en produccion estos indices se crean A MANO en Turso (astro db push
+  // no se usa en este proyecto). Lo de aqui aplica solo a la base local de
+  // desarrollo y sirve de documentacion de lo que debe existir en Turso.
+  indexes: [
+    // El home filtra isFeatured = 1 AND isDeleted = 0 LIMIT 4: muy selectivo.
+    { on: ['isFeatured', 'isDeleted'] },
+    { on: ['category'] },
+    { on: ['type'] },
+  ],
 })
 
 const ProductImage = defineTable({
@@ -63,7 +72,12 @@ const ProductImage = defineTable({
       optional: true
     }),
     image: column.text(),
-  }
+  },
+  indexes: [
+    { on: ['productId'] },
+    { on: ['variantId'] },
+    { on: ['combinationId'] },
+  ],
 })
 
 const ProductVariant = defineTable({
@@ -79,7 +93,14 @@ const ProductVariant = defineTable({
     isDefault: column.boolean({ default: false }),
     isActive: column.boolean({ default: true }),
     createdAt: column.date({ default: new Date() })
-  }
+  },
+  // Indice de cobertura: el catalogo calcula el stock real con una subconsulta
+  // SUM(stock) WHERE productId = ?. Con stock dentro del indice, SQLite
+  // resuelve la suma sin abrir la tabla.
+  // En Turso: idx_variant_product_stock
+  indexes: [
+    { on: ['productId', 'stock'] },
+  ],
 })
 
 const ProductVariantCombination = defineTable({
@@ -92,7 +113,12 @@ const ProductVariantCombination = defineTable({
     sku: column.text({ unique: true, optional: true }),
     isActive: column.boolean({ default: true }),
     createdAt: column.date({ default: new Date() })
-  }
+  },
+  // Igual que ProductVariant, pero la subconsulta ademas filtra isActive = 1.
+  // En Turso: idx_combination_product_stock
+  indexes: [
+    { on: ['productId', 'isActive', 'stock'] },
+  ],
 })
 
 const VariantCombinationItem = defineTable({
@@ -100,7 +126,11 @@ const VariantCombinationItem = defineTable({
     id: column.text({ primaryKey: true }),
     combinationId: column.text({ references: () => ProductVariantCombination.columns.id }),
     variantId: column.text({ references: () => ProductVariant.columns.id })
-  }
+  },
+  indexes: [
+    { on: ['combinationId'] },
+    { on: ['variantId'] },
+  ],
 })
 
 const orders = defineTable({
@@ -132,7 +162,13 @@ const orders = defineTable({
     deliveryMethod: column.text({ default: 'delivery' }),
     // Lo que costó la guía en Envia. shippingCost es lo que pagó el cliente.
     labelCost: column.number({ optional: true })
-  }
+  },
+  indexes: [
+    { on: ['externalReference'] },
+    { on: ['status'] },
+    { on: ['createdAt'] },
+    { on: ['clientId'] },
+  ],
 });
 
 /**
@@ -172,7 +208,11 @@ const order_items = defineTable({
 
     // ⚠️ DEPRECADO: Mantener temporalmente hasta migrar todo el código
     engraving: column.text({ optional: true }),
-  }
+  },
+  indexes: [
+    { on: ['orderId'] },
+    { on: ['productId'] },
+  ],
 });
 
 const Client = defineTable({

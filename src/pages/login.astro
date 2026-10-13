@@ -456,9 +456,9 @@ if (isLoggedIn) {
 </style>
 
 <script>
-  import { navigate } from "astro:transitions/client";
   import Swal from "sweetalert2";
   import { signIn } from "auth-astro/client";
+  import { signInWithCredentials, getPostLoginUrl } from "@/utils/auth-client";
 
   document.addEventListener('astro:page-load', () => {
     const form = document.getElementById('login-form') as HTMLFormElement | null;
@@ -549,7 +549,7 @@ if (isLoggedIn) {
     googleBtn?.addEventListener('click', async () => {
       if (googleBtn) googleBtn.disabled = true;
       try {
-        await signIn('google');
+        await signIn('google', { callbackUrl: window.location.origin + getPostLoginUrl() });
       } catch (error) {
         console.error("Error al iniciar sesión con Google:", error);
         Swal.fire({
@@ -583,8 +583,9 @@ if (isLoggedIn) {
       btnSubmit.classList.add('loading');
       if (btnText) btnText.textContent = 'Iniciando sesión...';
 
+      let loggedIn = false;
       try {
-        const email = emailInput.value.trim();
+        const email = emailInput.value.trim().toLowerCase();
         const password = passwordInput.value;
         const rememberMeInput = document.getElementById('remember_me') as HTMLInputElement | null;
         const rememberMe = rememberMeInput?.checked ?? false;
@@ -596,26 +597,22 @@ if (isLoggedIn) {
           document.cookie = 'email=; max-age=0; path=/';
         }
 
-        const response = await signIn('credentials', {
-          email,
-          password,
-          redirect: false,
-        } as any);
+        const result = await signInWithCredentials(email, password);
+        if (!result.ok) throw new Error(result.message);
 
-        if (!response?.ok) {
-          throw new Error('Credenciales inválidas');
-        }
+        // Éxito: carga completa para que el menú, el carrito y el admin
+        // lean la sesión nueva (con navigate() se quedaban con la anterior)
+        loggedIn = true;
+        if (btnText) btnText.textContent = 'Entrando...';
+        window.location.assign(getPostLoginUrl());
 
-        // Éxito - redirigir
-        navigate('/');
-
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error de login:', error);
         
         Swal.fire({
           icon: 'error',
           title: 'Error al iniciar sesión',
-          text: 'El correo o la contraseña son incorrectos.',
+          text: error?.message || 'El correo o la contraseña son incorrectos.',
           confirmButtonColor: '#eab308',
           background: '#1a1a1a',
           color: '#fff'
@@ -624,9 +621,12 @@ if (isLoggedIn) {
         passwordInput.value = '';
         passwordInput.focus();
       } finally {
-        btnSubmit.disabled = false;
-        btnSubmit.classList.remove('loading');
-        if (btnText) btnText.textContent = 'Iniciar sesión';
+        // Si entró, el botón se queda en "Entrando..." mientras carga la página
+        if (!loggedIn) {
+          btnSubmit.disabled = false;
+          btnSubmit.classList.remove('loading');
+          if (btnText) btnText.textContent = 'Iniciar sesión';
+        }
       }
     });
   });
