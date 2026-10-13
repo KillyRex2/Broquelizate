@@ -48,8 +48,11 @@ const Product = defineTable({
 
     user: column.text({ references: () => User.columns.id })
   },
+  // OJO: en produccion estos indices se crean A MANO en Turso (astro db push
+  // no se usa en este proyecto). Lo de aqui aplica solo a la base local de
+  // desarrollo y sirve de documentacion de lo que debe existir en Turso.
   indexes: [
-    { on: ['isDeleted'] },
+    // El home filtra isFeatured = 1 AND isDeleted = 0 LIMIT 4: muy selectivo.
     { on: ['isFeatured', 'isDeleted'] },
     { on: ['category'] },
     { on: ['type'] },
@@ -91,8 +94,12 @@ const ProductVariant = defineTable({
     isActive: column.boolean({ default: true }),
     createdAt: column.date({ default: new Date() })
   },
+  // Indice de cobertura: el catalogo calcula el stock real con una subconsulta
+  // SUM(stock) WHERE productId = ?. Con stock dentro del indice, SQLite
+  // resuelve la suma sin abrir la tabla.
+  // En Turso: idx_variant_product_stock
   indexes: [
-    { on: ['productId'] },
+    { on: ['productId', 'stock'] },
   ],
 })
 
@@ -107,8 +114,10 @@ const ProductVariantCombination = defineTable({
     isActive: column.boolean({ default: true }),
     createdAt: column.date({ default: new Date() })
   },
+  // Igual que ProductVariant, pero la subconsulta ademas filtra isActive = 1.
+  // En Turso: idx_combination_product_stock
   indexes: [
-    { on: ['productId'] },
+    { on: ['productId', 'isActive', 'stock'] },
   ],
 })
 
