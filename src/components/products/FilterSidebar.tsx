@@ -14,6 +14,11 @@
 import { useState, useEffect, useMemo, type FormEvent, type ReactNode } from 'react';
 import { navigate } from 'astro:transitions/client';
 
+export interface MaterialOption {
+  value: string;
+  swatch: string;
+}
+
 interface FilterSidebarProps {
   initialValues?: {
     selectedCat?: string;
@@ -22,12 +27,20 @@ interface FilterSidebarProps {
     search?: string;
     piercing?: string;
   };
+  /**
+   * Materiales que se ofrecen, desde CatalogOption. Los manda el servidor
+   * para que el filtro muestre siempre lo mismo que el select del admin.
+   * Si no llega nada se usa FALLBACK_MATERIALS, que es la lista de siempre.
+   */
+  materials?: MaterialOption[];
 }
 
 const MAX_PRICE = 5000;
 
 // El color ayuda más que un icono: en joyería el material ES el color.
-const materials = [
+// Esta lista es solo el respaldo: lo normal es que llegue por props desde
+// el servidor, leída de CatalogOption.
+const FALLBACK_MATERIALS: MaterialOption[] = [
   { value: 'Titanio', swatch: '#b9bec6' },
   { value: 'Acero Quirúrgico', swatch: '#c6ccd4' },
   { value: 'Acero Inoxidable', swatch: '#bcc2ca' },
@@ -86,7 +99,8 @@ function Accordion({
   );
 }
 
-export const FilterSidebar = ({ initialValues }: FilterSidebarProps) => {
+export const FilterSidebar = ({ initialValues, materials: materialsProp }: FilterSidebarProps) => {
+  const materials = materialsProp?.length ? materialsProp : FALLBACK_MATERIALS;
   const initial = () => ({
     categories: parseList(initialValues?.selectedCat),
     piercings: parseList(initialValues?.piercing),

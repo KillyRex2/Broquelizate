@@ -2,6 +2,15 @@
 import ProductSlideshow from '@/components/products/ProductSlideshow.astro';
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import { actions } from 'astro:actions';
+import { getMaterialNames, getJewelryTypeNames } from '@/utils/catalog';
+
+// Las listas ya no van quemadas aqui: salen de CatalogOption, que la clienta
+// edita desde /admin/catalogos. Se leen con cache, asi que no suman consultas
+// a Turso en cada carga del formulario.
+const [materialOptions, typeOptions] = await Promise.all([
+  getMaterialNames(),
+  getJewelryTypeNames(),
+]);
 
 // Definir tipos para las imágenes y el producto
 interface ProductImage {
@@ -158,7 +167,12 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <div>
               <label for="category" class="form-label">Material</label>
               <select id="category" name="category" required class="form-input">
-                {['Titanio','Acero Quirúrgico','Oro 10k','Oro 14k','Oro 18k','Chapa de Oro 14K','Chapa de Oro 18K','Acero Inoxidable','Plástico','Plata','Rodio','Otros'].map(c => (
+                {/* Si el producto trae un material que ya se desactivo, se
+                    agrega igual para no perderlo al guardar. */}
+                {(materialOptions.includes(product.category) || !product.category
+                  ? materialOptions
+                  : [...materialOptions, product.category]
+                ).map(c => (
                   <option value={c} selected={c === product.category}>{c}</option>
                 ))}
               </select>
@@ -166,7 +180,10 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
             <div>
               <label for="type" class="form-label">Tipo de Joya</label>
               <select id="type" name="type" required class="form-input">
-                {['Anillos','Broqueles','Pulseras','Cadenas','Otros'].map(t => (
+                {(typeOptions.includes(product.type) || !product.type
+                  ? typeOptions
+                  : [...typeOptions, product.type]
+                ).map(t => (
                   <option value={t} selected={t === product.type}>{t}</option>
                 ))}
               </select>

@@ -15,6 +15,7 @@ import { getSalesStats } from "./admin/get-sales-stats.action";
 import { getAllUsers, updateUserRole } from "./admin/get-all-users";
 import { getAdminNotifications } from "./admin/notifications.action";
 import { createCollection, updateCollection, toggleCollection, deleteCollection, reorderCollections, getCollectionProducts, setCollectionProducts, listCollections, searchAdminProducts, getProductsByIds, getFilterOptions } from "./admin/collections.action"
+import { listCatalogOptions, createCatalogOption, updateCatalogOption, toggleCatalogOption, deleteCatalogOption, reorderCatalogOptions } from "./admin/catalog.action"
 import type { set } from "date-fns";
 
 
@@ -105,6 +106,14 @@ export const server = {
     setCollectionProducts,
     searchAdminProducts,
     getProductsByIds,
-    getFilterOptions
+    getFilterOptions,
+
+    // Catalogos editables (materiales y tipos de joya)
+    listCatalogOptions,
+    createCatalogOption,
+    updateCatalogOption,
+    toggleCatalogOption,
+    deleteCatalogOption,
+    reorderCatalogOptions,
 
 }

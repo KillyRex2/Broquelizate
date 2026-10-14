@@ -1,0 +1,451 @@
+---
+// src/pages/admin/catalogos.astro
+//
+// Edicion de los materiales y tipos de joya que alimentan el formulario de
+// productos, la validacion de filtros y el filtro publico de la tienda.
+//
+// Antes estas listas estaban quemadas en tres archivos distintos y se habian
+// desincronizado entre si. Ahora salen de la tabla CatalogOption.
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { actions } from 'astro:actions';
+
+const { data: catalog, error } = await Astro.callAction(actions.listCatalogOptions, {});
+
+const materials = catalog?.material ?? [];
+const types = catalog?.jewelryType ?? [];
+---
+
+<AdminLayout title="Catálogos">
+  <div class="cat-root" data-error={error ? 'true' : undefined}>
+
+    <header class="cat-head">
+      <div>
+        <h1 class="cat-h1">Catálogos</h1>
+        <p class="cat-lead">
+          Los materiales y tipos de joya que aparecen al crear un producto y en
+          los filtros de la tienda. Lo que cambies aquí se refleja en los dos lados.
+        </p>
+      </div>
+    </header>
+
+    {error && (
+      <div class="cat-alert">
+        No se pudieron cargar los catálogos. Si es la primera vez, falta correr
+        la migración <code>db/migrations/2026-10-14-catalog-option.sql</code> en Turso.
+      </div>
+    )}
+
+    <div class="cat-tabs" role="tablist">
+      <button class="cat-tab is-on" data-tab="material" role="tab" aria-selected="true">
+        Materiales <span class="cat-count">{materials.length}</span>
+      </button>
+      <button class="cat-tab" data-tab="jewelryType" role="tab" aria-selected="false">
+        Tipos de Joya <span class="cat-count">{types.length}</span>
+      </button>
+    </div>
+
+    {(['material', 'jewelryType'] as const).map((kind) => (
+      <section class={`cat-panel ${kind === 'material' ? 'is-on' : ''}`} data-panel={kind}>
+
+        <form class="cat-add" data-kind={kind}>
+          <input
+            type="text"
+            name="name"
+            class="cat-input"
+            placeholder={kind === 'material' ? 'Nuevo material — ej. Oro rosa 14k' : 'Nuevo tipo — ej. Tobilleras'}
+            maxlength="60"
+            required
+          />
+          {kind === 'material' && (
+            <label class="cat-color" title="Color de muestra en el filtro de la tienda">
+              <input type="color" name="swatch" value="#d7b471" />
+              <span>Color</span>
+            </label>
+          )}
+          <button type="submit" class="cat-btn cat-btn-gold">Agregar</button>
+        </form>
+
+        <ul class="cat-list" data-list={kind}>
+          {(kind === 'material' ? materials : types).map((opt) => (
+            <li class={`cat-item ${opt.isActive ? '' : 'is-off'}`} data-id={opt.id} data-name={opt.name}>
+              <div class="cat-move">
+                <button class="cat-arrow" data-move="up" aria-label="Subir">↑</button>
+                <button class="cat-arrow" data-move="down" aria-label="Bajar">↓</button>
+              </div>
+
+              {kind === 'material' && (
+                <span class="cat-swatch" style={`background:${opt.swatch || '#cfcac3'}`} data-swatch={opt.swatch || ''}></span>
+              )}
+
+              <div class="cat-name-wrap">
+                <span class="cat-name">{opt.name}</span>
+                <span class="cat-meta">
+                  {opt.productCount === 0
+                    ? 'Sin productos'
+                    : `${opt.productCount} producto${opt.productCount === 1 ? '' : 's'}`}
+                  {!opt.isActive && ' · oculto'}
+                </span>
+              </div>
+
+              <div class="cat-actions">
+                <button class="cat-btn cat-btn-ghost" data-act="edit">Editar</button>
+                <button class="cat-btn cat-btn-ghost" data-act="toggle">
+                  {opt.isActive ? 'Ocultar' : 'Mostrar'}
+                </button>
+                <button
+                  class="cat-btn cat-btn-danger"
+                  data-act="delete"
+                  data-count={opt.productCount}
+                  disabled={opt.productCount > 0}
+                  title={opt.productCount > 0
+                    ? `${opt.productCount} producto(s) la usan. Usa "Ocultar".`
+                    : 'Eliminar'}
+                >Eliminar</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {(kind === 'material' ? materials : types).length === 0 && !error && (
+          <p class="cat-empty">Todavía no hay opciones. Agrega la primera arriba.</p>
+        )}
+      </section>
+    ))}
+
+    <p class="cat-foot">
+      <strong>Ocultar</strong> quita la opción de los menús sin tocar los productos
+      que ya la tienen. <strong>Eliminar</strong> solo está disponible cuando ningún
+      producto la usa. Si cambias un nombre, los productos que lo usaban se
+      actualizan solos.
+    </p>
+  </div>
+</AdminLayout>
+
+<style is:global>
+  /* Estilos del editor de catálogos. Todo cuelga de .cat-root
+     para no filtrarse al resto del admin. */
+  .cat-root {
+    --bg-card: rgba(255, 255, 255, 0.02);
+    --bg-hover: rgba(255, 255, 255, 0.045);
+    --line: rgba(255, 255, 255, 0.08);
+    --txt: #fff;
+    --txt-2: rgba(255, 255, 255, 0.6);
+    --txt-3: rgba(255, 255, 255, 0.35);
+    --gold: #eab308;
+    --gold-2: #f59e0b;
+    --danger: #f87171;
+
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    color: var(--txt);
+  }
+
+  .cat-head { margin-bottom: 26px; }
+  .cat-h1 { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.02em; }
+  .cat-lead { color: var(--txt-2); font-size: 0.9rem; margin-top: 6px; max-width: 560px; line-height: 1.55; }
+
+  .cat-alert {
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fecaca;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .cat-alert code { font-size: 0.8rem; opacity: 0.9; }
+
+  /* ── Pestañas ── */
+  .cat-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  .cat-tab {
+    background: none; border: none; cursor: pointer;
+    padding: 10px 16px; font-size: 0.92rem; font-weight: 600;
+    color: var(--txt-3); border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s; display: flex; align-items: center; gap: 8px;
+  }
+  .cat-tab:hover { color: var(--txt-2); }
+  .cat-tab.is-on { color: var(--gold); border-bottom-color: var(--gold); }
+  .cat-count {
+    font-size: 0.72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+    background: rgba(255,255,255,0.07); color: var(--txt-2);
+  }
+  .cat-tab.is-on .cat-count { background: rgba(234,179,8,0.15); color: var(--gold); }
+
+  .cat-panel { display: none; }
+  .cat-panel.is-on { display: block; }
+
+  /* ── Alta ── */
+  .cat-add { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+  .cat-input {
+    flex: 1 1 260px; min-width: 0;
+    background: var(--bg-card); border: 1px solid var(--line); border-radius: 9px;
+    padding: 10px 14px; color: var(--txt); font-size: 0.9rem;
+  }
+  .cat-input:focus { outline: none; border-color: var(--gold); }
+  .cat-input::placeholder { color: var(--txt-3); }
+
+  .cat-color {
+    display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--txt-2);
+    border: 1px solid var(--line); border-radius: 9px; padding: 6px 12px 6px 8px; background: var(--bg-card);
+  }
+  .cat-color input[type="color"] {
+    width: 26px; height: 26px; border: none; border-radius: 6px;
+    background: none; cursor: pointer; padding: 0;
+  }
+
+  /* ── Lista ── */
+  .cat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cat-item {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--bg-card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 14px;
+    transition: background .15s, opacity .15s;
+  }
+  .cat-item:hover { background: var(--bg-hover); }
+  .cat-item.is-off { opacity: 0.45; }
+  .cat-item.is-busy { opacity: 0.5; pointer-events: none; }
+
+  .cat-move { display: flex; flex-direction: column; gap: 1px; }
+  .cat-arrow {
+    background: none; border: none; cursor: pointer; color: var(--txt-3);
+    line-height: 1; font-size: 0.7rem; padding: 1px 3px; border-radius: 3px;
+  }
+  .cat-arrow:hover { color: var(--gold); background: rgba(234,179,8,0.1); }
+
+  .cat-swatch {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+
+  .cat-name-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .cat-name { font-size: 0.92rem; font-weight: 600; }
+  .cat-meta { font-size: 0.72rem; color: var(--txt-3); }
+
+  .cat-edit-row { display: flex; gap: 8px; align-items: center; flex: 1; flex-wrap: wrap; }
+
+  .cat-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .cat-btn {
+    border-radius: 7px; padding: 6px 12px; font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; border: 1px solid transparent; transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .cat-btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #1a1a1a; }
+  .cat-btn-gold:hover { filter: brightness(1.08); }
+  .cat-btn-ghost { background: none; border-color: var(--line); color: var(--txt-2); }
+  .cat-btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .cat-btn-danger { background: none; border-color: rgba(248,113,113,0.3); color: var(--danger); }
+  .cat-btn-danger:hover:not(:disabled) { background: rgba(248,113,113,0.12); }
+  .cat-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .cat-empty { color: var(--txt-3); font-size: 0.88rem; text-align: center; padding: 36px 0; }
+
+  .cat-foot {
+    margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line);
+    color: var(--txt-3); font-size: 0.78rem; line-height: 1.6; max-width: 640px;
+  }
+  .cat-foot strong { color: var(--txt-2); }
+
+  @media (max-width: 640px) {
+    .cat-root { padding: 22px 14px 70px; }
+    .cat-item { flex-wrap: wrap; }
+    .cat-actions { width: 100%; justify-content: flex-end; }
+  }
+</style>
+
+<script>
+  import { actions } from 'astro:actions';
+  import { Alert, Toast, Confirm } from '@/utils/alerts';
+
+  document.addEventListener('astro:page-load', () => {
+    const root = document.querySelector<HTMLElement>('.cat-root');
+    if (!root) return;
+
+    // ── Pestañas ──
+    root.querySelectorAll<HTMLButtonElement>('.cat-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const kind = tab.dataset.tab;
+        root.querySelectorAll('.cat-tab').forEach(t => {
+          const on = t === tab;
+          t.classList.toggle('is-on', on);
+          t.setAttribute('aria-selected', String(on));
+        });
+        root.querySelectorAll<HTMLElement>('.cat-panel').forEach(p => {
+          p.classList.toggle('is-on', p.dataset.panel === kind);
+        });
+      });
+    });
+
+    /** Tras cualquier cambio volvemos a pintar desde el servidor: es una
+     *  pantalla de bajo tráfico y así no hay forma de que la vista y la
+     *  base queden desfasadas. */
+    const reload = () => window.location.reload();
+
+    const setBusy = (el: HTMLElement | null, busy: boolean) =>
+      el?.classList.toggle('is-busy', busy);
+
+    // ── Alta ──
+    root.querySelectorAll<HTMLFormElement>('.cat-add').forEach(form => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const kind = form.dataset.kind as 'material' | 'jewelryType';
+        const nameInput = form.querySelector<HTMLInputElement>('input[name="name"]')!;
+        const swatchInput = form.querySelector<HTMLInputElement>('input[name="swatch"]');
+        const name = nameInput.value.trim();
+        if (!name) return;
+
+        const loading = Toast.loading('Agregando...');
+        try {
+          const { error } = await actions.createCatalogOption({
+            kind,
+            name,
+            swatch: swatchInput?.value || undefined,
+          });
+          Toast.dismiss(loading);
+          if (error) { await Alert.error('No se pudo agregar', error.message); return; }
+          Toast.success(`"${name}" agregado`);
+          reload();
+        } catch (err: any) {
+          Toast.dismiss(loading);
+          await Alert.error('Error', err?.message ?? 'Error desconocido');
+        }
+      });
+    });
+
+    // ── Acciones por fila ──
+    root.querySelectorAll<HTMLElement>('.cat-list').forEach(list => {
+      list.addEventListener('click', async (e) => {
+        const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+        if (!btn) return;
+        const item = btn.closest<HTMLElement>('.cat-item');
+        if (!item) return;
+
+        const id = item.dataset.id!;
+        const currentName = item.dataset.name!;
+
+        // Reordenar
+        const move = btn.dataset.move;
+        if (move) {
+          const sibling = move === 'up'
+            ? item.previousElementSibling
+            : item.nextElementSibling;
+          if (!sibling) return;
+
+          move === 'up'
+            ? list.insertBefore(item, sibling)
+            : list.insertBefore(sibling, item);
+
+          const ids = Array.from(list.querySelectorAll<HTMLElement>('.cat-item'))
+            .map(el => el.dataset.id!);
+          const { error } = await actions.reorderCatalogOptions({ ids });
+          if (error) { await Alert.error('No se pudo reordenar', error.message); reload(); }
+          return;
+        }
+
+        const act = btn.dataset.act;
+
+        // Editar nombre (y color, si es material)
+        if (act === 'edit') {
+          const wrap = item.querySelector<HTMLElement>('.cat-name-wrap');
+          const swatchEl = item.querySelector<HTMLElement>('.cat-swatch');
+          if (!wrap || wrap.dataset.editing === 'true') return;
+          wrap.dataset.editing = 'true';
+
+          const prevHtml = wrap.innerHTML;
+          const currentSwatch = swatchEl?.dataset.swatch || '';
+          // Un gradiente no cabe en <input type="color">; en ese caso se
+          // conserva tal cual y solo se edita el nombre.
+          const isPlainColor = /^#[0-9a-f]{6}$/i.test(currentSwatch);
+
+          wrap.innerHTML = `
+            <div class="cat-edit-row">
+              <input type="text" class="cat-input cat-edit-name" value="" maxlength="60">
+              ${swatchEl && isPlainColor
+                ? `<label class="cat-color"><input type="color" class="cat-edit-swatch" value="${currentSwatch}"><span>Color</span></label>`
+                : ''}
+              <button class="cat-btn cat-btn-gold" data-act="save">Guardar</button>
+              <button class="cat-btn cat-btn-ghost" data-act="cancel">Cancelar</button>
+            </div>`;
+
+          const input = wrap.querySelector<HTMLInputElement>('.cat-edit-name')!;
+          input.value = currentName;   // por valor, no por HTML: evita romper con comillas
+          input.focus();
+          input.select();
+
+          wrap.querySelector('[data-act="cancel"]')!.addEventListener('click', () => {
+            wrap.innerHTML = prevHtml;
+            delete wrap.dataset.editing;
+          });
+
+          wrap.querySelector('[data-act="save"]')!.addEventListener('click', async () => {
+            const newName = input.value.trim();
+            if (!newName) { await Alert.warning('Atención', 'El nombre no puede quedar vacío.'); return; }
+
+            if (newName !== currentName) {
+              const count = Number(
+                item.querySelector<HTMLButtonElement>('[data-act="delete"]')?.dataset.count ?? 0
+              );
+              if (count > 0) {
+                const ok = await Confirm.show({
+                  title: '¿Renombrar?',
+                  message: `${count} producto${count === 1 ? '' : 's'} usa${count === 1 ? '' : 'n'} "${currentName}". Se actualizará${count === 1 ? '' : 'n'} a "${newName}" para que no desaparezca${count === 1 ? '' : 'n'} de los filtros.`,
+                  confirmText: 'Sí, renombrar',
+                });
+                if (!ok) return;
+              }
+            }
+
+            const swatchVal = wrap.querySelector<HTMLInputElement>('.cat-edit-swatch')?.value
+              ?? currentSwatch;
+
+            setBusy(item, true);
+            const { data, error } = await actions.updateCatalogOption({
+              id, name: newName, swatch: swatchVal || undefined,
+            });
+            setBusy(item, false);
+
+            if (error) { await Alert.error('No se pudo guardar', error.message); return; }
+            if (data?.updatedProducts) {
+              Toast.success(`Listo. Se actualizaron ${data.updatedProducts} productos.`);
+            } else {
+              Toast.success('Guardado');
+            }
+            reload();
+          });
+          return;
+        }
+
+        // Ocultar / mostrar
+        if (act === 'toggle') {
+          const makeActive = item.classList.contains('is-off');
+          setBusy(item, true);
+          const { error } = await actions.toggleCatalogOption({ id, isActive: makeActive });
+          setBusy(item, false);
+          if (error) { await Alert.error('Error', error.message); return; }
+          reload();
+          return;
+        }
+
+        // Eliminar
+        if (act === 'delete') {
+          const ok = await Confirm.show({
+            title: `¿Eliminar "${currentName}"?`,
+            message: 'Esta acción no se puede deshacer.',
+            confirmText: 'Eliminar',
+            type: 'danger',
+          });
+          if (!ok) return;
+
+          setBusy(item, true);
+          const { error } = await actions.deleteCatalogOption({ id });
+          setBusy(item, false);
+          if (error) { await Alert.error('No se pudo eliminar', error.message); return; }
+          Toast.success('Eliminado');
+          reload();
+        }
+      });
+    });
+  });
+</script>
