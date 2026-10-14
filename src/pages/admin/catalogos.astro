@@ -30,8 +30,14 @@ const types = catalog?.jewelryType ?? [];
 
     {error && (
       <div class="cat-alert">
-        No se pudieron cargar los catálogos. Si es la primera vez, falta correr
-        la migración <code>db/migrations/2026-10-14-catalog-option.sql</code> en Turso.
+        <strong>No se pudieron cargar los catálogos.</strong>
+        <p class="cat-alert-msg">{error.message}</p>
+        <p class="cat-alert-hint">
+          Si dice <code>no such table: CatalogOption</code>, la base a la que apunta
+          este sitio no tiene la migración. Revisa que
+          <code>ASTRO_DB_REMOTE_URL</code> apunte a la misma base donde corriste
+          <code>db/migrations/2026-10-14-catalog-option.sql</code>.
+        </p>
       </div>
     )}
 
@@ -156,6 +162,11 @@ const types = catalog?.jewelryType ?? [];
     line-height: 1.5;
   }
   .cat-alert code { font-size: 0.8rem; opacity: 0.9; }
+  .cat-alert-msg {
+    margin-top: 8px; font-family: ui-monospace, monospace; font-size: 0.78rem;
+    color: #fca5a5; word-break: break-word;
+  }
+  .cat-alert-hint { margin-top: 8px; color: rgba(254, 202, 202, 0.75); font-size: 0.8rem; }
 
   /* ── Pestañas ── */
   .cat-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }

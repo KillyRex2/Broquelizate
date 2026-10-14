@@ -1,0 +1,18 @@
+CREATE INDEX IF NOT EXISTS idx_combination_product_stock ON "ProductVariantCombination"("productId", "isActive", "stock");
+CREATE INDEX IF NOT EXISTS idx_variant_product_stock ON "ProductVariant"("productId", "stock");
+CREATE INDEX IF NOT EXISTS idx_product_featured ON "Product"("isFeatured", "isDeleted");
+CREATE INDEX IF NOT EXISTS idx_product_category ON "Product"("category");
+CREATE INDEX IF NOT EXISTS idx_product_type ON "Product"("type");
+CREATE INDEX IF NOT EXISTS idx_image_product ON "ProductImage"("productId");
+CREATE INDEX IF NOT EXISTS idx_image_variant ON "ProductImage"("variantId");
+CREATE INDEX IF NOT EXISTS idx_image_combination ON "ProductImage"("combinationId");
+CREATE INDEX IF NOT EXISTS idx_vci_combination ON "VariantCombinationItem"("combinationId");
+CREATE INDEX IF NOT EXISTS idx_vci_variant ON "VariantCombinationItem"("variantId");
+CREATE INDEX IF NOT EXISTS idx_orders_extref ON "orders"("externalReference");
+CREATE INDEX IF NOT EXISTS idx_orders_status ON "orders"("status");
+CREATE INDEX IF NOT EXISTS idx_orders_created ON "orders"("createdAt");
+CREATE INDEX IF NOT EXISTS idx_orders_client ON "orders"("clientId");
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON "order_items"("orderId");
+CREATE INDEX IF NOT EXISTS idx_order_items_product ON "order_items"("productId");
+CREATE INDEX IF NOT EXISTS idx_collection_active ON "Collection"("isActive", "sortOrder");
+CREATE INDEX IF NOT EXISTS idx_collection_product ON "CollectionProduct"("collectionId", "position");
