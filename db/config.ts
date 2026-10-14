@@ -271,6 +271,36 @@ export const Collection = defineTable({
  * Solo se usa cuando la coleccion es mode='manual'.
  * Guarda que productos y en que orden.
  */
+/**
+ * Opciones editables desde el admin: materiales y tipos de joya.
+ * Antes eran listas quemadas en tres archivos distintos que se habian
+ * desincronizado entre si. Ahora esta tabla alimenta el select del admin,
+ * la validacion de filtros y el filtro publico.
+ *
+ * kind: 'material'    -> alimenta Product.category
+ *       'jewelryType' -> alimenta Product.type
+ *
+ * El nombre se guarda como texto en Product.category / Product.type, igual
+ * que antes. Al renombrar una opcion, la action propaga el cambio con un
+ * UPDATE sobre los productos que la usaban.
+ */
+export const CatalogOption = defineTable({
+  columns: {
+    id: column.text({ primaryKey: true }),
+    kind: column.text(),
+    name: column.text(),
+    // Color de muestra para el filtro publico. En joyeria el material ES el
+    // color, asi que dice mas que un icono. Admite gradientes CSS.
+    swatch: column.text({ optional: true }),
+    sortOrder: column.number({ default: 0 }),
+    isActive: column.boolean({ default: true }),
+    createdAt: column.date({ default: new Date() }),
+  },
+  indexes: [
+    { on: ['kind', 'isActive', 'sortOrder'] },
+  ],
+});
+
 export const CollectionProduct = defineTable({
   columns: {
     id: column.text({ primaryKey: true }),
@@ -297,6 +327,7 @@ export default defineDb({
     Client,
     Collection,
     CollectionProduct,
+    CatalogOption,
     ShippingQuote
   }
 });

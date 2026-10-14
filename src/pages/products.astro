@@ -2,6 +2,7 @@
 // src/pages/products/index.astro
 import { ProductList } from "@/components/products/ProductList";
 import { FilterSidebar } from "@/components/products/FilterSidebar";
+import { getCatalogOptions } from "@/utils/catalog";
 import { Pagination } from "@/components/shared/Pagination.tsx";
 import ProductsLayout from "@/layouts/ProductsLayout.astro";
 import { actions } from "astro:actions";
@@ -16,6 +17,13 @@ const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
 const stockFilterParam = searchParams.get('stockFilter') || 'all';
 const search = searchParams.get('search') || '';
 const piercingParam = searchParams.get('piercing') || '';
+
+// Materiales del filtro: salen de CatalogOption, igual que el select del
+// admin, para que las dos listas no vuelvan a desincronizarse.
+const materialOptions = (await getCatalogOptions('material')).map(m => ({
+  value: m.name,
+  swatch: m.swatch || '#cfcac3',
+}));
 
 // ✅ CORREGIDO: Pasar limit y stockFilter correctamente
 const result = await Astro.callAction(
@@ -150,7 +158,7 @@ const activeFilters = [
       <div class="content-layout">
         <!-- Sidebar Escritorio -->
         <aside class="sidebar-column">
-          <FilterSidebar client:only="react" initialValues={filterState} />
+          <FilterSidebar client:only="react" initialValues={filterState} materials={materialOptions} />
         </aside>
 
         <!-- Drawer Móvil de Filtros -->
@@ -166,7 +174,7 @@ const activeFilters = [
               </button>
             </div>
             <div class="drawer-body">
-              <FilterSidebar client:only="react" initialValues={filterState} />
+              <FilterSidebar client:only="react" initialValues={filterState} materials={materialOptions} />
             </div>
           </div>
         </div>

@@ -3,14 +3,14 @@ import { defineAction } from "astro:actions";
 import { and, or, count, db, eq, gt, inArray, lte, Product, ProductImage, ProductVariant, ProductVariantCombination, sql, asc, desc } from "astro:db";
 import { z } from "astro:schema";
 import { likePattern, unaccentSqlExpr } from "@/utils/search";
+import { getMaterialNames } from "@/utils/catalog";
 
-// Lista de categorías válidas
-const validCategories = [
-  "Titanio", "Acero Quirúrgico", "Oro 10k", "Oro 14k", "Oro 18k",
-  "Chapa de Oro 14K", "Chapa de Oro 18K", "Acero Inoxidable",
-  "Plástico", "Plata", "Rodio", "Oro 10k cadenas", "Oro 10k anillos",
-  "Oro 10k arracadas", "Plata .925", "Otros"
-];
+// Los materiales validos salen de CatalogOption (editable desde
+// /admin/catalogos). Antes era una lista quemada aqui que se habia
+// desincronizado de los selects del admin: habia valores que pasaban la
+// validacion pero no existian en ningun menu.
+// getMaterialNames() va con cache en memoria, asi que esto no agrega una
+// consulta a Turso por request.
 
 const validPiercings = [
   'Lóbulo', 'Lóbulo Superior', 'Hélix', 'Antihelix', 'Tragus', 
@@ -78,8 +78,10 @@ export const handler = async ({
     // Construir condiciones de filtro
     const filters = [];
     filters.push(sql`(${Product.isDeleted} = 0 OR ${Product.isDeleted} IS NULL)`);
-    // Categorías: una o varias separadas por coma. Solo se aceptan las
-    // de la lista válida; cualquier valor desconocido se descarta.
+    // Categorías: una o varias separadas por coma. Solo se aceptan las que
+    // existen en el catálogo; cualquier valor desconocido se descarta, que es
+    // lo que impide que llegue basura al inArray.
+    const validCategories = await getMaterialNames();
     const selectedCategories = category && category !== 'all'
       ? category.split(',').map(c => c.trim()).filter(c => validCategories.includes(c))
       : [];
