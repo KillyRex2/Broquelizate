@@ -5,6 +5,7 @@ import { db, orders, order_items } from 'astro:db';
 import { eq } from 'drizzle-orm';
 import { actions } from 'astro:actions';
 import { normalizeExtras } from '@/utils/pos-extra';
+import { packageForItems } from '@/utils/shipping';
 import { parseCustomizationData } from '@/utils/customization';
 
 interface ShippingAddress {
@@ -56,6 +57,16 @@ if (order.clientId) {
     clientName = `Error al buscar (ID: ${order.clientId})`;
   }
 }
+
+// El paquete con el que se le cotizó al cliente en el checkout.
+// Antes el formulario de abajo traía 0.5 kg y 20x15x10 quemados en el HTML,
+// pero priceCheckout usa packageForItems(itemsCount), que arranca en 1 kg y
+// crece con las piezas. Cotizar la guía con medio kilo menos daba precios
+// que no correspondían a lo cobrado, y el ajuste por repeso lo acaba
+// pagando la tienda. Los campos siguen siendo editables si el paquete real
+// es distinto.
+const itemsCount = rawItems.reduce((n, i) => n + (Number(i.quantity) || 1), 0);
+const pkg = packageForItems(itemsCount);
 
 const formatCurrency = (value: number | null) => value == null ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 const formatDate = (date: Date | null) => date ? new Date(date).toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
@@ -139,6 +150,8 @@ const statusLabels: Record<string, string> = {
     data-customer-phone={order.customerPhone}
     data-customer-name={order.customerName}
     data-shipping-address={JSON.stringify(shippingAddress)}
+    data-paid-service={order.shippingService || ''}
+    data-paid-cost={order.shippingCost ?? ''}
   ></div>
 
   <div class="order-page">
@@ -530,13 +543,17 @@ const statusLabels: Record<string, string> = {
             <div class="ship-form">
               <div class="field">
                 <label>Peso (kg)</label>
-                <input type="number" id="weight" step="0.1" value="0.5" class="dark-input" />
+                <input type="number" id="weight" step="0.1" value={pkg.weight} class="dark-input" />
               </div>
               <div class="field-grid">
-                <div class="field"><label>Largo (cm)</label><input type="number" id="length" value="20" class="dark-input" /></div>
-                <div class="field"><label>Ancho (cm)</label><input type="number" id="width" value="15" class="dark-input" /></div>
-                <div class="field"><label>Alto (cm)</label><input type="number" id="height" value="10" class="dark-input" /></div>
+                <div class="field"><label>Largo (cm)</label><input type="number" id="length" value={pkg.length} class="dark-input" /></div>
+                <div class="field"><label>Ancho (cm)</label><input type="number" id="width" value={pkg.width} class="dark-input" /></div>
+                <div class="field"><label>Alto (cm)</label><input type="number" id="height" value={pkg.height} class="dark-input" /></div>
               </div>
+              <p class="ship-hint">
+                Medidas con las que se le cotizó al cliente ({itemsCount} {itemsCount === 1 ? 'pieza' : 'piezas'}).
+                Ajústalas si el paquete real es distinto.
+              </p>
             </div>
 
             <button id="quote-shipping-btn" class="btn btn-blue btn-block">
@@ -753,7 +770,8 @@ const statusLabels: Record<string, string> = {
     .status-control { display: flex; flex-direction: column; gap: 12px; }
     .dark-select, .dark-input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; color: var(--txt); padding: 12px 14px; font-size: 0.9rem; font-family: inherit; color-scheme: dark; transition: border-color 0.18s; }
     .dark-select:focus, .dark-input:focus { outline: none; border-color: var(--gold); }
-    .ship-form { margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .ship-form { margin-bottom: 10px; display: flex; flex-direction: column; gap: 12px; }
+    .ship-hint { font-size: 0.74rem; color: var(--txt-dim); margin: 0 0 16px; line-height: 1.45; }
     .field label { display: block; font-size: 0.78rem; color: var(--txt-dim); margin-bottom: 6px; font-weight: 600; }
     .field-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 
@@ -860,6 +878,14 @@ const statusLabels: Record<string, string> = {
       const customerEmail = orderDataEl.dataset.customerEmail;
       const customerPhone = orderDataEl.dataset.customerPhone;
       const customerName = orderDataEl.dataset.customerName;
+
+      // Lo que el cliente eligió y pagó en el checkout. Sirve para marcar esa
+      // misma opción al re-cotizar: comprar una guía más lenta que la pagada
+      // es un problema para el cliente, y una más cara, para la tienda.
+      const paidCarrier = (orderDataEl.dataset.carrier || '').toLowerCase();
+      const paidService = (orderDataEl.dataset.paidService || '').toLowerCase();
+      const paidCost = parseFloat(orderDataEl.dataset.paidCost || '');
+
       let shippingAddress: ShippingAddress;
       try {
         shippingAddress = JSON.parse(orderDataEl.dataset.shippingAddress || '{}') as ShippingAddress;
@@ -1107,24 +1133,40 @@ const statusLabels: Record<string, string> = {
 
           if (data.rates && data.rates.length > 0) {
             if (ratesContainer) {
-              ratesContainer.innerHTML = data.rates.map((rate: any) => `
-                <button class="rate-option" style="width:100%;padding:14px;border:1px solid rgba(255,255,255,0.07);border-radius:12px;background:#0b0b0d;color:#f5f5f4;text-align:left;cursor:pointer;transition:all .18s;"
+              ratesContainer.innerHTML = data.rates.map((rate: any) => {
+                const esLaPagada =
+                  paidCarrier && rate.carrier?.toLowerCase() === paidCarrier &&
+                  (!paidService || rate.service?.toLowerCase() === paidService);
+                const borde = esLaPagada ? '#eab308' : 'rgba(255,255,255,0.07)';
+                const diferencia = esLaPagada && !Number.isNaN(paidCost)
+                  ? rate.totalPrice - paidCost
+                  : null;
+
+                return `
+                <button class="rate-option" style="width:100%;padding:14px;border:1px solid ${borde};border-radius:12px;background:#0b0b0d;color:#f5f5f4;text-align:left;cursor:pointer;transition:all .18s;"
                   data-carrier="${rate.carrier}" data-service="${rate.service}" data-price="${rate.totalPrice}"
                   data-weight="${weight}" data-length="${length}" data-width="${width}" data-height="${height}"
-                  onmouseover="this.style.borderColor='#60a5fa'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)'">
+                  onmouseover="this.style.borderColor='#60a5fa'" onmouseout="this.style.borderColor='${borde}'">
                   <div style="display:flex;justify-content:space-between;align-items:center;">
                     <div>
                       <p style="font-weight:700;font-size:1rem;text-transform:uppercase;margin:0;">${rate.carrier}</p>
                       <p style="font-size:0.8rem;color:rgba(245,245,244,0.55);margin:2px 0 0;">${rate.service}</p>
                       <p style="font-size:0.72rem;color:rgba(245,245,244,0.35);margin:4px 0 0;">${rate.deliveryDays} días estimados</p>
+                      ${esLaPagada ? `<p style="font-size:0.7rem;color:#eab308;font-weight:600;margin:6px 0 0;">Es la que pagó el cliente</p>` : ''}
                     </div>
                     <div style="text-align:right;">
                       <p style="font-weight:800;font-size:1.4rem;color:#60a5fa;margin:0;">$${rate.totalPrice.toFixed(2)}</p>
                       <p style="font-size:0.7rem;color:rgba(245,245,244,0.35);margin:0;">${rate.currency}</p>
+                      ${diferencia != null && Math.abs(diferencia) >= 1
+                        ? `<p style="font-size:0.7rem;font-weight:600;margin:4px 0 0;color:${diferencia > 0 ? '#f87171' : '#34d399'};">
+                             ${diferencia > 0 ? 'te cuesta' : 'te ahorras'} $${Math.abs(diferencia).toFixed(2)}
+                           </p>`
+                        : ''}
                     </div>
                   </div>
                 </button>
-              `).join('');
+              `;
+              }).join('');
 
               document.querySelectorAll('.rate-option').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
