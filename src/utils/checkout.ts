@@ -13,7 +13,7 @@
 
 import { db, eq, lt, ShippingQuote, orders } from 'astro:db';
 import { priceItems, type IncomingItem, type PricedItem } from '@/utils/mercadopago-orders';
-import { chargedShipping, packageForItems } from '@/utils/shipping';
+import { chargedShipping, packageForItems, qualifiesForFreeShipping, FREE_SHIPPING_CARRIER } from '@/utils/shipping';
 import { STORE_PICKUP, normalizeDeliveryMethod, type DeliveryMethod } from '@/utils/store';
 
 /** Una cotización vale 2 h en el servidor (el navegador la reutiliza máx. 30 min). */
@@ -88,7 +88,13 @@ export async function resolveShipping(args: {
   const retry = 'Vuelve a cotizar tu envío antes de pagar.';
   const sel = args.selection;
 
-  if (!sel?.quoteId || !sel.carrier || !sel.service) {
+  // Con envío gratis el cliente no elige paquetería, así que solo se exige
+  // la cotización. Sin envío gratis sí tiene que haber elegido.
+  const esGratis = qualifiesForFreeShipping(args.subtotal);
+  if (!sel?.quoteId) {
+    throw new CheckoutError(`Falta cotizar el envío. ${retry}`);
+  }
+  if (!esGratis && (!sel.carrier || !sel.service)) {
     throw new CheckoutError(`Falta elegir la paquetería. ${retry}`);
   }
 
@@ -117,10 +123,32 @@ export async function resolveShipping(args: {
 
   let rates: StoredRate[] = [];
   try { rates = JSON.parse(quote.rates); } catch {}
-  const rate = rates.find(r => r.carrier === sel.carrier && r.service === sel.service);
+
+  // Una tarifa en 0 significa que la API respondió sin precio, no que el
+  // envío sea gratis: no sirve para comprar la guía.
+  const usables = rates.filter(r => Number(r.totalPrice) > 0);
+
+  let rate: StoredRate | undefined;
+  if (esGratis) {
+    // La decide el servidor, pase lo que pase por el navegador: la guía la
+    // paga la tienda. Preferimos la paquetería de siempre y, si no cotizó
+    // para ese CP, la más barata que sí lo hizo.
+    const delCarrier = usables
+      .filter(r => r.carrier?.toLowerCase() === FREE_SHIPPING_CARRIER)
+      .sort((a, b) => Number(a.totalPrice) - Number(b.totalPrice));
+    rate = delCarrier[0]
+      ?? [...usables].sort((a, b) => Number(a.totalPrice) - Number(b.totalPrice))[0];
+  } else {
+    rate = usables.find(r => r.carrier === sel.carrier && r.service === sel.service);
+  }
+
   const carrierRate = Number(rate?.totalPrice);
   if (!rate || !(carrierRate > 0)) {
-    throw new CheckoutError(`La paquetería elegida ya no está disponible. ${retry}`);
+    throw new CheckoutError(
+      esGratis
+        ? `No hay paquetería disponible para tu código postal. ${retry}`
+        : `La paquetería elegida ya no está disponible. ${retry}`
+    );
   }
 
   return {

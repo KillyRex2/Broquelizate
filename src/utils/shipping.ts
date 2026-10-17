@@ -14,6 +14,14 @@ export const chargedShipping = (subtotal: number, carrierRate: number): number =
   qualifiesForFreeShipping(subtotal) ? 0 : Math.max(0, Number(carrierRate) || 0);
 
 /**
+ * Paquetería que se usa cuando el envío es gratis.
+ * Con envío gratis el cliente no elige: la guía la paga la tienda, así que
+ * la decisión es del negocio, no del comprador. Si esta paquetería no
+ * cotiza para ese CP, se toma la más barata disponible.
+ */
+export const FREE_SHIPPING_CARRIER = 'estafeta';
+
+/**
  * Paquete estimado para cotizar según cuántas piezas lleva el carrito.
  * Lo usan el cotizador (navegador) y el servidor al validar la cotización,
  * así que ambos calculan exactamente lo mismo.
