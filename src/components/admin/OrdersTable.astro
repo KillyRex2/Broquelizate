@@ -1,97 +1,477 @@
 ---
 // src/components/admin/OrdersTable.astro
-import { db, orders } from 'astro:db';
-import { desc } from 'drizzle-orm';
+//
+// Pantalla de despacho, no historial.
+//
+// La versión anterior traía las 102 órdenes completas en cada visita, sin
+// paginar y con select() sin columnas, y mostraba el nombre del cliente
+// derivado del correo — por eso todas decían "Broquelizate". El nombre real
+// vive dentro de shippingAddress como JSON, igual que ya lo leía
+// notifications.action.ts.
+//
+// Ahora: filtros por estado de envío, búsqueda, paginación de 25 y columnas
+// explícitas. Todas las consultas pegan a los índices creados en Turso
+// (idx_orders_created, idx_orders_status, idx_order_items_order).
+import { db, orders, order_items, Client, count, inArray, desc, sql } from 'astro:db';
+import { unaccentSqlExpr, likePattern } from '@/utils/search';
 
-const allOrders = await db.select()
+const PER_PAGE = 25;
+
+const url = Astro.url;
+const view = url.searchParams.get('view') ?? 'todos';
+const q = (url.searchParams.get('q') ?? '').trim();
+const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
+
+// ── Condiciones de despacho ──
+// COALESCE porque deliveryMethod se agregó después: los pedidos viejos lo
+// tienen en NULL y son todos envíos.
+// Las ventas de mostrador se reconocen por el método de pago. Hace falta
+// porque el POS (AdminCheckout) no manda deliveryMethod al crear el pedido y
+// normalizeDeliveryMethod lo resuelve como 'delivery': sin esto, cada venta
+// en el mostrador aparece como un envío a domicilio esperando guía.
+const POS_METHODS = ['Efectivo', 'Débito', 'Crédito', 'Venta a crédito', 'mercadopago-pos'];
+
+// Lista literal para el IN. Son constantes escritas aquí, no entrada del
+// usuario; aun así se escapan las comillas. Se hace con sql.raw porque el
+// template de Drizzle no expande un array a lista de parámetros.
+const POS_IN = sql.raw(POS_METHODS.map(m => `'${m.replace(/'/g, "''")}'`).join(', '));
+
+const C = {
+  vivo:     sql`${orders.status} <> 'cancelled'`,
+  conGuia:  sql`COALESCE(${orders.trackingNumber}, '') <> ''`,
+  sinGuia:  sql`COALESCE(${orders.trackingNumber}, '') = ''`,
+  tienda:   sql`COALESCE(${orders.deliveryMethod}, 'delivery') = 'pickup'`,
+  envio:    sql`COALESCE(${orders.deliveryMethod}, 'delivery') <> 'pickup'`,
+  pos:      sql`${orders.paymentMethod} IN (${POS_IN})`,
+  web:      sql`COALESCE(${orders.paymentMethod}, '') NOT IN (${POS_IN})`,
+};
+
+const VIEWS = {
+  'por-enviar': sql`${C.vivo} AND ${C.envio} AND ${C.sinGuia} AND ${C.web}`,
+  'en-camino':  sql`${C.vivo} AND ${C.conGuia}`,
+  'mostrador':  sql`${C.vivo} AND ${C.pos} AND ${C.sinGuia}`,
+  'tienda':     sql`${C.vivo} AND ${C.tienda} AND ${C.web}`,
+  'todos':      null,
+} as const;
+
+type ViewKey = keyof typeof VIEWS;
+const activeView: ViewKey = (view in VIEWS ? view : 'todos') as ViewKey;
+
+// La búsqueda alcanza nombre y ciudad porque van dentro del JSON de
+// shippingAddress; se normalizan acentos igual que en el catálogo.
+const searchCond = q
+  ? sql`(
+      ${sql.raw(unaccentSqlExpr('"orders"."shippingAddress"'))} LIKE ${likePattern(q)}
+      OR ${sql.raw(unaccentSqlExpr('"orders"."orderNumber"'))} LIKE ${likePattern(q)}
+      OR ${sql.raw(unaccentSqlExpr('"orders"."customerEmail"'))} LIKE ${likePattern(q)}
+      OR COALESCE(${orders.trackingNumber}, '') LIKE ${'%' + q + '%'}
+    )`
+  : null;
+
+const viewCond = VIEWS[activeView];
+const where =
+  viewCond && searchCond ? sql`(${viewCond}) AND (${searchCond})`
+  : viewCond ? viewCond
+  : searchCond ? searchCond
+  : undefined;
+
+// ── Conteos de las pestañas: una sola consulta ──
+const [tallies] = await db
+  .select({
+    porEnviar: sql<number>`SUM(CASE WHEN ${C.vivo} AND ${C.envio} AND ${C.sinGuia} AND ${C.web} THEN 1 ELSE 0 END)`,
+    enCamino:  sql<number>`SUM(CASE WHEN ${C.vivo} AND ${C.conGuia} THEN 1 ELSE 0 END)`,
+    mostrador: sql<number>`SUM(CASE WHEN ${C.vivo} AND ${C.pos} AND ${C.sinGuia} THEN 1 ELSE 0 END)`,
+    tienda:    sql<number>`SUM(CASE WHEN ${C.vivo} AND ${C.tienda} AND ${C.web} THEN 1 ELSE 0 END)`,
+    todos:     count(),
+  })
+  .from(orders);
+
+// ── Total del filtro actual, para paginar ──
+const countQuery = db.select({ n: count() }).from(orders);
+if (where) countQuery.where(where);
+const [{ n: totalItems }] = await countQuery;
+const totalPages = Math.max(1, Math.ceil(Number(totalItems) / PER_PAGE));
+const safePage = Math.min(page, totalPages);
+
+// ── La página de pedidos ──
+const rowsQuery = db
+  .select({
+    id: orders.id,
+    orderNumber: orders.orderNumber,
+    customerEmail: orders.customerEmail,
+    shippingAddress: orders.shippingAddress,
+    total: orders.total,
+    status: orders.status,
+    createdAt: orders.createdAt,
+    clientId: orders.clientId,
+    deliveryMethod: orders.deliveryMethod,
+    trackingNumber: orders.trackingNumber,
+    carrier: orders.carrier,
+    labelUrl: orders.labelUrl,
+    shippingService: orders.shippingService,
+    shippingCost: orders.shippingCost,
+    labelCost: orders.labelCost,
+    paymentMethod: orders.paymentMethod,
+  })
   .from(orders)
   .orderBy(desc(orders.createdAt))
-  .all();
+  .limit(PER_PAGE)
+  .offset((safePage - 1) * PER_PAGE);
+if (where) rowsQuery.where(where);
+const rows = await rowsQuery;
 
-const formatCurrency = (value: number | null) => {
-  if (value === null) return 'N/A';
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
+// ── Piezas por pedido y nombres de cliente del POS: solo de esta página ──
+const ids = rows.map(r => r.id);
+const clientIds = [...new Set(rows.map(r => r.clientId).filter((x): x is number => x != null))];
+
+const [itemRows, clientRows] = await Promise.all([
+  ids.length
+    ? db.select({ orderId: order_items.orderId, piezas: sql<number>`SUM(${order_items.quantity})` })
+        .from(order_items).where(inArray(order_items.orderId, ids)).groupBy(order_items.orderId)
+    : Promise.resolve([]),
+  clientIds.length
+    ? db.select({ id: Client.id, nombre: Client.nombre })
+        .from(Client).where(inArray(Client.id, clientIds))
+    : Promise.resolve([]),
+]);
+
+const piezasPor = new Map(itemRows.map(r => [r.orderId, Number(r.piezas) || 0]));
+const clientePor = new Map(clientRows.map(r => [r.id, r.nombre]));
+
+// ── Presentación ──
+const money = (v: number | null | undefined) =>
+  v == null ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+
+const shortDate = (d: Date | null) =>
+  !d ? '—' : new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+
+const CARRIERS: Record<string, string> = {
+  fedex: 'FedEx', dhl: 'DHL', estafeta: 'Estafeta', redpack: 'Redpack',
+  ups: 'UPS', paquetexpress: 'Paquetexpress', '99minutos': '99 Minutos', sendex: 'Sendex',
 };
 
-const formatDate = (date: Date | null) => {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('es-MX', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
+interface Row { estado: string; etiqueta: string; cliente: string; lugar: string; }
+
+function leer(r: typeof rows[number]): Row {
+  let addr: Record<string, any> = {};
+  try { addr = JSON.parse(r.shippingAddress || '{}') || {}; } catch {}
+
+  const cliente =
+    addr.name?.trim() ||
+    addr.pickupName?.trim() ||
+    (r.clientId != null ? clientePor.get(r.clientId) : null) ||
+    r.customerEmail ||
+    'Sin nombre';
+
+  const ciudad = addr.city?.trim() || '';
+  const estadoMx = addr.state?.trim() || '';
+  const lugar = [ciudad, estadoMx].filter(Boolean).join(', ');
+
+  const pickup = (r.deliveryMethod ?? 'delivery') === 'pickup';
+  const esPos = POS_METHODS.includes(r.paymentMethod ?? '');
+
+  let estado = 'por-enviar', etiqueta = 'Falta guía';
+  if (r.status === 'cancelled')  { estado = 'cancelado'; etiqueta = 'Cancelado'; }
+  else if (r.trackingNumber)     { estado = 'en-camino'; etiqueta = 'En camino'; }
+  else if (esPos)                { estado = 'mostrador'; etiqueta = 'Mostrador'; }
+  else if (pickup)               { estado = 'tienda';    etiqueta = 'Recoge en tienda'; }
+
+  return { estado, etiqueta, cliente, lugar };
+}
+
+/** Conserva los demás parámetros al cambiar de pestaña o de página. */
+const linkTo = (patch: Record<string, string | number>) => {
+  const p = new URLSearchParams(url.search);
+  for (const [k, v] of Object.entries(patch)) p.set(k, String(v));
+  if (!patch.page) p.delete('page');
+  return `/admin/orders?${p.toString()}`;
 };
 
-const getCustomerName = (email: string | null) => {
-  if (!email) return "Cliente Anónimo";
-  return email.split('@')[0]
-    .replace(/[._-]/g, ' ')
-    .split(' ')
-    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
-    .join(' ');
-};
-
-const statusStyles: { [key: string]: string } = {
-  completed: 'bg-green-50 text-green-800',
-  pending:   'bg-yellow-50 text-yellow-800',
-  shipped:   'bg-blue-50 text-blue-800',
-  cancelled: 'bg-red-50 text-red-800',
-  default:   'bg-gray-50 text-gray-800',
-};
+const TABS: Array<{ key: ViewKey; label: string; n: number }> = [
+  { key: 'por-enviar', label: 'Por enviar',       n: Number(tallies?.porEnviar) || 0 },
+  { key: 'en-camino',  label: 'En camino',        n: Number(tallies?.enCamino)  || 0 },
+  { key: 'mostrador',  label: 'Mostrador',        n: Number(tallies?.mostrador) || 0 },
+  { key: 'tienda',     label: 'Recogen en tienda', n: Number(tallies?.tienda)   || 0 },
+  { key: 'todos',      label: 'Todos',            n: Number(tallies?.todos)     || 0 },
+];
 ---
 
-<div class="w-full bg-white rounded-2xl shadow-lg overflow-hidden">
-  <div class="bg-gradient-to-r from-amber-500 to-yellow-400 p-6 flex justify-between items-center">
-    <h2 class="text-2xl md:text-3xl font-semibold text-white">Historial de Órdenes</h2>
-    <span class="text-lg font-medium text-white opacity-90">{allOrders.length} órdenes</span>
-  </div>
+<section class="ord">
+  <header class="ord-top">
+    <div class="ord-tabs" role="tablist">
+      {TABS.map(t => (
+        <a
+          href={linkTo({ view: t.key })}
+          role="tab"
+          aria-selected={t.key === activeView}
+          class:list={['ord-tab', `is-${t.key}`, t.key === activeView && 'is-on']}
+        >
+          <span class="ord-tab-n">{t.n}</span>
+          <span class="ord-tab-l">{t.label}</span>
+        </a>
+      ))}
+    </div>
 
-  <div class="overflow-x-auto p-6">
-    <table class="min-w-full table-auto border-collapse">
-      <thead class="bg-gray-100 sticky top-0">
-        <tr>
-          <th class="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-gray-700">Orden ID</th>
-          <th class="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-gray-700">Cliente</th>
-          <th class="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-gray-700">Fecha</th>
-          <th class="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-gray-700">Estado</th>
-          <th class="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-gray-700">Envío</th>
-          <th class="px-4 py-3 text-right text-sm font-medium uppercase tracking-wider text-gray-700">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {allOrders.map((order, idx) => (
-          <tr
-            class={`border-b border-gray-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-amber-50 transition-colors cursor-pointer`}
-            onclick={`window.location.href = '/admin/orders/${encodeURIComponent(order.id)}'`}
-          >
-            <td class="px-4 py-4 font-mono text-sm text-gray-800">#{order.orderNumber || order.id.slice(0, 8)}</td>
-            <td class="px-4 py-4 font-medium text-gray-900">{getCustomerName(order.customerEmail)}</td>
-            <td class="px-4 py-4 text-sm text-gray-600">{formatDate(order.createdAt)}</td>
-            <td class="px-4 py-4">
-              <span class={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${statusStyles[order.status] || statusStyles.default}`}> 
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-              </span>
-            </td>
-            <td class="px-4 py-4">
-              {order.trackingNumber ? (
-                <div class="flex items-center gap-2">
-                  <span class="text-green-600">✓</span>
-                  <span class="text-sm font-mono">{order.trackingNumber.slice(0, 10)}...</span>
-                </div>
-              ) : (
-                <span class="text-gray-400 text-sm">Sin envío</span>
+    <form class="ord-search" method="get" action="/admin/orders">
+      <input type="hidden" name="view" value={activeView} />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+      </svg>
+      <input type="search" name="q" value={q} placeholder="Nombre, pedido, ciudad o guía" autocomplete="off" />
+      {q && <a class="ord-clear" href={linkTo({ view: activeView, q: '' })} aria-label="Limpiar búsqueda">×</a>}
+    </form>
+  </header>
+
+  {rows.length === 0 ? (
+    <p class="ord-empty">
+      {q
+        ? `Ningún pedido coincide con "${q}".`
+        : activeView === 'por-enviar'
+          ? 'No hay pedidos esperando guía. Todo al día.'
+          : 'Todavía no hay pedidos aquí.'}
+    </p>
+  ) : (
+    <ul class="ord-list">
+      {rows.map(r => {
+        const d = leer(r);
+        const piezas = piezasPor.get(r.id) ?? 0;
+        const paga = r.shippingCost ?? null;
+        const costo = r.labelCost ?? null;
+        const margen = paga != null && costo != null ? paga - costo : null;
+        return (
+          <li class:list={['ord-row', `st-${d.estado}`]}>
+            <a class="ord-hit" href={`/admin/orders/${encodeURIComponent(r.id)}`} aria-label={`Pedido de ${d.cliente}`}></a>
+
+            <div class="ord-main">
+              <span class="ord-who">{d.cliente}</span>
+              <span class="ord-num">#{r.orderNumber || r.id.slice(0, 8)}</span>
+            </div>
+
+            <div class="ord-sub">
+              <span class:list={['ord-chip', `ch-${d.estado}`]}>{d.etiqueta}</span>
+              {d.lugar && <span>{d.lugar}</span>}
+              {piezas > 0 && <span>{piezas} {piezas === 1 ? 'pieza' : 'piezas'}</span>}
+              {r.carrier && <span>{CARRIERS[r.carrier.toLowerCase()] ?? r.carrier}</span>}
+              {r.trackingNumber && <span class="ord-track">{r.trackingNumber}</span>}
+            </div>
+
+            <div class="ord-money">
+              <span class="ord-total">{money(r.total)}</span>
+              {paga != null && (
+                <span class="ord-ship">
+                  envío {money(paga)}
+                  {margen != null && margen < 0 && <b class="ord-loss"> {money(margen)}</b>}
+                </span>
               )}
-            </td>
-            <td class="px-4 py-4 font-semibold text-gray-900 text-right">{formatCurrency(order.total)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </div>
 
-    {allOrders.length === 0 && (
-      <div class="text-center py-16">
-        <p class="text-gray-500 text-lg">Aún no se ha realizado ninguna orden.</p>
-      </div>
-    )}
-  </div>
-</div>
+            <div class="ord-when">{shortDate(r.createdAt)}</div>
+
+            <div class="ord-go">
+              {r.labelUrl
+                ? <a class="ord-btn" href={r.labelUrl} target="_blank" rel="noopener">Guía PDF</a>
+                : d.estado === 'por-enviar'
+                  ? <a class="ord-btn is-primary" href={`/admin/orders/${encodeURIComponent(r.id)}`}>Generar guía</a>
+                  : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  )}
+
+  {totalPages > 1 && (
+    <nav class="ord-pages" aria-label="Paginación">
+      <a class:list={['ord-page', safePage === 1 && 'is-off']} href={linkTo({ view: activeView, page: safePage - 1 })}>Anterior</a>
+      <span class="ord-page-at">Página {safePage} de {totalPages}</span>
+      <a class:list={['ord-page', safePage === totalPages && 'is-off']} href={linkTo({ view: activeView, page: safePage + 1 })}>Siguiente</a>
+    </nav>
+  )}
+</section>
+
+<style>
+  .ord {
+    /* Superficie azul-negra, no un negro plano: deja respirar los estados. */
+    --bg:     #13161b;
+    --raised: #191d24;
+    --line:   rgba(255, 255, 255, 0.07);
+    --txt:    #e8eaed;
+    --txt-2:  #9aa1ab;
+    --txt-3:  #646b75;
+
+    /* El oro es la marca Y "requiere tu atención". Un color, dos trabajos. */
+    --gold:   #eab308;
+    --sky:    #38bdf8;
+    --mint:   #34d399;
+    --violet: #a78bfa;
+    --rose:   #f87171;
+    --steel:  #94a3b8;
+
+    color: var(--txt);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Encabezado ── */
+  .ord-top {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+
+  .ord-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .ord-tab {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 16px 9px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--raised);
+    text-decoration: none; color: var(--txt-2);
+    transition: border-color .15s, color .15s;
+  }
+  .ord-tab:hover { border-color: rgba(255, 255, 255, 0.18); color: var(--txt); }
+  .ord-tab-n { font-size: 1.35rem; font-weight: 700; line-height: 1; color: var(--txt); }
+  .ord-tab-l { font-size: 0.72rem; }
+
+  /* Solo "Por enviar" lleva color cuando hay trabajo pendiente: es lo único
+     que exige una acción. El resto son informativas. */
+  .ord-tab.is-por-enviar .ord-tab-n { color: var(--gold); }
+  .ord-tab.is-on { border-color: rgba(255, 255, 255, 0.28); color: var(--txt); background: #1f242c; }
+  .ord-tab.is-on.is-por-enviar { border-color: rgba(234, 179, 8, 0.45); }
+
+  .ord-search {
+    position: relative; display: flex; align-items: center;
+    flex: 0 1 300px; min-width: 200px;
+  }
+  .ord-search svg {
+    position: absolute; left: 12px; width: 15px; height: 15px;
+    color: var(--txt-3); pointer-events: none;
+  }
+  .ord-search input[type="search"] {
+    width: 100%; background: var(--raised); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 30px 9px 34px; color: var(--txt); font-size: 0.85rem;
+    -webkit-appearance: none; appearance: none;
+  }
+  .ord-search input[type="search"]::-webkit-search-cancel-button { display: none; }
+  .ord-search input:focus { outline: none; border-color: rgba(255, 255, 255, 0.25); }
+  .ord-search input::placeholder { color: var(--txt-3); }
+  .ord-clear {
+    position: absolute; right: 10px; color: var(--txt-3);
+    text-decoration: none; font-size: 1.1rem; line-height: 1;
+  }
+  .ord-clear:hover { color: var(--txt); }
+
+  /* ── Filas ── */
+  .ord-list { list-style: none; margin: 0; padding: 0; }
+
+  .ord-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    grid-template-areas:
+      'main  money when go'
+      'sub   money when go';
+    align-items: center;
+    gap: 2px 18px;
+    padding: 13px 16px 13px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .ord-row:first-child { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+  .ord-row:last-child { border-bottom: none; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+  .ord-row:hover { background: var(--raised); }
+
+  /* El borde izquierdo codifica el estado de despacho: es la única forma de
+     recorrer 25 filas y ver de un vistazo qué falta por hacer. */
+  .ord-row::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--txt-3);
+  }
+  .st-por-enviar::before { background: var(--gold); }
+  .st-en-camino::before  { background: var(--sky); }
+  .st-entregado::before  { background: var(--mint); }
+  .st-tienda::before     { background: var(--violet); }
+  /* Mostrador en gris: la venta ya se entregó, no pide nada. */
+  .st-mostrador::before  { background: var(--steel); }
+  .st-cancelado::before  { background: var(--rose); }
+
+  /* Toda la fila es el enlace al detalle, pero sin tragarse los botones. */
+  .ord-hit { position: absolute; inset: 0; z-index: 0; }
+  .ord-hit:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 8px; }
+  .ord-main, .ord-sub, .ord-money, .ord-when, .ord-go { position: relative; z-index: 1; pointer-events: none; }
+  .ord-go a, .ord-sub a { pointer-events: auto; }
+
+  .ord-main { grid-area: main; display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .ord-who {
+    font-size: 0.95rem; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .ord-num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.7rem; color: var(--txt-3); }
+
+  .ord-sub {
+    grid-area: sub; display: flex; align-items: center; gap: 8px;
+    font-size: 0.76rem; color: var(--txt-2); flex-wrap: wrap;
+  }
+  .ord-sub > span + span::before { content: '·'; margin-right: 8px; color: var(--txt-3); }
+  .ord-track { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: -0.02em; }
+
+  .ord-chip {
+    padding: 1px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 600;
+    border: 1px solid currentColor;
+  }
+  .ord-chip + span::before { content: none !important; }
+  .ch-por-enviar { color: var(--gold); }
+  .ch-en-camino  { color: var(--sky); }
+  .ch-entregado  { color: var(--mint); }
+  .ch-tienda     { color: var(--violet); }
+  .ch-mostrador  { color: var(--steel); }
+  .ch-cancelado  { color: var(--rose); }
+
+  .ord-money { grid-area: money; text-align: right; display: flex; flex-direction: column; gap: 1px; }
+  .ord-total { font-size: 0.95rem; font-weight: 600; }
+  .ord-ship { font-size: 0.7rem; color: var(--txt-3); }
+  /* Cuando la guía costó más de lo que pagó el cliente, se dice. */
+  .ord-loss { color: var(--rose); font-weight: 600; }
+
+  .ord-when { grid-area: when; font-size: 0.78rem; color: var(--txt-3); white-space: nowrap; }
+
+  .ord-go { grid-area: go; display: flex; justify-content: flex-end; min-width: 96px; }
+  .ord-btn {
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+    font-size: 0.75rem; font-weight: 600; color: var(--txt-2);
+    text-decoration: none; white-space: nowrap; transition: border-color .15s, color .15s;
+  }
+  .ord-btn:hover { border-color: rgba(255, 255, 255, 0.3); color: var(--txt); }
+  .ord-btn.is-primary { background: var(--gold); border-color: var(--gold); color: #1a1a1a; }
+  .ord-btn.is-primary:hover { filter: brightness(1.08); color: #1a1a1a; }
+
+  .ord-empty {
+    text-align: center; padding: 64px 20px; color: var(--txt-3);
+    font-size: 0.9rem; background: var(--bg); border-radius: 12px;
+  }
+
+  /* ── Paginación ── */
+  .ord-pages {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    margin-top: 20px; font-size: 0.8rem;
+  }
+  .ord-page { color: var(--txt-2); text-decoration: none; }
+  .ord-page:hover { color: var(--txt); }
+  .ord-page.is-off { color: var(--txt-3); pointer-events: none; opacity: 0.4; }
+  .ord-page-at { color: var(--txt-3); }
+
+  @media (max-width: 760px) {
+    .ord-row {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        'main  money'
+        'sub   money'
+        'go    when';
+      gap: 4px 12px; padding: 14px 14px 14px 18px;
+    }
+    .ord-go { justify-content: flex-start; min-width: 0; margin-top: 6px; }
+    .ord-when { text-align: right; align-self: center; }
+    .ord-tab { flex: 1 1 calc(50% - 4px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ord-tab, .ord-btn, .ord-row { transition: none; }
+  }
+</style>
