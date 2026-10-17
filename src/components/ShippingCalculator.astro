@@ -278,6 +278,24 @@ const storeData = {
   .calc-options :global(.rate-strike) { color: #85858c; font-weight: 500; font-size: 0.8rem; }
   .calc-options :global(.rate-free) { color: #15803d; font-weight: 800; }
 
+  /* Envío gratis: confirmación, no una lista para elegir. */
+  .calc-options :global(.free-ship) {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 18px; border-radius: 18px;
+    border: 1px solid #bbf7d0; background: #f0fdf4;
+  }
+  .calc-options :global(.free-ship-mark) {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    background: #15803d; color: #fff; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+  }
+  .calc-options :global(.free-ship-title) {
+    margin: 0; font-weight: 700; font-size: 0.95rem; color: #14532d;
+  }
+  .calc-options :global(.free-ship-days) {
+    margin: 2px 0 0; font-size: 0.82rem; color: #3f6b4c;
+  }
+
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .shipping-calc-card { background: rgba(255, 255, 255, 0.93); }
   }
@@ -406,6 +424,12 @@ const storeData = {
 
     const isFree = subtotal >= FREE_SHIPPING_THRESHOLD;
 
+    // Debe coincidir con FREE_SHIPPING_CARRIER de @/utils/shipping.
+    // Con envío gratis el cliente no elige: la guía la paga la tienda.
+    // Esto es solo para mostrar; quien decide de verdad es el servidor,
+    // en resolveShipping.
+    const FREE_CARRIER = 'estafeta';
+
     // Input de CP del formulario de dirección (lo auto-sincroniza si existe)
     const addressCpInput = document.getElementById('postal-code') as HTMLInputElement | null;
 
@@ -498,7 +522,35 @@ const storeData = {
 
       const resultsTitle = resultsBox?.querySelector('.calc-results-title');
       if (resultsTitle) {
-        resultsTitle.textContent = isFree ? '¡Tu envío es gratis! Elige paquetería' : 'Opciones disponibles';
+        resultsTitle.textContent = isFree ? 'Tu envío es gratis' : 'Opciones disponibles';
+      }
+
+      // ── Envío gratis: sin lista de paqueterías ──
+      // El cliente no paga la guía, así que elegirla no es decisión suya.
+      // Se le confirma el envío y el tiempo estimado, nada más. La misma
+      // regla que aplica resolveShipping en el servidor.
+      if (isFree) {
+        const preferida = sorted.filter(r => r.carrier?.toLowerCase() === FREE_CARRIER);
+        const elegida = preferida[0] ?? sorted[0];
+
+        const dias = elegida.deliveryDays;
+        const textoDias = dias === 1 ? '1 día hábil' : `${dias} días hábiles`;
+
+        optionsBox.innerHTML = `
+          <div class="free-ship">
+            <span class="free-ship-mark">✓</span>
+            <div>
+              <p class="free-ship-title">Envío sin costo</p>
+              <p class="free-ship-days">Llega en aproximadamente ${textoDias}</p>
+            </div>
+          </div>`;
+
+        hideErr();
+        postalOk?.classList.remove('hidden');
+        resultsBox?.classList.remove('hidden');
+        if (mode === 'delivery') selectRate(elegida, cp, quoteId);
+        if (addressCpInput && !addressCpInput.value) addressCpInput.value = cp;
+        return;
       }
 
       optionsBox.innerHTML = sorted.map((r, i) => {
@@ -518,7 +570,7 @@ const storeData = {
             <p class="rate-service">${r.service}</p>
             <p class="rate-days">${days}</p>
           </div>
-          <span class="rate-price">${isFree ? `<s class="rate-strike">${fmt(r.totalPrice)}</s> <span class="rate-free">Gratis</span>` : fmt(r.totalPrice)}</span>
+          <span class="rate-price">${fmt(r.totalPrice)}</span>
         </label>`;
       }).join('');
 
