@@ -146,6 +146,59 @@
       statusText.textContent = 'Esperando el pago…';
     }
 
+    /**
+     * Cancela el cobro en el servidor antes de cerrar el panel.
+     *
+     * Esconder el panel no bastaba: la orden se quedaba en 'pending' y el QR
+     * seguía siendo pagable, así que un pago posterior confirmaba la venta y
+     * descontaba stock de algo que el cajero ya había cancelado.
+     */
+    async function cancelCharge() {
+      const ref = currentRef;
+      if (!ref) { reset(); return; }
+
+      cancelBtn.disabled = true;
+      statusText.textContent = 'Cancelando el cobro…';
+
+      try {
+        const res = await fetch('/api/pos-cancel-charge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ externalReference: ref }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          // El caso que importa: el cliente alcanzó a pagar mientras el cajero
+          // cancelaba. No se cancela nada y se le avisa.
+          if (data.alreadyPaid) {
+            statusEl.className = 'pos-mp-status paid';
+            statusText.textContent = '¡El cliente ya pagó! No se canceló.';
+            stopPolling();
+            window.alert(
+              `El cliente ya pagó este cobro (${data.orderNumber}).\n\n` +
+              'No se canceló: la venta es válida y el inventario ya se descontó.'
+            );
+            cancelBtn.disabled = false;
+            return;
+          }
+          throw new Error(data.error || 'No se pudo cancelar el cobro');
+        }
+
+        reset();
+      } catch (e) {
+        // Si falla, mejor dejar el panel abierto que esconder un cobro vivo.
+        statusText.textContent = 'No se pudo cancelar. Intenta de nuevo.';
+        console.error('Error cancelando el cobro:', e);
+        window.alert(
+          e instanceof Error ? e.message : 'No se pudo cancelar el cobro.\n\n' +
+          'El cobro sigue activo: vuelve a intentarlo antes de cerrar.'
+        );
+      } finally {
+        cancelBtn.disabled = false;
+      }
+    }
+
     async function start() {
       const cart: PosCartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
       if (cart.length === 0) {
@@ -210,8 +263,8 @@
             stopPolling();
             statusEl.className = 'pos-mp-status paid';
             statusText.textContent = '¡Pago recibido!';
-            // El POS escucha esto para cerrar la venta e imprimir el ticket
             window.dispatchEvent(new CustomEvent('pos:mp-paid', { detail: order }));
+            closeSale(order);
           } else if (order.status === 'rejected' || order.status === 'cancelled') {
             stopPolling();
             statusEl.className = 'pos-mp-status failed';
@@ -223,8 +276,35 @@
       }, 3000);
     }
 
+    /**
+     * Cierra la venta cuando Mercado Pago confirma el pago.
+     *
+     * Antes se emitía el evento 'pos:mp-paid' y nadie lo escuchaba: el pago
+     * entraba, el webhook descontaba el stock, pero el carrito del cajero se
+     * quedaba lleno. Parecía que la venta no se había hecho y el cajero podía
+     * volver a cobrarla en efectivo, descontando el inventario dos veces.
+     *
+     * Aquí NO se crea pedido ni se toca el stock: de eso ya se encargó
+     * confirmOrderByReference al llegar el webhook. Solo se limpia la caja.
+     */
+    function closeSale(order: { orderNumber?: string }) {
+      try {
+        localStorage.removeItem('admin-pos-cart');
+        localStorage.removeItem('admin-pos-extra');
+      } catch {}
+
+      window.alert(
+        `Pago recibido.\n\nPedido ${order.orderNumber ?? ''}\n\n` +
+        'La venta quedó registrada y el inventario ya se descontó. ' +
+        'El ticket se puede reimprimir desde el detalle del pedido.'
+      );
+
+      // Recarga para que el carrito y el inventario en pantalla queden al día.
+      window.location.reload();
+    }
+
     startBtn.addEventListener('click', start);
-    cancelBtn.addEventListener('click', reset);
+    cancelBtn.addEventListener('click', cancelCharge);
 
     // Si el cajero navega a otra página, no dejar el timer corriendo
     document.addEventListener('astro:before-preparation', stopPolling, { once: true });
