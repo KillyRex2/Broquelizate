@@ -201,8 +201,10 @@ const clientsList: Client[] = clientsData?.clients || [];
 </style>
 
 <script>
-  import Swal, { type SweetAlertResult } from 'sweetalert2';
-  import 'sweetalert2/dist/sweetalert2.min.css';
+  // Los diálogos propios de @/utils/alerts, no SweetAlert2: Swal pierde su
+  // CSS al navegar con View Transitions y el cuadro sale sin estilos en una
+  // esquina. Estos inyectan su propio <style> por diálogo.
+  import { Alert, Confirm, Toast, Prompt } from '@/utils/alerts';
   import { navigate } from 'astro:transitions/client';
   import { generateAndPrintTicket} from '@/services/ticketGenerator';
   import { readPosExtras, clearPosExtras, extrasTotal } from '@/utils/pos-extra';
@@ -449,81 +451,37 @@ const clientsList: Client[] = clientsData?.clients || [];
     async function handleApplyDiscount() {
         const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-        const { value: formValues, isConfirmed } = await Swal.fire({
-            title: 'Aplicar Descuento',
-            html: `
-                  <div class="p-6 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200 max-w-md mx-auto">
-                    <p class="text-sm text-gray-500 mb-6">Elige una opción. Solo se aplicará un tipo de descuento.</p>
-
-                    <div class="space-y-5">
-                      <div>
-                        <label for="swal-fixed-discount" class="block text-gray-700 font-medium mb-1">
-                          Descuento fijo ($)
-                        </label>
-                        <input
-                          id="swal-fixed-discount"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label for="swal-percentage-discount" class="block text-gray-700 font-medium mb-1">
-                          Descuento por Porcentaje (%)
-                        </label>
-                        <input
-                          id="swal-percentage-discount"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          class="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 transition"
-                        />
-                      </div>
-                    </div>
-                  </div>
-            `,
-            confirmButtonText: 'Aplicar descuento',
-            confirmButtonColor: '#d97706',
-            cancelButtonText: 'Cancelar',
-            showCancelButton: true,
-            focusConfirm: false,
-            didOpen: () => {
-                const fixedInput = document.getElementById('swal-fixed-discount') as HTMLInputElement;
-                const percentageInput = document.getElementById('swal-percentage-discount') as HTMLInputElement;
-                
-                fixedInput.addEventListener('input', () => {
-                    if (fixedInput.value) percentageInput.value = '';
-                });
-                
-                percentageInput.addEventListener('input', () => {
-                    if (percentageInput.value) fixedInput.value = '';
-                });
-            },
-            preConfirm: () => {
-                const fixed = (document.getElementById('swal-fixed-discount') as HTMLInputElement).value;
-                const percentage = (document.getElementById('swal-percentage-discount') as HTMLInputElement).value;
-                return { fixed: parseFloat(fixed) || 0, percentage: parseFloat(percentage) || 0 };
-            }
+        const formValues = await Prompt.show({
+            title: 'Aplicar descuento',
+            message: 'Elige una opción. Solo se aplicará un tipo de descuento.',
+            exclusive: true,
+            confirmText: 'Aplicar descuento',
+            fields: [
+              { id: 'fixed',      label: 'Descuento fijo ($)',          type: 'number', step: '0.01', placeholder: '0.00' },
+              { id: 'percentage', label: 'Descuento por porcentaje (%)', type: 'number', step: '0.01', placeholder: '0.00' },
+            ],
         });
 
-        if (isConfirmed && formValues) {
+        if (formValues) {
             let calculatedDiscount = 0;
             let type: 'fixed' | 'percentage' | null = null;
             let percentageValue = 0;
 
-            if (formValues.fixed > 0) {
-                calculatedDiscount = formValues.fixed;
+            // Prompt devuelve texto, no números.
+            const fixed = Number(formValues.fixed) || 0;
+            const percentage = Number(formValues.percentage) || 0;
+
+            if (fixed > 0) {
+                calculatedDiscount = fixed;
                 type = 'fixed';
-            } else if (formValues.percentage > 0) {
-                calculatedDiscount = subtotal * (formValues.percentage / 100);
+            } else if (percentage > 0) {
+                calculatedDiscount = subtotal * (percentage / 100);
                 type = 'percentage';
-                percentageValue = formValues.percentage;
+                percentageValue = percentage;
             }
 
             if (calculatedDiscount > subtotal) {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'El descuento no puede ser mayor que el subtotal.', confirmButtonColor: '#d97706' });
+                Alert.error('Descuento inválido', 'El descuento no puede ser mayor que el subtotal.');
                 return;
             }
             if (calculatedDiscount < 0) {
@@ -561,23 +519,19 @@ const clientsList: Client[] = clientsData?.clients || [];
       const total = subtotal + additionalAmount - discountInfo.amount;
 
       if (paymentMethod === 'Venta a crédito' && !clientId) {
-        Swal.fire({ 
-          icon: 'error', 
-          title: 'Cliente no seleccionado', 
-          text: 'Debes seleccionar un cliente para realizar una venta a crédito.', 
-          confirmButtonColor: '#d97706' 
-        });
+        Alert.error(
+          'Cliente no seleccionado',
+          'Debes seleccionar un cliente para realizar una venta a crédito.'
+        );
         return;
       }
 
       // SIN VALIDACIÓN DE STOCK - permite vender con stock negativo
       
-      Swal.fire({ 
-        title: 'Procesando Venta...', 
-        html: 'Por favor, espera.', 
-        allowOutsideClick: false, 
-        didOpen: () => Swal.showLoading() 
-      });
+      // Un toast en vez de un diálogo bloqueante: la venta ya está en curso
+      // y tapar la pantalla no aporta nada. Se cierra al terminar, pase lo
+      // que pase, por eso el id vive fuera del try.
+      const procesando = Toast.loading('Procesando venta…');
 
       try {
         const selectedClient = clientId ? clientsList.find(c => c.id === clientId) : null;
@@ -614,6 +568,10 @@ const clientsList: Client[] = clientsData?.clients || [];
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Error del servidor');
 
+        // Se cierra aquí y no al final: si algo más abajo abre una alerta,
+        // el toast de carga no debe quedarse encima.
+        Toast.dismiss(procesando);
+
         // Actualizar stock (puede quedar negativo)
         await updateProductStock();
         
@@ -625,7 +583,10 @@ const clientsList: Client[] = clientsData?.clients || [];
 
           if (updateResult.error) {
             console.error("Error al actualizar el saldo del cliente:", updateResult.error.message);
-            Swal.fire('Venta registrada', 'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.', 'warning');
+            Alert.warning(
+              'Venta registrada',
+              'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.'
+            );
           }
         }
         
@@ -643,17 +604,14 @@ const clientsList: Client[] = clientsData?.clients || [];
         const observationsTextarea = document.getElementById('observation') as HTMLTextAreaElement | null;
         const observationsText = (showOnReceiptCheckbox?.checked && observationsTextarea) ? observationsTextarea.value : undefined;
         
-        Swal.fire({
-          icon: 'success',
-          title: '¡Venta Finalizada!',
-          html: `La orden <strong>#${result.orderNumber}</strong> ha sido registrada exitosamente.`,
-          showCancelButton: true,
-          confirmButtonText: 'Imprimir Ticket',
-          cancelButtonText: 'Nueva Venta',
-          confirmButtonColor: '#d97706',
-          cancelButtonColor: '#6b7280'
-        }).then((res: SweetAlertResult) => {
-          if (res.isConfirmed) {
+        Confirm.show({
+          title: '¡Venta finalizada!',
+          message: `La orden #${result.orderNumber} quedó registrada.`,
+          confirmText: 'Imprimir ticket',
+          cancelText: 'Nueva venta',
+          type: 'info',
+        }).then((imprimir: boolean) => {
+          if (imprimir) {
             const ticketCart = cart.map(item => ({
               id: parseInt(item.productId),
               name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
@@ -681,36 +639,30 @@ const clientsList: Client[] = clientsData?.clients || [];
               posExtras
             );
           }
-          Swal.close();
           navigate('/admin/sale');
         });
 
       } catch (err: unknown) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: err instanceof Error ? err.message : 'No se pudo finalizar la venta.',
-          confirmButtonColor: '#d97706'
-        });
+        Toast.dismiss(procesando);
+        Alert.error(
+          'No se pudo finalizar la venta',
+          err instanceof Error ? err.message : 'Intenta de nuevo.'
+        );
       }
     }
 
     function handleDiscardSale() {
-      Swal.fire({
-        title: '¿Descartar Venta?',
-        text: "Se perderán todos los productos del carrito.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonText: 'No, continuar',
-        confirmButtonText: 'Sí, descartar'
-      }).then((result: SweetAlertResult) => {
-        if (result.isConfirmed) {
-          localStorage.removeItem('admin-pos-cart');
-          clearPosExtras();
-          Swal.close();
-          navigate('/admin/sale')
-        }
+      Confirm.show({
+        title: '¿Descartar la venta?',
+        message: 'Se perderán todos los productos del carrito.',
+        confirmText: 'Sí, descartar',
+        cancelText: 'No, continuar',
+        type: 'danger',
+      }).then((descartar: boolean) => {
+        if (!descartar) return;
+        localStorage.removeItem('admin-pos-cart');
+        clearPosExtras();
+        navigate('/admin/sale');
       });
     }
 

@@ -103,6 +103,8 @@
 </style>
 
 <script>
+  import { Alert, Toast } from '@/utils/alerts';
+
   interface PosCartItem {
     productId: string;
     variantId?: string;
@@ -175,9 +177,9 @@
             statusEl.className = 'pos-mp-status paid';
             statusText.textContent = '¡El cliente ya pagó! No se canceló.';
             stopPolling();
-            window.alert(
-              `El cliente ya pagó este cobro (${data.orderNumber}).\n\n` +
-              'No se canceló: la venta es válida y el inventario ya se descontó.'
+            Alert.warning(
+              'El cliente ya pagó',
+              `El cobro ${data.orderNumber} ya fue pagado, así que no se canceló. La venta es válida y el inventario ya se descontó.`
             );
             cancelBtn.disabled = false;
             return;
@@ -190,9 +192,11 @@
         // Si falla, mejor dejar el panel abierto que esconder un cobro vivo.
         statusText.textContent = 'No se pudo cancelar. Intenta de nuevo.';
         console.error('Error cancelando el cobro:', e);
-        window.alert(
-          e instanceof Error ? e.message : 'No se pudo cancelar el cobro.\n\n' +
-          'El cobro sigue activo: vuelve a intentarlo antes de cerrar.'
+        Alert.error(
+          'No se pudo cancelar',
+          e instanceof Error
+            ? e.message
+            : 'El cobro sigue activo. Vuelve a intentarlo antes de cerrar el panel.'
         );
       } finally {
         cancelBtn.disabled = false;
@@ -202,7 +206,7 @@
     async function start() {
       const cart: PosCartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
       if (cart.length === 0) {
-        window.alert('El carrito está vacío.');
+        Toast.warning('El carrito está vacío.');
         return;
       }
 
@@ -246,7 +250,10 @@
         startPolling();
       } catch (e) {
         startBtn.disabled = false;
-        window.alert(e instanceof Error ? e.message : 'Error al generar el cobro');
+        Alert.error(
+          'No se pudo generar el cobro',
+          e instanceof Error ? e.message : 'Intenta de nuevo.'
+        );
       }
     }
 
@@ -293,14 +300,15 @@
         localStorage.removeItem('admin-pos-extra');
       } catch {}
 
-      window.alert(
-        `Pago recibido.\n\nPedido ${order.orderNumber ?? ''}\n\n` +
-        'La venta quedó registrada y el inventario ya se descontó. ' +
+      Alert.success(
+        'Pago recibido',
+        `El pedido ${order.orderNumber ?? ''} quedó registrado y el inventario ya se descontó. ` +
         'El ticket se puede reimprimir desde el detalle del pedido.'
-      );
-
-      // Recarga para que el carrito y el inventario en pantalla queden al día.
-      window.location.reload();
+      ).then(() => {
+        // Recarga al cerrar el aviso, para que el carrito y el inventario en
+        // pantalla queden al día.
+        window.location.reload();
+      });
     }
 
     startBtn.addEventListener('click', start);
