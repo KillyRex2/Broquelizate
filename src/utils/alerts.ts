@@ -405,6 +405,12 @@ interface PromptOptions {
   cancelText?: string;
   /** Escribir en un campo vacía los demás. Para opciones excluyentes. */
   exclusive?: boolean;
+  /**
+   * Revisa los valores antes de cerrar. Devuelve el mensaje de error, o
+   * null si todo está bien. El diálogo se queda abierto con el error a la
+   * vista, para no perder lo que ya se escribió.
+   */
+  validate?: (values: Record<string, string>) => string | null;
 }
 
 export const Prompt = {
@@ -418,6 +424,7 @@ export const Prompt = {
         confirmText = 'Aplicar',
         cancelText = 'Cancelar',
         exclusive = false,
+        validate,
       } = options;
 
       const esc = (s: string) =>
@@ -444,6 +451,7 @@ export const Prompt = {
               </label>
             `).join('')}
           </div>
+          <p class="prompt-error" hidden></p>
           <div class="prompt-buttons">
             <button type="button" class="prompt-btn prompt-btn-cancel">${esc(cancelText)}</button>
             <button type="submit" class="prompt-btn prompt-btn-confirm">${esc(confirmText)}</button>
@@ -501,6 +509,13 @@ export const Prompt = {
         dialog#${dialog.id} .prompt-field input::placeholder {
           color: rgba(250, 250, 250, 0.3);
         }
+        dialog#${dialog.id} .prompt-error {
+          margin: 0; font-size: 0.82rem; color: #fca5a5;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          border-radius: 9px; padding: 9px 12px; line-height: 1.4;
+        }
+        dialog#${dialog.id} .prompt-error[hidden] { display: none; }
         dialog#${dialog.id} .prompt-buttons {
           display: flex; gap: 10px; justify-content: flex-end;
         }
@@ -555,10 +570,24 @@ export const Prompt = {
         setTimeout(() => { dialog.remove(); style.remove(); }, 100);
       };
 
+      const errorEl = dialog.querySelector('.prompt-error') as HTMLParagraphElement;
+
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         const values: Record<string, string> = {};
         inputs.forEach(i => { values[i.dataset.field!] = i.value; });
+
+        if (validate) {
+          const problema = validate(values);
+          if (problema) {
+            // No se cierra: se muestra el error y se conserva lo escrito.
+            errorEl.textContent = problema;
+            errorEl.hidden = false;
+            return;
+          }
+          errorEl.hidden = true;
+        }
+
         cleanup();
         resolve(values);
       });
