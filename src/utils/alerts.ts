@@ -381,6 +381,225 @@ export const Alert = {
 };
 
 // ============================================
+// FORMULARIO EN DIÁLOGO (reemplaza Swal.fire con html + inputs)
+// ============================================
+// Era lo último que ataba el POS a SweetAlert2: el diálogo de descuento
+// necesitaba dos campos y aquí no había con qué hacerlo. Como el resto,
+// inyecta su propio <style>, así que no se queda sin CSS al navegar con
+// View Transitions — que es justo lo que le pasaba a Swal.
+
+export interface PromptField {
+  id: string;
+  label: string;
+  type?: 'text' | 'number';
+  placeholder?: string;
+  step?: string;
+  value?: string;
+}
+
+interface PromptOptions {
+  title: string;
+  message?: string;
+  fields: PromptField[];
+  confirmText?: string;
+  cancelText?: string;
+  /** Escribir en un campo vacía los demás. Para opciones excluyentes. */
+  exclusive?: boolean;
+  /**
+   * Revisa los valores antes de cerrar. Devuelve el mensaje de error, o
+   * null si todo está bien. El diálogo se queda abierto con el error a la
+   * vista, para no perder lo que ya se escribió.
+   */
+  validate?: (values: Record<string, string>) => string | null;
+}
+
+export const Prompt = {
+  /** Resuelve con los valores por id, o null si se cancela. */
+  show: (options: PromptOptions): Promise<Record<string, string> | null> => {
+    return new Promise((resolve) => {
+      const {
+        title,
+        message = '',
+        fields,
+        confirmText = 'Aplicar',
+        cancelText = 'Cancelar',
+        exclusive = false,
+        validate,
+      } = options;
+
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      const dialog = document.createElement('dialog');
+      dialog.id = 'prompt-dialog-' + Date.now();
+      dialog.innerHTML = `
+        <div class="prompt-backdrop"></div>
+        <form class="prompt-content" method="dialog">
+          <h3 class="prompt-title">${esc(title)}</h3>
+          ${message ? `<p class="prompt-message">${esc(message)}</p>` : ''}
+          <div class="prompt-fields">
+            ${fields.map(f => `
+              <label class="prompt-field">
+                <span>${esc(f.label)}</span>
+                <input
+                  type="${f.type ?? 'text'}"
+                  data-field="${esc(f.id)}"
+                  ${f.step ? `step="${esc(f.step)}"` : ''}
+                  ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''}
+                  value="${f.value ? esc(f.value) : ''}"
+                />
+              </label>
+            `).join('')}
+          </div>
+          <p class="prompt-error" hidden></p>
+          <div class="prompt-buttons">
+            <button type="button" class="prompt-btn prompt-btn-cancel">${esc(cancelText)}</button>
+            <button type="submit" class="prompt-btn prompt-btn-confirm">${esc(confirmText)}</button>
+          </div>
+        </form>
+      `;
+
+      const style = document.createElement('style');
+      style.id = 'prompt-styles-' + dialog.id;
+      style.textContent = `
+        dialog#${dialog.id} {
+          position: fixed; inset: 0; z-index: 99999;
+          display: flex; align-items: center; justify-content: center;
+          padding: 16px; border: none; background: transparent;
+          max-width: 100vw; max-height: 100vh; width: 100%; height: 100%;
+        }
+        dialog#${dialog.id}::backdrop { background: transparent; }
+        dialog#${dialog.id} .prompt-backdrop {
+          position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8);
+          animation: promptFadeIn 0.2s ease;
+        }
+        dialog#${dialog.id} .prompt-content {
+          position: relative; background: #18181b; color: #fafafa;
+          border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px;
+          padding: 30px; width: 100%; max-width: 420px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+          animation: promptScaleIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+          display: flex; flex-direction: column; gap: 18px;
+        }
+        dialog#${dialog.id} .prompt-title {
+          margin: 0; font-size: 1.15rem; font-weight: 700;
+        }
+        dialog#${dialog.id} .prompt-message {
+          margin: -10px 0 0; font-size: 0.85rem; line-height: 1.5;
+          color: rgba(250, 250, 250, 0.6);
+        }
+        dialog#${dialog.id} .prompt-fields {
+          display: flex; flex-direction: column; gap: 14px;
+        }
+        dialog#${dialog.id} .prompt-field {
+          display: flex; flex-direction: column; gap: 6px;
+        }
+        dialog#${dialog.id} .prompt-field span {
+          font-size: 0.8rem; color: rgba(250, 250, 250, 0.7);
+        }
+        dialog#${dialog.id} .prompt-field input {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 10px; padding: 11px 14px;
+          color: #fafafa; font-size: 0.95rem; width: 100%;
+        }
+        dialog#${dialog.id} .prompt-field input:focus {
+          outline: none; border-color: #eab308;
+        }
+        dialog#${dialog.id} .prompt-field input::placeholder {
+          color: rgba(250, 250, 250, 0.3);
+        }
+        dialog#${dialog.id} .prompt-error {
+          margin: 0; font-size: 0.82rem; color: #fca5a5;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          border-radius: 9px; padding: 9px 12px; line-height: 1.4;
+        }
+        dialog#${dialog.id} .prompt-error[hidden] { display: none; }
+        dialog#${dialog.id} .prompt-buttons {
+          display: flex; gap: 10px; justify-content: flex-end;
+        }
+        dialog#${dialog.id} .prompt-btn {
+          border: none; border-radius: 10px; padding: 11px 20px;
+          font-size: 0.9rem; font-weight: 600; cursor: pointer;
+          transition: filter 0.15s, transform 0.15s;
+        }
+        dialog#${dialog.id} .prompt-btn-cancel {
+          background: rgba(255, 255, 255, 0.08); color: #fafafa;
+        }
+        dialog#${dialog.id} .prompt-btn-cancel:hover {
+          background: rgba(255, 255, 255, 0.15);
+        }
+        dialog#${dialog.id} .prompt-btn-confirm {
+          background: #eab308; color: #000; font-weight: 700;
+        }
+        dialog#${dialog.id} .prompt-btn-confirm:hover {
+          filter: brightness(1.1); transform: translateY(-1px);
+        }
+        @keyframes promptFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes promptScaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @media (max-width: 480px) {
+          dialog#${dialog.id} .prompt-content { padding: 24px; border-radius: 16px; }
+          dialog#${dialog.id} .prompt-buttons { flex-direction: column-reverse; }
+          dialog#${dialog.id} .prompt-btn { width: 100%; }
+        }
+      `;
+
+      document.head.appendChild(style);
+      document.body.appendChild(dialog);
+      dialog.showModal();
+
+      const form = dialog.querySelector('.prompt-content') as HTMLFormElement;
+      const inputs = Array.from(dialog.querySelectorAll<HTMLInputElement>('input[data-field]'));
+      const cancelBtn = dialog.querySelector('.prompt-btn-cancel') as HTMLButtonElement;
+      const backdrop = dialog.querySelector('.prompt-backdrop') as HTMLElement;
+
+      inputs[0]?.focus();
+
+      if (exclusive) {
+        inputs.forEach(input => {
+          input.addEventListener('input', () => {
+            if (!input.value) return;
+            inputs.forEach(other => { if (other !== input) other.value = ''; });
+          });
+        });
+      }
+
+      const cleanup = () => {
+        dialog.close();
+        setTimeout(() => { dialog.remove(); style.remove(); }, 100);
+      };
+
+      const errorEl = dialog.querySelector('.prompt-error') as HTMLParagraphElement;
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const values: Record<string, string> = {};
+        inputs.forEach(i => { values[i.dataset.field!] = i.value; });
+
+        if (validate) {
+          const problema = validate(values);
+          if (problema) {
+            // No se cierra: se muestra el error y se conserva lo escrito.
+            errorEl.textContent = problema;
+            errorEl.hidden = false;
+            return;
+          }
+          errorEl.hidden = true;
+        }
+
+        cleanup();
+        resolve(values);
+      });
+
+      cancelBtn.addEventListener('click', () => { cleanup(); resolve(null); });
+      backdrop.addEventListener('click', () => { cleanup(); resolve(null); });
+      dialog.addEventListener('cancel', (e) => { e.preventDefault(); cleanup(); resolve(null); });
+    });
+  },
+};
+
+// ============================================
 // VISOR DE IMAGEN (reemplaza Swal.fire({ imageUrl }))
 // ============================================
 export const ImageViewer = {

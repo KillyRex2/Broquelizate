@@ -52,11 +52,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 
     if (status === 'approved') {
       const res = await confirmOrderByReference(externalReference, payment.id);
-      console.log(
-        res.ok
-          ? `✅ Pedido ${res.orderNumber} ${res.alreadyPaid ? 'ya estaba pagado' : 'confirmado'}`
-          : `⚠️ Sin pedido para la referencia ${externalReference}`
-      );
+      if (res.ok) {
+        console.log(`✅ Pedido ${res.orderNumber} ${res.alreadyPaid ? 'ya estaba pagado' : 'confirmado'}`);
+      } else if (res.reason === 'cancelled') {
+        // No es un error del webhook: el cobro se canceló en el POS y el pago
+        // llegó después. Se deja anotado; el stock NO se toca.
+        console.warn(`⚠️ Pago para el pedido cancelado ${res.orderNumber} — revisar a mano`);
+      } else {
+        console.warn(`⚠️ Sin pedido para la referencia ${externalReference}`);
+      }
     } else if (status === 'rejected' || status === 'cancelled') {
       await failOrderByReference(externalReference, status);
     }

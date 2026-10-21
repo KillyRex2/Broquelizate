@@ -229,6 +229,35 @@ export async function confirmOrderByReference(externalReference: string, payment
     return { ok: true, alreadyPaid: true, orderId: order.id, orderNumber: order.orderNumber };
   }
 
+  // Cancelada: NO se confirma sola ni se descuenta stock.
+  //
+  // Antes aquí solo se miraba 'paid', así que un cobro que el cajero había
+  // cancelado se confirmaba igual al llegar el webhook y descontaba el
+  // inventario de una venta que nunca ocurrió. Ese era el bug reportado:
+  // "agrego productos, cancelo, y se descuentan de todas formas".
+  //
+  // Si de verdad llegó un pago, no se pierde: se guarda el paymentId como
+  // rastro y se registra en consola. Una orden cancelada CON paymentId es la
+  // señal de que hay que revisarla a mano, cobro en Mercado Pago incluido.
+  if (order.status === 'cancelled' || order.status === 'rejected') {
+    console.error('⚠️ Llegó un pago para un pedido cancelado — revisar a mano', {
+      externalReference,
+      paymentId,
+      orderNumber: order.orderNumber,
+    });
+    if (paymentId != null && !order.paymentId) {
+      await db.update(orders)
+        .set({ paymentId: String(paymentId) } as any)
+        .where(eq(orders.id, order.id));
+    }
+    return {
+      ok: false,
+      reason: 'cancelled' as const,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+    };
+  }
+
   await db
     .update(orders)
     // El id de pago va en paymentId. Antes se guardaba en labelId, que es de la guía de Envia.

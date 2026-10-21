@@ -1,0 +1,78 @@
+---
+// src/pages/pago-listo.astro
+//
+// Donde aterriza el CELULAR DEL CLIENTE después de pagar un cobro del
+// mostrador con Mercado Pago. create-mercadopago-preference manda aquí las
+// tres back_urls del canal 'pos' (success, failure y pending), y esta página
+// no existía: el cliente terminaba de pagar y le salía un 404.
+//
+// Es solo un acuse para el cliente. Quien confirma la venta y descuenta el
+// inventario es el webhook, y el cajero lo ve en su pantalla.
+import ProductsLayout from '@/layouts/ProductsLayout.astro';
+
+const params = Astro.url.searchParams;
+const raw = (params.get('status') || params.get('collection_status') || '').toLowerCase();
+
+const estado =
+  raw === 'approved' || raw === 'authorized' ? 'ok'
+  : raw === 'pending' || raw === 'in_process' ? 'pendiente'
+  : raw === 'rejected' || raw === 'cancelled' || raw === 'failure' ? 'fallo'
+  : 'ok'; // sin parámetro: Mercado Pago solo redirige aquí tras completar
+
+const COPY = {
+  ok: {
+    titulo: '¡Listo, gracias!',
+    texto: 'Tu pago se recibió correctamente. Ya puedes recoger tu compra en el mostrador.',
+  },
+  pendiente: {
+    titulo: 'Tu pago está en proceso',
+    texto: 'Mercado Pago todavía lo está confirmando. Muéstrale esta pantalla a quien te atiende.',
+  },
+  fallo: {
+    titulo: 'El pago no se completó',
+    texto: 'No se hizo ningún cargo. Puedes intentar de nuevo o pagar de otra forma en el mostrador.',
+  },
+}[estado];
+---
+
+<ProductsLayout title="Pago en mostrador">
+  <main class="pl-wrap">
+    <div class:list={['pl-card', `is-${estado}`]}>
+      <div class="pl-mark" aria-hidden="true">
+        {estado === 'ok' ? '✓' : estado === 'pendiente' ? '•••' : '×'}
+      </div>
+      <h1>{COPY.titulo}</h1>
+      <p>{COPY.texto}</p>
+      <a href="/">Ir a la tienda</a>
+    </div>
+  </main>
+</ProductsLayout>
+
+<style>
+  .pl-wrap {
+    min-height: 60vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 48px 20px;
+  }
+  .pl-card {
+    text-align: center; max-width: 380px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .pl-mark {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 700; color: #fff;
+    background: #9ca3af;
+  }
+  .is-ok .pl-mark        { background: #15803d; }
+  .is-pendiente .pl-mark { background: #d97706; font-size: 1rem; letter-spacing: 1px; }
+  .is-fallo .pl-mark     { background: #dc2626; }
+
+  .pl-card h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+  .pl-card p  { margin: 0; color: #6b7280; line-height: 1.55; font-size: 0.95rem; }
+  .pl-card a  {
+    margin-top: 10px; font-size: 0.9rem; font-weight: 600;
+    color: #b45309; text-decoration: none;
+  }
+  .pl-card a:hover { text-decoration: underline; }
+</style>
