@@ -1,6 +1,7 @@
 ---
 // src/components/FeaturedProductsSection.astro
 import FeaturedProductCard from '@/components/products/FeaturedProductsCard.astro';
+import { FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
 
 export interface Product {
   id: string;
@@ -105,7 +106,7 @@ const displayProducts = products.length > 0 ? products : defaultProducts;
         </div>
         <div class="feature-text">
           <span class="feature-title">Envío Gratis</span>
-          <span class="feature-desc">En compras +$999</span>
+          <span class="feature-desc">En compras +${FREE_SHIPPING_THRESHOLD}</span>
         </div>
       </div>
       
