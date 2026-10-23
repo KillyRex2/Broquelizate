@@ -67,6 +67,11 @@ const PRODUCT_FIELDS = {
   coverImageId: Product.coverImageId,
 };
 
+// Un enlace guardado con el dominio completo (por ejemplo el viejo *.netlify.app)
+// se vuelve relativo, para que funcione en cualquier dominio de la tienda.
+const toSitePath = (href: string): string =>
+  href.replace(/^https?:\/\/(www\.)?broquelizate\.(netlify\.app|com)(?=\/|\?|#|$)/i, '') || '/';
+
 export async function getHomeCarousels(): Promise<HomeCarousel[]> {
   // ── Ronda 1 ──
   const collections = await db
@@ -159,7 +164,7 @@ export async function getHomeCarousels(): Promise<HomeCarousel[]> {
       return {
         id: c.id,
         title: c.title,
-        href: c.href || '/products',
+        href: toSitePath(c.href || '/products'),
         linkText: c.linkText || 'Ver todo',
         products: rows.map((p: any) => toCarouselProduct(p, c.badge)),
       };

@@ -3,8 +3,8 @@ import { CartCounter } from '@/components';
 
 const { isLoggedIn, isAdmin, user } = Astro.locals;
 
-// Umbral de envío gratis. Debe coincidir con el de la ficha de producto.
-const FREE_SHIPPING_THRESHOLD = 1099;
+// Umbral de envío gratis: sale de @/utils/shipping, el único lugar donde vive.
+import { FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
 
 // ⚠️ Verifica que estos valores existan en tu BD:
 //    type   → Anillos, Broqueles, Cadenas, Pulseras, Piercings...
@@ -334,7 +334,7 @@ const navLinks = [
       )}
 
       <div class="mobile-footer">
-        <p>© 2024 Broquelizate</p>
+        <p>© {new Date().getFullYear()} Broquelizate</p>
         <div class="mobile-social">
           <a href="#" aria-label="Instagram">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
