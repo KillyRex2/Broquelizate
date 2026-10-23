@@ -9,6 +9,7 @@ import react from "@astrojs/react";
 
 // https://astro.build/config
 export default defineConfig({
+  site: 'https://broquelizate.com',
   integrations: [tailwind(), db({ seedOnStartup: false }), auth(), react(), astroIcon()],
   output: "server",
   adapter: netlify(),
