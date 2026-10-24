@@ -9,6 +9,7 @@ import { getClientById, updateClient, getAllClients, updateClientBalance } from 
 import { getAllProductsWithImages } from "./admin/get-all-products.action";
 import { capturePaypalOrder, createPaypalOrder } from "./admin/paypal";
 import { subscribeToNewsletter } from "./newsletter/newsletter.action";
+import { sendContactForm } from "./contact/contact.action";
 import { createBatchVariants, generateVariantCombinations, updateCombinationStock, getGroupedProductVariants, deleteVariant, deleteVariantGroup, updateVariant, getVariantCombination, updateVariantGroup, uploadCombinationImage, deleteCombinationImage } from "./admin/product-variants.action";
 import {createShippingLabel, trackShipment, getUserShipments, getShippingRates, updateOrderStatus, updateOrderShippingAddress, updateShippingAddress, getUserProfile, updateUserProfile, getUserProfileByEmail} from './envia/envia.action';
 import { getSalesStats } from "./admin/get-sales-stats.action";
@@ -68,7 +69,10 @@ export const server = {
 
     // Newsletter
     subscribeToNewsletter,
-    
+
+    // Contacto
+    sendContactForm,
+
     // Variants
     getVariantCombination,
     getGroupedProductVariants,

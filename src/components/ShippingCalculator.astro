@@ -330,7 +330,7 @@ const storeData = {
 
 <script>
   import { actions } from 'astro:actions';
-  import { packageForItems } from '@/utils/shipping';
+  import { packageForItems, FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
 
   interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
 
@@ -358,9 +358,9 @@ const storeData = {
   const QUOTE_TTL_MS = 30 * 60 * 1000;         // una cotización vale 30 min
   const MAX_CACHED_CPS = 5;
 
-  // Debe coincidir con FREE_SHIPPING_THRESHOLD de @/utils/shipping.
-  // Aquí va como constante local porque esto corre en el navegador.
-  const FREE_SHIPPING_THRESHOLD = 1099;
+  // El umbral viene de @/utils/shipping, igual que packageForItems: Astro
+  // empaqueta este script, así que la importación llega al navegador. Antes
+  // era una copia local que había que acordarse de actualizar a mano.
 
   // ── Storage seguro (modo privado / cookies bloqueadas no rompen nada) ──
   const store = {

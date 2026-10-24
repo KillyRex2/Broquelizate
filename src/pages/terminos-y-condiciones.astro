@@ -14,7 +14,9 @@ const CORREO = 'broquelizatelaguna@gmail.com';
 const WHATSAPP = '528714617696';
 const DIAS_PREPARACION = '[2 a 3]';         // días hábiles para preparar
 const DIAS_PERSONALIZADO = '[5 a 7]';       // días hábiles para grabado
-const ENVIO_GRATIS = 1099;
+// El umbral sale de @/utils/shipping: si aquí dice una cantidad y el
+// carrito cobra otra, el problema no es de maquetación.
+import { FREE_SHIPPING_THRESHOLD as ENVIO_GRATIS } from '@/utils/shipping';
 ---
 
 <LegalLayout
