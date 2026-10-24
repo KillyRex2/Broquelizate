@@ -38,6 +38,111 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Tarjetas de cristal ──
+   El mismo tratamiento que las tarjetas del dashboard, con un matiz: ahí
+   el cristal va sobre un fondo con degradado, aquí sobre uno plano, así
+   que un 2% de blanco quedaría más oscuro que la superficie que había.
+   Por eso el degradado arranca en 5.5% arriba y se va apagando: es lo que
+   dibuja el borde de burbuja, como si la luz entrara por arriba. */
+.pos-theme .pos-card {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.055) 0%,
+      rgba(255, 255, 255, 0.022) 42%,
+      rgba(255, 255, 255, 0.012) 100%
+    ),
+    var(--pos-raised);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  /* Sin backdrop-filter a propósito, aunque la tarjeta del dashboard sí lo
+     use: ahí el fondo es translúcido y el desenfoque se ve. Aquí la última
+     capa es opaca, así que no aportaría nada Y rompería la barra de
+     "Finalizar venta": backdrop-filter convierte al elemento en el marco de
+     referencia de sus hijos position:fixed, y esa barra vive dentro del
+     panel del resumen. Con el filtro puesto dejaba de pegarse a la ventana
+     y se encogía al ancho del panel. */
+  /* La línea de arriba es el brillo del borde; la sombra de abajo despega
+     la tarjeta del fondo. Sin las dos, el cristal se ve sucio, no elevado. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 10px 30px -14px rgba(0, 0, 0, 0.7);
+}
+
+/* Tarjetas en las que se pica (producto, variante): la burbuja responde. */
+.pos-theme .pos-card-hover {
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pos-theme .pos-card-hover:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.085) 0%,
+      rgba(255, 255, 255, 0.035) 42%,
+      rgba(255, 255, 255, 0.018) 100%
+    ),
+    var(--pos-raised);
+  border-color: rgba(234, 179, 8, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 14px 34px -14px rgba(0, 0, 0, 0.75);
+}
+
+/* ── Luz de fondo ──
+   Los mismos orbes del dashboard: dos manchas enormes y muy difuminadas,
+   oro y violeta, que le quitan lo plano al fondo sin pedir atención. Van
+   detrás de todo y no reciben clics. */
+.pos-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.pos-ambient > span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.5;
+  display: block;
+}
+
+.pos-ambient > .orb-gold {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.07) 0%, transparent 70%);
+  top: -150px;
+  right: -100px;
+}
+
+.pos-ambient > .orb-violet {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.05) 0%, transparent 70%);
+  bottom: 60px;
+  left: -80px;
+}
+
+/* La rejilla casi invisible del dashboard: no se ve, se nota. */
+.pos-ambient > .orb-grid {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  filter: none;
+  opacity: 1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Todo lo que no sea la luz de fondo va encima de ella. */
+.pos-theme > *:not(.pos-ambient) {
+  position: relative;
+  z-index: 1;
+}
+
 /* Campos de captura.
    La mayoría no traía clase de fondo: en claro no hacía falta porque el
    navegador los pinta blancos por omisión, y por eso al pasar a oscuro

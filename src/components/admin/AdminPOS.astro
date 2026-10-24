@@ -10,6 +10,12 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
 ---
 
 <div class="pos-theme pos-container flex bg-[var(--pos-bg)] font-sans text-[var(--pos-txt)] rounded-lg relative h-screen overflow-hidden" data-astro-transition-persist="pos-main">
+  <!-- Luz de fondo: los mismos orbes del dashboard -->
+  <div class="pos-ambient" aria-hidden="true">
+    <span class="orb-gold"></span>
+    <span class="orb-violet"></span>
+    <span class="orb-grid"></span>
+  </div>
   <!-- Backdrop del carrito móvil -->
   <div id="cart-backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 hidden lg:hidden transition-opacity duration-300"></div>
 
@@ -68,7 +74,7 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     </header>
     
     <!-- Contenedor de productos con scroll -->
-    <div class="flex-1 min-h-0 rounded-xl bg-[var(--pos-raised)] border border-[var(--pos-line)] overflow-hidden shadow-sm">
+    <div class="flex-1 min-h-0 rounded-xl pos-card overflow-hidden">
       <!-- Estado vacío -->
       <div id="empty-state" class="hidden h-full flex-col items-center justify-center text-center p-8">
         <div class="w-20 h-20 rounded-full bg-[var(--pos-bg)] flex items-center justify-center mb-4">
@@ -633,7 +639,7 @@ function initializePOS() {
 
       return `
         <article
-          class="product-card group cursor-pointer bg-[var(--pos-raised)] rounded-xl shadow-sm hover:shadow-lg border-2 border-[var(--pos-line)] hover:border-amber-400 transition-all duration-200 overflow-hidden flex flex-col"
+          class="product-card pos-card pos-card-hover group cursor-pointer rounded-xl hover:border-amber-400 transition-all duration-200 overflow-hidden flex flex-col"
           style="height: 280px;"
           data-product-id="${product.id}"
           data-has-variants="${product.hasVariants}"
@@ -701,7 +707,7 @@ function initializePOS() {
       const hasDiscount = variant.priceAdjustment < 0;
       
       return `
-        <div class="variant-card cursor-pointer bg-[var(--pos-raised)] border-2 border-[var(--pos-line)] rounded-xl p-3 md:p-4 transition-all duration-200 hover:border-amber-400 hover:shadow-lg active:scale-[0.98]"
+        <div class="variant-card pos-card pos-card-hover cursor-pointer rounded-xl p-3 md:p-4 transition-all duration-200 hover:border-amber-400 hover:shadow-lg active:scale-[0.98]"
              data-variant-id="${variant.id}"
              data-product-id="${product.id}"
              data-no-stock="${hasNoStock}">
