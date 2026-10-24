@@ -1,0 +1,311 @@
+/*
+ * src/assets/styles/pos-theme.css
+ *
+ * Tema del mostrador, en dos modos.
+ *
+ * Todo el POS está escrito contra estas variables, así que cambiar de modo
+ * es redefinirlas: no hay una sola clase de color repetida por tema. Lo que
+ * sigue abajo (tarjetas, luz de fondo, botones) también sale de ellas.
+ *
+ * El modo claro es el de siempre, el que la tienda ya tiene en la mano. El
+ * oscuro es el del resto del panel. El interruptor vive en el encabezado de
+ * cada pantalla y la elección se guarda en el navegador.
+ *
+ * El atributo va en <html> (data-pos-theme) y no en el contenedor, para que
+ * un script en línea pueda fijarlo antes de que se pinte nada y no haya
+ * parpadeo al cargar.
+ */
+
+/* ── Modo claro (el de siempre, y el que viene por omisión) ── */
+.pos-theme {
+  --pos-bg: #f4f5f7;
+  --pos-raised: #ffffff;
+  --pos-sunken: #e9ebef;
+  --pos-line: rgba(15, 18, 22, 0.1);
+  --pos-line-strong: rgba(15, 18, 22, 0.22);
+
+  --pos-txt: #15181d;
+  --pos-txt-2: #5b6472;
+  --pos-txt-3: #8a929e;
+
+  /* Sobre blanco, el oro de la marca no se lee. Para TEXTO se usa un tono
+     más tostado; el oro vivo se queda para fondos y bordes. */
+  --pos-gold: #a16207;
+  --pos-gold-vivo: #eab308;
+
+  /* Estados. Mismos nombres en los dos modos: el marcado no cambia. */
+  --pos-ok: #047857;
+  --pos-warn: #b45309;
+  --pos-danger: #b91c1c;
+  --pos-info: #6d28d9;
+
+  /* La burbuja en claro es al revés que en oscuro: la luz no se añade con
+     blanco (ya es blanco), se insinúa con una sombra suave por debajo. */
+  --pos-card-fondo: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+  --pos-card-borde: rgba(15, 18, 22, 0.09);
+  --pos-card-sombra:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(15, 18, 22, 0.04),
+    0 8px 24px -12px rgba(15, 18, 22, 0.18);
+
+  --pos-card-fondo-hover: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
+  --pos-card-borde-hover: rgba(234, 179, 8, 0.55);
+  --pos-card-sombra-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 4px rgba(15, 18, 22, 0.05),
+    0 14px 30px -12px rgba(15, 18, 22, 0.22);
+
+  --pos-orbe-oro: rgba(234, 179, 8, 0.1);
+  --pos-orbe-violeta: rgba(168, 85, 247, 0.07);
+  --pos-rejilla: rgba(15, 18, 22, 0.022);
+
+  color: var(--pos-txt);
+
+  /* Las cifras alineadas por columna: en una pantalla de cobro, los precios
+     se leen de un vistazo, no se deletrean. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Modo oscuro (el del resto del panel) ── */
+/* Los valores son los de la pantalla de pedidos (OrdersTable): superficie
+   azul-negra, no un negro plano, para que los estados respiren. */
+:root[data-pos-theme='dark'] .pos-theme {
+  --pos-bg: #13161b;
+  --pos-raised: #191d24;
+  --pos-sunken: #0f1216;
+  --pos-line: rgba(255, 255, 255, 0.07);
+  --pos-line-strong: rgba(255, 255, 255, 0.18);
+
+  --pos-txt: #e8eaed;
+  --pos-txt-2: #9aa1ab;
+  --pos-txt-3: #646b75;
+
+  --pos-gold: #eab308;
+  --pos-gold-vivo: #eab308;
+
+  --pos-ok: #34d399;
+  --pos-warn: #fcd34d;
+  --pos-danger: #f87171;
+  --pos-info: #c4b5fd;
+
+  /* Aquí sí: la luz entra por arriba. El dashboard arranca en 2%, pero ahí
+     el cristal va sobre un fondo con degradado; sobre este fondo plano un
+     2% quedaría más oscuro que la superficie, así que se sube. */
+  --pos-card-fondo:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.055) 0%,
+      rgba(255, 255, 255, 0.022) 42%,
+      rgba(255, 255, 255, 0.012) 100%
+    ),
+    #191d24;
+  --pos-card-borde: rgba(255, 255, 255, 0.075);
+  --pos-card-sombra:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 10px 30px -14px rgba(0, 0, 0, 0.7);
+
+  --pos-card-fondo-hover:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.085) 0%,
+      rgba(255, 255, 255, 0.035) 42%,
+      rgba(255, 255, 255, 0.018) 100%
+    ),
+    #191d24;
+  --pos-card-borde-hover: rgba(234, 179, 8, 0.35);
+  --pos-card-sombra-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 14px 34px -14px rgba(0, 0, 0, 0.75);
+
+  --pos-orbe-oro: rgba(234, 179, 8, 0.07);
+  --pos-orbe-violeta: rgba(168, 85, 247, 0.05);
+  --pos-rejilla: rgba(255, 255, 255, 0.012);
+}
+
+/* ── Tarjetas ──
+   La línea de arriba es el brillo del borde; la sombra de abajo la despega
+   del fondo. Sin las dos, no se ve elevada, se ve sucia. */
+.pos-theme .pos-card {
+  background: var(--pos-card-fondo);
+  border: 1px solid var(--pos-card-borde);
+  box-shadow: var(--pos-card-sombra);
+}
+
+/* Sin backdrop-filter a propósito, aunque la tarjeta del dashboard lo use.
+   Aquí la última capa del fondo es opaca, así que el desenfoque no se vería
+   Y rompía la barra de "Finalizar venta": backdrop-filter convierte al
+   elemento en el marco de referencia de sus hijos position:fixed, y esa
+   barra vive dentro del panel del resumen. Con el filtro puesto dejaba de
+   pegarse a la ventana y se encogía al ancho del panel. */
+
+/* Tarjetas en las que se pica (producto, variante, método de pago). */
+.pos-theme .pos-card-hover {
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pos-theme .pos-card-hover:hover {
+  background: var(--pos-card-fondo-hover);
+  border-color: var(--pos-card-borde-hover);
+  box-shadow: var(--pos-card-sombra-hover);
+}
+
+/* ── Luz de fondo ──
+   Los mismos orbes del dashboard: dos manchas enormes y muy difuminadas,
+   oro y violeta, que le quitan lo plano al fondo sin pedir atención. */
+.pos-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.pos-ambient > span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.5;
+  display: block;
+}
+
+.pos-ambient > .orb-gold {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--pos-orbe-oro) 0%, transparent 70%);
+  top: -150px;
+  right: -100px;
+}
+
+.pos-ambient > .orb-violet {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--pos-orbe-violeta) 0%, transparent 70%);
+  bottom: 60px;
+  left: -80px;
+}
+
+/* La rejilla casi invisible del dashboard: no se ve, se nota. */
+.pos-ambient > .orb-grid {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  filter: none;
+  opacity: 1;
+  background-image:
+    linear-gradient(var(--pos-rejilla) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pos-rejilla) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Todo lo que no sea la luz de fondo va encima de ella. */
+.pos-theme > *:not(.pos-ambient) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Campos de captura ──
+   La mayoría no traía clase de fondo: en claro no hacía falta porque el
+   navegador los pinta blancos por omisión, y por eso al pasar a oscuro
+   quedaban como tres rectángulos blancos en medio de la pantalla. */
+.pos-theme input:not([type='checkbox']):not([type='radio']),
+.pos-theme textarea,
+.pos-theme select {
+  background-color: var(--pos-raised);
+  color: var(--pos-txt);
+}
+
+.pos-theme input::placeholder,
+.pos-theme textarea::placeholder {
+  color: var(--pos-txt-3);
+}
+
+/* Casillas y botones de opción los dibuja el navegador. accent-color es la
+   única forma de teñirlos sin rehacerlos a mano. */
+.pos-theme input[type='checkbox'],
+.pos-theme input[type='radio'] {
+  accent-color: var(--pos-gold-vivo);
+}
+
+/* Chrome pinta los campos autocompletados de amarillo claro y rompe el
+   fondo. No hay forma de cambiar ese fondo, solo de taparlo. */
+.pos-theme input:-webkit-autofill,
+.pos-theme input:-webkit-autofill:hover,
+.pos-theme input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--pos-txt);
+  -webkit-box-shadow: 0 0 0 1000px var(--pos-raised) inset;
+  caret-color: var(--pos-txt);
+}
+
+/* El desplegable de un <select> lo dibuja el sistema operativo, no la
+   página: sus opciones necesitan su propio color o salen negro sobre negro
+   en algunos navegadores. */
+.pos-theme select option {
+  background-color: var(--pos-raised);
+  color: var(--pos-txt);
+}
+
+/* Barras de desplazamiento al tono, para que no aparezca una franja de otro
+   color al costado de las listas largas de productos. */
+.pos-theme ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pos-theme ::-webkit-scrollbar-track {
+  background: var(--pos-sunken);
+}
+
+.pos-theme ::-webkit-scrollbar-thumb {
+  background: var(--pos-line-strong);
+  border-radius: 6px;
+  border: 2px solid var(--pos-sunken);
+}
+
+.pos-theme {
+  scrollbar-color: var(--pos-line-strong) var(--pos-sunken);
+}
+
+/* ── Botón secundario (Descartar venta) ──
+   En claro era gris sólido; en oscuro un gris sólido compite con las
+   tarjetas, así que en los dos modos va de contorno: presente, pero
+   claramente en segundo plano frente al dorado de finalizar. */
+.pos-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--pos-line-strong);
+  color: var(--pos-txt-2);
+}
+
+.pos-btn-ghost:hover:not(:disabled) {
+  background: var(--pos-sunken);
+  border-color: var(--pos-txt-3);
+  color: var(--pos-txt);
+}
+
+/* ── Interruptor de modo ── */
+.pos-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--pos-line);
+  background: var(--pos-raised);
+  color: var(--pos-txt-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pos-theme-toggle:hover {
+  color: var(--pos-gold);
+  border-color: var(--pos-card-borde-hover);
+}
+
+/* Se muestra el icono del modo al que se va a cambiar, no el actual: el
+   botón dice a dónde lleva. */
+.pos-theme-toggle .icono-oscuro { display: block; }
+.pos-theme-toggle .icono-claro { display: none; }
+
+:root[data-pos-theme='dark'] .pos-theme-toggle .icono-oscuro { display: none; }
+:root[data-pos-theme='dark'] .pos-theme-toggle .icono-claro { display: block; }
