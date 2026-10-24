@@ -226,8 +226,11 @@ export const deleteProduct = defineAction({
         if (!session?.user) throw new Error('No autorizado');
 
         try {
+            // isFeatured se limpia junto con el borrado: si no, el producto
+            // desaparece de la tienda pero sigue ocupando uno de los cuatro
+            // lugares de la portada, sin manera de quitarlo desde el panel.
             await db.update(Product)
-                .set({ isDeleted: true } as any)
+                .set({ isDeleted: true, isFeatured: false } as any)
                 .where(eq(Product.id, id));
 
             return { 
@@ -557,6 +560,10 @@ export const setProductCoverImage = defineAction({
 });
 
 // ===== TOGGLE PRODUCTO DESTACADO =====
+
+/** Cuántos productos caben en la portada (el home hace LIMIT 4). */
+const MAX_FEATURED = 4;
+
 export const toggleFeaturedProduct = defineAction({
     accept: 'json',
     input: z.object({
@@ -569,13 +576,23 @@ export const toggleFeaturedProduct = defineAction({
         if (!session?.user) throw new Error('No autorizado');
 
         if (isFeatured) {
+            // Solo cuentan los que de verdad pueden salir en la portada. El home
+            // filtra isDeleted = 0, así que un producto borrado que quedó marcado
+            // como destacado no se ve en ningún lado pero ocupaba uno de los
+            // cuatro lugares para siempre, y no había forma de liberarlo.
             const currentFeatured = await db
-                .select({ id: Product.id })
+                .select({ id: Product.id, name: Product.name })
                 .from(Product)
-                .where(eq(Product.isFeatured, true));
-            
-            if (currentFeatured.length >= 4) {
-                throw new Error('Máximo 4 productos destacados. Quita uno antes de agregar otro.');
+                .where(sql`${Product.isFeatured} = 1 AND (${Product.isDeleted} = 0 OR ${Product.isDeleted} IS NULL)`);
+
+            const yaEsta = currentFeatured.some(p => p.id === productId);
+
+            if (!yaEsta && currentFeatured.length >= MAX_FEATURED) {
+                const nombres = currentFeatured.map(p => `“${p.name}”`).join(', ');
+                throw new Error(
+                    `Ya tienes ${MAX_FEATURED} productos en la portada: ${nombres}. ` +
+                    `Quita la estrella de uno de ellos y vuelve a intentar.`
+                );
             }
         }
 
