@@ -29,6 +29,34 @@ const { data: clientsData, error: err } = await Astro.callAction(
 const clientsList: Client[] = clientsData?.clients || [];
 ---
 
+<script is:inline>
+  // Se aplica ANTES de que se pinte el POS, para que no se vea el cambio de
+  // color al cargar. Por eso va en línea y no en un módulo: un módulo se
+  // descarga aparte y para entonces la pantalla ya se dibujó.
+  (function () {
+    try {
+      var guardado = localStorage.getItem('pos-theme');
+      // El claro es el de siempre, el que la tienda ya tiene en la mano.
+      document.documentElement.setAttribute('data-pos-theme', guardado === 'dark' ? 'dark' : 'light');
+    } catch (e) {
+      document.documentElement.setAttribute('data-pos-theme', 'light');
+    }
+
+    // Un solo oyente para toda la sesión: con View Transitions el contenido
+    // se reemplaza en cada navegación y colgar uno por carga los apilaría.
+    if (!window.__posThemeListo) {
+      window.__posThemeListo = true;
+      document.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.pos-theme-toggle') : null;
+        if (!btn) return;
+        var actual = document.documentElement.getAttribute('data-pos-theme') === 'dark' ? 'dark' : 'light';
+        var nuevo = actual === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-pos-theme', nuevo);
+        try { localStorage.setItem('pos-theme', nuevo); } catch (err) {}
+      });
+    }
+  })();
+</script>
 <div class="pos-theme flex h-screen bg-[var(--pos-bg)] font-sans text-[var(--pos-txt)] rounded-lg relative overflow-hidden">
   <!-- Luz de fondo: los mismos orbes del dashboard -->
   <div class="pos-ambient" aria-hidden="true">
@@ -38,7 +66,13 @@ const clientsList: Client[] = clientsData?.clients || [];
   </div>
   <main class="flex-1 p-8 overflow-y-auto space-y-8">
     <header class="flex items-center justify-between border-b border-[var(--pos-line)] pb-4">
-      <h1 class="text-3xl font-extrabold text-[var(--pos-gold)] tracking-tight">Vender</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-3xl font-extrabold text-[var(--pos-gold)] tracking-tight">Vender</h1>
+        <button type="button" class="pos-theme-toggle" title="Cambiar entre claro y oscuro" aria-label="Cambiar entre claro y oscuro">
+          <svg class="icono-oscuro w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg class="icono-claro w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+      </div>
       <span id="header-total" class="text-3xl font-extrabold text-[var(--pos-txt)]">$0.00</span>
     </header>
 
@@ -46,7 +80,7 @@ const clientsList: Client[] = clientsData?.clients || [];
     <section class="pos-card rounded-xl p-6">
       <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold text-[var(--pos-txt)]">Cliente</h2>
-          <a href="/admin/customers?nuevo=1&volver=/admin/checkout" aria-label="Agregar nuevo cliente" class="bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/25 rounded-full p-3 transition">
+          <a href="/admin/customers?nuevo=1&volver=/admin/checkout" aria-label="Agregar nuevo cliente" class="bg-yellow-500/15 text-[var(--pos-gold)] hover:bg-yellow-500/25 rounded-full p-3 transition">
               <Icon name="mdi:plus" class="h-6 w-6" />
           </a>
       </div>
@@ -73,7 +107,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         <input
           type="checkbox"
           id="show-on-receipt"
-          class="h-5 w-5 rounded border-[var(--pos-line)] text-yellow-500 focus:ring-yellow-500"
+          class="h-5 w-5 rounded border-[var(--pos-line)] text-[var(--pos-gold)] focus:ring-yellow-500"
         />
         <label for="show-on-receipt" class="ml-2 text-[var(--pos-txt-2)]">Mostrar en el recibo</label>
       </div>
@@ -101,26 +135,26 @@ const clientsList: Client[] = clientsData?.clients || [];
       <div class="space-y-4 text-md">
         <div class="flex justify-between">
           <span class="text-[var(--pos-txt-2)]">Subtotal de productos</span>
-          <span id="summary-subtotal" class="font-semibold text-yellow-400">$0.00</span>
+          <span id="summary-subtotal" class="font-semibold text-[var(--pos-gold)]">$0.00</span>
         </div>
         <!-- Monto adicional: se captura en el POS (Vender) y llega aquí con el carrito -->
         <div id="additional-amount-summary-row" class="flex justify-between items-start gap-3 hidden">
             <div class="min-w-0 flex-1">
               <span id="summary-additional-amount-label" class="text-[var(--pos-txt-2)]">Monto adicional</span>
               <ul id="summary-additional-amount-list" class="mt-0.5 space-y-0.5 text-xs text-[var(--pos-txt-2)]"></ul>
-              <a href="/admin/sale" class="text-xs font-medium text-yellow-400 hover:underline">Cambiar en Vender</a>
+              <a href="/admin/sale" class="text-xs font-medium text-[var(--pos-gold)] hover:underline">Cambiar en Vender</a>
             </div>
-            <span id="summary-additional-amount-text" class="bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-1 rounded-md flex-shrink-0"></span>
+            <span id="summary-additional-amount-text" class="bg-emerald-500/10 text-[var(--pos-ok)] font-semibold px-2 py-1 rounded-md flex-shrink-0"></span>
         </div>
         <div id="discount-apply-row" class="flex justify-between items-center">
             <span class="text-[var(--pos-txt-2)]">Descuentos</span>
-            <button id="apply-discount-btn" class="font-semibold text-yellow-400 hover:underline">Aplicar descuento</button>
+            <button id="apply-discount-btn" class="font-semibold text-[var(--pos-gold)] hover:underline">Aplicar descuento</button>
         </div>
         <div id="discount-summary-row" class="flex justify-between items-center hidden">
             <span class="text-[var(--pos-txt-2)]">Descuento aplicado</span>
-            <div class="flex items-center gap-2 bg-red-500/10 text-red-400 font-semibold px-2 py-1 rounded-md">
+            <div class="flex items-center gap-2 bg-red-500/10 text-[var(--pos-danger)] font-semibold px-2 py-1 rounded-md">
                 <span id="summary-discount-text"></span>
-                <button id="remove-discount-btn" type="button" aria-label="Quitar descuento" class="hover:text-red-300">
+                <button id="remove-discount-btn" type="button" aria-label="Quitar descuento" class="hover:text-[var(--pos-danger)]">
                     <Icon name="mdi:close" class="h-4 w-4" />
                 </button>
             </div>
@@ -140,7 +174,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         <!-- Efectivo -->
         <label class="block pos-card pos-card-hover rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-500/10 transition-all">
           <div class="flex items-center gap-4">
-            <input type="radio" name="payment-method" value="Efectivo" id="cash-radio" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" checked />
+            <input type="radio" name="payment-method" value="Efectivo" id="cash-radio" class="h-5 w-5 focus:ring-yellow-500 text-[var(--pos-gold)]" checked />
             <Icon name="mdi:cash-multiple" class="h-6 w-6 text-[var(--pos-txt-2)]" />
             <span class="font-semibold text-[var(--pos-txt)]">Efectivo</span>
           </div>
@@ -153,10 +187,10 @@ const clientsList: Client[] = clientsData?.clients || [];
             />
             <div id="change-row" class="hidden mt-4 pt-3 border-t border-amber-500/30/70 flex items-center justify-between">
               <span class="flex items-center gap-2 font-semibold text-[var(--pos-txt)]">
-                <Icon name="mdi:cash-refund" class="h-5 w-5 text-amber-300" />
+                <Icon name="mdi:cash-refund" class="h-5 w-5 text-[var(--pos-warn)]" />
                 Feria
               </span>
-              <span id="change-amount" class="inline-flex items-center rounded-full bg-amber-500/15 px-4 py-1.5 text-xl font-extrabold text-amber-300 shadow-sm ring-1 ring-amber-500/40/60">
+              <span id="change-amount" class="inline-flex items-center rounded-full bg-amber-500/15 px-4 py-1.5 text-xl font-extrabold text-[var(--pos-warn)] shadow-sm ring-1 ring-amber-500/40/60">
                 $0.00
               </span>
             </div>
@@ -164,13 +198,13 @@ const clientsList: Client[] = clientsData?.clients || [];
         </label>
         <!-- Débito -->
         <label class="flex items-center gap-4 pos-card pos-card-hover rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-500/10 transition-all">
-          <input type="radio" name="payment-method" value="Débito" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" />
+          <input type="radio" name="payment-method" value="Débito" class="h-5 w-5 focus:ring-yellow-500 text-[var(--pos-gold)]" />
           <Icon name="mdi:credit-card-outline" class="h-6 w-6 text-[var(--pos-txt-2)]" />
           <span class="font-semibold text-[var(--pos-txt)]">Débito</span>
         </label>
         <!-- Crédito -->
         <label class="flex items-center gap-4 pos-card pos-card-hover rounded-lg p-4 has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-500/10 transition-all">
-          <input type="radio" name="payment-method" value="Crédito" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" />
+          <input type="radio" name="payment-method" value="Crédito" class="h-5 w-5 focus:ring-yellow-500 text-[var(--pos-gold)]" />
           <Icon name="mdi:credit-card-outline" class="h-6 w-6 text-[var(--pos-txt-2)]" />
           <span class="font-semibold text-[var(--pos-txt)]">Crédito</span>
         </label>
@@ -178,7 +212,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         <!-- Venta a Crédito -->
         <label id="credit-sale-label" class="block pos-card rounded-lg p-4 transition-all has-[:checked]:border-yellow-500 has-[:checked]:bg-yellow-500/10 opacity-50 cursor-not-allowed">
           <div class="flex items-center gap-4">
-            <input type="radio" name="payment-method" value="Venta a crédito" id="credit-sale-radio" class="h-5 w-5 focus:ring-yellow-500 text-yellow-500" disabled />
+            <input type="radio" name="payment-method" value="Venta a crédito" id="credit-sale-radio" class="h-5 w-5 focus:ring-yellow-500 text-[var(--pos-gold)]" disabled />
             <Icon name="mdi:account-credit-card-outline" class="h-6 w-6 text-[var(--pos-txt-2)]" />
             <span class="font-semibold text-[var(--pos-txt)]">Venta a crédito</span>
           </div>
@@ -405,7 +439,7 @@ const clientsList: Client[] = clientsData?.clients || [];
                   ${item.sku ? `<p class="text-xs text-[var(--pos-txt-2)]">SKU: ${item.sku}</p>` : ''}
                   <div class="flex items-center gap-2 mt-1">
                     <span class="text-sm text-[var(--pos-txt-2)]">${item.quantity} x ${formatCurrency(item.price)}</span>
-                    ${item.outOfStock ? `<span class="text-xs text-orange-600 font-medium">⚠️ Sin stock en sistema</span>` : ''}
+                    ${item.outOfStock ? `<span class="text-xs text-[var(--pos-warn)] font-medium">⚠️ Sin stock en sistema</span>` : ''}
                   </div>
                 </div>
                 <p class="font-bold text-lg text-[var(--pos-txt)]">${formatCurrency(item.price * item.quantity)}</p>
