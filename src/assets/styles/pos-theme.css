@@ -1,0 +1,121 @@
+/*
+ * src/assets/styles/pos-theme.css
+ *
+ * El POS era la única parte del panel con fondo claro: tarjetas blancas y
+ * texto gris oscuro encima del fondo #1E1E1E de AdminLayout. Se veía como
+ * otra aplicación pegada al panel.
+ *
+ * Estos son los mismos valores que ya usa la pantalla de pedidos
+ * (OrdersTable), que es la más trabajada del panel. Se repiten aquí con
+ * prefijo --pos- para no pisar los suyos, y para que mañana se puedan
+ * mover los dos a un solo lugar sin tocar nada más.
+ *
+ * Solo cambia la piel: la disposición, los botones y el flujo de cobro
+ * quedan exactamente donde estaban. En el mostrador se trabaja de memoria
+ * y mover las cosas de lugar cuesta tiempo real con el cliente enfrente.
+ */
+
+.pos-theme {
+  /* Superficie azul-negra, no un negro plano: deja respirar los estados. */
+  --pos-bg: #13161b;
+  --pos-raised: #191d24;
+  --pos-sunken: #0f1216;
+  --pos-line: rgba(255, 255, 255, 0.07);
+  --pos-line-strong: rgba(255, 255, 255, 0.18);
+
+  --pos-txt: #e8eaed;
+  --pos-txt-2: #9aa1ab;
+  --pos-txt-3: #646b75;
+
+  /* El oro es la marca. Se conserva el ámbar que ya traía el POS: es el
+     mismo degradado dorado del dashboard (#eab308 → #f59e0b). */
+  --pos-gold: #eab308;
+
+  color: var(--pos-txt);
+
+  /* Las cifras alineadas por columna: en una pantalla de cobro, los
+     precios se leen de un vistazo, no se deletrean. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Campos de captura.
+   La mayoría no traía clase de fondo: en claro no hacía falta porque el
+   navegador los pinta blancos por omisión, y por eso al pasar a oscuro
+   quedaban como tres rectángulos blancos en medio de la pantalla. */
+.pos-theme input:not([type='checkbox']):not([type='radio']),
+.pos-theme textarea,
+.pos-theme select {
+  background-color: var(--pos-raised);
+  color: var(--pos-txt);
+}
+
+/* Casillas y botones de opción los dibuja el navegador. accent-color es la
+   única forma de teñirlos sin rehacerlos a mano. */
+.pos-theme input[type='checkbox'],
+.pos-theme input[type='radio'] {
+  accent-color: var(--pos-gold);
+}
+
+.pos-theme input::placeholder,
+.pos-theme textarea::placeholder {
+  color: var(--pos-txt-3);
+}
+
+/* Chrome pinta los campos autocompletados de amarillo claro y rompe el
+   fondo oscuro. No hay forma de cambiar ese fondo, solo de taparlo. */
+.pos-theme input:-webkit-autofill,
+.pos-theme input:-webkit-autofill:hover,
+.pos-theme input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--pos-txt);
+  -webkit-box-shadow: 0 0 0 1000px var(--pos-raised) inset;
+  caret-color: var(--pos-txt);
+}
+
+/* El desplegable de un <select> lo dibuja el sistema operativo, no la
+   página: sus opciones necesitan su propio color o salen negro sobre
+   negro en algunos navegadores. */
+.pos-theme select option {
+  background-color: var(--pos-raised);
+  color: var(--pos-txt);
+}
+
+/* Barras de desplazamiento al tono, para que no aparezca una franja
+   clara al costado de las listas largas de productos. */
+.pos-theme ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pos-theme ::-webkit-scrollbar-track {
+  background: var(--pos-sunken);
+}
+
+.pos-theme ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  border: 2px solid var(--pos-sunken);
+}
+
+.pos-theme ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pos-theme {
+  scrollbar-color: rgba(255, 255, 255, 0.14) var(--pos-sunken);
+}
+
+/* Botón secundario (Descartar venta). En claro era gris sólido; en
+   oscuro un gris sólido compite con las tarjetas, así que pasa a
+   contorno: presente pero claramente en segundo plano frente al dorado
+   de finalizar. */
+.pos-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--pos-line-strong);
+  color: var(--pos-txt-2);
+}
+
+.pos-btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: var(--pos-txt);
+}

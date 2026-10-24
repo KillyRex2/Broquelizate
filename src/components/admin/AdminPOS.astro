@@ -3,60 +3,61 @@
 import { actions } from 'astro:actions';
 import type { ProductForPOS } from '@/interfaces';
 import { Icon } from 'astro-icon/components';
+import '@/assets/styles/pos-theme.css';
 
 const { data: allProducts = [], error } = await Astro.callAction(actions.getAllProductsWithImages, undefined);
 const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Boolean)));
 ---
 
-<div class="pos-container flex bg-gray-100 font-sans text-gray-800 rounded-lg relative h-screen overflow-hidden" data-astro-transition-persist="pos-main">
+<div class="pos-theme pos-container flex bg-[var(--pos-bg)] font-sans text-[var(--pos-txt)] rounded-lg relative h-screen overflow-hidden" data-astro-transition-persist="pos-main">
   <!-- Backdrop del carrito móvil -->
   <div id="cart-backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 hidden lg:hidden transition-opacity duration-300"></div>
 
-  <main class="flex-1 flex flex-col p-3 md:p-4 lg:p-6 bg-gray-100 rounded-lg min-h-0 overflow-hidden">
+  <main class="flex-1 flex flex-col p-3 md:p-4 lg:p-6 bg-[var(--pos-bg)] rounded-lg min-h-0 overflow-hidden">
     <header class="mb-3 flex flex-col gap-3 flex-shrink-0">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <h1 class="text-xl md:text-2xl font-bold text-gray-900">Broqueventa</h1>
-          <span id="product-count" class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+          <h1 class="text-xl md:text-2xl font-bold text-[var(--pos-txt)]">Broqueventa</h1>
+          <span id="product-count" class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300">
             0 productos
           </span>
         </div>
         <!-- Botón carrito móvil -->
         <button id="mobile-cart-toggle" class="lg:hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 font-semibold hover:shadow-xl transition-all duration-300 active:scale-95">
           <Icon name="mdi:cart" class="h-5 w-5" />
-          <span id="mobile-cart-count" class="bg-white text-amber-600 rounded-full px-2 py-0.5 text-xs font-bold min-w-[1.5rem]">0</span>
+          <span id="mobile-cart-count" class="bg-[var(--pos-raised)] text-amber-600 rounded-full px-2 py-0.5 text-xs font-bold min-w-[1.5rem]">0</span>
         </button>
       </div>
       
       <!-- Filtros con data-astro-transition-persist para mantener estado -->
       <div class="flex flex-col sm:flex-row gap-2 md:gap-3" data-astro-transition-persist="pos-filters">
         <div class="relative flex-grow group">
-          <Icon name="mdi:magnify" class="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
+          <Icon name="mdi:magnify" class="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-[var(--pos-txt-3)] group-focus-within:text-amber-500 transition-colors" />
           <input
             type="text"
             id="search-input"
             placeholder="Buscar producto o SKU..."
             autocomplete="off"
-            class="w-full rounded-xl border-2 border-gray-200 bg-white py-2.5 md:py-3 pl-10 md:pl-12 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 shadow-sm hover:border-gray-300"
+            class="w-full rounded-xl border-2 border-[var(--pos-line)] bg-[var(--pos-raised)] py-2.5 md:py-3 pl-10 md:pl-12 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 shadow-sm hover:border-[var(--pos-line)]"
           />
           <!-- Botón limpiar búsqueda -->
-          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden transition-colors p-1 rounded-full hover:bg-gray-100">
+          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--pos-txt-3)] hover:text-[var(--pos-txt-2)] hidden transition-colors p-1 rounded-full hover:bg-[var(--pos-bg)]">
             <Icon name="mdi:close-circle" class="h-5 w-5" />
           </button>
         </div>
         
         <div class="relative">
-          <select id="category-filter" class="appearance-none rounded-xl border-2 border-gray-200 bg-white py-2.5 md:py-3 pl-4 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 cursor-pointer shadow-sm hover:border-gray-300 min-w-[180px]">
+          <select id="category-filter" class="appearance-none rounded-xl border-2 border-[var(--pos-line)] bg-[var(--pos-raised)] py-2.5 md:py-3 pl-4 pr-10 focus:border-amber-500 focus:ring-0 text-sm md:text-base transition-all duration-200 cursor-pointer shadow-sm hover:border-[var(--pos-line)] min-w-[180px]">
             <option value="all">Todas las categorías</option>
             {categories.map(category => (
               <option value={category}>{category}</option>
             ))}
           </select>
-          <Icon name="mdi:chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+          <Icon name="mdi:chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--pos-txt-3)] pointer-events-none" />
         </div>
         
         <!-- Botón reset filtros -->
-        <button id="reset-filters" class="hidden sm:flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm">
+        <button id="reset-filters" class="hidden sm:flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-[var(--pos-txt-2)] bg-[var(--pos-raised)] border-2 border-[var(--pos-line)] rounded-xl hover:bg-[var(--pos-bg)] hover:border-[var(--pos-line)] transition-all duration-200 shadow-sm">
           <Icon name="mdi:filter-remove" class="h-4 w-4" />
           <span class="hidden md:inline">Limpiar</span>
         </button>
@@ -67,14 +68,14 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
     </header>
     
     <!-- Contenedor de productos con scroll -->
-    <div class="flex-1 min-h-0 rounded-xl bg-white border border-gray-200 overflow-hidden shadow-sm">
+    <div class="flex-1 min-h-0 rounded-xl bg-[var(--pos-raised)] border border-[var(--pos-line)] overflow-hidden shadow-sm">
       <!-- Estado vacío -->
       <div id="empty-state" class="hidden h-full flex-col items-center justify-center text-center p-8">
-        <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-          <Icon name="mdi:package-variant" class="h-10 w-10 text-gray-400" />
+        <div class="w-20 h-20 rounded-full bg-[var(--pos-bg)] flex items-center justify-center mb-4">
+          <Icon name="mdi:package-variant" class="h-10 w-10 text-[var(--pos-txt-3)]" />
         </div>
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">No se encontraron productos</h3>
-        <p class="text-gray-500 text-sm mb-4">Intenta con otros términos de búsqueda</p>
+        <h3 class="text-lg font-semibold text-[var(--pos-txt)] mb-2">No se encontraron productos</h3>
+        <p class="text-[var(--pos-txt-2)] text-sm mb-4">Intenta con otros términos de búsqueda</p>
         <button id="clear-filters-empty" class="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
           Limpiar filtros
         </button>
@@ -90,93 +91,93 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
   
   <!-- Modal de Variantes Responsive -->
   <div id="variant-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-3 md:p-4 transition-opacity duration-300">
-    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] md:max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
+    <div class="bg-[var(--pos-raised)] rounded-2xl w-full max-w-3xl max-h-[90vh] md:max-h-[85vh] overflow-hidden shadow-2xl animate-slideUp">
       <!-- Header -->
       <div class="p-4 md:p-6 border-b bg-gradient-to-r from-amber-50 to-orange-50">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
-            <h2 class="text-lg md:text-2xl font-bold text-gray-900 truncate" id="modal-product-name">Seleccionar Variante</h2>
-            <p class="text-xs md:text-sm text-gray-600 mt-1" id="modal-product-description">Elige la variante</p>
+            <h2 class="text-lg md:text-2xl font-bold text-[var(--pos-txt)] truncate" id="modal-product-name">Seleccionar Variante</h2>
+            <p class="text-xs md:text-sm text-[var(--pos-txt-2)] mt-1" id="modal-product-description">Elige la variante</p>
           </div>
-          <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 p-2 hover:bg-white/50 rounded-full">
+          <button id="close-modal" class="text-[var(--pos-txt-3)] hover:text-[var(--pos-txt-2)] transition-colors flex-shrink-0 p-2 hover:bg-[var(--pos-raised)] rounded-full">
             <Icon name="mdi:close" class="h-5 w-5 md:h-6 md:w-6" />
           </button>
         </div>
       </div>
       
       <!-- Contenido -->
-      <div class="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-8rem)] md:max-h-[60vh] bg-gray-50 product-scroll">
+      <div class="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-8rem)] md:max-h-[60vh] bg-[var(--pos-bg)] product-scroll">
         <div id="variant-list" class="grid gap-3 md:gap-4"></div>
       </div>
     </div>
   </div>
   
   <!-- Carrito Lateral -->
-  <aside id="cart-drawer" class="fixed lg:relative right-0 top-0 lg:top-auto flex w-full sm:w-96 lg:w-full lg:max-w-sm flex-col border-l border-gray-200 bg-white shadow-2xl lg:shadow-lg overflow-hidden z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out" style="height: 100vh; max-height: 100vh;">
+  <aside id="cart-drawer" class="fixed lg:relative right-0 top-0 lg:top-auto flex w-full sm:w-96 lg:w-full lg:max-w-sm flex-col border-l border-[var(--pos-line)] bg-[var(--pos-raised)] shadow-2xl lg:shadow-lg overflow-hidden z-40 transform translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out" style="height: 100vh; max-height: 100vh;">
     <!-- Header del carrito -->
-    <div class="flex flex-col border-b bg-white sticky top-0 z-10 shadow-sm">
+    <div class="flex flex-col border-b bg-[var(--pos-raised)] sticky top-0 z-10 shadow-sm">
       <div class="flex items-center justify-between p-3 md:p-4">
         <div class="flex items-center gap-2">
-          <h2 class="text-lg md:text-xl font-bold text-gray-800">Orden Actual</h2>
-          <span id="cart-item-count" class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+          <h2 class="text-lg md:text-xl font-bold text-[var(--pos-txt)]">Orden Actual</h2>
+          <span id="cart-item-count" class="bg-amber-500/15 text-amber-300 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
         </div>
         <div class="flex items-center gap-2">
-          <button id="admin-clear-cart-btn-desktop" class="hidden lg:flex items-center gap-1 text-xs md:text-sm font-medium text-red-500 hover:text-red-700 transition-colors px-2 py-1 hover:bg-red-50 rounded-lg">
+          <button id="admin-clear-cart-btn-desktop" class="hidden lg:flex items-center gap-1 text-xs md:text-sm font-medium text-red-500 hover:text-red-300 transition-colors px-2 py-1 hover:bg-red-500/10 rounded-lg">
             <Icon name="mdi:delete-outline" class="h-4 w-4" />
             Vaciar
           </button>
-          <button id="close-cart-mobile" class="lg:hidden text-gray-500 hover:text-gray-700 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <button id="close-cart-mobile" class="lg:hidden text-[var(--pos-txt-2)] hover:text-[var(--pos-txt)] p-1.5 hover:bg-[var(--pos-bg)] rounded-lg transition-colors">
             <Icon name="mdi:close" class="h-6 w-6" />
           </button>
         </div>
       </div>
       
       <!-- Botones móvil -->
-      <div class="lg:hidden border-t border-gray-100 grid grid-cols-2 gap-2 p-2">
-        <button id="back-to-products-mobile" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
+      <div class="lg:hidden border-t border-[var(--pos-line)] grid grid-cols-2 gap-2 p-2">
+        <button id="back-to-products-mobile" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-amber-600 bg-amber-500/10 hover:bg-amber-500/15 rounded-lg transition-colors">
           <Icon name="mdi:arrow-left" class="h-5 w-5" />
           <span>Seguir</span>
         </button>
-        <button id="admin-clear-cart-btn" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+        <button id="admin-clear-cart-btn" class="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors">
           <Icon name="mdi:delete-outline" class="h-5 w-5" />
           <span>Vaciar</span>
         </button>
       </div>
     </div>
     
-    <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-gray-50 product-scroll">
-      <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-gray-400 py-12">
-        <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+    <ul id="cart-items-list" class="flex-1 space-y-2 md:space-y-3 overflow-y-auto p-3 md:p-4 bg-[var(--pos-bg)] product-scroll">
+      <div id="cart-placeholder" class="flex h-full flex-col items-center justify-center text-center text-[var(--pos-txt-3)] py-12">
+        <div class="w-16 h-16 rounded-full bg-[var(--pos-bg)] flex items-center justify-center mb-3">
           <Icon name="mdi:cart-outline" class="h-8 w-8" />
         </div>
         <p class="text-sm md:text-base font-medium">Carrito vacío</p>
-        <p class="text-xs text-gray-400 mt-1">Agrega productos para comenzar</p>
+        <p class="text-xs text-[var(--pos-txt-3)] mt-1">Agrega productos para comenzar</p>
       </div>
     </ul>
     
-    <div class="border-t bg-white p-3 md:p-4 sticky bottom-0 shadow-up">
+    <div class="border-t bg-[var(--pos-raised)] p-3 md:p-4 sticky bottom-0 shadow-up">
       <div class="space-y-2 text-sm md:text-base">
         <div class="flex justify-between">
-          <span class="text-gray-600">Subtotal</span>
-          <span id="subtotal-amount" class="font-medium text-gray-800">$0.00</span>
+          <span class="text-[var(--pos-txt-2)]">Subtotal</span>
+          <span id="subtotal-amount" class="font-medium text-[var(--pos-txt)]">$0.00</span>
         </div>
 
         <!-- Montos adicionales (servicios, cargos extra…). Puede haber varios -->
         <div class="flex justify-between items-center">
-          <span id="extra-label" class="text-gray-600">Monto adicional</span>
-          <button id="add-extra-btn" type="button" class="text-xs md:text-sm font-semibold text-amber-600 hover:text-amber-700 hover:underline">
+          <span id="extra-label" class="text-[var(--pos-txt-2)]">Monto adicional</span>
+          <button id="add-extra-btn" type="button" class="text-xs md:text-sm font-semibold text-amber-600 hover:text-amber-300 hover:underline">
             + Agregar monto
           </button>
         </div>
         <ul id="extra-list" class="hidden space-y-1.5 max-h-32 overflow-y-auto product-scroll"></ul>
-        <div class="flex justify-between text-base md:text-lg pt-2 border-t border-gray-100">
-          <span class="font-bold text-gray-900">Total</span>
+        <div class="flex justify-between text-base md:text-lg pt-2 border-t border-[var(--pos-line)]">
+          <span class="font-bold text-[var(--pos-txt)]">Total</span>
           <span id="total-amount" class="font-bold text-amber-600">$0.00</span>
         </div>
       </div>
       <button
         id="checkout-button"
-        class="mt-3 md:mt-4 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 md:py-3.5 text-sm md:text-base font-bold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:from-gray-300 disabled:to-gray-300 disabled:shadow-none active:scale-[0.98]"
+        class="mt-3 md:mt-4 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 md:py-3.5 text-sm md:text-base font-bold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:bg-[var(--pos-line-strong)] disabled:from-[var(--pos-bg)] disabled:to-[var(--pos-raised)] disabled:shadow-none active:scale-[0.98]"
         disabled>
         <span class="flex items-center justify-center gap-2">
           <Icon name="mdi:credit-card-outline" class="h-5 w-5" />
@@ -188,41 +189,41 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
 
   <!-- Modal: monto adicional con descripción -->
   <dialog id="extra-dialog" class="extra-dialog">
-    <form id="extra-form" class="bg-white rounded-2xl p-6 shadow-2xl w-full space-y-4" novalidate>
+    <form id="extra-form" class="bg-[var(--pos-raised)] rounded-2xl p-6 shadow-2xl w-full space-y-4" novalidate>
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 id="extra-dialog-title" class="text-lg font-bold text-gray-900">Agregar monto</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Servicio o cargo extra. Se suma al total y aparece en el ticket.</p>
+          <h3 id="extra-dialog-title" class="text-lg font-bold text-[var(--pos-txt)]">Agregar monto</h3>
+          <p class="text-xs text-[var(--pos-txt-2)] mt-0.5">Servicio o cargo extra. Se suma al total y aparece en el ticket.</p>
         </div>
-        <button type="button" id="extra-cancel-x" aria-label="Cerrar" class="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+        <button type="button" id="extra-cancel-x" aria-label="Cerrar" class="rounded-full p-1.5 text-[var(--pos-txt-3)] hover:bg-[var(--pos-bg)] hover:text-[var(--pos-txt-2)]">
           <Icon name="mdi:close" class="h-5 w-5" />
         </button>
       </div>
 
       <label class="block">
-        <span class="text-sm font-semibold text-gray-700">Monto <span class="text-red-500">*</span></span>
+        <span class="text-sm font-semibold text-[var(--pos-txt)]">Monto <span class="text-red-500">*</span></span>
         <div class="relative mt-1">
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--pos-txt-3)]">$</span>
           <input id="extra-amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00"
-            class="w-full rounded-xl border-2 border-gray-200 py-2.5 pl-7 pr-3 text-gray-900 focus:border-amber-500 focus:ring-0 outline-none" />
+            class="w-full rounded-xl border-2 border-[var(--pos-line)] py-2.5 pl-7 pr-3 text-[var(--pos-txt)] focus:border-amber-500 focus:ring-0 outline-none" />
         </div>
       </label>
 
       <label class="block">
-        <span class="text-sm font-semibold text-gray-700">Descripción</span>
+        <span class="text-sm font-semibold text-[var(--pos-txt)]">Descripción</span>
         <input id="extra-desc" name="description" type="text" maxlength="120" autocomplete="off"
           placeholder="Ej. Perforación de hélix, cambio de joya…"
-          class="mt-1 w-full rounded-xl border-2 border-gray-200 py-2.5 px-3 text-gray-900 focus:border-amber-500 focus:ring-0 outline-none" />
-        <span class="mt-1 flex justify-between text-xs text-gray-400">
+          class="mt-1 w-full rounded-xl border-2 border-[var(--pos-line)] py-2.5 px-3 text-[var(--pos-txt)] focus:border-amber-500 focus:ring-0 outline-none" />
+        <span class="mt-1 flex justify-between text-xs text-[var(--pos-txt-3)]">
           <span>Opcional · se imprime en el ticket</span>
           <span id="extra-desc-count">0/120</span>
         </span>
       </label>
 
-      <p id="extra-error" class="hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+      <p id="extra-error" class="hidden rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300"></p>
 
       <div class="flex gap-2 pt-1">
-        <button type="button" id="extra-cancel" class="flex-1 rounded-xl border-2 border-gray-200 py-2.5 font-semibold text-gray-700 hover:bg-gray-50">Cancelar</button>
+        <button type="button" id="extra-cancel" class="flex-1 rounded-xl border-2 border-[var(--pos-line)] py-2.5 font-semibold text-[var(--pos-txt)] hover:bg-[var(--pos-bg)]">Cancelar</button>
         <button type="submit" class="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 font-bold text-white shadow hover:from-amber-600 hover:to-orange-600">Guardar</button>
       </div>
     </form>
@@ -379,7 +380,7 @@ function initializePOS() {
     // Se arma con DOM (no innerHTML) porque la descripción la escribe el usuario
     extraList.replaceChildren(...extras.map((x, i) => {
       const li = document.createElement('li');
-      li.className = 'flex items-center gap-2 rounded-lg bg-green-50 pl-2 pr-1 py-1';
+      li.className = 'flex items-center gap-2 rounded-lg bg-emerald-500/10 pl-2 pr-1 py-1';
 
       const edit = document.createElement('button');
       edit.type = 'button';
@@ -387,11 +388,11 @@ function initializePOS() {
       edit.title = 'Editar monto';
       edit.className = 'flex min-w-0 flex-1 items-center justify-between gap-2 text-left';
       const desc = document.createElement('span');
-      desc.className = `truncate text-xs ${x.description ? 'text-gray-700' : 'italic text-gray-400'}`;
+      desc.className = `truncate text-xs ${x.description ? 'text-[var(--pos-txt)]' : 'italic text-[var(--pos-txt-3)]'}`;
       desc.textContent = x.description || 'Sin descripción';
       desc.title = x.description;
       const amount = document.createElement('span');
-      amount.className = 'flex-shrink-0 text-xs md:text-sm font-semibold text-green-700';
+      amount.className = 'flex-shrink-0 text-xs md:text-sm font-semibold text-emerald-400';
       amount.textContent = `+${formatCurrency(x.amount)}`;
       edit.append(desc, amount);
 
@@ -399,7 +400,7 @@ function initializePOS() {
       remove.type = 'button';
       remove.dataset.extraRemove = String(i);
       remove.setAttribute('aria-label', `Quitar ${x.description || 'monto'}`);
-      remove.className = 'flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors';
+      remove.className = 'flex-shrink-0 rounded-md p-1 text-[var(--pos-txt-3)] hover:bg-red-500/10 hover:text-red-500 transition-colors';
       remove.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>';
 
       li.append(edit, remove);
@@ -510,12 +511,12 @@ function initializePOS() {
       
       if (POSState.searchTerm) {
         chips += `
-          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 text-amber-300 rounded-full text-sm font-medium">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
             "${POSState.searchTerm}"
-            <button class="remove-filter hover:text-amber-900 ml-1" data-type="search">
+            <button class="remove-filter hover:text-amber-100 ml-1" data-type="search">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
               </svg>
@@ -526,12 +527,12 @@ function initializePOS() {
       
       if (POSState.category !== 'all') {
         chips += `
-          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/15 text-violet-300 rounded-full text-sm font-medium">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
             </svg>
             ${POSState.category}
-            <button class="remove-filter hover:text-indigo-900 ml-1" data-type="category">
+            <button class="remove-filter hover:text-violet-100 ml-1" data-type="category">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
               </svg>
@@ -597,7 +598,7 @@ function initializePOS() {
       
       const outOfStockBadge = product.stock <= 0
         ? `<span class="absolute top-1.5 left-1.5 inline-flex items-center gap-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10">
-             <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+             <span class="w-1.5 h-1.5 bg-[var(--pos-raised)] rounded-full animate-pulse"></span>
              AGOTADO
            </span>`
         : '';
@@ -623,21 +624,21 @@ function initializePOS() {
 
       let stockIndicator = '';
       if (product.stock <= 0) {
-        stockIndicator = `<span class="text-red-600 font-semibold">Sin stock</span>`;
+        stockIndicator = `<span class="text-red-400 font-semibold">Sin stock</span>`;
       } else if (product.stock <= 5) {
         stockIndicator = `<span class="text-amber-600 font-semibold">¡Solo ${product.stock}!</span>`;
       } else {
-        stockIndicator = `<span class="text-green-600">${product.stock} disp.</span>`;
+        stockIndicator = `<span class="text-emerald-400">${product.stock} disp.</span>`;
       }
 
       return `
         <article
-          class="product-card group cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg border-2 border-gray-100 hover:border-amber-400 transition-all duration-200 overflow-hidden flex flex-col"
+          class="product-card group cursor-pointer bg-[var(--pos-raised)] rounded-xl shadow-sm hover:shadow-lg border-2 border-[var(--pos-line)] hover:border-amber-400 transition-all duration-200 overflow-hidden flex flex-col"
           style="height: 280px;"
           data-product-id="${product.id}"
           data-has-variants="${product.hasVariants}"
         >
-          <div class="relative bg-gray-50 flex-shrink-0" style="height: 140px;">
+          <div class="relative bg-[var(--pos-bg)] flex-shrink-0" style="height: 140px;">
             ${outOfStockBadge}
             ${variantBadge}
             <img
@@ -653,12 +654,12 @@ function initializePOS() {
             <div class="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
           </div>
           
-          <div class="flex flex-col flex-1 p-2.5 border-t border-gray-100">
-            <h3 class="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight group-hover:text-amber-700 transition-colors">${product.name}</h3>
+          <div class="flex flex-col flex-1 p-2.5 border-t border-[var(--pos-line)]">
+            <h3 class="text-xs font-semibold text-[var(--pos-txt)] line-clamp-2 leading-tight group-hover:text-amber-300 transition-colors">${product.name}</h3>
             <p class="text-[10px] text-amber-600 font-medium mt-0.5">${product.category || 'Sin categoría'}</p>
             <div class="flex-1"></div>
-            <div class="mt-1.5 pt-1.5 border-t border-gray-50">
-              <p class="text-sm font-bold text-gray-900">${priceDisplay}</p>
+            <div class="mt-1.5 pt-1.5 border-t border-[var(--pos-line)]">
+              <p class="text-sm font-bold text-[var(--pos-txt)]">${priceDisplay}</p>
               <p class="text-[10px]">${stockIndicator}</p>
             </div>
           </div>
@@ -700,7 +701,7 @@ function initializePOS() {
       const hasDiscount = variant.priceAdjustment < 0;
       
       return `
-        <div class="variant-card cursor-pointer bg-white border-2 border-gray-200 rounded-xl p-3 md:p-4 transition-all duration-200 hover:border-amber-400 hover:shadow-lg active:scale-[0.98]"
+        <div class="variant-card cursor-pointer bg-[var(--pos-raised)] border-2 border-[var(--pos-line)] rounded-xl p-3 md:p-4 transition-all duration-200 hover:border-amber-400 hover:shadow-lg active:scale-[0.98]"
              data-variant-id="${variant.id}"
              data-product-id="${product.id}"
              data-no-stock="${hasNoStock}">
@@ -708,7 +709,7 @@ function initializePOS() {
             <div class="relative flex-shrink-0 w-full sm:w-28 md:w-36">
               <img src="${variantImage}" 
                    alt="${variant.name}" 
-                   class="w-full h-44 sm:h-28 md:h-36 object-contain p-1.5 rounded-xl shadow-sm bg-white ring-1 ring-gray-200 cursor-zoom-in variant-zoom-img"
+                   class="w-full h-44 sm:h-28 md:h-36 object-contain p-1.5 rounded-xl shadow-sm bg-[var(--pos-raised)] ring-1 ring-[var(--pos-line)] cursor-zoom-in variant-zoom-img"
                    loading="lazy"
                    decoding="async"
                    data-full-image="${variantFull}"
@@ -717,14 +718,14 @@ function initializePOS() {
               ${hasNoStock ? `<span class="absolute bottom-1.5 left-1.5 bg-orange-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm">Sin Stock</span>` : ''}
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="font-semibold text-gray-900 text-base md:text-lg truncate">${variant.name}</h3>
-              ${variant.sku ? `<p class="text-xs text-gray-500 mb-1">SKU: ${variant.sku}</p>` : ''}
+              <h3 class="font-semibold text-[var(--pos-txt)] text-base md:text-lg truncate">${variant.name}</h3>
+              ${variant.sku ? `<p class="text-xs text-[var(--pos-txt-2)] mb-1">SKU: ${variant.sku}</p>` : ''}
               <div class="flex items-center gap-2 mt-2">
                 <p class="text-xl md:text-2xl font-bold text-amber-600">${formatCurrency(variant.finalPrice)}</p>
-                ${hasDiscount ? `<span class="text-sm line-through text-gray-400">${formatCurrency(product.price)}</span>` : ''}
+                ${hasDiscount ? `<span class="text-sm line-through text-[var(--pos-txt-3)]">${formatCurrency(product.price)}</span>` : ''}
               </div>
               <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mt-3">
-                <p class="text-sm ${variant.stock > 10 ? 'text-green-600' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
+                <p class="text-sm ${variant.stock > 10 ? 'text-emerald-400' : variant.stock > 0 ? 'text-orange-600' : 'text-orange-500'} font-medium">
                   ${variant.stock > 0 ? `${variant.stock} disponibles` : 'Sin stock'}
                 </p>
                 <button class="add-variant-btn w-full sm:w-auto sm:ml-auto px-4 py-2 bg-gradient-to-r ${hasNoStock ? 'from-orange-500 to-amber-500' : 'from-amber-500 to-orange-500'} text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm active:scale-95">
@@ -735,7 +736,7 @@ function initializePOS() {
           </div>
         </div>
       `;
-    }).join('') || '<p class="text-center text-gray-500 py-8">No hay variantes disponibles</p>';
+    }).join('') || '<p class="text-center text-[var(--pos-txt-2)] py-8">No hay variantes disponibles</p>';
     
     variantModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -857,16 +858,16 @@ function initializePOS() {
         const displayName = item.variantName ? `${item.name} - ${item.variantName}` : item.name;
         
         return `
-          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2.5 md:p-3 rounded-xl transition-all duration-200 border-2 ${item.outOfStock ? 'border-orange-300 bg-orange-50' : 'border-gray-100 bg-white hover:border-gray-200'} shadow-sm">
-            <div class="h-14 w-14 md:h-16 md:w-16 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
+          <li class="flex items-start gap-2 md:gap-3 text-xs md:text-sm p-2.5 md:p-3 rounded-xl transition-all duration-200 border-2 ${item.outOfStock ? 'border-orange-300 bg-orange-500/10' : 'border-[var(--pos-line)] bg-[var(--pos-raised)] hover:border-[var(--pos-line)]'} shadow-sm">
+            <div class="h-14 w-14 md:h-16 md:w-16 rounded-lg bg-gradient-to-br from-[var(--pos-bg)] to-[var(--pos-raised)] flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
               <img src="${imageUrl}" 
                    alt="${displayName}" 
                    class="max-h-full max-w-full object-contain"
                    onerror="this.src='https://placehold.co/400x400/f8f8f8/cbd5e1?text=Sin+Imagen'" />
             </div>
             <div class="flex-grow min-w-0">
-              <p class="font-medium text-gray-800 line-clamp-2 text-xs md:text-sm">${displayName}</p>
-              ${item.sku ? `<p class="text-[10px] md:text-xs text-gray-500 truncate">SKU: ${item.sku}</p>` : ''}
+              <p class="font-medium text-[var(--pos-txt)] line-clamp-2 text-xs md:text-sm">${displayName}</p>
+              ${item.sku ? `<p class="text-[10px] md:text-xs text-[var(--pos-txt-2)] truncate">SKU: ${item.sku}</p>` : ''}
               ${item.outOfStock ? `<p class="text-[10px] md:text-xs text-orange-600 font-medium">⚠️ Sin stock</p>` : ''}
               <div class="flex items-center gap-1.5 md:gap-2 mt-2">
                 <button data-action="decr" data-index="${index}" class="qty-btn">
@@ -878,7 +879,7 @@ function initializePOS() {
                        value="${item.quantity}" 
                        min="1" 
                        data-index="${index}" 
-                       class="w-10 md:w-14 border-2 rounded-lg bg-white text-center font-medium qty-input text-xs md:text-sm" />
+                       class="w-10 md:w-14 border-2 rounded-lg bg-[var(--pos-raised)] text-center font-medium qty-input text-xs md:text-sm" />
                 <button data-action="incr" data-index="${index}" class="qty-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5 md:h-3 md:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -887,10 +888,10 @@ function initializePOS() {
               </div>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="font-bold text-gray-900 text-xs md:text-sm">${formatCurrency(item.price * item.quantity)}</p>
-              <p class="text-[10px] md:text-xs text-gray-500">${formatCurrency(item.price)} c/u</p>
+              <p class="font-bold text-[var(--pos-txt)] text-xs md:text-sm">${formatCurrency(item.price * item.quantity)}</p>
+              <p class="text-[10px] md:text-xs text-[var(--pos-txt-2)]">${formatCurrency(item.price)} c/u</p>
             </div>
-            <button data-action="remove" data-index="${index}" class="remove-btn text-gray-400 hover:text-red-500 p-0.5 md:p-1 transition-colors flex-shrink-0 hover:bg-red-50 rounded-lg">
+            <button data-action="remove" data-index="${index}" class="remove-btn text-[var(--pos-txt-3)] hover:text-red-500 p-0.5 md:p-1 transition-colors flex-shrink-0 hover:bg-red-500/10 rounded-lg">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 md:h-5 md:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -1269,7 +1270,7 @@ if (document.readyState === 'complete') {
 
 .product-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #f59e0b #f3f4f6;
+  scrollbar-color: #f59e0b var(--pos-sunken);
 }
 
 .product-scroll::-webkit-scrollbar {
@@ -1277,7 +1278,7 @@ if (document.readyState === 'complete') {
 }
 
 .product-scroll::-webkit-scrollbar-track {
-  background: #f3f4f6;
+  background: var(--pos-sunken);
   border-radius: 4px;
 }
 
@@ -1315,20 +1316,20 @@ if (document.readyState === 'complete') {
   height: 1.75rem; 
   width: 1.75rem; 
   border-radius: 0.5rem; 
-  background-color: #f3f4f6; 
-  color: #374151; 
+  background-color: rgba(255, 255, 255, 0.06); 
+  color: var(--pos-txt); 
   display: inline-flex; 
   align-items: center; 
   justify-content: center; 
   cursor: pointer; 
   transition: all 0.15s ease; 
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--pos-line);
   user-select: none;
   flex-shrink: 0;
 }
 
 .qty-btn:hover { 
-  background-color: #fef3c7; 
+  background-color: rgba(245, 158, 11, 0.18); 
   border-color: #f59e0b;
   transform: scale(1.05);
 }
@@ -1338,7 +1339,9 @@ if (document.readyState === 'complete') {
 }
 
 .qty-input { 
-  border: 2px solid #e5e7eb; 
+  border: 2px solid var(--pos-line); 
+  background-color: var(--pos-raised);
+  color: var(--pos-txt);
   border-radius: 0.5rem; 
   text-align: center; 
   font-weight: 600; 
