@@ -206,7 +206,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   // esquina. Estos inyectan su propio <style> por diálogo.
   import { Alert, Confirm, Toast, Prompt } from '@/utils/alerts';
   import { navigate } from 'astro:transitions/client';
-  import { generateAndPrintTicket} from '@/services/ticketGenerator';
+  import { generateAndPrintTicket, precargarTicket } from '@/services/ticketGenerator';
   import { readPosExtras, clearPosExtras, extrasTotal } from '@/utils/pos-extra';
   import { optimizeImage, IMG_WIDTH } from '@/utils/images';
   import { actions } from 'astro:actions';
@@ -286,36 +286,34 @@ const clientsList: Client[] = clientsData?.clients || [];
     const summaryAdditionalAmountListEl = document.getElementById('summary-additional-amount-list');
     const summaryAdditionalAmountLabelEl = document.getElementById('summary-additional-amount-label');
 
-    // ACTUALIZADO: Permite stocks negativos
-    async function updateProductStock() {
-      if (cart.length === 0) return;
+    // ── Contra la venta doble ──
+    let ventaEnCurso = false;
+    const textoFinalizar = finalizeSaleBtn?.textContent ?? 'Finalizar venta';
 
-      const stockUpdateData = cart.map((item: CartItem) => ({
-        productId: item.productId,
-        variantId: item.variantId || null,
-        quantity: item.quantity
-      }));
-      
-      try {
-        const response = await fetch('/api/update-stock', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ products: stockUpdateData })
-        });
-
-        if (!response.ok) {
-          const errorResponse = await response.json();
-          console.error('Error al actualizar stock:', errorResponse.error);
-          // No lanzamos error, solo lo registramos
-        } else {
-          console.log('Stock actualizado exitosamente (puede quedar negativo).');
-        }
-
-      } catch (error) {
-        console.error('Error al actualizar el stock:', error);
-        // No lanzamos error, la venta ya se procesó
+    function bloquearBotones(bloquear: boolean) {
+      for (const btn of [finalizeSaleBtn, discardSaleBtn]) {
+        if (!(btn instanceof HTMLButtonElement)) continue;
+        btn.disabled = bloquear;
+        btn.classList.toggle('opacity-60', bloquear);
+        btn.classList.toggle('cursor-not-allowed', bloquear);
+        btn.classList.toggle('hover:scale-105', !bloquear);
+      }
+      if (finalizeSaleBtn) {
+        finalizeSaleBtn.textContent = bloquear ? 'Registrando…' : textoFinalizar;
       }
     }
+
+    // Llave de esta venta. Viaja con la petición: si por lo que sea llegan dos
+    // (red intermitente, otra pestaña), el servidor reconoce la repetida y
+    // devuelve la venta que ya registró en vez de crear otra. Se genera una
+    // sola vez por carrito, no por intento, justo para que un reintento la
+    // reutilice.
+    const idempotencyKey =
+      (crypto.randomUUID?.() ?? `pos-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+    // El descuento de stock vivía aquí, como una segunda petición a
+    // /api/update-stock después de crear la orden. Ahora lo hace
+    // /api/create-order dentro de la misma transacción.
 
     function updateTotals() {
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -509,9 +507,18 @@ const clientsList: Client[] = clientsData?.clients || [];
 
     // ACTUALIZADO: Sin validación de stock
     async function handleFinalizeSale() {
+      // ── Candado contra la venta doble ──
+      // La tienda reportó que picar dos veces en "Finalizar venta" generaba
+      // dos ventas. Mientras una está en curso no se acepta otra, y el botón
+      // se apaga en el mismo clic para que no haya ni un hueco entre el
+      // primer clic y el segundo.
+      if (ventaEnCurso) return;
+      ventaEnCurso = true;
+      bloquearBotones(true);
+
       const paymentMethodEl = document.querySelector('input[name="payment-method"]:checked') as HTMLInputElement | null;
-      if (!paymentMethodEl || !clientSelectEl) return;
-      
+      if (!paymentMethodEl || !clientSelectEl) { ventaEnCurso = false; bloquearBotones(false); return; }
+
       const clientId = clientSelectEl.value ? parseInt(clientSelectEl.value, 10) : null;
       const paymentMethod = paymentMethodEl.value;
       
@@ -519,6 +526,8 @@ const clientsList: Client[] = clientsData?.clients || [];
       const total = subtotal + additionalAmount - discountInfo.amount;
 
       if (paymentMethod === 'Venta a crédito' && !clientId) {
+        ventaEnCurso = false;
+        bloquearBotones(false);
         Alert.error(
           'Cliente no seleccionado',
           'Debes seleccionar un cliente para realizar una venta a crédito.'
@@ -538,6 +547,7 @@ const clientsList: Client[] = clientsData?.clients || [];
         const customerEmail = selectedClient?.email || 'mostrador@tienda.com';
         
         const orderData = {
+          idempotencyKey,
           clientId,
           customerEmail,
           // Venta de mostrador: sin dirección. Se guardan aquí los montos
@@ -572,24 +582,11 @@ const clientsList: Client[] = clientsData?.clients || [];
         // el toast de carga no debe quedarse encima.
         Toast.dismiss(procesando);
 
-        // Actualizar stock (puede quedar negativo)
-        await updateProductStock();
-        
-        if (paymentMethod === 'Venta a crédito' && clientId) {
-          const updateResult = await actions.updateClientBalance({
-            clientId: clientId,
-            amountToAdd: total
-          });
+        // El stock y, en ventas a crédito, el saldo del cliente ya quedaron
+        // guardados en la misma transacción que la orden. Antes eran dos
+        // peticiones más, una detrás de otra, y si el navegador se cerraba
+        // entre ellas la venta quedaba sin descontar del inventario.
 
-          if (updateResult.error) {
-            console.error("Error al actualizar el saldo del cliente:", updateResult.error.message);
-            Alert.warning(
-              'Venta registrada',
-              'La venta se guardó, pero hubo un error al actualizar el saldo del cliente.'
-            );
-          }
-        }
-        
         localStorage.removeItem('admin-pos-cart');
         clearPosExtras();
 
@@ -605,8 +602,10 @@ const clientsList: Client[] = clientsData?.clients || [];
         const observationsText = (showOnReceiptCheckbox?.checked && observationsTextarea) ? observationsTextarea.value : undefined;
         
         Confirm.show({
-          title: '¡Venta finalizada!',
-          message: `La orden #${result.orderNumber} quedó registrada.`,
+          title: result.duplicate ? 'Esta venta ya estaba registrada' : '¡Venta finalizada!',
+          message: result.duplicate
+            ? `No se duplicó: es la orden #${result.orderNumber}, la que ya se había guardado.`
+            : `La orden #${result.orderNumber} quedó registrada.`,
           confirmText: 'Imprimir ticket',
           cancelText: 'Nueva venta',
           type: 'info',
@@ -644,6 +643,11 @@ const clientsList: Client[] = clientsData?.clients || [];
 
       } catch (err: unknown) {
         Toast.dismiss(procesando);
+        // Se sueltan los botones para poder reintentar. La llave de
+        // idempotencia es la misma, así que si la venta sí había llegado al
+        // servidor, el reintento devuelve esa misma orden en vez de duplicarla.
+        ventaEnCurso = false;
+        bloquearBotones(false);
         Alert.error(
           'No se pudo finalizar la venta',
           err instanceof Error ? err.message : 'Intenta de nuevo.'
@@ -652,6 +656,7 @@ const clientsList: Client[] = clientsData?.clients || [];
     }
 
     function handleDiscardSale() {
+      if (ventaEnCurso) return;
       Confirm.show({
         title: '¿Descartar la venta?',
         message: 'Se perderán todos los productos del carrito.',
@@ -682,6 +687,16 @@ const clientsList: Client[] = clientsData?.clients || [];
     updateTotals();
     toggleCreditOption();
 
+    // El motor del PDF se baja en segundo plano, cuando el navegador no tiene
+    // nada mejor que hacer. Así la página abre ligera y, para cuando se pica
+    // "Imprimir ticket", normalmente ya está listo.
+    const adelantarTicket = () => precargarTicket();
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(adelantarTicket, { timeout: 3000 });
+    } else {
+      setTimeout(adelantarTicket, 1200);
+    }
+
     // Verificar si el carrito está vacío
     if (cart.length === 0) {
       navigate('/admin/sale');
@@ -689,13 +704,20 @@ const clientsList: Client[] = clientsData?.clients || [];
     }
   }
 
-// Por esto:
 document.addEventListener('astro:page-load', () => {
   // Verificar que estamos en la página correcta
   if (window.location.pathname !== '/admin/checkout') {
     return; // No ejecutar si no estamos en checkout
   }
-  
+
+  // El segundo camino hacia la venta doble: astro:page-load puede dispararse
+  // más de una vez sobre el mismo DOM (al volver con el botón de atrás, por
+  // ejemplo). Sin esta marca se colgaba otro listener en el mismo botón, y
+  // entonces UN solo clic mandaba dos peticiones.
+  const boton = document.getElementById('finalize-sale-btn');
+  if (boton?.dataset.checkoutInit === 'true') return;
+  if (boton) boton.dataset.checkoutInit = 'true';
+
   initializeCheckout();
 });
 </script>

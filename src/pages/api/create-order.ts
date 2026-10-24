@@ -2,8 +2,10 @@
 //
 // Dos caminos:
 //
-//   POS (admin, mostrador) → igual que antes: precios desde la base,
-//     descuento/cargos del admin, sin envío. El stock lo maneja el POS.
+//   POS (admin, mostrador) → precios desde la base, descuento/cargos del
+//     admin, sin envío. El stock, el saldo a crédito y la orden se guardan
+//     aquí, en una sola transacción. Lleva llave de idempotencia para que un
+//     doble clic no registre la venta dos veces.
 //
 //   Tienda online → SOLO con un pago verificado con el proveedor
 //     (Stripe o PayPal). Antes cualquiera podía crear un pedido
@@ -11,7 +13,7 @@
 //       · el total se calcula aquí (priceCheckout) y se compara con lo cobrado
 //       · un mismo pago no puede registrar dos pedidos
 //       · el stock se descuenta aquí (antes lo hacía el navegador)
-import { db, orders, order_items, Product, ProductVariantCombination, ProductVariant, eq, inArray } from 'astro:db';
+import { db, orders, order_items, Product, ProductVariantCombination, ProductVariant, eq, inArray, sql } from 'astro:db';
 import { v4 as uuidv4 } from 'uuid';
 import type { APIRoute } from 'astro';
 import Stripe from 'stripe';
@@ -205,15 +207,22 @@ async function handlePosOrder(data: any, session: any) {
   const customerEmail = session?.user?.email || data.customerEmail;
   if (!customerEmail) return json({ error: 'Email del cliente es requerido' }, 400);
 
+  // ── Idempotencia ──
+  // El POS genera una llave por intento de venta y la manda en cada envío.
+  // Si la misma llave llega dos veces (doble clic, reintento por conexión
+  // lenta, pestaña duplicada), la segunda devuelve la orden que ya existe en
+  // vez de registrar la venta otra vez. El candado del botón en el navegador
+  // tapa el caso normal; esto tapa el resto.
+  //
+  // Se guarda en externalReference, que ya existe y ya está indexado. Mercado
+  // Pago usa esa misma columna con su propio formato, así que no se pisan.
+  const idempotencyKey = typeof data.idempotencyKey === 'string' && data.idempotencyKey.length >= 8
+    ? data.idempotencyKey.slice(0, 64)
+    : null;
+
   // ✅ RECALCULAR TOTAL SERVER-SIDE — no confiar en el cliente
   const productIds: string[] = Array.from(new Set(data.products.map((p: any) => String(p.id)).filter((id: string) => id && id !== 'undefined'))) as string[];
   if (productIds.length === 0) return json({ error: 'No se encontraron productos válidos' }, 400);
-
-  const dbProducts = await db
-    .select({ id: Product.id, price: Product.price, name: Product.name })
-    .from(Product)
-    .where(inArray(Product.id, productIds));
-  const dbProductMap = new Map(dbProducts.map(p => [p.id, p]));
 
   // El carrito manda `variantId`, que en productos de 2+ grupos es en realidad
   // el id de una COMBINACIÓN, y en productos de 1 grupo es el id de una VARIANTE.
@@ -224,25 +233,66 @@ async function handlePosOrder(data: any, session: any) {
       .map((id: any) => String(id))
   ));
 
-  let dbCombinationMap = new Map<string, number>();
-  let dbVariantMap = new Map<string, { priceAdjustment: number; productId: string }>();
+  // Las cuatro lecturas van juntas: no dependen una de otra y así se paga
+  // una sola ida al servidor de base de datos en vez de cuatro seguidas.
+  const [existingOrder, dbProducts, dbCombinations, dbVariants] = await Promise.all([
+    // ¿Esta misma venta ya se registró? (ver la nota de idempotencia arriba)
+    idempotencyKey
+      ? db
+          .select({ id: orders.id, orderNumber: orders.orderNumber, total: orders.total, clientId: orders.clientId })
+          .from(orders)
+          .where(eq(orders.externalReference, idempotencyKey))
+          .limit(1)
+      : Promise.resolve([] as Array<{ id: string; orderNumber: string; total: number; clientId: number | null }>),
 
-  if (variantOrComboIds.length > 0) {
-    const dbCombinations = await db
-      .select({ id: ProductVariantCombination.id, price: ProductVariantCombination.price })
-      .from(ProductVariantCombination)
-      .where(inArray(ProductVariantCombination.id, variantOrComboIds));
-    dbCombinationMap = new Map(dbCombinations.map(c => [c.id, c.price]));
+    db
+      .select({ id: Product.id, price: Product.price, name: Product.name })
+      .from(Product)
+      .where(inArray(Product.id, productIds)),
 
-    const dbVariants = await db
-      .select({ id: ProductVariant.id, priceAdjustment: ProductVariant.priceAdjustment, productId: ProductVariant.productId })
-      .from(ProductVariant)
-      .where(inArray(ProductVariant.id, variantOrComboIds));
-    dbVariantMap = new Map(dbVariants.map(v => [v.id, { priceAdjustment: v.priceAdjustment ?? 0, productId: v.productId }]));
+    variantOrComboIds.length > 0
+      ? db
+          .select({ id: ProductVariantCombination.id, price: ProductVariantCombination.price, productId: ProductVariantCombination.productId })
+          .from(ProductVariantCombination)
+          .where(inArray(ProductVariantCombination.id, variantOrComboIds))
+      : Promise.resolve([] as Array<{ id: string; price: number; productId: string }>),
+
+    variantOrComboIds.length > 0
+      ? db
+          .select({ id: ProductVariant.id, priceAdjustment: ProductVariant.priceAdjustment, productId: ProductVariant.productId })
+          .from(ProductVariant)
+          .where(inArray(ProductVariant.id, variantOrComboIds))
+      : Promise.resolve([] as Array<{ id: string; priceAdjustment: number | null; productId: string }>),
+  ]);
+
+  // Llegó dos veces: se devuelve la venta que ya existe, sin crear otra ni
+  // volver a descontar stock.
+  if (existingOrder.length > 0) {
+    const ya = existingOrder[0];
+    console.warn('⚠️ Venta POS repetida, se devuelve la original:', ya.orderNumber);
+    return json({
+      id: ya.id,
+      orderNumber: ya.orderNumber,
+      customerEmail,
+      clientId: ya.clientId,
+      total: ya.total,
+      duplicate: true,
+      message: 'Esta venta ya estaba registrada',
+    });
   }
+
+  const dbProductMap = new Map(dbProducts.map(p => [p.id, p]));
+  const dbCombinationMap = new Map(dbCombinations.map(c => [c.id, { price: c.price, productId: c.productId }]));
+  const dbVariantMap = new Map(dbVariants.map(v => [v.id, { priceAdjustment: v.priceAdjustment ?? 0, productId: v.productId }]));
 
   let serverSubtotal = 0;
   const validatedItems: Array<{ id: string; name: string; price: number; quantity: number; variantCombinationId?: string | null; variantDescription?: string | null; engraving?: string | null }> = [];
+
+  // Dónde hay que descontar el stock de cada renglón. Se arma aquí, con los
+  // mapas que ya se leyeron: antes esto lo resolvía /api/update-stock con un
+  // SELECT extra por producto.
+  type DescuentoStock = { kind: 'combo' | 'variant' | 'product'; id: string; productId: string; quantity: number };
+  const descuentos: DescuentoStock[] = [];
 
   for (const item of data.products) {
     const quantity = Math.max(1, Math.min(99, Math.floor(Number(item.quantity) || 1)));
@@ -252,7 +302,7 @@ async function handlePosOrder(data: any, session: any) {
     const variantOrCombo = item.combinationId || item.variantId;
     let realPrice = dbProduct.price;
     if (variantOrCombo && dbCombinationMap.has(variantOrCombo)) {
-      realPrice = dbCombinationMap.get(variantOrCombo)!;
+      realPrice = dbCombinationMap.get(variantOrCombo)!.price;
     } else if (variantOrCombo && dbVariantMap.has(variantOrCombo)) {
       realPrice = dbProduct.price + dbVariantMap.get(variantOrCombo)!.priceAdjustment;
     }
@@ -267,6 +317,14 @@ async function handlePosOrder(data: any, session: any) {
       variantDescription: item.variantName || null,
       engraving: item.engraving ? JSON.stringify(item.engraving) : null,
     });
+
+    if (variantOrCombo && dbCombinationMap.has(variantOrCombo)) {
+      descuentos.push({ kind: 'combo', id: variantOrCombo, productId: dbCombinationMap.get(variantOrCombo)!.productId, quantity });
+    } else if (variantOrCombo && dbVariantMap.has(variantOrCombo)) {
+      descuentos.push({ kind: 'variant', id: variantOrCombo, productId: dbVariantMap.get(variantOrCombo)!.productId, quantity });
+    } else {
+      descuentos.push({ kind: 'product', id: item.id, productId: item.id, quantity });
+    }
   }
 
   const discount = Math.max(0, Math.min(serverSubtotal, Number(data.discount) || 0));
@@ -282,7 +340,21 @@ async function handlePosOrder(data: any, session: any) {
   const orderId = uuidv4();
   const orderNumber = `ORD-${Date.now()}`;
 
-  await db.insert(orders).values({
+  // ── Todas las escrituras, en un solo viaje ──
+  //
+  // Antes esto eran dos inserts sueltos aquí, y después el navegador llamaba
+  // a /api/update-stock (que hacía un SELECT y un UPDATE por renglón, más dos
+  // consultas por producto para recalcular el stock base) y, en ventas a
+  // crédito, a updateClientBalance. Entre todo, más de veinte idas y vueltas
+  // seguidas a la base de datos: eso era la tardanza que reportó la tienda.
+  //
+  // Ahora va todo en un db.batch, que es una sola petición y además una sola
+  // transacción: o se guarda la venta completa con su stock, o no se guarda
+  // nada. Antes podía quedar la orden registrada sin descontar stock si el
+  // navegador se cerraba entre una llamada y la otra.
+  const escrituras: any[] = [];
+
+  escrituras.push(db.insert(orders).values({
     id: orderId,
     orderNumber,
     customerEmail,
@@ -294,9 +366,10 @@ async function handlePosOrder(data: any, session: any) {
     status: 'completed',
     createdAt: new Date(),
     clientId: data.clientId || null,
-  } as any);
+    externalReference: idempotencyKey,
+  } as any));
 
-  await db.insert(order_items).values(validatedItems.map(item => ({
+  escrituras.push(db.insert(order_items).values(validatedItems.map(item => ({
     id: uuidv4(),
     orderId,
     productId: item.id,
@@ -307,7 +380,68 @@ async function handlePosOrder(data: any, session: any) {
     variantCombinationId: item.variantCombinationId || null,
     variantDescription: item.variantDescription || null,
     engraving: item.engraving || null,
-  })));
+  })) as any));
+
+  // Stock. El mostrador puede vender aunque quede en negativo: el negativo es
+  // la señal para revisar inventario, no para perder la venta.
+  // Qué producto se recalcula sumando combinaciones y cuál sumando variantes:
+  // si el producto tuvo aunque sea un renglón por combinación, manda esa.
+  const resyncPorCombinacion = new Set<string>();
+  const resyncPorVariante = new Set<string>();
+
+  for (const d of descuentos) {
+    if (d.kind === 'combo') {
+      escrituras.push(
+        db.update(ProductVariantCombination)
+          .set({ stock: sql`${ProductVariantCombination.stock} - ${d.quantity}` } as any)
+          .where(eq(ProductVariantCombination.id, d.id)),
+      );
+      resyncPorCombinacion.add(d.productId);
+    } else if (d.kind === 'variant') {
+      escrituras.push(
+        db.update(ProductVariant)
+          .set({ stock: sql`${ProductVariant.stock} - ${d.quantity}` } as any)
+          .where(eq(ProductVariant.id, d.id)),
+      );
+      resyncPorVariante.add(d.productId);
+    } else {
+      escrituras.push(
+        db.update(Product)
+          .set({ stock: sql`${Product.stock} - ${d.quantity}` } as any)
+          .where(eq(Product.id, d.id)),
+      );
+    }
+  }
+
+  // Product.stock queda como la suma de sus hijos. Va después de los
+  // descuentos a propósito: el batch ejecuta en orden, así que la suma ya lee
+  // el stock nuevo. Antes esto costaba dos SELECT por producto.
+  for (const productId of resyncPorCombinacion) {
+    escrituras.push(
+      db.update(Product)
+        .set({ stock: sql`(SELECT COALESCE(SUM(${ProductVariantCombination.stock}), 0) FROM ${ProductVariantCombination} WHERE ${ProductVariantCombination.productId} = ${productId})` } as any)
+        .where(eq(Product.id, productId)),
+    );
+  }
+  for (const productId of resyncPorVariante) {
+    if (resyncPorCombinacion.has(productId)) continue;
+    escrituras.push(
+      db.update(Product)
+        .set({ stock: sql`(SELECT COALESCE(SUM(${ProductVariant.stock}), 0) FROM ${ProductVariant} WHERE ${ProductVariant.productId} = ${productId})` } as any)
+        .where(eq(Product.id, productId)),
+    );
+  }
+
+  // Venta a crédito: el saldo del cliente entra en la misma transacción.
+  // Si la venta no se guarda, el saldo tampoco se mueve.
+  const esCredito = (data.paymentMethod || '') === 'Venta a crédito';
+  if (esCredito && data.clientId) {
+    escrituras.push(
+      db.run(sql`UPDATE client SET saldo_actual = saldo_actual + ${serverTotal} WHERE id = ${Number(data.clientId)}`),
+    );
+  }
+
+  await db.batch(escrituras as any);
 
   return json({
     id: orderId,
@@ -315,6 +449,7 @@ async function handlePosOrder(data: any, session: any) {
     customerEmail,
     clientId: data.clientId || null,
     total: serverTotal,
+    creditBalanceUpdated: esCredito && !!data.clientId,
     message: 'Orden creada exitosamente',
   });
 }
