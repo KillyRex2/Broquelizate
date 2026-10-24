@@ -2,19 +2,24 @@
 // src/components/admin/RevenueChart.astro
 import { db, orders } from 'astro:db';
 import { sql, gte } from 'drizzle-orm';
+import { TZ_SQL_OFFSET } from '@/utils/datetime';
 
 const now = new Date();
 const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
 
 type DailyResult = { day: string; total: number };
 
+// createdAt se guarda en UTC, así que DATE() a secas movía las ventas de la
+// tarde al día siguiente. El desfase lo agrupa en el día del negocio.
+const diaDelNegocio = sql<string>`DATE(${orders.createdAt}, ${TZ_SQL_OFFSET})`;
+
 const dailyRevenue: DailyResult[] = await db.select({
-  day: sql<string>`DATE(${orders.createdAt})`,
+  day: diaDelNegocio,
   total: sql<number>`SUM(${orders.total})`.mapWith(Number)
 }).from(orders)
 .where(gte(orders.createdAt, twoYearsAgo))
-.groupBy(sql`DATE(${orders.createdAt})`)
-.orderBy(sql`DATE(${orders.createdAt}) ASC`)
+.groupBy(diaDelNegocio)
+.orderBy(sql`${diaDelNegocio} ASC`)
 .all();
 ---
 
@@ -113,7 +118,18 @@ const dailyRevenue: DailyResult[] = await db.select({
 
   const revenueMap = new Map(dailyRevenue.map(d => [d.day, Number(d.total)]));
 
-  function isoDate(d) { return d.toISOString().split('T')[0]; }
+  // La clave tiene que ser el día local del navegador (la dueña ve la tienda
+  // desde México), no el de UTC: toISOString() adelantaba un día por la tarde.
+  function isoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // 'YYYY-MM-DD' -> Date local al mediodía. new Date('2026-10-23') se parsea
+  // como medianoche UTC y se mostraba como el 22 en cualquier huso negativo.
+  function keyToDate(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d, 12);
+  }
 
   function rangeDatesArray(start, end) {
     const arr = []; const cur = new Date(start);
@@ -172,7 +188,7 @@ const dailyRevenue: DailyResult[] = await db.select({
     chartInstance = new window.Chart(ctx, {
       type: 'line',
       data: {
-        labels: labels.map(l => new Date(l).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })),
+        labels: labels.map(l => keyToDate(l).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })),
         datasets: [{
           label: 'Ingresos',
           data: values,
@@ -201,7 +217,7 @@ const dailyRevenue: DailyResult[] = await db.select({
             borderWidth: 1,
             padding: 12,
             callbacks: {
-              title: (items) => { if (!items.length) return ''; return new Date(labels[items[0].dataIndex]).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }); },
+              title: (items) => { if (!items.length) return ''; return keyToDate(labels[items[0].dataIndex]).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }); },
               label: (c) => ` ${formatMoney(c.parsed.y || 0)}`
             }
           }
@@ -245,7 +261,7 @@ const dailyRevenue: DailyResult[] = await db.select({
     const total = values.reduce((a, b) => a + b, 0);
     const startMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let mtd = 0;
-    for (let i = 0; i < labels.length; i++) { if (new Date(labels[i]) >= startMonth) mtd += values[i]; }
+    for (let i = 0; i < labels.length; i++) { if (keyToDate(labels[i]) >= startMonth) mtd += values[i]; }
     const n = values.length; const half = Math.floor(n/2) || 1;
     const recent = values.slice(n-half).reduce((a,b)=>a+b,0);
     const prev = values.slice(Math.max(0,n-2*half), n-half).reduce((a,b)=>a+b,0);

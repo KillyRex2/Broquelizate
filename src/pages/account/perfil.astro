@@ -3,6 +3,7 @@
 import MainLayout from '@/layouts/MainLayout.astro';
 import { db, orders } from 'astro:db';
 import { eq } from 'drizzle-orm';
+import { formatDate } from '@/utils/datetime';
 
 // El middleware ya verificó la autenticación y trae los datos completos
 const { user } = Astro.locals;
@@ -53,7 +54,7 @@ if (createdAtDate) {
   try {
     const date = new Date(createdAtDate);
     if (!isNaN(date.getTime())) {
-      memberSince = date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long' });
+      memberSince = formatDate(date, { year: 'numeric', month: 'long' });
     }
   } catch (e) {
     console.warn('Error formateando fecha:', e);

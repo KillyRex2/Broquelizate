@@ -7,13 +7,14 @@ import RecentOrders from '@/components/admin/RecentOrders.astro';
 import TopProducts from '@/components/admin/TopProducts.astro';
 import ActivityFeed from '@/components/admin/ActivityFeed.astro';
 import SalesByCategory from '@/components/admin/SalesByPaymentMethod.astro';
+import { formatDate } from '@/utils/datetime';
 
 const pageTitle = "Panel de Administración";
 
 // Fecha formateada
 const now = new Date();
 const dateOptions: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-const formattedDate = now.toLocaleDateString('es-MX', dateOptions);
+const formattedDate = formatDate(now, dateOptions);
 // Capitalizar primera letra
 const displayDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
 ---

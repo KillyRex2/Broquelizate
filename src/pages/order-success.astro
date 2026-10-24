@@ -7,6 +7,7 @@ import Stripe from 'stripe';
 import OrderTracking from '@/components/OrderTracking.astro';
 import { actions } from 'astro:actions';
 import CheckoutProgress from '@/components/shared/CheckoutProgressBar.astro';
+import { formatDate } from '@/utils/datetime';
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 const stripe = new Stripe(STRIPE_SECRET_KEY);
@@ -92,7 +93,7 @@ try {
       
       orderDetails = {
         orderId: orderData.orderNumber,
-        date: new Date(orderData.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+        date: formatDate(orderData.createdAt, { year: 'numeric', month: 'long', day: 'numeric' }),
         products: orderData.items.map((item: any) => ({
           id: item.productId, name: item.productName, price: item.price, quantity: item.quantity,
           image: item.image || item.variantImage || item.productImage || null,
@@ -132,7 +133,7 @@ try {
     const sa = session.customer_details?.address;
     orderDetails = {
       orderId: session.id.substring(0, 8).toUpperCase(),
-      date: new Date(session.created * 1000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' }),
+      date: formatDate(session.created * 1000, { year: 'numeric', month: 'long', day: 'numeric' }),
       products, shipping: { method: "Envío Estándar", cost: session.shipping_cost?.amount_total ? session.shipping_cost.amount_total / 100 : 0, address: sa?.line1 || "N/A", city: sa?.city || undefined, state: sa?.state || undefined, postalCode: sa?.postal_code || undefined },
       customer: { name: session.customer_details?.name || "Cliente", email: session.customer_details?.email || "N/A", phone: session.customer_details?.phone || undefined },
       subtotal: total, total, paymentStatus: session.payment_status === "paid" ? "Pagado" : "Pendiente", paymentMethod: 'Tarjeta'
