@@ -387,3 +387,71 @@ export function shippingNotificationEmail(o: OrderEmailData): string {
 
   return shell(content, `Tu pedido ${o.orderNumber} ya va en camino. Rastreo: ${o.trackingNumber}`);
 }
+// ============================================================
+// Mensaje del formulario de contacto
+// ============================================================
+
+export interface ContactMessageData {
+  name: string;
+  email: string;
+  phone?: string | null;
+  message: string;
+}
+
+/**
+ * Lo que le llega a la tienda cuando alguien escribe desde /contact.
+ *
+ * El mensaje va tal cual lo escribió la persona, escapado y respetando sus
+ * saltos de línea: si preguntó por tres piezas en tres renglones, así se lee.
+ */
+export function contactMessageEmail(c: ContactMessageData): string {
+  const mensajeHtml = esc(c.message).replace(/\n/g, '<br>');
+
+  const content = `
+        <tr>
+          <td style="padding:32px 32px 0;">
+            <h1 style="margin:0 0 6px;color:${INK};font-size:20px;font-weight:800;">Mensaje nuevo desde la web</h1>
+            <p style="margin:0;color:${INK_2};font-size:13px;">
+              Puedes responder directo a este correo: la respuesta le llega a quien escribió.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:20px 32px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fafafa;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <div style="color:${INK_3};font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Nombre</div>
+                  <div style="color:${INK};font-size:15px;font-weight:700;margin-top:2px;">${esc(c.name)}</div>
+
+                  <div style="color:${INK_3};font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-top:14px;">Correo</div>
+                  <div style="margin-top:2px;">
+                    <a href="mailto:${esc(c.email)}" style="color:${GOLD_DEEP};font-size:15px;font-weight:600;text-decoration:none;">${esc(c.email)}</a>
+                  </div>
+                  ${c.phone ? `
+                  <div style="color:${INK_3};font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-top:14px;">Teléfono</div>
+                  <div style="margin-top:2px;">
+                    <a href="tel:${esc(c.phone)}" style="color:${GOLD_DEEP};font-size:15px;font-weight:600;text-decoration:none;">${esc(c.phone)}</a>
+                  </div>` : ''}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:24px 32px 36px;">
+            <h2 style="margin:0 0 8px;color:${INK};font-size:14px;font-weight:700;">Mensaje</h2>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-left:3px solid ${GOLD};">
+              <tr>
+                <td style="padding:4px 0 4px 16px;color:${INK_2};font-size:14px;line-height:1.6;">
+                  ${mensajeHtml}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`;
+
+  return shell(content, `${c.name}: ${c.message.slice(0, 90)}`);
+}

@@ -2,8 +2,6 @@
 import Categories from "@/components/Categories.astro";
 import HeroSection from "@/components/HeroSection.astro";
 import MainLayout from "@/layouts/MainLayout.astro";
-import FeaturedProducts from "@/components/FeaturedProducts.astro";
-import Services from "@/components/Services.astro";
 import Testimonials from "@/components/Testimonials.astro";
 import BroquelizateSection from "@/components/BroquelizateSection.astro";
 import Newsletter from "@/components/Newsletter.astro";
@@ -54,12 +52,9 @@ const heroProducts = heroRows.map(p => {
     <HeroSection products={heroProducts} />
     <HomeCollections collections={carousels} />
     <Categories/>
-    <FeaturedProducts/>
 
     <!-- Carruseles que el admin administra desde /admin/collections -->
-    
 
-    <Services/>
     <Testimonials/>
     <BroquelizateSection/>
     <Newsletter/>

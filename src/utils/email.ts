@@ -15,7 +15,9 @@ import {
   orderConfirmationEmail,
   adminNewOrderEmail,
   shippingNotificationEmail,
+  contactMessageEmail,
   type OrderEmailData,
+  type ContactMessageData,
 } from './email-templates.ts';
 
 const apiKey = import.meta.env.RESEND_API_KEY || process.env.RESEND_API_KEY;
@@ -113,5 +115,24 @@ export async function sendPurchaseEmails(order: OrderEmailData): Promise<void> {
     if (r.status === 'rejected') {
       console.error(`❌ Correo ${i === 0 ? 'al cliente' : 'al admin'} falló:`, r.reason);
     }
+  });
+}
+/**
+ * Mensaje del formulario de /contact.
+ *
+ * Va a ADMIN_EMAIL (la misma dirección que los avisos de venta, configurable
+ * con EMAIL_ADMIN) en vez de a una dirección escrita a mano: en el proyecto
+ * ya había cinco correos distintos repartidos por el código y no hacía falta
+ * una sexta.
+ *
+ * El replyTo es el de quien escribió, así que responder desde la bandeja de
+ * entrada le llega a esa persona sin copiar y pegar nada.
+ */
+export async function sendContactMessage(c: ContactMessageData): Promise<boolean> {
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `Mensaje de ${c.name} desde la web`,
+    html: contactMessageEmail(c),
+    replyTo: c.email,
   });
 }

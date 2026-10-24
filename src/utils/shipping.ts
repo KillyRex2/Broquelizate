@@ -3,7 +3,24 @@
 // Umbral de envío gratis. Este es el ÚNICO lugar donde vive.
 // ============================================================
 
-export const FREE_SHIPPING_THRESHOLD = 1099;
+export const FREE_SHIPPING_THRESHOLD = 1199;
+
+/**
+ * El umbral como se le enseña al cliente: "$1,199".
+ *
+ * Existe porque el número estaba escrito a mano en cinco lugares (aquí, la
+ * barra de navegación, el calculador de envío, el hero y los términos y
+ * condiciones). Subirlo obligaba a acordarse de los cinco, y el de términos
+ * y condiciones es el que más duele olvidar: ahí decía una cantidad y el
+ * carrito cobraba otra. Ahora todos leen de aquí.
+ */
+export const freeShippingLabel = (): string =>
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(FREE_SHIPPING_THRESHOLD);
 
 /** ¿El subtotal alcanza para envío gratis? */
 export const qualifiesForFreeShipping = (subtotal: number): boolean =>
