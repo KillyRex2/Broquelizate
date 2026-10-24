@@ -3,6 +3,7 @@ import { defineAction } from 'astro:actions';
 import { db, orders, order_items, Product, ProductImage, gte, inArray } from 'astro:db';
 import { z } from 'astro:schema';
 import { assertAdmin } from '../_guard';
+import { localParts, dayKey, startOfDay, endOfDay, startOfYear } from '@/utils/datetime';
 
 /**
  * Estadísticas de ventas para el dashboard del admin.
@@ -17,6 +18,11 @@ import { assertAdmin } from '../_guard';
  * ganancias históricas se recalculan con el costo nuevo.
  *
  * Las órdenes con status 'cancelled' se EXCLUYEN de todas las métricas.
+ *
+ * TODAS las fechas se agrupan en la zona horaria del negocio, no en la del
+ * servidor (Netlify corre en UTC). Antes se usaban getHours/getDay/getDate,
+ * así que una venta de las 7 pm caía en el día, la hora, el día de la semana
+ * y hasta el mes equivocados.
  */
 
 const inputSchema = z.object({
@@ -44,13 +50,19 @@ export const getSalesStats = defineAction({
     assertAdmin(context); // 🔒 Solo admin
     try {
       const now = new Date();
-      const start = startDate ? new Date(startDate + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const end = endDate ? new Date(endDate + 'T23:59:59') : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      // El año/día "de hoy" es el del negocio, no el del servidor.
+      const currentYear = localParts(now).year;
+
+      // startDate/endDate llegan como 'YYYY-MM-DD' desde el filtro del panel:
+      // se interpretan como días completos en la zona del negocio.
+      // (|| y no ??: una cadena vacía también debe caer en "hoy")
+      const start = startOfDay(startDate || now);
+      const end = endOfDay(endDate || now);
 
       // Para el desglose por MES necesitamos el año actual completo; para el resto,
       // el rango pedido. Traemos desde la fecha más antigua de las dos en SQL.
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const fetchFrom = start < startOfYear ? start : startOfYear;
+      const yearStart = startOfYear(currentYear);
+      const fetchFrom = start < yearStart ? start : yearStart;
 
       // 🚀 Filtramos en SQL: solo órdenes desde fetchFrom (no toda la tabla)
       const allOrders = (await db
@@ -140,19 +152,19 @@ export const getSalesStats = defineAction({
       }
 
       for (const o of inRange) {
-        const d = new Date(o.createdAt!);
+        const p = localParts(o.createdAt!);
         const oProfit = profitByOrder.get(o.id) ?? 0;
 
-        byHour[d.getHours()].revenue += o.total ?? 0;
-        byHour[d.getHours()].sales += 1;
-        byHour[d.getHours()].profit += oProfit;
+        byHour[p.hour].revenue += o.total ?? 0;
+        byHour[p.hour].sales += 1;
+        byHour[p.hour].profit += oProfit;
 
-        byWeekday[d.getDay()].revenue += o.total ?? 0;
-        byWeekday[d.getDay()].sales += 1;
-        byWeekday[d.getDay()].profit += oProfit;
+        byWeekday[p.weekday].revenue += o.total ?? 0;
+        byWeekday[p.weekday].sales += 1;
+        byWeekday[p.weekday].profit += oProfit;
 
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const label = `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+        const key = dayKey(o.createdAt!);
+        const label = `${p.day} ${MONTH_NAMES[p.month - 1]}`;
         if (!dayMap.has(key)) dayMap.set(key, { label, date: key, revenue: 0, sales: 0, profit: 0 } as any);
         const entry = dayMap.get(key)! as any;
         entry.revenue += o.total ?? 0;
@@ -163,12 +175,13 @@ export const getSalesStats = defineAction({
 
       for (const o of allOrders) {
         if (!o.createdAt || o.status === 'cancelled') continue;
-        const d = new Date(o.createdAt);
-        if (d.getFullYear() !== now.getFullYear()) continue;
+        const p = localParts(o.createdAt);
+        if (p.year !== currentYear) continue;
         if (paymentMethod !== 'all' && o.paymentMethod !== paymentMethod) continue;
-        byMonth[d.getMonth()].revenue += o.total ?? 0;
-        byMonth[d.getMonth()].sales += 1;
-        byMonth[d.getMonth()].profit += profitByOrder.get(o.id) ?? 0;
+        const mes = p.month - 1;
+        byMonth[mes].revenue += o.total ?? 0;
+        byMonth[mes].sales += 1;
+        byMonth[mes].profit += profitByOrder.get(o.id) ?? 0;
       }
 
       let bestMonth = { label: '—', revenue: 0 };

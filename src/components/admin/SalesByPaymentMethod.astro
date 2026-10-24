@@ -2,22 +2,26 @@
 // src/components/admin/SalesByPaymentMethod.astro
 import { db, orders } from 'astro:db';
 import { sql, gte } from 'drizzle-orm';
+import { TZ_SQL_OFFSET } from '@/utils/datetime';
 
 const now = new Date();
 const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
 
 type Row = { day: string; paymentMethod: string; totalSales: number; orderCount: number; };
 
+// Igual que en RevenueChart: DATE() a secas agrupa por el día UTC.
+const diaDelNegocio = sql<string>`DATE(${orders.createdAt}, ${TZ_SQL_OFFSET})`;
+
 const paymentSeries: Row[] = await db.select({
-  day: sql<string>`DATE(${orders.createdAt})`,
+  day: diaDelNegocio,
   paymentMethod: orders.paymentMethod,
   totalSales: sql<number>`SUM(${orders.total})`.mapWith(Number),
   orderCount: sql<number>`COUNT(*)`.mapWith(Number)
 })
 .from(orders)
 .where(gte(orders.createdAt, twoYearsAgo))
-.groupBy(sql`DATE(${orders.createdAt}), ${orders.paymentMethod}`)
-.orderBy(sql`DATE(${orders.createdAt}) ASC`)
+.groupBy(sql`${diaDelNegocio}, ${orders.paymentMethod}`)
+.orderBy(sql`${diaDelNegocio} ASC`)
 .all();
 
 const colorPalette = [

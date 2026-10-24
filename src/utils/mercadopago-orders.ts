@@ -18,6 +18,7 @@
 import { db, eq, inArray, sql, Product, ProductVariant, ProductVariantCombination, orders, order_items } from 'astro:db';
 import type { DeliveryMethod } from '@/utils/store';
 import { parseCustomizationFields, getCustomizationExtra } from '@/utils/customization';
+import { dayKey } from '@/utils/datetime';
 
 export interface IncomingItem {
   productId: string;
@@ -133,8 +134,9 @@ export async function priceItems(items: IncomingItem[]): Promise<PricedItem[]> {
 
 function makeOrderNumber(): string {
   // ⚠️ Ajusta el formato al que ya uses en /api/create-order
-  const d = new Date();
-  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  // El sello lleva el día del negocio: con la fecha del servidor (UTC), los
+  // pedidos de la tarde salían numerados con el día siguiente.
+  const stamp = dayKey().replace(/-/g, '');
   const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
   return `MP-${stamp}-${rand}`;
 }

@@ -7,6 +7,7 @@ import { actions } from 'astro:actions';
 import { normalizeExtras } from '@/utils/pos-extra';
 import { packageForItems } from '@/utils/shipping';
 import { parseCustomizationData } from '@/utils/customization';
+import { formatDateTime } from '@/utils/datetime';
 
 interface ShippingAddress {
   streetAddress: string;
@@ -69,7 +70,8 @@ const itemsCount = rawItems.reduce((n, i) => n + (Number(i.quantity) || 1), 0);
 const pkg = packageForItems(itemsCount);
 
 const formatCurrency = (value: number | null) => value == null ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
-const formatDate = (date: Date | null) => date ? new Date(date).toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+const formatDate = (date: Date | null) =>
+  date ? formatDateTime(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
 
 let shippingAddress: ShippingAddress = {
   streetAddress: 'N/A', city: 'N/A', state: 'N/A', zip: 'N/A', country: 'N/A'

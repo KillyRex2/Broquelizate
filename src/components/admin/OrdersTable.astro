@@ -14,6 +14,7 @@
 // (idx_orders_created, idx_orders_status, idx_order_items_order).
 import { db, orders, order_items, Client, count, inArray, desc, sql } from 'astro:db';
 import { unaccentSqlExpr, likePattern } from '@/utils/search';
+import { formatDate } from '@/utils/datetime';
 
 const PER_PAGE = 25;
 
@@ -142,8 +143,7 @@ const clientePor = new Map(clientRows.map(r => [r.id, r.nombre]));
 const money = (v: number | null | undefined) =>
   v == null ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
-const shortDate = (d: Date | null) =>
-  !d ? '—' : new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+const shortDate = (d: Date | null) => formatDate(d, { day: '2-digit', month: 'short' });
 
 const CARRIERS: Record<string, string> = {
   fedex: 'FedEx', dhl: 'DHL', estafeta: 'Estafeta', redpack: 'Redpack',
