@@ -1,8 +1,42 @@
-import pdfMake from 'pdfmake/build/pdfmake';
-import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
 
-pdfMake.vfs = pdfFonts.vfs;
+// pdfmake y sus fuentes pesan ~3.6 MB. Importados de forma normal, se
+// descargaban y compilaban al abrir el checkout, la página de un pedido y la
+// de compra terminada, aunque nadie fuera a imprimir nada. Por eso se sentían
+// lentas.
+//
+// Ahora se cargan la primera vez que de verdad se va a generar un ticket, y
+// se reutilizan después (la promesa se guarda, así que dos impresiones
+// seguidas no vuelven a descargar nada).
+let pdfMakePromesa: Promise<any> | null = null;
+
+function cargarPdfMake(): Promise<any> {
+  if (!pdfMakePromesa) {
+    pdfMakePromesa = (async () => {
+      const [{ default: pdfMake }, fonts] = await Promise.all([
+        import('pdfmake/build/pdfmake'),
+        import('pdfmake/build/vfs_fonts'),
+      ]);
+      pdfMake.vfs = (fonts as any).vfs ?? (fonts as any).default?.vfs;
+      return pdfMake;
+    })().catch(err => {
+      // Si falla, no dejar la promesa rota en caché: el siguiente intento
+      // vuelve a probar.
+      pdfMakePromesa = null;
+      throw err;
+    });
+  }
+  return pdfMakePromesa;
+}
+
+/**
+ * Adelanta la descarga de pdfmake sin bloquear nada. Se llama cuando ya se
+ * ve venir una impresión (por ejemplo al abrir el checkout), para que al
+ * picar "Imprimir ticket" el PDF salga de inmediato.
+ */
+export const precargarTicket = (): void => {
+  cargarPdfMake().catch(() => { /* es solo un adelanto, si falla no pasa nada */ });
+};
 
 // --- INTERFACES Y TIPOS ---
 interface Product {
@@ -244,6 +278,7 @@ export const generateAndPrintTicket = async (
       defaultStyle: { font: 'Roboto', fontSize: 10, color: '#000' }
     };
     
+    const pdfMake = await cargarPdfMake();
     const pdfDoc = pdfMake.createPdf(docDefinition);
     pdfDoc.open();
 
