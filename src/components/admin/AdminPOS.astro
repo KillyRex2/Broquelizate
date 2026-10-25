@@ -114,11 +114,34 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       }
     };
 
+    // Si hay algo pintado de verdad en la rejilla, el POS arrancó.
+    //
+    // Esto mira la PANTALLA y no una bandera, y esa es toda la diferencia:
+    // la versión anterior se fiaba de window.__posArrancado y se equivocaba
+    // sola. Astro dispara astro:page-load también en la primera visita, y
+    // para entonces el POS ya pintó; el vigía reiniciaba la bandera a false,
+    // el arranque salía sin hacer nada porque ya estaba inicializado, y a
+    // los 12 segundos aparecía el aviso de error encima de un POS que
+    // funcionaba perfectamente. La pantalla no miente; la bandera sí.
+    window.posYaPinto = function () {
+      var rejilla = document.getElementById('product-grid');
+      if (rejilla) {
+        for (var i = 0; i < rejilla.children.length; i++) {
+          // El esqueleto lo sirve el servidor: no cuenta como "pintado".
+          if (!rejilla.children[i].classList.contains('pos-esqueleto')) return true;
+        }
+      }
+      // "No se encontraron productos" también es un arranque correcto: el
+      // POS funcionó, simplemente no había nada que enseñar.
+      var vacio = document.getElementById('empty-state');
+      if (vacio && !vacio.classList.contains('hidden')) return true;
+      return false;
+    };
+
     window.posVigilar = function () {
-      window.__posArrancado = false;
       clearTimeout(window.__posVigia);
       window.__posVigia = setTimeout(function () {
-        if (window.__posArrancado) return;
+        if (window.posYaPinto()) return;
         window.posMostrarError('tiempo-agotado');
       }, 12000);
     };
@@ -795,11 +818,9 @@ function arrancarPOS() {
   function renderProductGrid(productsToRender: ProductForPOS[]) {
     if (!productGrid || !emptyState) return;
 
-    // El POS llegó a pintar: el vigía ya puede quedarse quieto. Va aquí
-    // arriba y no junto al innerHTML porque una tienda con el inventario
-    // agotado, o una búsqueda sin resultados, también son arranques
-    // correctos: ahí hay que enseñar "no se encontraron productos", no un
-    // error de carga.
+    // Deja constancia de que el render corrió. Ya no decide si sale el
+    // aviso (de eso se encarga posYaPinto, mirando la rejilla), pero sirve
+    // para el detalle técnico cuando algo sí falla de verdad.
     (window as any).__posArrancado = true;
 
     // Actualizar contador
