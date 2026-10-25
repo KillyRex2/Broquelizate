@@ -22,6 +22,32 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       document.documentElement.setAttribute('data-pos-theme', 'light');
     }
 
+    // ── Caja negra ──
+    // El aviso genérico sirvió para que la pantalla dejara de quedarse muda,
+    // pero no dice QUÉ falló, y sin eso no se puede arreglar nada a
+    // distancia. Esto apunta el error real para enseñarlo en el aviso.
+    //
+    // Va con capture = true porque los fallos al DESCARGAR un archivo (un
+    // <script> que no llega) no burbujean: solo se ven en la fase de
+    // captura, y son justo el caso que más se sospecha aquí.
+    window.__posModuloCargo = false;
+    window.__posUltimoError = null;
+
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+        var url = t.src || t.href || '';
+        window.__posUltimoError = 'No se pudo descargar: ' + url.split('/').pop();
+      } else if (e && e.message) {
+        window.__posUltimoError = e.message;
+      }
+    }, true);
+
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e && e.reason;
+      window.__posUltimoError = (r && (r.message || r)) + '';
+    });
+
     // ── Vigilante de arranque ──
     // Esto va aquí, en el script en línea, y no en el módulo de abajo a
     // propósito: si el módulo no llega a ejecutarse, un try/catch dentro de
@@ -41,26 +67,82 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       error.classList.remove('hidden');
       error.classList.add('flex');
 
-      if (detalle) {
-        var p = document.getElementById('pos-error-detalle');
-        if (p) p.textContent = detalle;
+      // Lo que de verdad importa para arreglarlo: ¿el navegador llegó a
+      // cargar el código de la pantalla, o ni siquiera eso? Son dos
+      // problemas distintos y se arreglan de forma distinta.
+      var p = document.getElementById('pos-error-detalle');
+      if (p) {
+        p.textContent = window.__posModuloCargo
+          ? 'El código de la pantalla cargó pero no terminó de arrancar.'
+          : 'El navegador no llegó a descargar el código de la pantalla. Suele ser la conexión, o una versión vieja guardada en el teléfono.';
+      }
+
+      var caja = document.getElementById('pos-error-tecnico');
+      var texto = document.getElementById('pos-error-texto');
+      if (caja && texto) {
+        var tec = '[' + (detalle || 'pos') + '] '
+          + (window.__posModuloCargo ? 'modulo:si' : 'modulo:no')
+          + (window.__posUltimoError ? ' · ' + window.__posUltimoError : ' · sin error capturado');
+        texto.textContent = tec;
+        caja.classList.remove('hidden');
       }
 
       var btn = document.getElementById('pos-reintentar');
       if (btn && !btn.dataset.listo) {
         btn.dataset.listo = '1';
-        btn.addEventListener('click', function () { window.location.reload(); });
+        btn.addEventListener('click', function () {
+          // Recargar a secas puede devolver la MISMA página guardada en el
+          // teléfono, y entonces el botón parece no hacer nada. Cambiando la
+          // dirección se obliga a pedirla de nuevo al servidor.
+          var base = window.location.pathname;
+          window.location.replace(base + '?r=' + Date.now());
+        });
+      }
+
+      var copiar = document.getElementById('pos-error-copiar');
+      if (copiar && !copiar.dataset.listo) {
+        copiar.dataset.listo = '1';
+        copiar.addEventListener('click', function () {
+          var t = document.getElementById('pos-error-texto');
+          var txt = (t ? t.textContent : '') || '';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(function () {
+              copiar.textContent = 'Copiado';
+            }, function () {});
+          }
+        });
       }
     };
 
+    // Si hay algo pintado de verdad en la rejilla, el POS arrancó.
+    //
+    // Esto mira la PANTALLA y no una bandera, y esa es toda la diferencia:
+    // la versión anterior se fiaba de window.__posArrancado y se equivocaba
+    // sola. Astro dispara astro:page-load también en la primera visita, y
+    // para entonces el POS ya pintó; el vigía reiniciaba la bandera a false,
+    // el arranque salía sin hacer nada porque ya estaba inicializado, y a
+    // los 12 segundos aparecía el aviso de error encima de un POS que
+    // funcionaba perfectamente. La pantalla no miente; la bandera sí.
+    window.posYaPinto = function () {
+      var rejilla = document.getElementById('product-grid');
+      if (rejilla) {
+        for (var i = 0; i < rejilla.children.length; i++) {
+          // El esqueleto lo sirve el servidor: no cuenta como "pintado".
+          if (!rejilla.children[i].classList.contains('pos-esqueleto')) return true;
+        }
+      }
+      // "No se encontraron productos" también es un arranque correcto: el
+      // POS funcionó, simplemente no había nada que enseñar.
+      var vacio = document.getElementById('empty-state');
+      if (vacio && !vacio.classList.contains('hidden')) return true;
+      return false;
+    };
+
     window.posVigilar = function () {
-      window.__posArrancado = false;
       clearTimeout(window.__posVigia);
       window.__posVigia = setTimeout(function () {
-        if (window.__posArrancado) return;
-        window.posMostrarError(
-          'La página no terminó de cargar. Revisa tu conexión y vuelve a intentar.'
-        );
+        if (window.posYaPinto()) return;
+        window.posMostrarError('tiempo-agotado');
       }, 12000);
     };
 
@@ -193,6 +275,16 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
         <button id="pos-reintentar" class="px-5 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-500 hover:to-amber-500 transition-colors">
           Reintentar
         </button>
+
+        <!-- El detalle técnico, en chiquito y abajo. No le sirve a quien está
+             cobrando, pero es exactamente lo que hace falta para arreglarlo
+             sin tener el teléfono enfrente: basta una foto de esta línea. -->
+        <div id="pos-error-tecnico" class="hidden mt-5 w-full max-w-sm">
+          <p id="pos-error-texto" class="text-[11px] leading-snug text-[var(--pos-txt-3)] break-words font-mono"></p>
+          <button id="pos-error-copiar" type="button" class="mt-2 text-[11px] underline text-[var(--pos-txt-2)] hover:text-[var(--pos-gold)]">
+            Copiar detalle
+          </button>
+        </div>
       </div>
 
       <!-- Grid de productos -->
@@ -360,6 +452,11 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
 <div id="all-products-data" style="display: none;">{JSON.stringify(allProducts)}</div>
 
 <script>
+// Marca de que el módulo SÍ se descargó y empezó a ejecutarse. Va en la
+// primera línea para que, si algo truena más abajo, el aviso pueda
+// distinguir "no llegó el archivo" de "llegó y falló".
+(window as any).__posModuloCargo = true;
+
 import type { ProductForPOS, VariantOption } from '@/interfaces';
 import { navigate } from 'astro:transitions/client';
 // Alertas propias (dialog nativo + sonner): SweetAlert2 perdía su CSS con View Transitions
@@ -428,7 +525,7 @@ function initializePOS() {
     console.error('❌ El POS no pudo arrancar:', e);
     const avisar = (window as any).posMostrarError;
     if (typeof avisar === 'function') {
-      avisar('Algo falló al preparar la pantalla de venta. Vuelve a intentar.');
+      avisar('arranque');
     }
   }
 }
@@ -721,11 +818,9 @@ function arrancarPOS() {
   function renderProductGrid(productsToRender: ProductForPOS[]) {
     if (!productGrid || !emptyState) return;
 
-    // El POS llegó a pintar: el vigía ya puede quedarse quieto. Va aquí
-    // arriba y no junto al innerHTML porque una tienda con el inventario
-    // agotado, o una búsqueda sin resultados, también son arranques
-    // correctos: ahí hay que enseñar "no se encontraron productos", no un
-    // error de carga.
+    // Deja constancia de que el render corrió. Ya no decide si sale el
+    // aviso (de eso se encarga posYaPinto, mirando la rejilla), pero sirve
+    // para el detalle técnico cuando algo sí falla de verdad.
     (window as any).__posArrancado = true;
 
     // Actualizar contador
