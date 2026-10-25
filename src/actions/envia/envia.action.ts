@@ -694,6 +694,33 @@ export const updateOrderStatus = defineAction({
   handler: async (input, context) => {
     assertAdmin(context); // antes no tenía ninguna protección
     try {
+      // ── Inventario ──
+      // Cancelar una venta tiene que devolver las piezas al almacén, y
+      // revivirla volver a sacarlas. La decisión se toma comparando el
+      // estado ANTERIOR con el nuevo, no mirando solo el nuevo: así
+      // cancelar dos veces (el botón y el desplegable hacen lo mismo) no
+      // devuelve el inventario dos veces. Sin esa comparación, cada clic de
+      // más inflaría el stock en silencio.
+      const [previo] = await db
+        .select({ status: orders.status })
+        .from(orders)
+        .where(eq(orders.id, input.orderId));
+
+      if (!previo) {
+        return { success: false, error: 'No se encontró el pedido.' };
+      }
+
+      const antes = previo.status;
+      const despues = input.status;
+
+      const { aplicarStockDePedido, tomoStock } = await import('@/utils/stock');
+
+      // Un pedido 'pending' de Mercado Pago nunca llegó a descontar (eso pasa
+      // en pending → paid), así que cancelarlo no debe devolver nada: le
+      // estaría regalando piezas al inventario.
+      const devolver = antes !== 'cancelled' && despues === 'cancelled' && tomoStock(antes);
+      const volverATomar = antes === 'cancelled' && tomoStock(despues);
+
       await db.update(orders)
         .set({ 
           status: input.status,
@@ -701,7 +728,32 @@ export const updateOrderStatus = defineAction({
         } as any)
         .where(eq(orders.id, input.orderId));
 
-      return { success: true, message: 'Status actualizado correctamente' };
+      let stock: { aplicados: number; sinResolver: any[] } | null = null;
+
+      if (devolver || volverATomar) {
+        try {
+          stock = await aplicarStockDePedido(input.orderId, devolver ? 1 : -1);
+        } catch (e) {
+          // El cambio de estado ya quedó guardado y es lo que el admin pidió.
+          // Si el inventario falla, se avisa en vez de deshacer la operación
+          // completa y dejarlo sin saber qué pasó.
+          console.error('⚠️ Estado actualizado pero el inventario no se pudo ajustar:', input.orderId, e);
+          return {
+            success: true,
+            message: 'Estado actualizado, pero el inventario no se pudo ajustar. Revísalo a mano.',
+            stockError: true,
+          };
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Status actualizado correctamente',
+        stockDevuelto: devolver,
+        stockTomado: volverATomar,
+        renglonesAjustados: stock?.aplicados ?? 0,
+        sinResolver: stock?.sinResolver ?? [],
+      };
     } catch (error) {
       console.error('❌ Error updating order status:', error);
       return { 
