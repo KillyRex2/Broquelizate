@@ -1088,6 +1088,7 @@ async function saveTrackingToDatabase(orderId: string, label: ShippingLabel): Pr
   try {
     await db.update(orders)
       .set({
+        updatedAt: new Date(),
         trackingNumber: label.trackingNumber,
         carrier: label.carrier,
         labelId: label.labelId,

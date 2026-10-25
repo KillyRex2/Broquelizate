@@ -440,6 +440,11 @@ const statusLabels: Record<string, string> = {
           <div class="panel-head"><h2>Detalles de la orden</h2></div>
           <div class="detail-list">
             <div class="detail-row"><span class="detail-key">Fecha</span><span class="detail-val">{formatDate(order.createdAt)}</span></div>
+            {/* Solo si de verdad se movió después de crearse. Los pedidos
+                anteriores a esta columna no tienen fecha y no se inventa. */}
+            {(order as any).updatedAt && (
+              <div class="detail-row"><span class="detail-key">Última modificación</span><span class="detail-val">{formatDate((order as any).updatedAt)}</span></div>
+            )}
             <div class="detail-row"><span class="detail-key">Cliente</span><span class="detail-val">{clientName}</span></div>
             <div class="detail-row">
               <span class="detail-key">Estado</span>

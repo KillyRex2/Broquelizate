@@ -249,7 +249,7 @@ export async function confirmOrderByReference(externalReference: string, payment
     });
     if (paymentId != null && !order.paymentId) {
       await db.update(orders)
-        .set({ paymentId: String(paymentId) } as any)
+        .set({ paymentId: String(paymentId), updatedAt: new Date() } as any)
         .where(eq(orders.id, order.id));
     }
     return {
@@ -263,7 +263,7 @@ export async function confirmOrderByReference(externalReference: string, payment
   await db
     .update(orders)
     // El id de pago va en paymentId. Antes se guardaba en labelId, que es de la guía de Envia.
-    .set({ status: 'paid', paymentId: paymentId != null ? String(paymentId) : order.paymentId } as any)
+    .set({ status: 'paid', paymentId: paymentId != null ? String(paymentId) : order.paymentId, updatedAt: new Date() } as any)
     .where(eq(orders.id, order.id));
 
   // Stock: solo en la transición pending → paid
@@ -287,7 +287,7 @@ export async function confirmOrderByReference(externalReference: string, payment
 export async function failOrderByReference(externalReference: string, status: 'rejected' | 'cancelled') {
   const [order] = await db.select().from(orders).where(eq(orders.externalReference, externalReference));
   if (!order || order.status === 'paid') return; // nunca degradar un pedido ya pagado
-  await db.update(orders).set({ status } as any).where(eq(orders.id, order.id));
+  await db.update(orders).set({ status, updatedAt: new Date() } as any).where(eq(orders.id, order.id));
 }
 
 /** Consulta de estado, para que el POS haga polling */

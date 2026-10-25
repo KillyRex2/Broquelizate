@@ -161,7 +161,13 @@ const orders = defineTable({
     // 'delivery' (paquetería) | 'pickup' (recoger en tienda)
     deliveryMethod: column.text({ default: 'delivery' }),
     // Lo que costó la guía en Envia. shippingCost es lo que pagó el cliente.
-    labelCost: column.number({ optional: true })
+    labelCost: column.number({ optional: true }),
+
+    // Última vez que se tocó el pedido: cambio de estado, guía generada,
+    // dirección corregida. Va opcional porque los pedidos que ya existen no
+    // tienen un valor honesto que ponerle: nacieron antes de la columna, y
+    // copiarles createdAt sería afirmar que nadie los ha movido.
+    updatedAt: column.date({ optional: true })
   },
   indexes: [
     { on: ['externalReference'] },
