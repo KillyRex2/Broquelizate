@@ -1,0 +1,14 @@
+-- Fecha de última modificación del pedido.
+--
+-- El código ya escribía updatedAt en cuatro lugares (cambio de estado, guía
+-- generada, dirección corregida, pago confirmado), pero la columna no existía
+-- en la tabla. Drizzle descarta en silencio las claves que no reconoce del
+-- esquema, así que el SQL salía sin ese campo y nadie se enteró.
+--
+-- Queda NULL en los pedidos que ya existen: nacieron antes de la columna y no
+-- hay un valor honesto que ponerles. Copiarles createdAt afirmaría que nadie
+-- los ha tocado desde que se crearon, y eso no se sabe.
+--
+-- SQLite no tiene ADD COLUMN IF NOT EXISTS: si ya la agregaste, este comando
+-- da "duplicate column name" y se puede ignorar.
+ALTER TABLE "orders" ADD COLUMN "updatedAt" text;

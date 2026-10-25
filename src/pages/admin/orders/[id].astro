@@ -144,6 +144,7 @@ const statusLabels: Record<string, string> = {
   {/* Datos para gestión de envíos */}
   <div id="order-data" style="display:none;"
     data-order-id={order.id}
+    data-status={order.status}
     data-tracking-number={order.trackingNumber}
     data-carrier={order.carrier}
     data-label-url={order.labelUrl}
@@ -439,6 +440,11 @@ const statusLabels: Record<string, string> = {
           <div class="panel-head"><h2>Detalles de la orden</h2></div>
           <div class="detail-list">
             <div class="detail-row"><span class="detail-key">Fecha</span><span class="detail-val">{formatDate(order.createdAt)}</span></div>
+            {/* Solo si de verdad se movió después de crearse. Los pedidos
+                anteriores a esta columna no tienen fecha y no se inventa. */}
+            {(order as any).updatedAt && (
+              <div class="detail-row"><span class="detail-key">Última modificación</span><span class="detail-val">{formatDate((order as any).updatedAt)}</span></div>
+            )}
             <div class="detail-row"><span class="detail-key">Cliente</span><span class="detail-val">{clientName}</span></div>
             <div class="detail-row">
               <span class="detail-key">Estado</span>
@@ -1010,13 +1016,54 @@ const statusLabels: Record<string, string> = {
       const updateStatusBtn = document.getElementById('update-status-btn');
       const statusSelect = document.getElementById('status-select') as HTMLSelectElement;
 
+      // Lo que el admin necesita saber después de mover el estado: si las
+      // piezas volvieron al almacén y, sobre todo, cuáles NO se pudieron
+      // devolver solas. Ese aviso es el que evita que dé por cuadrado un
+      // inventario que no lo está.
+      async function avisarDelStock(data: any) {
+        if (!data) return;
+
+        if (data.stockError) {
+          await Alert.warning(
+            'Revisa el inventario',
+            'El estado se guardó, pero las piezas no se pudieron devolver al inventario. Ajústalo a mano.',
+          );
+          return;
+        }
+
+        const pendientes = data.sinResolver ?? [];
+        if (pendientes.length > 0) {
+          const lista = pendientes
+            .map((r: any) => `· ${r.cantidad} × ${r.producto}${r.detalle ? ` (${r.detalle})` : ''} — ${r.motivo}`)
+            .join('\n');
+          await Alert.warning(
+            'Hay piezas que ajustar a mano',
+            `Se devolvió lo que se pudo, pero estas no:\n\n${lista}`,
+          );
+          return;
+        }
+
+        if (data.stockDevuelto && data.renglonesAjustados > 0) {
+          Toast.success('Piezas devueltas al inventario');
+        } else if (data.stockTomado && data.renglonesAjustados > 0) {
+          Toast.success('Piezas descontadas de nuevo');
+        }
+      }
+
       updateStatusBtn?.addEventListener('click', async () => {
         const newStatus = statusSelect?.value;
         if (!newStatus) return;
 
+        const estadoActual = (document.getElementById('order-data') as HTMLElement | null)?.dataset.status || '';
+        const tomaStock = (e: string) => ['paid', 'completed', 'processing', 'shipped'].includes(e);
+        const devolvera = estadoActual !== 'cancelled' && newStatus === 'cancelled' && tomaStock(estadoActual);
+        const retomara = estadoActual === 'cancelled' && tomaStock(newStatus);
+
         const confirmado = await Confirm.show({
           title: '¿Cambiar el estado?',
-          message: `La orden pasará a "${newStatus}".`,
+          message: `La orden pasará a "${newStatus}".`
+            + (devolvera ? ' Las piezas vuelven al inventario.' : '')
+            + (retomara ? ' Las piezas se vuelven a descontar del inventario.' : ''),
           confirmText: 'Sí, cambiar',
           type: 'info',
         });
@@ -1025,10 +1072,11 @@ const statusLabels: Record<string, string> = {
         const actualizando = Toast.loading('Actualizando estado…');
 
         try {
-          const { error } = await actions.updateOrderStatus({ orderId: orderId!, status: newStatus as any });
+          const { data, error } = await actions.updateOrderStatus({ orderId: orderId!, status: newStatus as any });
           Toast.dismiss(actualizando);
           if (error) { await Alert.error('No se pudo actualizar', error); return; }
           Toast.success('Estado actualizado');
+          await avisarDelStock(data);
           window.location.reload();
         } catch (error) {
           Toast.dismiss(actualizando);
@@ -1042,7 +1090,7 @@ const statusLabels: Record<string, string> = {
       cancelOrderBtn?.addEventListener('click', async () => {
         const confirmado = await Confirm.show({
           title: '¿Cancelar esta orden?',
-          message: 'Quedará marcada como cancelada y saldrá de las estadísticas de venta.',
+          message: 'Quedará marcada como cancelada, saldrá de las estadísticas de venta y las piezas vuelven al inventario.',
           confirmText: 'Sí, cancelar orden',
           cancelText: 'No, mantener',
           type: 'danger',
@@ -1052,10 +1100,11 @@ const statusLabels: Record<string, string> = {
         const cancelando = Toast.loading('Cancelando orden…');
 
         try {
-          const { error } = await actions.updateOrderStatus({ orderId: orderId!, status: 'cancelled' as any });
+          const { data, error } = await actions.updateOrderStatus({ orderId: orderId!, status: 'cancelled' as any });
           Toast.dismiss(cancelando);
           if (error) { await Alert.error('No se pudo cancelar', error); return; }
           Toast.success('Orden cancelada');
+          await avisarDelStock(data);
           window.location.reload();
         } catch (error) {
           Toast.dismiss(cancelando);
