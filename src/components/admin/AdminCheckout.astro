@@ -57,14 +57,14 @@ const clientsList: Client[] = clientsData?.clients || [];
     }
   })();
 </script>
-<div class="pos-theme flex h-screen bg-[var(--pos-bg)] font-sans text-[var(--pos-txt)] rounded-lg relative overflow-hidden">
+<div class="pos-theme flex flex-col lg:flex-row min-h-screen lg:h-screen bg-[var(--pos-bg)] font-sans text-[var(--pos-txt)] rounded-lg relative lg:overflow-hidden">
   <!-- Luz de fondo: los mismos orbes del dashboard -->
   <div class="pos-ambient" aria-hidden="true">
     <span class="orb-gold"></span>
     <span class="orb-violet"></span>
     <span class="orb-grid"></span>
   </div>
-  <main class="flex-1 p-8 overflow-y-auto space-y-8">
+  <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 lg:overflow-y-auto space-y-6 lg:space-y-8">
     <header class="flex items-center justify-between border-b border-[var(--pos-line)] pb-4">
       <div class="flex items-center gap-3">
         <h1 class="text-3xl font-extrabold text-[var(--pos-gold)] tracking-tight">Vender</h1>
@@ -128,7 +128,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   </main>
 
   <!-- Aside Resumen y Pago -->
-  <aside class="w-full max-w-md pos-card p-8 space-y-8 rounded-lg rounded-r-none">
+  <aside class="w-full lg:max-w-md shrink-0 pos-card p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 rounded-lg lg:rounded-r-none pb-28 lg:pb-8">
     <!-- Resumen del pedido -->
     <section class="space-y-6">
       <h2 class="text-2xl font-extrabold text-[var(--pos-txt)]">Resumen del pedido</h2>

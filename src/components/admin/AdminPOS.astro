@@ -22,6 +22,61 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       document.documentElement.setAttribute('data-pos-theme', 'light');
     }
 
+    // ── Vigilante de arranque ──
+    // Esto va aquí, en el script en línea, y no en el módulo de abajo a
+    // propósito: si el módulo no llega a ejecutarse, un try/catch dentro de
+    // él tampoco se ejecuta. El único que puede avisar es alguien que ya
+    // esté corriendo.
+    //
+    // Pasados unos segundos, si el POS no avisó que arrancó, se enseña el
+    // aviso de error en vez de dejar la caja vacía.
+    window.posMostrarError = function (detalle) {
+      var error = document.getElementById('pos-error');
+      var rejilla = document.getElementById('product-grid');
+      var vacio = document.getElementById('empty-state');
+      if (!error) return;
+
+      if (rejilla) rejilla.classList.add('hidden');
+      if (vacio) vacio.classList.add('hidden');
+      error.classList.remove('hidden');
+      error.classList.add('flex');
+
+      if (detalle) {
+        var p = document.getElementById('pos-error-detalle');
+        if (p) p.textContent = detalle;
+      }
+
+      var btn = document.getElementById('pos-reintentar');
+      if (btn && !btn.dataset.listo) {
+        btn.dataset.listo = '1';
+        btn.addEventListener('click', function () { window.location.reload(); });
+      }
+    };
+
+    window.posVigilar = function () {
+      window.__posArrancado = false;
+      clearTimeout(window.__posVigia);
+      window.__posVigia = setTimeout(function () {
+        if (window.__posArrancado) return;
+        window.posMostrarError(
+          'La página no terminó de cargar. Revisa tu conexión y vuelve a intentar.'
+        );
+      }, 12000);
+    };
+
+    // Este script corre antes de que el navegador haya leído la rejilla, así
+    // que no se puede arrancar el vigía aquí mismo: hay que esperar al DOM.
+    document.addEventListener('astro:page-load', function () {
+      if (document.getElementById('product-grid')) window.posVigilar();
+    });
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        if (document.getElementById('product-grid')) window.posVigilar();
+      });
+    } else if (document.getElementById('product-grid')) {
+      window.posVigilar();
+    }
+
     // Un solo oyente para toda la sesión: con View Transitions el contenido
     // se reemplaza en cada navegación y colgar uno por carga los apilaría.
     if (!window.__posThemeListo) {
@@ -119,10 +174,44 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
         </button>
       </div>
       
+      <!-- Aviso de que el POS no pudo arrancar.
+           La rejilla la pinta el navegador, y el mensaje de "no se encontraron
+           productos" también. Si el script no corre (red caída a media carga,
+           el paquete no llegó, una extensión lo bloqueó), antes quedaba una
+           caja blanca vacía y nada más: ni productos, ni aviso, ni error. En
+           una pantalla de cobro, con el cliente enfrente, eso es lo peor que
+           puede pasar, porque no se distingue de "no hay nada que vender". -->
+      <div id="pos-error" class="hidden h-full flex-col items-center justify-center text-center p-8">
+        <div class="w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-4">
+          <Icon name="mdi:alert-circle-outline" class="h-10 w-10 text-[var(--pos-danger)]" />
+        </div>
+        <h3 class="text-lg font-semibold text-[var(--pos-txt)] mb-2">No se pudieron cargar los productos</h3>
+        <p id="pos-error-detalle" class="text-[var(--pos-txt-2)] text-sm mb-5 max-w-sm">
+          Revisa tu conexión y vuelve a intentar. Si sigue igual, puedes cobrar
+          desde otro dispositivo mientras tanto.
+        </p>
+        <button id="pos-reintentar" class="px-5 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-500 hover:to-amber-500 transition-colors">
+          Reintentar
+        </button>
+      </div>
+
       <!-- Grid de productos -->
       <div id="product-grid"
            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-3 overflow-y-auto h-full product-scroll"
            style="align-content: start;">
+        <!-- Esqueleto servido desde el servidor: se ve de inmediato, antes de
+             que llegue el JavaScript, y el primer render de la rejilla lo
+             reemplaza. Así la pantalla dice "esto está cargando" en vez de
+             quedarse en blanco sin explicación. -->
+        {Array.from({ length: 12 }).map(() => (
+          <div class="pos-esqueleto rounded-xl border border-[var(--pos-line)] overflow-hidden" aria-hidden="true">
+            <div class="aspect-square bg-[var(--pos-bg)]"></div>
+            <div class="p-3 space-y-2">
+              <div class="h-3 rounded bg-[var(--pos-bg)]"></div>
+              <div class="h-3 w-2/3 rounded bg-[var(--pos-bg)]"></div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   </main>
@@ -325,7 +414,26 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (..
   };
 }
 
+/**
+ * Arranque del POS.
+ *
+ * Va envuelto porque si algo revienta a media inicialización, lo que queda
+ * en pantalla es la caja de productos vacía, sin una sola pista de qué pasó.
+ * Mejor decirlo: la persona que está cobrando no puede abrir la consola.
+ */
 function initializePOS() {
+  try {
+    arrancarPOS();
+  } catch (e) {
+    console.error('❌ El POS no pudo arrancar:', e);
+    const avisar = (window as any).posMostrarError;
+    if (typeof avisar === 'function') {
+      avisar('Algo falló al preparar la pantalla de venta. Vuelve a intentar.');
+    }
+  }
+}
+
+function arrancarPOS() {
   // Evitar múltiples inicializaciones
   if (POSState.isInitialized) {
     return;
@@ -612,7 +720,14 @@ function initializePOS() {
 
   function renderProductGrid(productsToRender: ProductForPOS[]) {
     if (!productGrid || !emptyState) return;
-    
+
+    // El POS llegó a pintar: el vigía ya puede quedarse quieto. Va aquí
+    // arriba y no junto al innerHTML porque una tienda con el inventario
+    // agotado, o una búsqueda sin resultados, también son arranques
+    // correctos: ahí hay que enseñar "no se encontraron productos", no un
+    // error de carga.
+    (window as any).__posArrancado = true;
+
     // Actualizar contador
     if (productCount) {
       productCount.textContent = `${productsToRender.length} producto${productsToRender.length !== 1 ? 's' : ''}`;
@@ -629,7 +744,7 @@ function initializePOS() {
     productGrid.classList.remove('hidden');
     emptyState.classList.add('hidden');
     emptyState.classList.remove('flex');
-    
+
     productGrid.innerHTML = productsToRender.map((product: ProductForPOS) => {
       // Miniatura de Cloudinary del tamaño de la tarjeta (antes se bajaba la foto original)
       const imageUrl = optimizeImage(product.images?.[0], IMG_WIDTH.pos) || 'https://placehold.co/200x200/e2e8f0/4a5568?text=Sin+Imagen';
@@ -1299,6 +1414,21 @@ if (document.readyState === 'complete') {
 </script>
 
 <style is:global>
+/* Esqueleto de carga de la rejilla. Late despacio para que se lea como
+   "esto viene en camino" y no como contenido de verdad. Lo reemplaza el
+   primer render de productos. */
+.pos-esqueleto { animation: pos-latido 1.4s ease-in-out infinite; }
+
+@keyframes pos-latido {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.25; }
+}
+
+/* Quien pidió menos movimiento no necesita un latido en la pantalla. */
+@media (prefers-reduced-motion: reduce) {
+  .pos-esqueleto { animation: none; opacity: 0.4; }
+}
+
   /* Modal de monto adicional */
   .extra-dialog { border: none; padding: 0; background: transparent; width: min(92vw, 420px); max-height: 92vh; }
   .extra-dialog::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px); }
