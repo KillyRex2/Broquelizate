@@ -156,7 +156,6 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
   overflow: hidden;
 }
 
@@ -197,10 +196,31 @@
   background-size: 48px 48px;
 }
 
-/* Todo lo que no sea la luz de fondo va encima de ella. */
-.pos-theme > *:not(.pos-ambient) {
-  position: relative;
-  z-index: 1;
+/* La luz de fondo se manda al fondo con z-index negativo, y no empujando al
+ * resto hacia adelante.
+ *
+ * Aquí había esto, que rompió el POS en móvil:
+ *
+ *     .pos-theme > *:not(.pos-ambient) { position: relative; z-index: 1; }
+ *
+ * Esa regla pesa más que las utilidades de Tailwind (dos clases contra una),
+ * así que le ganaba el `position` a TODOS los hijos directos. El cajón del
+ * carrito es `fixed` en móvil para quedarse fuera de pantalla hasta que se
+ * abre; al volverse `relative` entró en el flujo y se comió 396 de los 420
+ * píxeles de la pantalla. A <main> le quedaban 24: el título salía cortado
+ * en "B", el buscador aplastado y la rejilla sin ancho. En escritorio no se
+ * veía porque de 1024px para arriba el cajón ya es `relative` por diseño.
+ *
+ * Un z-index negativo pinta por encima del fondo del contenedor pero por
+ * debajo de su contenido, que es justo lo que hace falta, y no toca el
+ * posicionamiento de nadie. `isolation` mantiene la capa dentro del POS.
+ */
+.pos-theme {
+  isolation: isolate;
+}
+
+.pos-ambient {
+  z-index: -1;
 }
 
 /* ── Campos de captura ──
