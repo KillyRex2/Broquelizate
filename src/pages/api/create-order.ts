@@ -22,6 +22,7 @@ import {
   CheckoutError, priceCheckout, toIncomingItems, findOrderByPaymentId, AMOUNT_TOLERANCE,
 } from '@/utils/checkout';
 import { getPaypalPayment } from '@/actions/admin/paypal';
+import { describeSchemaError } from '@/utils/db-errors';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -45,9 +46,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
       : await handleOnlineOrder(data, session);
   } catch (error: any) {
     if (error instanceof CheckoutError) return json({ error: error.message }, error.status);
+
+    // El esquema va por delante de la base: falta correr una migración. Se
+    // dice con todas sus letras en vez de devolver un 500 mudo, porque quien
+    // lo ve está cobrando y no puede abrir los logs del servidor.
+    const faltaColumna = describeSchemaError(error);
+    if (faltaColumna) {
+      console.error('❌ Esquema desincronizado con la base:', error);
+      return json({ error: faltaColumna }, 503);
+    }
+
     console.error('❌ Error al crear la orden:', error);
-    const isDev = import.meta.env.DEV;
-    return json({ error: 'Error al crear la orden', ...(isDev ? { details: error?.message } : {}) }, 500);
+
+    // Al admin sí se le enseña el detalle: es su propio sistema y sin esto
+    // un fallo del mostrador se convierte en una tarde de adivinanzas. Al
+    // cliente de la tienda online no, que ahí el mensaje no le sirve de nada
+    // y puede filtrar cómo está hecho el sitio por dentro.
+    const esAdmin = !!(locals as any)?.isAdmin;
+    const detalle = error?.message ? String(error.message).slice(0, 300) : null;
+
+    return json({
+      error: 'Error al crear la orden',
+      ...(esAdmin && detalle ? { details: detalle } : {}),
+    }, 500);
   }
 };
 

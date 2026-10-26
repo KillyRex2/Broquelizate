@@ -531,6 +531,13 @@ function initializePOS() {
 }
 
 function arrancarPOS() {
+  // Con View Transitions el módulo no se recarga al navegar: sigue vivo y su
+  // astro:page-load se dispara también en /admin/checkout, donde no hay POS
+  // que arrancar. Antes eso dejaba dos "Elemento de datos de productos no
+  // encontrado" en la consola de cada cobro, ruido que estorba justo cuando
+  // uno está buscando un error de verdad.
+  if (!document.getElementById('all-products-data')) return;
+
   // Evitar múltiples inicializaciones
   if (POSState.isInitialized) {
     return;
