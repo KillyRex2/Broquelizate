@@ -617,7 +617,13 @@ const clientsList: Client[] = clientsData?.clients || [];
         });
 
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Error del servidor');
+        if (!response.ok) {
+          // `details` solo viene cuando quien cobra es admin. Se enseña
+          // porque es su propio sistema: sin el detalle, un fallo aquí se
+          // convierte en una tarde de adivinanzas.
+          const base = result.error || 'Error del servidor';
+          throw new Error(result.details ? `${base}\n\n${result.details}` : base);
+        }
 
         // Se cierra aquí y no al final: si algo más abajo abre una alerta,
         // el toast de carga no debe quedarse encima.
