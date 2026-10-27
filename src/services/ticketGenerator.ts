@@ -39,6 +39,20 @@ export const precargarTicket = (): void => {
 };
 
 // --- INTERFACES Y TIPOS ---
+
+/**
+ * El cliente al que se le hace la venta, cuando el admin eligió uno.
+ * Sin cliente seleccionado (venta de mostrador) no se imprime nada de esto.
+ */
+export interface TicketCliente {
+  name: string;
+  phone?: string | null;
+  /**
+   * Lo que el cliente DEBE después de esta venta, en la misma convención
+   * que el panel: mayor que cero es adeudo, cero o menos no se imprime.
+   */
+  balance?: number | null;
+}
 interface Product {
   name: string;
   quantity: number;
@@ -91,7 +105,12 @@ export const generateAndPrintTicket = async (
    * Detalle del monto agregado: la lista de montos del POS
    * ([{ amount, description }]) o, en tickets viejos, solo una descripción.
    */
-  addedMountDetail?: string | { amount: number; description: string }[]
+  addedMountDetail?: string | { amount: number; description: string }[],
+  /**
+   * Cliente de la venta. Va al final y opcional para no tocar las llamadas
+   * que ya existen (la tienda online y la reimpresión desde un pedido).
+   */
+  cliente?: TicketCliente | null
 ): Promise<void> => {
   try {
     const logoUrl = '/assets/Broquelizate-logos/logo-relleno-negro.png';
@@ -174,10 +193,27 @@ export const generateAndPrintTicket = async (
       ]);
     }
 
+    // Bloque del cliente. Alineado a la izquierda y no centrado como los
+    // datos de la tienda: así se lee como "este ticket es de esta persona"
+    // y no como más información del negocio. Antes se escribía a mano.
+    const bloqueCliente: Content[] = cliente?.name
+      ? [{
+          stack: [
+            { text: cliente.name, style: 'clientName' },
+            ...(typeof cliente.balance === 'number' && cliente.balance > 0
+              ? [{ text: `Adeudo: $${cliente.balance.toFixed(2)}`, style: 'clientInfo' }]
+              : []),
+            ...(cliente.phone ? [{ text: cliente.phone, style: 'clientInfo' }] : []),
+          ],
+          margin: [0, 0, 0, 12] as [number, number, number, number],
+        }]
+      : [];
+
     const content: Content[] = [
       { image: logoBase64, width: 70, alignment: 'center', margin: [0, 0, 0, 8] },
       { text: `RECIBO #${orderNumber}`, style: 'receiptNumber', alignment: 'center', margin: [0, 0, 0, 12] },
       { stack: [{ text: storeInfo.name, style: 'storeName' }, { text: storeInfo.address, style: 'storeInfo' }, { text: `+${storeInfo.phone}`, style: 'storeInfo' }], alignment: 'center', margin: [0, 0, 0, 12] },
+      ...bloqueCliente,
       { text: `${uniqueItems} Item(s) (Total Pzas: ${totalQuantity})`, style: 'itemCount', margin: [0, 0, 0, 8] },
       { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 205, y2: 5, lineWidth: 1, lineColor: '#000000' }], margin: [0, 4, 0, 8] },
       {
@@ -250,6 +286,8 @@ export const generateAndPrintTicket = async (
         receiptNumber: { fontSize: 10, bold: true },
         storeName: { fontSize: 10, bold: true, alignment: 'center' },
         storeInfo: { fontSize: 9, color: '#000', alignment: 'center' },
+        clientName: { fontSize: 11, bold: true },
+        clientInfo: { fontSize: 9, color: '#000' },
         itemCount: { fontSize: 10, bold: true },
         quantity: { fontSize: 10, color: '#000' },
         productName: { fontSize: 10, bold: true },
