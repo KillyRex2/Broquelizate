@@ -145,6 +145,7 @@ const statusLabels: Record<string, string> = {
   <div id="order-data" style="display:none;"
     data-order-id={order.id}
     data-status={order.status}
+    data-client-name={order.clientId ? clientName : ''}
     data-tracking-number={order.trackingNumber}
     data-carrier={order.carrier}
     data-label-url={order.labelUrl}
@@ -862,6 +863,11 @@ const statusLabels: Record<string, string> = {
           phone: '528 714 617696',
         };
 
+        // Solo el nombre: el adeudo que se ve hoy no es el que tenía el
+        // cliente el día de la venta, y ponerlo en una reimpresión haría
+        // que el papel contradiga al pedido.
+        const nombreCliente = (document.getElementById('order-data') as HTMLElement | null)?.dataset.clientName || '';
+
         generateAndPrintTicket(
           products,
           total,
@@ -873,7 +879,8 @@ const statusLabels: Record<string, string> = {
           undefined,
           undefined,
           undefined,
-          additionalChargeDetail
+          additionalChargeDetail,
+          nombreCliente ? { name: nombreCliente } : null
         );
       });
 

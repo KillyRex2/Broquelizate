@@ -671,6 +671,25 @@ const clientsList: Client[] = clientsData?.clients || [];
               ? Math.max(0, receivedForTicket - total)
               : 0;
 
+            // El cliente va al ticket cuando el admin eligió uno. Antes se
+            // escribía a mano en el papel.
+            //
+            // El saldo: en una venta a crédito el servidor ya le sumó este
+            // total al adeudo (va en la misma transacción que la orden),
+            // pero la lista que tiene el navegador trae el saldo de ANTES.
+            // Se suma aquí para que el papel diga lo mismo que va a ver en
+            // el panel, y no una cantidad ya vencida.
+            const saldoPrevio = Number(selectedClient?.current_balance) || 0;
+            const clienteTicket = selectedClient
+              ? {
+                  name: selectedClient.name,
+                  phone: selectedClient.phone,
+                  balance: paymentMethod === 'Venta a crédito'
+                    ? saldoPrevio + total
+                    : saldoPrevio,
+                }
+              : null;
+
             generateAndPrintTicket(
               ticketCart,
               total,
@@ -682,7 +701,8 @@ const clientsList: Client[] = clientsData?.clients || [];
               observationsText,
               receivedForTicket,
               changeForTicket,
-              posExtras
+              posExtras,
+              clienteTicket
             );
           }
           navigate('/admin/sale');
