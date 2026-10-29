@@ -881,7 +881,12 @@ const statusLabels: Record<string, string> = {
           undefined,
           additionalChargeDetail,
           nombreCliente ? { name: nombreCliente } : null
-        );
+        ).catch((e: unknown) => {
+          Alert.error(
+            'No se pudo generar el ticket',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
       });
 
       // 2. GESTIÓN DE ENVÍOS

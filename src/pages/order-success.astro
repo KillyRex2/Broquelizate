@@ -720,7 +720,7 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
         od.total, od.orderId, od.paymentMethod,
         { name: "Broquelizate La Laguna", address: "Bravo 222, Colonia Centro, Gómez Palacio, Dgo.", phone: "528714617696" }
       );
-    } catch (err) { console.error('Error ticket:', err); alert('Error al generar el ticket.'); }
+    } catch (err) { console.error('Error ticket:', err); alert('No se pudo generar el ticket: ' + (err instanceof Error ? err.message : String(err))); }
     finally { btn.disabled = false; btn.innerHTML = orig; }
   }
 

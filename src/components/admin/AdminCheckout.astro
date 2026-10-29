@@ -703,7 +703,16 @@ const clientsList: Client[] = clientsData?.clients || [];
               changeForTicket,
               posExtras,
               clienteTicket
-            );
+            ).catch((e: unknown) => {
+              // La venta ya quedó registrada: el aviso tiene que dejar eso
+              // clarísimo para que nadie la cobre dos veces creyendo que
+              // falló. Antes esto abría una pestaña en blanco y ya.
+              Alert.warning(
+                'La venta se guardó, pero el ticket no se pudo generar',
+                `Puedes reimprimirlo desde el pedido #${result.orderNumber}.\n\n`
+                  + (e instanceof Error ? e.message : String(e)),
+              );
+            });
           }
           navigate('/admin/sale');
         });
