@@ -10,14 +10,161 @@ import type { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
 // seguidas no vuelven a descargar nada).
 let pdfMakePromesa: Promise<any> | null = null;
 
+/**
+ * Saca el diccionario de fuentes del módulo vfs_fonts.
+ *
+ * Ese módulo ha cambiado de forma entre versiones de pdfmake: unas exportan
+ * { vfs }, otras { pdfMake: { vfs } }, y la 0.2.20 exporta el diccionario
+ * pelado. Encima, al importarlo con import() dinámico, Vite lo envuelve en
+ * { default }.
+ *
+ * En vez de adivinar cuál toca, se prueban las formas conocidas y se acepta
+ * la primera que de verdad contenga una fuente. Validar en vez de suponer es
+ * la diferencia entre enterarse aquí o enterarse con un ticket en blanco.
+ */
+const FUENTES_REQUERIDAS = [
+  'Roboto-Regular.ttf',
+  'Roboto-Medium.ttf',
+  'Roboto-Italic.ttf',
+  'Roboto-MediumItalic.ttf',
+] as const;
+
+function resolverFuentes(mod: any): Record<string, string> | null {
+  const candidatos = [
+    mod?.vfs,
+    mod?.default?.vfs,
+    mod?.pdfMake?.vfs,
+    mod?.default?.pdfMake?.vfs,
+    mod?.default,
+    mod,
+  ];
+
+  for (const c of candidatos) {
+    if (
+      c
+      && typeof c === 'object'
+      // Las cuatro, no solo una: el ticket usa normal, negrita (Medium) y
+      // cursiva. Si faltara una sola, el error aparecería hasta la hora de
+      // imprimir, y para entonces ya es tarde (ver abrirPdf).
+      && FUENTES_REQUERIDAS.every(f => typeof c[f] === 'string')
+    ) {
+      return c;
+    }
+  }
+  return null;
+}
+
+/**
+ * Abre el PDF en una pestaña, avisando si algo sale mal.
+ *
+ * pdfDoc.open() de pdfmake no sirve aquí, y la razón es la causa real de la
+ * pestaña en blanco. Lo que hace es:
+ *
+ *   1. abrir la pestaña vacía de inmediato (para que el navegador no la
+ *      bloquee por popup),
+ *   2. pedir el PDF dentro de un try/catch,
+ *   3. y al terminar, apuntar la pestaña al archivo.
+ *
+ * El problema es el paso 2. pdfmake arma el documento dentro de un
+ * `.then()`, así que un fallo ahí —por ejemplo una fuente que falta— sale
+ * como rechazo de promesa sin manejar. No lo ve su try/catch, no lo ve el
+ * nuestro, nadie cierra la pestaña y nadie se entera: queda una pestaña en
+ * blanco para siempre. Comprobado: con el vfs vacío, getBlob() regresa sin
+ * lanzar nada y el error aparece como unhandledRejection.
+ *
+ * Aquí la pestaña se abre igual (para no pelear con el bloqueador), pero el
+ * PDF se pide con una promesa propia y un plazo máximo. Si falla o no llega,
+ * se cierra la pestaña y se lanza el error, para que quien llame pueda
+ * avisar con una alerta en vez de dejar a la dueña mirando una pestaña vacía.
+ */
+const TIEMPO_MAXIMO_PDF = 20_000;
+
+async function abrirPdf(pdfDoc: any): Promise<void> {
+  const ventana = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+  if (!ventana) {
+    throw new Error(
+      'El navegador bloqueó la ventana del ticket. Permite las ventanas '
+      + 'emergentes para este sitio y vuelve a intentarlo.',
+    );
+  }
+
+  try {
+    const blob = await new Promise<Blob>((resolver, rechazar) => {
+      const plazo = setTimeout(
+        () => rechazar(new Error('El ticket tardó demasiado en generarse.')),
+        TIEMPO_MAXIMO_PDF,
+      );
+
+      // Un fallo dentro de pdfmake llega como rechazo global, no por este
+      // callback. Se escucha mientras se genera para poder reportarlo.
+      const alRechazar = (ev: PromiseRejectionEvent) => {
+        clearTimeout(plazo);
+        limpiar();
+        const motivo = ev.reason;
+        rechazar(motivo instanceof Error ? motivo : new Error(String(motivo)));
+      };
+      const limpiar = () => window.removeEventListener('unhandledrejection', alRechazar);
+      window.addEventListener('unhandledrejection', alRechazar);
+
+      try {
+        pdfDoc.getBlob((resultado: Blob) => {
+          clearTimeout(plazo);
+          limpiar();
+          resolver(resultado);
+        });
+      } catch (e) {
+        clearTimeout(plazo);
+        limpiar();
+        rechazar(e instanceof Error ? e : new Error(String(e)));
+      }
+    });
+
+    ventana.location.href = URL.createObjectURL(blob);
+  } catch (e) {
+    // Sin esto, la pestaña vacía se queda ahí: era justo lo que veía la
+    // dueña de la tienda.
+    try { ventana.close(); } catch { /* si ya la cerró ella, da igual */ }
+    throw e;
+  }
+}
+
 function cargarPdfMake(): Promise<any> {
   if (!pdfMakePromesa) {
     pdfMakePromesa = (async () => {
-      const [{ default: pdfMake }, fonts] = await Promise.all([
-        import('pdfmake/build/pdfmake'),
-        import('pdfmake/build/vfs_fonts'),
-      ]);
-      pdfMake.vfs = (fonts as any).vfs ?? (fonts as any).default?.vfs;
+      // El orden importa. El archivo de fuentes de pdfmake termina así:
+      //
+      //   if (_global.pdfMake && _global.pdfMake.addVirtualFileSystem) {
+      //     _global.pdfMake.addVirtualFileSystem(vfs);
+      //   }
+      //   if (typeof module !== 'undefined') { module.exports = vfs; }
+      //
+      // O sea: se registra SOLO si pdfMake ya existe cuando él se evalúa.
+      // Cargarlos con Promise.all los ponía a competir: cuando las fuentes
+      // ganaban, esa rama no corría y el ticket salía en blanco con
+      // "File 'Roboto-Medium.ttf' not found in virtual file system". Por eso
+      // fallaba en una máquina y en otra no. Primero pdfmake, luego fuentes.
+      // El `any` no es pereza: @types/pdfmake va por detrás del paquete real y
+      // no declara addVirtualFileSystem, que es justamente la API que hace
+      // falta aquí. Tipado estricto, esta línea no compila.
+      const { default: pdfMake } = (await import('pdfmake/build/pdfmake')) as { default: any };
+      const modFuentes: any = await import('pdfmake/build/vfs_fonts');
+
+      const vfs = resolverFuentes(modFuentes);
+      if (!vfs) {
+        throw new Error(
+          'No se encontraron las fuentes de pdfmake. Puede que vfs_fonts haya '
+          + 'cambiado de formato al actualizar la dependencia.',
+        );
+      }
+
+      // addVirtualFileSystem es la forma soportada y no depende del orden de
+      // carga. Se asigna .vfs solo si esta versión no la tiene.
+      if (typeof pdfMake.addVirtualFileSystem === 'function') {
+        pdfMake.addVirtualFileSystem(vfs);
+      } else {
+        pdfMake.vfs = vfs;
+      }
+
       return pdfMake;
     })().catch(err => {
       // Si falla, no dejar la promesa rota en caché: el siguiente intento
@@ -113,8 +260,14 @@ export const generateAndPrintTicket = async (
   cliente?: TicketCliente | null
 ): Promise<void> => {
   try {
+    // El logo es adorno; el ticket es el comprobante del cliente. Si la
+    // imagen no carga (sin conexion, cache vacia, ruta movida), antes se caia
+    // toda la impresion por eso. Ahora el ticket sale sin logo y ya.
     const logoUrl = '/assets/Broquelizate-logos/logo-relleno-negro.png';
-    const logoBase64 = await getBase64ImageFromURL(logoUrl);
+    const logoBase64 = await getBase64ImageFromURL(logoUrl).catch(e => {
+      console.warn('No se pudo cargar el logo del ticket, se imprime sin el:', e);
+      return null;
+    });
 
     const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0);
     const uniqueItems = products.length;
@@ -210,7 +363,9 @@ export const generateAndPrintTicket = async (
       : [];
 
     const content: Content[] = [
-      { image: logoBase64, width: 70, alignment: 'center', margin: [0, 0, 0, 8] },
+      ...(logoBase64
+        ? [{ image: logoBase64, width: 70, alignment: 'center', margin: [0, 0, 0, 8] } as Content]
+        : []),
       { text: `RECIBO #${orderNumber}`, style: 'receiptNumber', alignment: 'center', margin: [0, 0, 0, 12] },
       { stack: [{ text: storeInfo.name, style: 'storeName' }, { text: storeInfo.address, style: 'storeInfo' }, { text: `+${storeInfo.phone}`, style: 'storeInfo' }], alignment: 'center', margin: [0, 0, 0, 12] },
       ...bloqueCliente,
@@ -318,9 +473,14 @@ export const generateAndPrintTicket = async (
     
     const pdfMake = await cargarPdfMake();
     const pdfDoc = pdfMake.createPdf(docDefinition);
-    pdfDoc.open();
+    await abrirPdf(pdfDoc);
 
   } catch (error) {
-    console.error("Error al generar o imprimir el ticket:", error);
+    // Se relanza a propósito. Antes solo se registraba en la consola, así que
+    // cuando el ticket fallaba se abría una pestaña en blanco y nadie sabía
+    // por qué: ni la dueña, que no abre la consola, ni quien lo mantiene.
+    // Quien llame decide cómo avisar; lo que no puede es no enterarse.
+    console.error('Error al generar o imprimir el ticket:', error);
+    throw error instanceof Error ? error : new Error(String(error));
   }
 };
