@@ -5,6 +5,7 @@
 // con el cliente: esto es lo que van a reclamarle después.
 
 import LegalLayout from '@/layouts/LegalLayout.astro';
+import { warrantyLabel } from '@/utils/policies';
 import { STORE_WHATSAPP as WHATSAPP } from '@/utils/store';
 
 const CORREO = 'broquelizatelaguna@gmail.com';
@@ -173,7 +174,7 @@ const DIAS_REEMBOLSO = '[5 a 10]'; // días hábiles para ver el reembolso
 
   <h2>8. Garantía</h2>
   <p>
-    Nuestras piezas cuentan con garantía de <strong>[30] días</strong> contra defectos
+    Nuestras piezas cuentan con garantía de <strong>{warrantyLabel()}</strong> contra defectos
     de fabricación. La garantía no cubre:
   </p>
   <ul>
