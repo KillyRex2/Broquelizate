@@ -565,6 +565,14 @@ export const createShippingLabel = defineAction({
 
       if (label.trackingNumber) {
         await saveTrackingToDatabase(input.orderId, label);
+
+        // Avisarle al cliente con su número de rastreo. Después de guardar,
+        // nunca antes: el correo lee la guía de la base.
+        const { notificarEnvio } = await import('@/utils/order-emails');
+        await notificarEnvio({
+          orderId: input.orderId,
+          siteUrl: import.meta.env.PUBLIC_SITE_URL,
+        });
       }
 
       return { success: true, label };
