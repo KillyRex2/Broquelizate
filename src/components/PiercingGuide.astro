@@ -115,49 +115,6 @@ const piercings: Piercing[] = [
       ))}
     </div>
 
-    <!-- Stats -->
-    <div class="categories-stats">
-      <div class="stat-item">
-        <div class="stat-icon">
-          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-          </svg>
-        </div>
-        <div class="stat-content">
-          <span class="stat-number">150+</span>
-          <span class="stat-label">Productos únicos</span>
-        </div>
-      </div>
-      
-      <div class="stat-divider"></div>
-      
-      <div class="stat-item">
-        <div class="stat-icon">
-          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-          </svg>
-        </div>
-        <div class="stat-content">
-          <span class="stat-number">100%</span>
-          <span class="stat-label">Hipoalergénico</span>
-        </div>
-      </div>
-      
-      <div class="stat-divider"></div>
-      
-      <div class="stat-item">
-        <div class="stat-icon">
-          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-        </div>
-        <div class="stat-content">
-          <span class="stat-number">24h</span>
-          <span class="stat-label">Envío express</span>
-        </div>
-      </div>
-    </div>
-
     <!-- CTA Button -->
     <div class="section-cta">
       <a href="/products" class="btn-primary">
@@ -406,60 +363,6 @@ const piercings: Piercing[] = [
   }
 
   /* Stats */
-  .categories-stats {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 40px;
-    padding: 40px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    margin-bottom: 50px;
-    animation: fadeInUp 0.6s ease-out 0.5s both;
-  }
-
-  .stat-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .stat-icon {
-    width: 56px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(234, 179, 8, 0.1);
-    border-radius: 16px;
-    color: #eab308;
-  }
-
-  .stat-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .stat-number {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #fff;
-  }
-
-  .stat-label {
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  .stat-divider {
-    width: 1px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  /* CTA Buttons */
   .section-cta {
     display: flex;
     justify-content: center;
@@ -607,17 +510,6 @@ const piercings: Piercing[] = [
     }
 
 
-    .categories-stats {
-      flex-direction: column;
-      gap: 24px;
-      padding: 30px;
-    }
-
-    .stat-divider {
-      width: 100px;
-      height: 1px;
-    }
-
     .section-cta {
       flex-direction: column;
     }
@@ -651,15 +543,6 @@ const piercings: Piercing[] = [
       font-size: 1.25rem;
     }
 
-    .stat-icon {
-      width: 48px;
-      height: 48px;
-    }
-
-    .stat-number {
-      font-size: 1.25rem;
-    }
-
     .btn-primary,
     .btn-secondary {
       padding: 16px 28px;
@@ -685,7 +568,7 @@ const piercings: Piercing[] = [
     );
 
     // Observar elementos
-    document.querySelectorAll('.category-card, .stat-item').forEach((el) => {
+    document.querySelectorAll('.category-card').forEach((el) => {
       observer.observe(el);
     });
   });
