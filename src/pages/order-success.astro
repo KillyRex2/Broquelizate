@@ -8,6 +8,7 @@ import OrderTracking from '@/components/OrderTracking.astro';
 import { actions } from 'astro:actions';
 import CheckoutProgress from '@/components/shared/CheckoutProgressBar.astro';
 import { formatDate } from '@/utils/datetime';
+import { getOrderDetails } from '@/utils/order-details';
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 const stripe = new Stripe(STRIPE_SECRET_KEY);
@@ -82,14 +83,14 @@ if (extRef && !orderIdParam) {
 
 try {
   if (orderIdParam) {
-    const response = await fetch(`${Astro.url.origin}/api/get-order?order_id=${orderIdParam}`);
-    if (response.ok) {
-      const orderData = await response.json();
-      const shippingData = orderData.shippingAddress ? JSON.parse(orderData.shippingAddress) : {};
-      let shippingInfo = null;
-      if (orderData.shippingInfo) {
-        try { shippingInfo = typeof orderData.shippingInfo === 'string' ? JSON.parse(orderData.shippingInfo) : orderData.shippingInfo; } catch (e) {}
-      }
+    // Antes esto le hacía fetch por HTTP a /api/get-order, o sea una vuelta
+    // completa por la red para que el servidor se preguntara algo a sí
+    // mismo. Y obligaba a que ese endpoint fuera público, con todos los
+    // datos del cliente dentro. Ahora se lee directo.
+    const orderData = await getOrderDetails(orderIdParam);
+    if (orderData) {
+      const shippingData = orderData.shippingAddress ? JSON.parse(orderData.shippingAddress as string) : {};
+      const shippingInfo = orderData.shippingInfo;
       
       orderDetails = {
         orderId: orderData.orderNumber,
