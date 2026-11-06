@@ -124,7 +124,7 @@ const productsData = products.map(p => {
             <div class="pickup-info-text">
               <span class="pickup-info-title">Recoges en {STORE_PICKUP.name}</span>
               <span class="pickup-info-line">{storeAddressLine()}</span>
-              <span class="pickup-info-line">🕒 {STORE_PICKUP.hours} · {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
+              <span class="pickup-info-line">{STORE_PICKUP.hours ? `🕒 ${STORE_PICKUP.hours} · ` : ''}{pickupReadyText(STORE_PICKUP.readyInDays)}</span>
             </div>
           </div>
 

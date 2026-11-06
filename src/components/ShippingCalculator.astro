@@ -1,6 +1,6 @@
 ---
 // src/components/ShippingCalculator.astro
-import { STORE_PICKUP, storeAddressLine, pickupReadyText } from '@/utils/store';
+import { STORE_PICKUP, storeAddressLine, pickupReadyText, storeMapsUrl } from '@/utils/store';
 
 interface Props {
   subtotal: number;
@@ -106,12 +106,12 @@ const storeData = {
           <span class="pickup-badge">Gratis</span>
         </div>
         <div class="pickup-meta">
-          <span>🕒 {STORE_PICKUP.hours}</span>
+          {STORE_PICKUP.hours && <span>🕒 {STORE_PICKUP.hours}</span>}
           <span>📦 {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
         </div>
         <p class="pickup-note">{STORE_PICKUP.instructions}</p>
-        {STORE_PICKUP.mapsUrl && (
-          <a href={STORE_PICKUP.mapsUrl} target="_blank" rel="noopener" class="pickup-map">Ver en Google Maps →</a>
+        {(
+          <a href={storeMapsUrl()} target="_blank" rel="noopener" class="pickup-map">Ver en Google Maps →</a>
         )}
       </div>
     </div>
