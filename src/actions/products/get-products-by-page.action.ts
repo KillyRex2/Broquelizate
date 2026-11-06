@@ -3,7 +3,7 @@ import { defineAction } from "astro:actions";
 import { and, or, count, db, eq, gt, inArray, lte, Product, ProductImage, ProductVariant, ProductVariantCombination, sql, asc, desc } from "astro:db";
 import { z } from "astro:schema";
 import { likePattern, unaccentSqlExpr } from "@/utils/search";
-import { getMaterialNames } from "@/utils/catalog";
+import { getMaterialNames, getJewelryTypeNames } from "@/utils/catalog";
 
 // Los materiales validos salen de CatalogOption (editable desde
 // /admin/catalogos). Antes era una lista quemada aqui que se habia
@@ -35,6 +35,9 @@ export const inputSchema = z.object({
   stockFilter: z.string().optional().default('all'),
   search: z.string().optional().default(''),
   piercing: z.string().optional().default('all'),
+  // Tipo de joya (anillos, broqueles, cadenas...). Alimenta Product.type,
+  // que es una columna distinta de category: ahí va el material.
+  jewelryType: z.string().optional().default('all'),
   sortBy: z.string().optional().default('name'),
   sortOrder: z.string().optional().default('asc'),
 });
@@ -48,6 +51,7 @@ export const handler = async ({
   stockFilter,
   search,
   piercing,
+  jewelryType,
   sortBy,
   sortOrder,
 }: z.infer<typeof inputSchema>) => {
@@ -88,6 +92,18 @@ export const handler = async ({
 
     if (selectedCategories.length > 0) {
       filters.push(inArray(Product.category, selectedCategories));
+    }
+
+    // Tipo de joya: mismo criterio que el material, pero sobre Product.type.
+    // Se valida contra CatalogOption por la misma razón: que un valor
+    // inventado en la URL no llegue al inArray.
+    const validJewelryTypes = await getJewelryTypeNames();
+    const selectedJewelryTypes = jewelryType && jewelryType !== 'all'
+      ? jewelryType.split(',').map(t => t.trim()).filter(t => validJewelryTypes.includes(t))
+      : [];
+
+    if (selectedJewelryTypes.length > 0) {
+      filters.push(inArray(Product.type, selectedJewelryTypes));
     }
     
     // Filtro de precio mínimo

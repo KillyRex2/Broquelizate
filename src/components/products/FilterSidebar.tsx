@@ -26,6 +26,7 @@ interface FilterSidebarProps {
     inStock?: boolean;
     search?: string;
     piercing?: string;
+    jewelryType?: string;
   };
   /**
    * Materiales que se ofrecen, desde CatalogOption. Los manda el servidor
@@ -33,6 +34,13 @@ interface FilterSidebarProps {
    * Si no llega nada se usa FALLBACK_MATERIALS, que es la lista de siempre.
    */
   materials?: MaterialOption[];
+  /**
+   * Tipos de joya (anillos, broqueles, cadenas...), también desde
+   * CatalogOption. Es una lista distinta del material: aquí va LA PIEZA,
+   * en material va DE QUÉ está hecha. En la base son dos columnas
+   * separadas, Product.type y Product.category.
+   */
+  jewelryTypes?: string[];
 }
 
 const MAX_PRICE = 5000;
@@ -40,6 +48,10 @@ const MAX_PRICE = 5000;
 // El color ayuda más que un icono: en joyería el material ES el color.
 // Esta lista es solo el respaldo: lo normal es que llegue por props desde
 // el servidor, leída de CatalogOption.
+const FALLBACK_JEWELRY_TYPES = [
+  'Anillos', 'Broqueles', 'Pulseras', 'Cadenas', 'Joyería personalizada', 'Otros',
+];
+
 const FALLBACK_MATERIALS: MaterialOption[] = [
   { value: 'Titanio', swatch: '#b9bec6' },
   { value: 'Acero Quirúrgico', swatch: '#c6ccd4' },
@@ -99,11 +111,17 @@ function Accordion({
   );
 }
 
-export const FilterSidebar = ({ initialValues, materials: materialsProp }: FilterSidebarProps) => {
+export const FilterSidebar = ({
+  initialValues,
+  materials: materialsProp,
+  jewelryTypes: jewelryTypesProp,
+}: FilterSidebarProps) => {
   const materials = materialsProp?.length ? materialsProp : FALLBACK_MATERIALS;
+  const jewelryTypes = jewelryTypesProp?.length ? jewelryTypesProp : FALLBACK_JEWELRY_TYPES;
   const initial = () => ({
     categories: parseList(initialValues?.selectedCat),
     piercings: parseList(initialValues?.piercing),
+    jewelryTypes: parseList(initialValues?.jewelryType),
     price: initialValues?.price ?? MAX_PRICE,
     search: initialValues?.search ?? '',
     inStock: initialValues?.inStock ?? false,
@@ -120,7 +138,7 @@ export const FilterSidebar = ({ initialValues, materials: materialsProp }: Filte
   }, [initialKey]);
 
   // Alterna un valor dentro de una lista
-  const toggle = (field: 'categories' | 'piercings', value: string) => {
+  const toggle = (field: 'categories' | 'piercings' | 'jewelryTypes', value: string) => {
     setFilters(prev => {
       const list = prev[field];
       return {
@@ -136,6 +154,7 @@ export const FilterSidebar = ({ initialValues, materials: materialsProp }: Filte
   const activeCount = useMemo(
     () =>
       filters.categories.length +
+      filters.jewelryTypes.length +
       filters.piercings.length +
       (filters.price < MAX_PRICE ? 1 : 0) +
       (filters.search ? 1 : 0) +
@@ -146,6 +165,7 @@ export const FilterSidebar = ({ initialValues, materials: materialsProp }: Filte
   const buildQuery = (f: typeof filters) => {
     const q = new URLSearchParams({ page: '1' });
     if (f.categories.length) q.set('category', f.categories.join(','));
+    if (f.jewelryTypes.length) q.set('type', f.jewelryTypes.join(','));
     if (f.piercings.length) q.set('piercing', f.piercings.join(','));
     if (f.price < MAX_PRICE) q.set('maxPrice', String(f.price));
     if (f.search.trim()) q.set('search', f.search.trim());
@@ -159,7 +179,7 @@ export const FilterSidebar = ({ initialValues, materials: materialsProp }: Filte
   };
 
   const reset = () => {
-    setFilters({ categories: [], piercings: [], price: MAX_PRICE, search: '', inStock: false });
+    setFilters({ categories: [], jewelryTypes: [], piercings: [], price: MAX_PRICE, search: '', inStock: false });
     navigate('/products?page=1');
   };
 
@@ -187,6 +207,7 @@ export const FilterSidebar = ({ initialValues, materials: materialsProp }: Filte
   // Chips de resumen: lo que está elegido, sin abrir cada sección
   const summary = [
     ...filters.categories.map(v => ({ label: v, onRemove: () => toggle('categories', v) })),
+    ...filters.jewelryTypes.map(v => ({ label: v, onRemove: () => toggle('jewelryTypes', v) })),
     ...filters.piercings.map(v => ({ label: v, onRemove: () => toggle('piercings', v) })),
     ...(filters.price < MAX_PRICE
       ? [{ label: `Hasta $${filters.price.toLocaleString('es-MX')}`, onRemove: () => set('price', MAX_PRICE) }]
@@ -257,6 +278,26 @@ export const FilterSidebar = ({ initialValues, materials: materialsProp }: Filte
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   </span>
+                </label>
+              );
+            })}
+          </div>
+        </Accordion>
+
+        {/* Tipo de joya */}
+        <Accordion title="Tipo de joya" count={filters.jewelryTypes.length}>
+          <div className="fs-chips">
+            {jewelryTypes.map(t => {
+              const on = filters.jewelryTypes.includes(t);
+              return (
+                <label key={t} className={`fs-chip ${on ? 'on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => toggle('jewelryTypes', t)}
+                    className="fs-sr"
+                  />
+                  {t}
                 </label>
               );
             })}
