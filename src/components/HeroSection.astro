@@ -11,7 +11,11 @@ interface Props {
   }>;
 }
 
-import { FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
+import { freeShippingLabel } from '@/utils/shipping';
+import { trustItems } from '@/utils/policies';
+
+// Los tres motivos salen de policies.ts porque el footer pinta los mismos.
+const garantias = trustItems();
 
 const { products = [] } = Astro.props;
 
@@ -50,61 +54,40 @@ const displayProducts = products.length > 0 ? products : [
     <div class="hero-content">
       <div class="content-wrapper">
         <div class="hero-badge">
-          <span class="pulse-dot"></span>
-          <span>Nueva Colección 2026</span>
+          <span>Descubre nuestra colección</span>
         </div>
-        
+
         <h1 class="hero-title">
-          <span class="gradient-text">Arte</span> en cada
-          <span class="block">pieza única</span>
+          Detalles que <span class="gradient-text">enamoran</span>
         </h1>
-        
+
+        <p class="hero-tagline">Joyas que hablan de ti</p>
+
         <p class="hero-subtitle">
-          Joyería artesanal y servicios de perforación profesional. 
-          Materiales hipoalergénicos de la más alta calidad.
+          Descubre nuestra selección de joyería y encuentra esas piezas
+          especiales que realzan tu estilo, expresan tu esencia y te
+          acompañan en cada momento.
         </p>
 
-        <!-- Indicadores de confianza -->
-        <div class="trust-row">
-          <div class="trust-item">
-            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span>100% Hipoalergénico</span>
-          </div>
-          <div class="trust-item">
-            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-            </svg>
-            <span>Envío gratis +${FREE_SHIPPING_THRESHOLD}</span>
-          </div>
+        <!-- Aviso de envío. El monto sale de freeShippingLabel(), no escrito
+             a mano: es el mismo número que cobra el carrito y que dicen los
+             términos y condiciones. Si algún día sube, sube en los tres. -->
+        <div class="shipping-note">
+          <strong>Envíos a todo México</strong>
+          <span>Envío nacional gratis en compras mayores a {freeShippingLabel()} MXN</span>
         </div>
 
         <!-- Botones -->
         <div class="hero-actions">
           <a href="/products" class="btn-primary">
-            Explorar Colección
+            Descubrir Joyería
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
             </svg>
           </a>
         </div>
 
-        <!-- Stats mini -->
-        <div class="mini-stats">
-          <div class="mini-stat">
-            <strong>500+</strong>
-            <span>Clientes</span>
-          </div>
-          <div class="mini-stat">
-            <strong>4.9★</strong>
-            <span>Rating</span>
-          </div>
-          <div class="mini-stat">
-            <strong>3 años</strong>
-            <span>Experiencia</span>
-          </div>
-        </div>
+        <p class="hero-footnote">Encuentra tu próxima pieza favorita</p>
       </div>
     </div>
 
@@ -146,31 +129,26 @@ const displayProducts = products.length > 0 ? products : [
         ))}
       </div>
 
-      <!-- Garantías -->
-      <div class="guarantees">
-        <div class="guarantee">
-          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          Garantía de satisfacción
-        </div>
-        <div class="guarantee">
-          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          Materiales certificados
-        </div>
-      </div>
     </div>
   </div>
 
-  <!-- Scroll hint -->
-  <button class="scroll-down" onclick="window.scrollTo({top: window.innerHeight, behavior: 'smooth'})">
-    <span>Descubre más</span>
-    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-    </svg>
-  </button>
+  <!-- Franja de confianza. Ocupa el ancho del hero, debajo de las dos
+       columnas, donde antes estaba el botón de "Descubre más". Traslúcida
+       sobre la foto: pertenece al hero en vez de ser un bloque blanco
+       pegado abajo. -->
+  <ul class="hero-trust">
+    {garantias.map(({ titulo, detalle }) => (
+      <li class="hero-trust-item">
+        <svg class="hero-trust-check" width="18" height="18" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <span>
+          <strong>{titulo}</strong>
+          <small>{detalle}</small>
+        </span>
+      </li>
+    ))}
+  </ul>
 </section>
 
 <style>
@@ -178,8 +156,13 @@ const displayProducts = products.length > 0 ? products : [
     position: relative;
     min-height: 100vh;
     display: flex;
+    /* En columna: antes era una fila con un solo hijo, y al agregar la
+       franja de confianza se puso a su lado en vez de debajo, aplastando
+       las dos columnas del contenido. */
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding: 100px 0 80px;
+    padding: 80px 0 56px;
     overflow: hidden;
     /* Fondo oscuro por si la imagen no cubre todo */
     background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
@@ -321,8 +304,10 @@ const displayProducts = products.length > 0 ? products : [
   .content-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding: 36px;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding: 26px 30px;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
@@ -336,33 +321,24 @@ const displayProducts = products.length > 0 ? products : [
   .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 20px;
-    background: rgba(234, 179, 8, 0.2);
-    border: 1px solid rgba(234, 179, 8, 0.5);
-    border-radius: 50px;
+    padding: 9px 20px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    border-radius: 10px;
     width: fit-content;
+    box-shadow: 0 4px 16px rgba(234, 179, 8, 0.35);
   }
 
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    background: #22c55e;
-    border-radius: 50%;
-    animation: pulse 2s ease-in-out infinite;
-    box-shadow: 0 0 12px rgba(34, 197, 94, 0.7);
-  }
-
-  .hero-badge span:last-child {
-    color: #eab308;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
+  /* Texto oscuro sobre el dorado, no blanco. En la maqueta se ve claro,
+     pero blanco sobre #eab308 da un contraste de ~2:1 y se vuelve ilegible
+     en una pantalla con sol encima. En negro queda ~10:1. */
+  .hero-badge span {
+    color: #1a1403;
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 
   .hero-title {
-    font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+    font-size: clamp(2rem, 3.6vw, 3.1rem);
     font-weight: 800;
     line-height: 1.1;
     color: #fff;
@@ -380,35 +356,52 @@ const displayProducts = products.length > 0 ? products : [
     display: block;
   }
 
+  .hero-tagline {
+    font-size: clamp(1.15rem, 2vw, 1.6rem);
+    font-weight: 700;
+    color: #fff;
+    margin-top: -8px;
+  }
+
   .hero-subtitle {
-    font-size: 1.05rem;
+    font-size: 1rem;
     color: rgba(255, 255, 255, 0.9);
-    line-height: 1.7;
-    max-width: 420px;
+    line-height: 1.55;
+    max-width: 460px;
+    font-weight: 600;
   }
 
-  /* Trust row */
-  .trust-row {
+  /* Caja de envíos: la única parte clara de la tarjeta, para que el dato
+     que más pesa en la decisión de compra no se pierda entre lo demás. */
+  .shipping-note {
     display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    max-width: 460px;
+    padding: 12px 20px;
+    background: #fdf6dd;
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    border-radius: 12px;
   }
 
-  .trust-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.95);
-    padding: 8px 14px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+  .shipping-note strong {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1a1403;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .trust-item svg {
-    color: #22c55e;
-    flex-shrink: 0;
+  .shipping-note span {
+    font-size: 0.86rem;
+    color: #4a3c0a;
+  }
+
+  .hero-footnote {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: -6px;
   }
 
   /* Botones */
@@ -465,33 +458,6 @@ const displayProducts = products.length > 0 ? products : [
     background: rgba(234, 179, 8, 0.2);
     border-color: rgba(234, 179, 8, 0.6);
     color: #eab308;
-  }
-
-  /* Mini stats */
-  .mini-stats {
-    display: flex;
-    gap: 28px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  .mini-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .mini-stat strong {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: #fff;
-  }
-
-  .mini-stat span {
-    font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.6);
-    text-transform: uppercase;
-    letter-spacing: 1px;
   }
 
   /* ========================================
@@ -639,64 +605,104 @@ const displayProducts = products.length > 0 ? products : [
   }
 
   /* Garantías */
-  .guarantees {
+  /* Franja de confianza */
+  .hero-trust {
+    position: relative;
+    z-index: 10;
     display: flex;
-    gap: 18px;
-    padding: 14px 8px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+    max-width: 1400px;
+    margin: 24px auto 0;
+    padding: 0 32px;
+    list-style: none;
   }
 
-  .guarantee {
+  .hero-trust-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.85);
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    gap: 10px;
+    padding: 11px 20px;
+    border-radius: 14px;
+    /* El mismo vidrio de la tarjeta del texto, para que se lean como
+       partes de la misma pieza y no como dos bloques distintos. */
+    background: rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
   }
 
-  .guarantee svg {
-    color: #22c55e;
+  .hero-trust-check {
     flex-shrink: 0;
+    color: #22c55e;
   }
 
-  /* Scroll button */
-  .scroll-down {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
+  .hero-trust-item span {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 30px;
-    padding: 10px 18px;
-    color: rgba(255, 255, 255, 0.8);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    animation: fadeIn 0.6s ease-out 1s both;
-    z-index: 10;
+    line-height: 1.25;
   }
 
-  .scroll-down:hover {
-    color: #eab308;
-    border-color: rgba(234, 179, 8, 0.5);
+  .hero-trust-item strong {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
   }
 
-  .scroll-down span {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+  .hero-trust-item small {
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.72);
   }
 
-  .scroll-down svg {
-    width: 20px;
-    height: 20px;
-    animation: bounce 2s ease-in-out infinite;
+  @media (max-width: 900px) {
+    .hero-trust {
+      margin-top: 28px;
+      padding: 0 20px;
+    }
+
+    .hero-trust-item {
+      padding: 10px 16px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero-trust {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 0 16px;
+    }
+
+    .hero-trust-item {
+      justify-content: flex-start;
+    }
+  }
+
+  /* El alto del hero lo manda la rejilla de productos: dos filas de
+     imágenes cuadradas. En una laptop típica (760-900 px de alto) eso deja
+     el botón y la franja de confianza bajo el pliegue, que es justo donde
+     no sirven. Aplanando la foto a 3:2 entra todo. En monitores altos el
+     diseño se queda como está. */
+  @media (max-height: 940px) {
+    .hero {
+      /* min-height: 100vh sobraba: el hero arranca DEBAJO de la barra de
+         anuncios y el navbar, así que una altura de pantalla completa lo
+         hacía terminar siempre 118 px por debajo del pliegue, con ese
+         hueco vacío justo donde iba la franja. Aquí se ajusta al
+         contenido. */
+      min-height: 0;
+      padding: 56px 0 40px;
+    }
+
+    .hero .card-image {
+      aspect-ratio: 3 / 2;
+    }
+
+    .hero-trust {
+      margin-top: 18px;
+    }
   }
 
   /* Animaciones */
@@ -764,15 +770,7 @@ const displayProducts = products.length > 0 ? products : [
       max-width: 100%;
     }
 
-    .trust-row {
-      justify-content: center;
-    }
-
     .hero-actions {
-      justify-content: center;
-    }
-
-    .mini-stats {
       justify-content: center;
     }
 
@@ -825,15 +823,6 @@ const displayProducts = products.length > 0 ? products : [
       font-size: 1.9rem;
     }
 
-    .trust-row {
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .trust-item {
-      justify-content: center;
-    }
-
     .hero-actions {
       flex-direction: column;
       width: 100%;
@@ -845,22 +834,8 @@ const displayProducts = products.length > 0 ? products : [
       justify-content: center;
     }
 
-    .mini-stats {
-      gap: 20px;
-    }
-
     .products-showcase {
       grid-template-columns: repeat(2, 1fr);
-    }
-
-    .guarantees {
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .scroll-down {
-      display: none;
     }
 
     .hero-overlay {
@@ -902,10 +877,6 @@ const displayProducts = products.length > 0 ? products : [
       font-size: 0.88rem;
     }
 
-    .mini-stat strong {
-      font-size: 1.05rem;
-    }
-
     .products-showcase {
       gap: 10px;
     }
@@ -931,9 +902,7 @@ const displayProducts = products.length > 0 ? products : [
   @media (prefers-reduced-motion: reduce) {
     .hero-bg-image,
     .hero-glow,
-    .hero-sparkles,
-    .pulse-dot,
-    .scroll-down svg {
+    .hero-sparkles {
       animation: none;
     }
     

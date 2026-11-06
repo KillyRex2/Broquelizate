@@ -1,3 +1,24 @@
+/* ============================================================
+   Saltos a anclas
+   ------------------------------------------------------------
+   La barra superior es position: fixed y mide 117 px. Sin esto,
+   cualquier salto a un #ancla deja los primeros 117 px del
+   objetivo escondidos detrás de ella: el navegador pone el
+   elemento en y=0 y la barra flota justo encima.
+
+   No es teórico. En el checkout, el aviso "elige método de
+   envío" enlaza a #delivery-method, así que el cliente al que
+   le falta ese paso saltaba a un punto donde el campo quedaba
+   tapado — en la página donde menos conviene confundirlo.
+
+   Se aplica a cualquier elemento con id, que son los únicos a
+   los que se puede saltar.
+   ============================================================ */
+:target,
+[id] {
+  scroll-margin-top: 130px;
+}
+
 html,
   html {
     font-family: system-ui, sans-serif;

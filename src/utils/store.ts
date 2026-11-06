@@ -20,12 +20,19 @@ export const STORE_PICKUP = {
   country: 'México',
 
   /**
-   * Horario de atención. Vacío = no se muestra, que es justo lo que debe
-   * pasar mientras no se confirme: antes aquí decía
-   * 'TODO: Lun a Sáb · 11:00 a 19:00' y eso se le enseñaba tal cual al
-   * cliente en el carrito y en el checkout.
+   * Horario de puertas abiertas, el que importa para recoger un pedido.
+   * Vacío = no se muestra; así estuvo hasta que la tienda lo confirmó,
+   * en vez de enseñar el 'TODO: Lun a Sáb · 11:00 a 19:00' que tenía
+   * antes. Domingo cerrado: la tienda no lo mencionó.
    */
-  hours: '',
+  hours: 'Lun a Vie 11:00–16:30 · Sáb 12:00–18:00',
+
+  /**
+   * Lo que no cabe en una línea. Entre semana también atienden de 18:00
+   * a 19:00, pero solo con cita, y eso no sirve para pasar a recoger sin
+   * avisar: va aparte para no mezclarlo con el horario de arriba.
+   */
+  hoursNote: 'Entre semana también de 18:00 a 19:00, con cita previa.',
 
   /** Días hábiles para tener el pedido listo (0 = mismo día). */
   readyInDays: 1,

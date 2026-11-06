@@ -4,7 +4,7 @@ import { CartCounter } from '@/components';
 const { isLoggedIn, isAdmin, user } = Astro.locals;
 
 // Umbral de envío gratis: sale de @/utils/shipping, el único lugar donde vive.
-import { FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
+import { freeShippingLabel } from '@/utils/shipping';
 
 // ⚠️ Verifica que estos valores existan en tu BD:
 //    type   → Anillos, Broqueles, Cadenas, Pulseras, Piercings...
@@ -58,7 +58,7 @@ const navLinks = [
     <svg width="15" height="15" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
       <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 011-1h4.05a1 1 0 01.866.5l1.08 1.875A1 1 0 0121 9v5a1 1 0 01-1 1h-.05a2.5 2.5 0 01-4.9 0H14a1 1 0 01-1-1V8z"/>
     </svg>
-    <span>Envíos nacionales <strong>GRATIS</strong> en compras mayores a ${FREE_SHIPPING_THRESHOLD} MXN</span>
+    <span>Envíos nacionales <strong>GRATIS</strong> en compras mayores a {freeShippingLabel()} MXN</span>
   </div>
 
   <nav class="navbar" id="navbar">
