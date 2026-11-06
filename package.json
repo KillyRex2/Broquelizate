@@ -48,6 +48,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.12",
     "@iconify-json/mdi": "^1.2.3",
     "@types/js-cookie": "^3.0.6",
     "@types/qrcode": "^1.5.6",
