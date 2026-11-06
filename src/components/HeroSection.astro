@@ -11,7 +11,7 @@ interface Props {
   }>;
 }
 
-import { FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
+import { freeShippingLabel } from '@/utils/shipping';
 
 const { products = [] } = Astro.props;
 
@@ -50,61 +50,40 @@ const displayProducts = products.length > 0 ? products : [
     <div class="hero-content">
       <div class="content-wrapper">
         <div class="hero-badge">
-          <span class="pulse-dot"></span>
-          <span>Nueva Colección 2026</span>
+          <span>Descubre nuestra colección</span>
         </div>
-        
+
         <h1 class="hero-title">
-          <span class="gradient-text">Arte</span> en cada
-          <span class="block">pieza única</span>
+          Detalles que <span class="gradient-text">enamoran</span>
         </h1>
-        
+
+        <p class="hero-tagline">Joyas que hablan de ti</p>
+
         <p class="hero-subtitle">
-          Joyería artesanal y servicios de perforación profesional. 
-          Materiales hipoalergénicos de la más alta calidad.
+          Descubre nuestra selección de joyería y encuentra esas piezas
+          especiales que realzan tu estilo, expresan tu esencia y te
+          acompañan en cada momento.
         </p>
 
-        <!-- Indicadores de confianza -->
-        <div class="trust-row">
-          <div class="trust-item">
-            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span>100% Hipoalergénico</span>
-          </div>
-          <div class="trust-item">
-            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-            </svg>
-            <span>Envío gratis +${FREE_SHIPPING_THRESHOLD}</span>
-          </div>
+        <!-- Aviso de envío. El monto sale de freeShippingLabel(), no escrito
+             a mano: es el mismo número que cobra el carrito y que dicen los
+             términos y condiciones. Si algún día sube, sube en los tres. -->
+        <div class="shipping-note">
+          <strong>Envíos a todo México</strong>
+          <span>Envío nacional gratis en compras mayores a {freeShippingLabel()} MXN</span>
         </div>
 
         <!-- Botones -->
         <div class="hero-actions">
           <a href="/products" class="btn-primary">
-            Explorar Colección
+            Descubrir Joyería
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
             </svg>
           </a>
         </div>
 
-        <!-- Stats mini -->
-        <div class="mini-stats">
-          <div class="mini-stat">
-            <strong>500+</strong>
-            <span>Clientes</span>
-          </div>
-          <div class="mini-stat">
-            <strong>4.9★</strong>
-            <span>Rating</span>
-          </div>
-          <div class="mini-stat">
-            <strong>3 años</strong>
-            <span>Experiencia</span>
-          </div>
-        </div>
+        <p class="hero-footnote">Encuentra tu próxima pieza favorita</p>
       </div>
     </div>
 
@@ -321,8 +300,10 @@ const displayProducts = products.length > 0 ? products : [
   .content-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding: 36px;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding: 26px 30px;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
@@ -336,33 +317,24 @@ const displayProducts = products.length > 0 ? products : [
   .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 20px;
-    background: rgba(234, 179, 8, 0.2);
-    border: 1px solid rgba(234, 179, 8, 0.5);
-    border-radius: 50px;
+    padding: 9px 20px;
+    background: linear-gradient(135deg, #eab308, #f59e0b);
+    border-radius: 10px;
     width: fit-content;
+    box-shadow: 0 4px 16px rgba(234, 179, 8, 0.35);
   }
 
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    background: #22c55e;
-    border-radius: 50%;
-    animation: pulse 2s ease-in-out infinite;
-    box-shadow: 0 0 12px rgba(34, 197, 94, 0.7);
-  }
-
-  .hero-badge span:last-child {
-    color: #eab308;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
+  /* Texto oscuro sobre el dorado, no blanco. En la maqueta se ve claro,
+     pero blanco sobre #eab308 da un contraste de ~2:1 y se vuelve ilegible
+     en una pantalla con sol encima. En negro queda ~10:1. */
+  .hero-badge span {
+    color: #1a1403;
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 
   .hero-title {
-    font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+    font-size: clamp(2rem, 3.6vw, 3.1rem);
     font-weight: 800;
     line-height: 1.1;
     color: #fff;
@@ -380,35 +352,52 @@ const displayProducts = products.length > 0 ? products : [
     display: block;
   }
 
+  .hero-tagline {
+    font-size: clamp(1.15rem, 2vw, 1.6rem);
+    font-weight: 700;
+    color: #fff;
+    margin-top: -8px;
+  }
+
   .hero-subtitle {
-    font-size: 1.05rem;
+    font-size: 1rem;
     color: rgba(255, 255, 255, 0.9);
-    line-height: 1.7;
-    max-width: 420px;
+    line-height: 1.55;
+    max-width: 460px;
+    font-weight: 600;
   }
 
-  /* Trust row */
-  .trust-row {
+  /* Caja de envíos: la única parte clara de la tarjeta, para que el dato
+     que más pesa en la decisión de compra no se pierda entre lo demás. */
+  .shipping-note {
     display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    max-width: 460px;
+    padding: 12px 20px;
+    background: #fdf6dd;
+    border: 1px solid rgba(234, 179, 8, 0.45);
+    border-radius: 12px;
   }
 
-  .trust-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.95);
-    padding: 8px 14px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+  .shipping-note strong {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1a1403;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .trust-item svg {
-    color: #22c55e;
-    flex-shrink: 0;
+  .shipping-note span {
+    font-size: 0.86rem;
+    color: #4a3c0a;
+  }
+
+  .hero-footnote {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: -6px;
   }
 
   /* Botones */
@@ -465,33 +454,6 @@ const displayProducts = products.length > 0 ? products : [
     background: rgba(234, 179, 8, 0.2);
     border-color: rgba(234, 179, 8, 0.6);
     color: #eab308;
-  }
-
-  /* Mini stats */
-  .mini-stats {
-    display: flex;
-    gap: 28px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  .mini-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .mini-stat strong {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: #fff;
-  }
-
-  .mini-stat span {
-    font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.6);
-    text-transform: uppercase;
-    letter-spacing: 1px;
   }
 
   /* ========================================
@@ -764,15 +726,7 @@ const displayProducts = products.length > 0 ? products : [
       max-width: 100%;
     }
 
-    .trust-row {
-      justify-content: center;
-    }
-
     .hero-actions {
-      justify-content: center;
-    }
-
-    .mini-stats {
       justify-content: center;
     }
 
@@ -825,15 +779,6 @@ const displayProducts = products.length > 0 ? products : [
       font-size: 1.9rem;
     }
 
-    .trust-row {
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .trust-item {
-      justify-content: center;
-    }
-
     .hero-actions {
       flex-direction: column;
       width: 100%;
@@ -843,10 +788,6 @@ const displayProducts = products.length > 0 ? products : [
     .btn-secondary {
       width: 100%;
       justify-content: center;
-    }
-
-    .mini-stats {
-      gap: 20px;
     }
 
     .products-showcase {
@@ -902,10 +843,6 @@ const displayProducts = products.length > 0 ? products : [
       font-size: 0.88rem;
     }
 
-    .mini-stat strong {
-      font-size: 1.05rem;
-    }
-
     .products-showcase {
       gap: 10px;
     }
@@ -932,7 +869,6 @@ const displayProducts = products.length > 0 ? products : [
     .hero-bg-image,
     .hero-glow,
     .hero-sparkles,
-    .pulse-dot,
     .scroll-down svg {
       animation: none;
     }
