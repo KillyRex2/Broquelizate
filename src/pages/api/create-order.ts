@@ -41,9 +41,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // El POS lo usa solo un admin y no manda channel: 'online'.
     const isPos = !!(locals as any)?.isAdmin && data?.channel !== 'online';
 
+    // Las imágenes del correo necesitan URL absoluta. Mismo criterio que en
+    // create-mercadopago-preference: la variable si está, y si no el origen
+    // de la petición.
+    const siteUrl = (
+      import.meta.env.PUBLIC_SITE_URL || new URL(request.url).origin
+    ).replace(/\/+$/, '');
+
     return isPos
       ? await handlePosOrder(data, session)
-      : await handleOnlineOrder(data, session);
+      : await handleOnlineOrder(data, session, siteUrl);
   } catch (error: any) {
     if (error instanceof CheckoutError) return json({ error: error.message }, error.status);
 
@@ -104,7 +111,7 @@ async function verifyPayment(method: string, paymentId: string): Promise<{ ok: b
   return { ok: false, amount: 0, error: 'Método de pago no válido.' };
 }
 
-async function handleOnlineOrder(data: any, session: any) {
+async function handleOnlineOrder(data: any, session: any, siteUrl: string) {
   const paymentMethod = String(data?.paymentMethod || '');
   const paymentId = String(data?.paymentIntentId || data?.paymentId || '').trim();
   if (!paymentId || !['card', 'paypal'].includes(paymentMethod)) {
@@ -201,6 +208,11 @@ async function handleOnlineOrder(data: any, session: any) {
   } catch (e) {
     console.error('⚠️ Pedido creado pero no se pudo descontar stock:', orderNumber, e);
   }
+
+  // Confirmación al cliente y aviso de venta a la tienda. Va solo en esta
+  // ruta: handlePosOrder es mostrador y no manda correos.
+  const { notificarCompra } = await import('@/utils/order-emails');
+  await notificarCompra({ orderId, siteUrl });
 
   return json({
     id: orderId,

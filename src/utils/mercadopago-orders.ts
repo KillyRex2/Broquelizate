@@ -280,6 +280,20 @@ export async function confirmOrderByReference(externalReference: string, payment
     { allowNegative: order.paymentMethod === 'mercadopago-pos' }
   );
 
+  // Correos. Aquí abajo y no más arriba a propósito: este punto solo se
+  // alcanza en la transición pending → paid. Si el webhook y el regreso del
+  // navegador confirman los dos, el segundo sale por el early-return de
+  // 'paid' allá arriba y el cliente no recibe la confirmación duplicada.
+  //
+  // El mostrador no manda nada: ahí el correo del pedido es el de la cuenta
+  // admin, no el del comprador.
+  const { notificarCompra } = await import('@/utils/order-emails');
+  await notificarCompra({
+    orderId: order.id,
+    siteUrl: import.meta.env.PUBLIC_SITE_URL,
+    esMostrador: order.paymentMethod === 'mercadopago-pos',
+  });
+
   return { ok: true, alreadyPaid: false, orderId: order.id, orderNumber: order.orderNumber };
 }
 

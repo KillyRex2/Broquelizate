@@ -22,13 +22,18 @@ import {
 
 const apiKey = import.meta.env.RESEND_API_KEY || process.env.RESEND_API_KEY;
 
-// Remitente. Debe ser de un dominio verificado en Resend.
-// Mientras no lo tengas, 'onboarding@resend.dev' funciona pero
-// SOLO envía a la dirección con la que te registraste en Resend.
-const FROM = import.meta.env.EMAIL_FROM || 'Broquelizate <onboarding@resend.dev>';
+// Remitente. Debe ser de un dominio verificado en Resend; hoy lo está
+// send.broquelizate.com.
+//
+// El respaldo 'onboarding@resend.dev' se ve inofensivo y es una trampa: sí
+// manda, pero SOLO a la dirección con la que se registró la cuenta de
+// Resend. O sea que en una prueba parece funcionar y a los clientes no les
+// llega nada. Si falta EMAIL_FROM, es mejor enterarse.
+const FROM = import.meta.env.EMAIL_FROM || 'Broquelizate <pedidos@send.broquelizate.com>';
 
-// A dónde llegan los avisos de venta nueva
-const ADMIN_EMAIL = import.meta.env.EMAIL_ADMIN || 'broquelizatelaguna@gmail.com';
+// A dónde llegan los avisos de venta nueva. El valor real vive en la
+// variable de entorno; esto es solo el respaldo si falta.
+const ADMIN_EMAIL = import.meta.env.EMAIL_ADMIN || 'broquelizateyu@outlook.com';
 
 const resend = apiKey ? new Resend(apiKey) : null;
 
