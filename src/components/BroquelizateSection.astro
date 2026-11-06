@@ -20,8 +20,12 @@ const defaultFeatures: Feature[] = [
 
 const features = Astro.props.features || defaultFeatures;
 
-const localImage = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Clients%2Flocal.jpg?alt=media&token=6d032c16-75dc-4dbe-a6a1-79a077db4df4';
-const logoImage = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Flogo-blanco.png?alt=media&token=5c5326cc-fa98-4094-8521-6cac0d97d4b9';
+// Las dos imágenes vivían en el Firebase de un proyecto anterior
+// (broquelizate-8d060) y ese bucket ya no responde: en la página salían
+// las dos como recuadros rotos con el texto alternativo. Ahora son
+// archivos del repo, que es una dependencia menos y carga más rápido.
+const localImage = '/assets/local-broquelizate.webp';
+const logoImage = '/assets/Broquelizate-logos/logo-blanco.png';
 const mapsLink = 'https://maps.app.goo.gl/ZEHP2N6orCeNYXURA';
 ---
 
@@ -46,8 +50,11 @@ const mapsLink = 'https://maps.app.goo.gl/ZEHP2N6orCeNYXURA';
           <div class="image-wrapper">
             <img
               src={localImage}
-              alt="Broquelízate local"
+              alt="Fachada de Broquelizate en la esquina de Bravo y Escobedo, Gómez Palacio"
+              width="1280"
+              height="850"
               loading="lazy"
+              decoding="async"
             />
             
             <!-- Overlay con icono de ubicación -->
@@ -80,8 +87,12 @@ const mapsLink = 'https://maps.app.goo.gl/ZEHP2N6orCeNYXURA';
         <div class="logo-container">
           <img
             src={logoImage}
-            alt="Broquelízate logo"
+            alt="Broquelizate"
             class="logo"
+            width="2295"
+            height="626"
+            loading="lazy"
+            decoding="async"
           />
           <div class="logo-glow"></div>
         </div>
@@ -215,8 +226,15 @@ const mapsLink = 'https://maps.app.goo.gl/ZEHP2N6orCeNYXURA';
 
   .image-wrapper img {
     width: 100%;
-    height: 500px;
+    /* La foto es apaisada (1280x850). En la caja de 500 px de alto que
+       había antes quedaba casi cuadrada: no recortaba nada de alto —así
+       que entraba todo el cielo y toda la banqueta— y en cambio se comía
+       130 px de cada lado, justo donde están los dos letreros. Con 4:3
+       se recorta poco y la fachada se lee. */
+    aspect-ratio: 4 / 3;
+    height: auto;
     object-fit: cover;
+    object-position: center 45%;
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
