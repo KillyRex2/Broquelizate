@@ -1,7 +1,6 @@
 ---
 import Categories from "@/components/Categories.astro";
 import HeroSection from "@/components/HeroSection.astro";
-import TrustBar from "@/components/TrustBar.astro";
 import MainLayout from "@/layouts/MainLayout.astro";
 import Testimonials from "@/components/Testimonials.astro";
 import BroquelizateSection from "@/components/BroquelizateSection.astro";
@@ -51,7 +50,6 @@ const heroProducts = heroRows.map(p => {
 <MainLayout title="Broquelizate Web">
   <main class="w-full">
     <HeroSection products={heroProducts} />
-    <TrustBar />
     <HomeCollections collections={carousels} />
     <Categories/>
 

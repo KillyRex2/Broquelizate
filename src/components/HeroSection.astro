@@ -12,6 +12,16 @@ interface Props {
 }
 
 import { freeShippingLabel } from '@/utils/shipping';
+import { warrantyLabel } from '@/utils/policies';
+
+// Los tres motivos que la tienda quiere dejar claros antes de que el
+// cliente baje. Viven aquí y no en un componente aparte: una sola franja
+// dentro del hero en lugar de dos promesas de confianza seguidas.
+const garantias = [
+  { titulo: 'Envío gratis', detalle: `En compras mayores a ${freeShippingLabel()}` },
+  { titulo: 'Garantía', detalle: `${warrantyLabel()} contra defectos` },
+  { titulo: 'Pago seguro', detalle: 'Tarjeta, PayPal y Mercado Pago' },
+];
 
 const { products = [] } = Astro.props;
 
@@ -125,31 +135,26 @@ const displayProducts = products.length > 0 ? products : [
         ))}
       </div>
 
-      <!-- Garantías -->
-      <div class="guarantees">
-        <div class="guarantee">
-          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          Garantía de satisfacción
-        </div>
-        <div class="guarantee">
-          <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          Materiales certificados
-        </div>
-      </div>
     </div>
   </div>
 
-  <!-- Scroll hint -->
-  <button class="scroll-down" onclick="window.scrollTo({top: window.innerHeight, behavior: 'smooth'})">
-    <span>Descubre más</span>
-    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-    </svg>
-  </button>
+  <!-- Franja de confianza. Ocupa el ancho del hero, debajo de las dos
+       columnas, donde antes estaba el botón de "Descubre más". Traslúcida
+       sobre la foto: pertenece al hero en vez de ser un bloque blanco
+       pegado abajo. -->
+  <ul class="hero-trust">
+    {garantias.map(({ titulo, detalle }) => (
+      <li class="hero-trust-item">
+        <svg class="hero-trust-check" width="18" height="18" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <span>
+          <strong>{titulo}</strong>
+          <small>{detalle}</small>
+        </span>
+      </li>
+    ))}
+  </ul>
 </section>
 
 <style>
@@ -157,8 +162,13 @@ const displayProducts = products.length > 0 ? products : [
     position: relative;
     min-height: 100vh;
     display: flex;
+    /* En columna: antes era una fila con un solo hijo, y al agregar la
+       franja de confianza se puso a su lado en vez de debajo, aplastando
+       las dos columnas del contenido. */
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding: 100px 0 80px;
+    padding: 80px 0 56px;
     overflow: hidden;
     /* Fondo oscuro por si la imagen no cubre todo */
     background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
@@ -601,64 +611,104 @@ const displayProducts = products.length > 0 ? products : [
   }
 
   /* Garantías */
-  .guarantees {
+  /* Franja de confianza */
+  .hero-trust {
+    position: relative;
+    z-index: 10;
     display: flex;
-    gap: 18px;
-    padding: 14px 8px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+    max-width: 1400px;
+    margin: 24px auto 0;
+    padding: 0 32px;
+    list-style: none;
   }
 
-  .guarantee {
+  .hero-trust-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.85);
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    gap: 10px;
+    padding: 11px 20px;
+    border-radius: 14px;
+    /* El mismo vidrio de la tarjeta del texto, para que se lean como
+       partes de la misma pieza y no como dos bloques distintos. */
+    background: rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
   }
 
-  .guarantee svg {
-    color: #22c55e;
+  .hero-trust-check {
     flex-shrink: 0;
+    color: #22c55e;
   }
 
-  /* Scroll button */
-  .scroll-down {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
+  .hero-trust-item span {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 30px;
-    padding: 10px 18px;
-    color: rgba(255, 255, 255, 0.8);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    animation: fadeIn 0.6s ease-out 1s both;
-    z-index: 10;
+    line-height: 1.25;
   }
 
-  .scroll-down:hover {
-    color: #eab308;
-    border-color: rgba(234, 179, 8, 0.5);
+  .hero-trust-item strong {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
   }
 
-  .scroll-down span {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+  .hero-trust-item small {
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.72);
   }
 
-  .scroll-down svg {
-    width: 20px;
-    height: 20px;
-    animation: bounce 2s ease-in-out infinite;
+  @media (max-width: 900px) {
+    .hero-trust {
+      margin-top: 28px;
+      padding: 0 20px;
+    }
+
+    .hero-trust-item {
+      padding: 10px 16px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero-trust {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 0 16px;
+    }
+
+    .hero-trust-item {
+      justify-content: flex-start;
+    }
+  }
+
+  /* El alto del hero lo manda la rejilla de productos: dos filas de
+     imágenes cuadradas. En una laptop típica (760-900 px de alto) eso deja
+     el botón y la franja de confianza bajo el pliegue, que es justo donde
+     no sirven. Aplanando la foto a 3:2 entra todo. En monitores altos el
+     diseño se queda como está. */
+  @media (max-height: 940px) {
+    .hero {
+      /* min-height: 100vh sobraba: el hero arranca DEBAJO de la barra de
+         anuncios y el navbar, así que una altura de pantalla completa lo
+         hacía terminar siempre 118 px por debajo del pliegue, con ese
+         hueco vacío justo donde iba la franja. Aquí se ajusta al
+         contenido. */
+      min-height: 0;
+      padding: 56px 0 40px;
+    }
+
+    .hero .card-image {
+      aspect-ratio: 3 / 2;
+    }
+
+    .hero-trust {
+      margin-top: 18px;
+    }
   }
 
   /* Animaciones */
@@ -794,16 +844,6 @@ const displayProducts = products.length > 0 ? products : [
       grid-template-columns: repeat(2, 1fr);
     }
 
-    .guarantees {
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .scroll-down {
-      display: none;
-    }
-
     .hero-overlay {
       background: 
         linear-gradient(
@@ -868,8 +908,7 @@ const displayProducts = products.length > 0 ? products : [
   @media (prefers-reduced-motion: reduce) {
     .hero-bg-image,
     .hero-glow,
-    .hero-sparkles,
-    .scroll-down svg {
+    .hero-sparkles {
       animation: none;
     }
     
