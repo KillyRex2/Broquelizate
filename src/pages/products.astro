@@ -17,6 +17,7 @@ const maxPriceParam = Number(searchParams.get('maxPrice')) || 5000;
 const stockFilterParam = searchParams.get('stockFilter') || 'all';
 const search = searchParams.get('search') || '';
 const piercingParam = searchParams.get('piercing') || '';
+const jewelryTypeParam = searchParams.get('type') || '';
 
 // Materiales del filtro: salen de CatalogOption, igual que el select del
 // admin, para que las dos listas no vuelvan a desincronizarse.
@@ -24,6 +25,9 @@ const materialOptions = (await getCatalogOptions('material')).map(m => ({
   value: m.name,
   swatch: m.swatch || '#cfcac3',
 }));
+
+// Tipos de joya: misma fuente que el select del admin, por lo mismo.
+const jewelryTypeOptions = (await getCatalogOptions('jewelryType')).map(t => t.name);
 
 // ✅ CORREGIDO: Pasar limit y stockFilter correctamente
 const result = await Astro.callAction(
@@ -35,7 +39,8 @@ const result = await Astro.callAction(
     maxPrice: maxPriceParam,
     stockFilter: 'inStock', // ✅ Solo productos con stock > 0
     search: search,
-    piercing: piercingParam
+    piercing: piercingParam,
+    jewelryType: jewelryTypeParam
   }
 );
 
@@ -80,13 +85,15 @@ const filterState = {
   price: maxPriceParam,
   inStock: stockFilterParam !== 'out',
   search: search,
-  piercing: piercingParam
+  piercing: piercingParam,
+  jewelryType: jewelryTypeParam
 };
 
 // Contar filtros activos para el badge
 const activeFilters = [
   categoryParam !== 'all',
   piercingParam !== '' && piercingParam !== 'all',
+  jewelryTypeParam !== '' && jewelryTypeParam !== 'all',
   maxPriceParam < 5000,
   search !== ''
 ].filter(Boolean).length;
@@ -158,7 +165,7 @@ const activeFilters = [
       <div class="content-layout">
         <!-- Sidebar Escritorio -->
         <aside class="sidebar-column">
-          <FilterSidebar client:only="react" initialValues={filterState} materials={materialOptions} />
+          <FilterSidebar client:only="react" initialValues={filterState} materials={materialOptions} jewelryTypes={jewelryTypeOptions} />
         </aside>
 
         <!-- Drawer Móvil de Filtros -->
@@ -174,7 +181,7 @@ const activeFilters = [
               </button>
             </div>
             <div class="drawer-body">
-              <FilterSidebar client:only="react" initialValues={filterState} materials={materialOptions} />
+              <FilterSidebar client:only="react" initialValues={filterState} materials={materialOptions} jewelryTypes={jewelryTypeOptions} />
             </div>
           </div>
         </div>
