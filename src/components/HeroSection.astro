@@ -12,16 +12,10 @@ interface Props {
 }
 
 import { freeShippingLabel } from '@/utils/shipping';
-import { warrantyLabel } from '@/utils/policies';
+import { trustItems } from '@/utils/policies';
 
-// Los tres motivos que la tienda quiere dejar claros antes de que el
-// cliente baje. Viven aquí y no en un componente aparte: una sola franja
-// dentro del hero en lugar de dos promesas de confianza seguidas.
-const garantias = [
-  { titulo: 'Envío gratis', detalle: `En compras mayores a ${freeShippingLabel()}` },
-  { titulo: 'Garantía', detalle: `${warrantyLabel()} contra defectos` },
-  { titulo: 'Pago seguro', detalle: 'Tarjeta, PayPal y Mercado Pago' },
-];
+// Los tres motivos salen de policies.ts porque el footer pinta los mismos.
+const garantias = trustItems();
 
 const { products = [] } = Astro.props;
 

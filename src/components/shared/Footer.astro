@@ -1,6 +1,43 @@
 ---
 // src/components/Footer.astro
-import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/store';
+import { whatsappUrl, STORE_PHONE_DISPLAY } from '@/utils/store';
+import { trustItems } from '@/utils/policies';
+
+const CORREO = 'broquelizateyu@outlook.com';
+
+// Solo páginas que existen. El footer anterior enlazaba a /faq, /shipping,
+// /care, /privacy y /terms: las cinco daban 404.
+const ayuda = [
+  // No hay página de preguntas frecuentes todavía; el resumen rápido de
+  // cambios y devoluciones es lo más parecido que existe.
+  { label: 'Preguntas frecuentes', href: '/cambios-y-devoluciones#resumen' },
+  { label: 'Contacto', href: '/contact' },
+];
+
+const politicas = [
+  { label: 'Política de privacidad', href: '/aviso-de-privacidad' },
+  { label: 'Política de reembolsos', href: '/cambios-y-devoluciones#reembolsos' },
+  // Tampoco hay página propia de envíos: la sección 4 de los términos es
+  // la que habla de eso.
+  { label: 'Política de envíos', href: '/terminos-y-condiciones#envios' },
+  { label: 'Términos y condiciones de servicio', href: '/terminos-y-condiciones' },
+];
+
+const redes = [
+  { label: 'Facebook', href: 'https://www.facebook.com/Broquelizate' },
+  { label: 'Instagram', href: 'https://www.instagram.com/broquelizate/' },
+  { label: 'TikTok', href: 'https://www.tiktok.com/@broquelizatee' },
+  { label: 'WhatsApp', href: whatsappUrl() },
+];
+
+const SOCIAL_SVG: Record<string, string> = {
+  Facebook: `<svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`,
+  Instagram: `<svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>`,
+  TikTok: `<svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`,
+  WhatsApp: `<svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`,
+};
+
+const confianza = trustItems();
 ---
 
 <footer class="footer-wrapper">
@@ -15,111 +52,70 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
   <div class="footer-container">
     <!-- Main Footer Content -->
     <div class="footer-main">
-      <!-- Brand Column -->
+      <!-- Marca -->
       <div class="footer-brand">
         <a href="/" class="brand-logo">
           <div class="logo-icon">
-            <img 
-              src="/assets/Broquelizate-logos/icono-relleno-sin-fondo.png" 
-              alt="Broquelizate Logo" 
+            <img
+              src="/assets/Broquelizate-logos/icono-relleno-sin-fondo.png"
+              alt="Broquelizate"
               class="logo-image"
             />
           </div>
           <div class="logo-text">
             <span class="logo-name">Broquelizate</span>
-            <span class="logo-tagline">Joyería Premium</span>
+            <span class="logo-tagline">Joyería &amp; Piercings</span>
           </div>
         </a>
-        
+
         <p class="brand-description">
-          Creando momentos especiales a través de piezas únicas diseñadas para perdurar en el tiempo. Calidad, elegancia y estilo en cada pieza.
+          Somos una joyería mexicana que reúne diseños únicos y las últimas
+          tendencias en joyería para toda la familia. Nos especializamos en
+          grabados láser personalizados que convierten cada pieza en algo
+          especial. ✨
         </p>
+      </div>
 
-        <!-- Social Links -->
+      <!-- Ayuda + redes -->
+      <div class="footer-column">
+        <h4 class="column-title">Ayuda</h4>
+        <ul class="column-links">
+          {ayuda.map(l => <li><a href={l.href}>{l.label}</a></li>)}
+        </ul>
+
+        <h4 class="column-title column-title--spaced">Síguenos</h4>
         <div class="social-links">
-          <a href="https://www.facebook.com/Broquelizate" aria-label="Facebook" class="social-link" target="_blank" rel="noopener">
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-            </svg>
-          </a>
-          <a href="https://www.instagram.com/broquelizate/" aria-label="Instagram" class="social-link" target="_blank" rel="noopener">
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-            </svg>
-          </a>
-          <a href="https://www.tiktok.com/@broquelizatee" aria-label="TikTok" class="social-link" target="_blank" rel="noopener">
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
-            </svg>
-          </a>
-          <a href={whatsappUrl()} aria-label="WhatsApp" class="social-link whatsapp" target="_blank" rel="noopener">
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-            </svg>
-          </a>
+          {redes.map(r => (
+            <a
+              href={r.href}
+              aria-label={r.label}
+              class={`social-link ${r.label === 'WhatsApp' ? 'whatsapp' : ''}`}
+              target="_blank"
+              rel="noopener"
+              set:html={SOCIAL_SVG[r.label]}
+            />
+          ))}
         </div>
       </div>
 
-      <!-- Links Columns -->
-      <div class="footer-links-grid">
-        <!-- Productos -->
-        <div class="footer-column">
-          <h4 class="column-title">
-            <span class="title-icon">
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-              </svg>
-            </span>
-            Productos
-          </h4>
-          <ul class="column-links">
-            <li><a href="/products?category=broqueles">Broqueles</a></li>
-            <li><a href="/products?category=anillos">Anillos</a></li>
-            <li><a href="/products?category=collares">Collares</a></li>
-            <li><a href="/products?category=pulseras">Pulseras</a></li>
-            <li><a href="/products?category=argollas">Argollas</a></li>
-            <li><a href="/products">Ver catálogo completo</a></li>
-          </ul>
-        </div>
-
-        <!-- Soporte -->
-        <div class="footer-column">
-          <h4 class="column-title">
-            <span class="title-icon">
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/>
-              </svg>
-            </span>
-            Soporte
-          </h4>
-          <ul class="column-links">
-            <li><a href="/contact">Contacto</a></li>
-            <li><a href="/faq">Preguntas frecuentes</a></li>
-            <li><a href="/shipping">Envíos y devoluciones</a></li>
-            <li><a href="/care">Cuidado de joyas</a></li>
-            <li><a href="/privacy">Política de privacidad</a></li>
-            <li><a href="/terms">Términos y condiciones</a></li>
-          </ul>
-        </div>
+      <!-- Políticas -->
+      <div class="footer-column">
+        <h4 class="column-title">Políticas</h4>
+        <ul class="column-links">
+          {politicas.map(l => <li><a href={l.href}>{l.label}</a></li>)}
+        </ul>
       </div>
 
-      <!-- Contact & Newsletter -->
+      <!-- Contacto -->
       <div class="footer-contact">
-        <h4 class="column-title">
-          <span class="title-icon">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
-          </span>
-          Contáctanos
-        </h4>
+        <h4 class="column-title">Contáctanos</h4>
 
         <div class="contact-info">
-          <a href="mailto:broquelizateyu@outlook.com" class="contact-item">
+          <a href={`mailto:${CORREO}`} class="contact-item">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
-            <span>broquelizateyu@outlook.com</span>
+            <span>{CORREO}</span>
           </a>
           <a href={whatsappUrl()} class="contact-item">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,7 +128,7 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
-            <span>{storeAddressLine()}</span>
+            <span>Gómez Palacio, Durango, México.</span>
           </div>
         </div>
 
@@ -153,55 +149,42 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
 
     <!-- Trust Badges -->
     <div class="trust-section">
-      <div class="trust-badges">
-        <div class="trust-badge">
-          <div class="badge-icon">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-            </svg>
-          </div>
-          <div class="badge-text">
-            <span class="badge-title">Compra Segura</span>
-            <span class="badge-desc">SSL 256-bit</span>
-          </div>
-        </div>
-
-        <div class="trust-badge">
-          <div class="badge-icon">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-            </svg>
-          </div>
-          <div class="badge-text">
-            <span class="badge-title">Envío Asegurado</span>
-            <span class="badge-desc">A todo México</span>
-          </div>
-        </div>
-
-        <div class="trust-badge">
-          <div class="badge-icon">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-          </div>
-          <div class="badge-text">
-            <span class="badge-title">Devoluciones</span>
-            <span class="badge-desc">30 días garantía</span>
-          </div>
-        </div>
-
-        <div class="trust-badge">
-          <div class="badge-icon">
-            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-            </svg>
-          </div>
-          <div class="badge-text">
-            <span class="badge-title">Calidad Premium</span>
-            <span class="badge-desc">100% garantizada</span>
-          </div>
-        </div>
-      </div>
+      <ul class="trust-badges">
+        {confianza.map(({ title, detail, icon }) => (
+          <li class="trust-badge">
+            <span class="badge-icon" aria-hidden="true">
+              {icon === 'envio' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 7h11v10H3z" />
+                  <path d="M14 10h4l3 3v4h-7z" />
+                  <circle cx="7" cy="18" r="1.8" />
+                  <circle cx="17" cy="18" r="1.8" />
+                </svg>
+              )}
+              {icon === 'garantia' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3l7 3v5c0 4.3-2.9 8.2-7 9.4C7.9 19.2 5 15.3 5 11V6z" />
+                  <path d="M9.2 11.8l2 2 3.6-3.8" />
+                </svg>
+              )}
+              {icon === 'pago' && (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="2.5" />
+                  <path d="M3 10h18" />
+                  <path d="M7 14.5h3" />
+                </svg>
+              )}
+            </span>
+            <span class="badge-text">
+              <span class="badge-title">{title}</span>
+              <span class="badge-desc">{detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
 
       <!-- Payment Methods -->
       <div class="payment-methods">
@@ -330,8 +313,8 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
   /* Main Content Grid */
   .footer-main {
     display: grid;
-    grid-template-columns: 1.2fr 2fr 1fr;
-    gap: 60px;
+    grid-template-columns: 1.5fr 1fr 1.2fr 1.3fr;
+    gap: 48px;
     padding-bottom: 48px;
   }
 
@@ -442,11 +425,6 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
   }
 
   /* Links Grid */
-  .footer-links-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 40px;
-  }
 
   /* Footer Columns */
   .footer-column {
@@ -474,6 +452,10 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
     background: rgba(234, 179, 8, 0.1);
     border-radius: 8px;
     color: #eab308;
+  }
+
+  .column-title--spaced {
+    margin-top: 28px;
   }
 
   .column-links {
@@ -612,8 +594,24 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
 
   .trust-badges {
     display: flex;
-    gap: 32px;
+    gap: 10px;
     flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Misma idea que la franja del hero, en oscuro: aquí no hay foto
+     debajo, así que en vez de vidrio translúcido va un relleno sólido
+     apenas por encima del fondo del footer. */
+  .trust-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
   }
 
   .trust-badge {
@@ -755,9 +753,6 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
       grid-column: span 2;
     }
 
-    .footer-links-grid {
-      grid-column: span 2;
-    }
 
     .footer-contact {
       grid-column: span 2;
@@ -785,15 +780,11 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
     }
 
     .footer-brand,
-    .footer-links-grid,
+    .footer-column,
     .footer-contact {
       grid-column: span 1;
     }
 
-    .footer-links-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-    }
 
     .trust-section {
       flex-direction: column;
@@ -805,12 +796,6 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
       width: 100%;
-    }
-
-    .trust-badge {
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 12px;
     }
 
     .payment-methods {
@@ -825,9 +810,6 @@ import { whatsappUrl, storeAddressLine, STORE_PHONE_DISPLAY } from '@/utils/stor
   }
 
   @media (max-width: 480px) {
-    .footer-links-grid {
-      grid-template-columns: 1fr;
-    }
 
     .social-links {
       justify-content: center;
