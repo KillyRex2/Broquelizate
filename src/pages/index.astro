@@ -1,5 +1,5 @@
 ---
-import Categories from "@/components/Categories.astro";
+import PiercingGuide from "@/components/PiercingGuide.astro";
 import HeroSection from "@/components/HeroSection.astro";
 import MainLayout from "@/layouts/MainLayout.astro";
 import Testimonials from "@/components/Testimonials.astro";
@@ -51,7 +51,7 @@ const heroProducts = heroRows.map(p => {
   <main class="w-full">
     <HeroSection products={heroProducts} />
     <HomeCollections collections={carousels} />
-    <Categories/>
+    <PiercingGuide/>
 
     <!-- Carruseles que el admin administra desde /admin/collections -->
 

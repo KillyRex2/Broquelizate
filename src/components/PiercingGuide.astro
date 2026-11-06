@@ -1,48 +1,51 @@
 ---
-import { optimizeImage, IMG_WIDTH } from '@/utils/images';
-// src/components/CategoriesSection.astro
+// src/components/PiercingGuide.astro
+//
+// Sustituye a la vieja sección de categorías (Aretes, Anillos, Collares,
+// Pulseras), que ordenaba el catálogo por tipo de joya. Aquí se ordena por
+// tipo de perforación, que es como pregunta quien ya trae el piercing
+// puesto: no llega buscando "un arete", llega buscando algo que le quede
+// al helix.
+//
+// Las fotos son de la tienda y traen una flecha dibujada encima señalando
+// la perforación. Por eso las tarjetas no llevan la imagen de fondo con
+// degradado oscuro que usaba la sección anterior: taparía justo la flecha.
+// La foto va completa arriba y el texto debajo.
 
-interface Category {
-  title: string;
+interface Piercing {
+  name: string;
+  /** Debe coincidir EXACTO con validPiercings de
+      get-products-by-page.action.ts, acentos incluidos, o el filtro
+      devuelve una página vacía. */
+  value: string;
   description: string;
   image: string;
-  link: string;
-  icon?: string;
-  count?: number;
 }
 
-const categories: Category[] = [
+const piercings: Piercing[] = [
   {
-    title: "Aretes",
-    description: "Aretes brillantes para iluminar tu rostro",
-    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/broqueles_bnxwun.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=arete",
-    icon: "✨",
-    count: 45
+    name: 'Lóbulo',
+    value: 'Lóbulo',
+    description: 'La parte blanda de la oreja. El más común y el más fácil de llevar.',
+    image: '/assets/piercings/lobulo.webp',
   },
   {
-    title: "Anillos",
-    description: "Elegantes anillos para toda ocasión",
-    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286209/anillos_r9dpsx.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=anillo",
-    icon: "💎",
-    count: 32
+    name: 'Hélix',
+    value: 'Hélix',
+    description: 'El borde exterior de la oreja, en la parte alta del cartílago.',
+    image: '/assets/piercings/helix.webp',
   },
   {
-    title: "Collares",
-    description: "Collares únicos que realzan tu belleza",
-    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/cadena_jmkrtt.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=collar",
-    icon: "🌟",
-    count: 28
+    name: 'Nóstril',
+    value: 'Nóstril',
+    description: 'En el ala de la nariz. Discreto y combina con todo.',
+    image: '/assets/piercings/nostril.webp',
   },
   {
-    title: "Pulseras",
-    description: "Pulseras delicadas llenas de estilo",
-    image: "https://res.cloudinary.com/dfomhcqbp/image/upload/v1750286208/pulseras_dxrzz8.jpg",
-    link: "/products?page=1&category=all&maxPrice=5000&inStock=false&search=pulsera",
-    icon: "⭐",
-    count: 24
+    name: 'Daith',
+    value: 'Daith',
+    description: 'El pliegue de cartílago justo encima del canal auditivo.',
+    image: '/assets/piercings/daith.webp',
   },
 ];
 ---
@@ -59,53 +62,54 @@ const categories: Category[] = [
     <div class="section-header">
       <span class="section-badge">
         <span class="badge-dot"></span>
-        Colección Exclusiva
+        Guía de piercings
       </span>
-      
+
       <h2 class="section-title">
-        Explora Nuestras <span class="gradient-text">Categorías</span>
+        Encuentra la joya ideal para tu <span class="gradient-text">piercing</span>
       </h2>
-      
+
       <p class="section-description">
-        Descubre nuestra amplia selección de joyas premium. Cada pieza está 
-        cuidadosamente seleccionada para ofrecerte la máxima calidad y elegancia.
+        Descubre la joyería que tanto buscabas para que luzcas tus piercings
+        de la mejor manera.
       </p>
     </div>
 
-    <!-- Grid de categorías -->
+    <!-- Rejilla de piercings -->
     <div class="categories-grid">
-      {categories.map((category, index) => (
-        <a 
-          href={category.link} 
+      {piercings.map((p, index) => (
+        <a
+          href={`/products?piercing=${encodeURIComponent(p.value)}`}
           class="category-card"
           style={`--delay: ${index * 0.1}s`}
         >
-          <!-- Imagen de fondo -->
-          <div class="card-image">
-            <img src={optimizeImage(category.image, IMG_WIDTH.card)} alt={category.title} loading="lazy" decoding="async" />
-            <div class="card-overlay"></div>
+          <div class="card-photo">
+            <img
+              src={p.image}
+              alt={`Piercing ${p.name}: la flecha señala dónde va la perforación`}
+              width="385"
+              height="481"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
-          
-          <!-- Contenido -->
+
           <div class="card-content">
-            <span class="card-icon">{category.icon}</span>
-            
             <div class="card-info">
-              <h3 class="card-title">{category.title}</h3>
-              <p class="card-description">{category.description}</p>
+              <h3 class="card-title">{p.name}</h3>
+              <p class="card-description">{p.description}</p>
             </div>
-            
-            <div class="card-footer">
-              <span class="card-count">{category.count}+ productos</span>
+
+            <span class="card-footer">
+              <span class="card-more">Ver más</span>
               <span class="card-arrow">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                 </svg>
               </span>
-            </div>
+            </span>
           </div>
 
-          <!-- Borde brillante en hover -->
           <div class="card-glow"></div>
         </a>
       ))}
@@ -283,87 +287,51 @@ const categories: Category[] = [
   /* Category Card */
   .category-card {
     position: relative;
-    height: 380px;
+    display: flex;
+    flex-direction: column;
     border-radius: 24px;
     overflow: hidden;
     text-decoration: none;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
     animation: fadeInUp 0.6s ease-out var(--delay) both;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .category-card:hover {
-    transform: translateY(-12px) scale(1.02);
+  /* La foto completa y sin nada encima: la flecha dibujada que señala la
+     perforación es el contenido, taparla con un degradado la anula. */
+  .card-photo {
+    position: relative;
+    aspect-ratio: 385 / 481;
+    overflow: hidden;
+    background: #111;
   }
 
-  .card-image {
-    position: absolute;
-    inset: 0;
-  }
-
-  .card-image img {
+  .card-photo img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.7s ease;
   }
 
-  .category-card:hover .card-image img {
-    transform: scale(1.15);
+  .category-card:hover .card-photo img {
+    transform: scale(1.06);
   }
 
-  .card-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.2) 0%,
-      rgba(0, 0, 0, 0.4) 40%,
-      rgba(0, 0, 0, 0.9) 100%
-    );
-    transition: background 0.5s ease;
-  }
-
-  .category-card:hover .card-overlay {
-    background: linear-gradient(
-      180deg,
-      rgba(234, 179, 8, 0.1) 0%,
-      rgba(0, 0, 0, 0.5) 40%,
-      rgba(0, 0, 0, 0.95) 100%
-    );
+  .category-card:hover {
+    transform: translateY(-12px) scale(1.02);
   }
 
   /* Card Content */
   .card-content {
     position: relative;
     z-index: 10;
-    height: 100%;
+    flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    padding: 28px;
-  }
-
-  .card-icon {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 14px;
-    font-size: 24px;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .category-card:hover .card-icon {
-    background: rgba(234, 179, 8, 0.2);
-    border-color: rgba(234, 179, 8, 0.3);
-    transform: scale(1.1) rotate(5deg);
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px 22px;
   }
 
   .card-info {
@@ -371,7 +339,7 @@ const categories: Category[] = [
   }
 
   .card-title {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: #fff;
     margin-bottom: 8px;
@@ -396,15 +364,15 @@ const categories: Category[] = [
     border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  .card-count {
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.5);
-    font-weight: 500;
+  .card-more {
+    font-size: 0.88rem;
+    color: #eab308;
+    font-weight: 600;
   }
 
   .card-arrow {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -588,9 +556,6 @@ const categories: Category[] = [
       grid-template-columns: repeat(2, 1fr);
     }
 
-    .category-card {
-      height: 350px;
-    }
   }
 
   @media (max-width: 768px) {
@@ -610,14 +575,37 @@ const categories: Category[] = [
       font-size: 1rem;
     }
 
+    /* Dos columnas, no una. Con cuatro fotos verticales a ancho completo
+       la sección medía 3534 px en un celular: puro scroll para ver algo
+       que se entiende igual a la mitad de tamaño. */
     .categories-grid {
-      grid-template-columns: 1fr;
-      gap: 20px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
     }
 
-    .category-card {
-      height: 300px;
+    .card-content {
+      padding: 14px 14px 16px;
+      gap: 12px;
     }
+
+    .card-description {
+      font-size: 0.82rem;
+    }
+
+    .card-footer {
+      padding-top: 12px;
+    }
+
+    .card-arrow {
+      width: 30px;
+      height: 30px;
+    }
+
+    .card-arrow svg {
+      width: 16px;
+      height: 16px;
+    }
+
 
     .categories-stats {
       flex-direction: column;
@@ -661,12 +649,6 @@ const categories: Category[] = [
 
     .card-title {
       font-size: 1.25rem;
-    }
-
-    .card-icon {
-      width: 44px;
-      height: 44px;
-      font-size: 20px;
     }
 
     .stat-icon {
