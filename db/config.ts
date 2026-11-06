@@ -319,6 +319,24 @@ export const CollectionProduct = defineTable({
   ],
 });
 
+/**
+ * Intentos de inicio de sesión fallidos, para frenar la fuerza bruta.
+ *
+ * Una fila por llave: 'correo|ip' para el límite por cuenta, e 'ip' para
+ * el límite más holgado por origen. Se guarda en la base y no en memoria
+ * porque esto corre en funciones de Netlify: cada petición puede caer en
+ * una instancia distinta, así que un contador en memoria no cuenta casi
+ * nada. Las filas se limpian solas al entrar bien o al vencer la ventana.
+ */
+const LoginAttempt = defineTable({
+  columns: {
+    key: column.text({ primaryKey: true }),
+    failures: column.number({ default: 0 }),
+    windowStart: column.date(),
+    lockedUntil: column.date({ optional: true }),
+  }
+})
+
 export default defineDb({
   tables: {
     User,
@@ -334,6 +352,7 @@ export default defineDb({
     Collection,
     CollectionProduct,
     CatalogOption,
-    ShippingQuote
+    ShippingQuote,
+    LoginAttempt
   }
 });

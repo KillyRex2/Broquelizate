@@ -4,6 +4,7 @@ import { defineConfig } from 'auth-astro';
 import Google from "@auth/core/providers/google";
 import Credentials from '@auth/core/providers/credentials';
 import bcrypt from 'bcryptjs';
+import { puedeIntentar, registrarFallo, limpiarIntentos, ipDe } from '@/utils/login-throttle';
 import type { AdapterUser } from '@auth/core/adapters';
 export default defineConfig({
   providers: [
@@ -26,27 +27,45 @@ export default defineConfig({
         // Devolver null = "correo o contraseña incorrectos" (CredentialsSignin).
         // Antes se lanzaba un Error: Auth.js lo trata como falla de configuración
         // y el formulario no podía distinguirlo de un error del servidor.
-        authorize: async({email, password}) => {
+        authorize: async({email, password}, request) => {
             const cleanEmail = String(email ?? '').trim().toLowerCase();
             const plain = String(password ?? '');
             if (!cleanEmail || !plain) return null;
+
+            // Freno de fuerza bruta. Va ANTES de buscar al usuario y antes
+            // de bcrypt: si no, cada intento bloqueado seguiría costando un
+            // hash, que es la parte cara, y el freno serviría de poco.
+            const ip = request instanceof Request ? ipDe(request) : 'desconocida';
+            const estado = await puedeIntentar(cleanEmail, ip);
+            if (estado.bloqueado) {
+                console.warn(`🔒 Intento rechazado por el freno (${estado.esperaSegundos}s):`, cleanEmail, ip);
+                return null;
+            }
 
             // Sin distinguir mayúsculas: hay cuentas guardadas como "Ana@Gmail.com"
             const [user] = await db.select().from(User)
                 .where(sql`lower(${User.email}) = ${cleanEmail}`)
                 .limit(1);
 
-            if (!user || !user.password) return null;
-
             let valid = false;
-            try {
-                valid = bcrypt.compareSync(plain, user.password);
-            } catch {
-                valid = false; // hash vacío o con otro formato
+            if (user?.password) {
+                try {
+                    valid = bcrypt.compareSync(plain, user.password);
+                } catch {
+                    valid = false; // hash vacío o con otro formato
+                }
             }
-            if (!valid) return null;
 
-            const {password: _, ...rest } = user;
+            // Correo que no existe y contraseña mala cuentan igual: si solo
+            // se contaran las contraseñas malas, el formulario serviría para
+            // averiguar qué correos están dados de alta.
+            if (!valid) {
+                await registrarFallo(cleanEmail, ip);
+                return null;
+            }
+
+            await limpiarIntentos(cleanEmail, ip);
+            const {password: _, ...rest } = user!;
             return rest;
 
         }
