@@ -109,6 +109,7 @@ const storeData = {
           {STORE_PICKUP.hours && <span>🕒 {STORE_PICKUP.hours}</span>}
           <span>📦 {pickupReadyText(STORE_PICKUP.readyInDays)}</span>
         </div>
+        {STORE_PICKUP.hoursNote && <p class="pickup-note pickup-note--hours">{STORE_PICKUP.hoursNote}</p>}
         <p class="pickup-note">{STORE_PICKUP.instructions}</p>
         {(
           <a href={storeMapsUrl()} target="_blank" rel="noopener" class="pickup-map">Ver en Google Maps →</a>
@@ -213,6 +214,9 @@ const storeData = {
   .pickup-badge { font-size: 0.75rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(34, 197, 94, 0.9); color: #fff; white-space: nowrap; }
   .pickup-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.8rem; color: var(--txt-2); }
   .pickup-note { font-size: 0.78rem; color: var(--txt-3); line-height: 1.5; }
+  /* La franja de la cita se distingue del resto: es una excepción al
+     horario de arriba, no una instrucción más. */
+  .pickup-note--hours { color: var(--gold-deep); font-weight: 600; }
   .pickup-map { align-self: flex-start; font-size: 0.8rem; font-weight: 600; color: var(--gold-deep); text-decoration: underline; text-underline-offset: 2px; }
 
   .calc-body { display: flex; flex-direction: column; gap: 14px; }
