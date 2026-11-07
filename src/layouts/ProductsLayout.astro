@@ -14,7 +14,11 @@ interface Props {
 const { 
   title = 'Productos', 
   description = 'Broquelizate', 
-  image = 'https://firebasestorage.googleapis.com/v0/b/broquelizate-8d060.appspot.com/o/Assets%2FLogos%2Ficono%20relleno.svg?alt=media&token=0ab9a46f-70c5-4136-9bec-d2db45fc1108' 
+  // Vista previa al compartir un link. Apuntaba a un SVG en el Firebase
+  // del proyecto viejo: ese bucket ya no responde, así que los links
+  // compartidos salían sin imagen. Y aunque respondiera, WhatsApp y
+  // Facebook no pintan SVG como og:image. Ahora es un PNG del repo.
+  image = '/assets/Broquelizate-logos/logo-relleno-negro.png'
 } = Astro.props;
 ---
 

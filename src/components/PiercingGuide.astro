@@ -265,6 +265,10 @@ const piercings: Piercing[] = [
   }
 
   .card-photo img {
+    /* block, no inline: una imagen en línea se apoya en la línea base y
+       deja unos píxeles de hueco debajo. Aquí no se notaba, pero es
+       gratis evitarlo. */
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
