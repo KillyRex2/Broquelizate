@@ -58,6 +58,7 @@ export async function buildOrderEmailData(
   } catch {}
 
   return {
+    orderId: order.id,
     orderNumber: order.orderNumber,
     customerName: (shippingAddress as any)?.name || order.customerEmail?.split('@')[0] || 'Cliente',
     customerEmail: order.customerEmail,
@@ -75,6 +76,7 @@ export async function buildOrderEmailData(
     shippingAddress,
     trackingNumber: order.trackingNumber,
     carrier: order.carrier,
+    deliveryMethod: (order as any).deliveryMethod ?? 'delivery',
     siteUrl,
   };
 }

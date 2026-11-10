@@ -20,6 +20,13 @@ export interface OrderEmailItem {
 }
 
 export interface OrderEmailData {
+  /**
+   * El UUID del pedido, no el número legible. Hace falta para enlazar a
+   * /admin/orders/<id>, que es la pantalla donde se genera la guía. Antes
+   * solo viajaba orderNumber y por eso el correo al negocio solo podía
+   * mandar al listado completo.
+   */
+  orderId: string;
   orderNumber: string;
   customerName: string;
   customerEmail: string;
@@ -39,7 +46,24 @@ export interface OrderEmailData {
   };
   trackingNumber?: string | null;
   carrier?: string | null;
+  /** 'pickup' no lleva guía: se prepara y se entrega en el mostrador. */
+  deliveryMethod?: string | null;
   siteUrl?: string;
+}
+
+/**
+ * Base absoluta para los enlaces del correo.
+ *
+ * Un href relativo dentro de un correo no lleva a ningún lado: no hay
+ * página desde la cual resolverlo. Antes el botón del aviso al negocio se
+ * armaba como `${o.siteUrl || ''}/admin/orders`, así que si faltaba
+ * PUBLIC_SITE_URL quedaba en "/admin/orders" y no hacía nada al picarle.
+ * Mercado Pago era el caso expuesto: esa ruta pasa la variable sin
+ * respaldo. El dominio de producción es el último recurso.
+ */
+function baseUrl(siteUrl?: string): string {
+  const limpio = (siteUrl || '').trim().replace(/\/+$/, '');
+  return /^https?:\/\//i.test(limpio) ? limpio : 'https://broquelizate.com';
 }
 
 const GOLD = '#eab308';
@@ -265,6 +289,8 @@ export function orderConfirmationEmail(o: OrderEmailData): string {
 
 export function adminNewOrderEmail(o: OrderEmailData): string {
   const a = o.shippingAddress || {};
+  // Un pedido para recoger no lleva guía: el botón no debe prometerla.
+  const esPickup = o.deliveryMethod === 'pickup';
 
   const content = `
         <tr>
@@ -273,6 +299,7 @@ export function adminNewOrderEmail(o: OrderEmailData): string {
             <p style="margin:0;color:${INK_2};font-size:13px;">
               Pedido <strong style="font-family:monospace;color:${GOLD_DEEP};">${esc(o.orderNumber)}</strong>
               · ${esc(methodLabel(o.paymentMethod))}
+              · ${esPickup ? 'Recoge en tienda' : 'Envío a domicilio'}
             </p>
           </td>
         </tr>
@@ -313,10 +340,15 @@ export function adminNewOrderEmail(o: OrderEmailData): string {
 
         <tr>
           <td style="padding:28px 32px 36px;text-align:center;">
-            <a href="${o.siteUrl || ''}/admin/orders"
+            <a href="${baseUrl(o.siteUrl)}/admin/orders/${encodeURIComponent(o.orderId)}"
                style="display:inline-block;padding:13px 30px;background-color:${INK};color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;border-radius:999px;">
-              Ver en el panel
+              ${esPickup ? 'Preparar el pedido' : 'Generar guía de envío'}
             </a>
+            <p style="margin:14px 0 0;color:${INK_3};font-size:11px;">
+              ${esPickup
+                ? 'Este pedido es para recoger en tienda: no lleva guía.'
+                : 'Abre el pedido para cotizar y generar la guía.'}
+            </p>
           </td>
         </tr>`;
 
