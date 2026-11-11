@@ -45,8 +45,17 @@ let orderDetails: OrderDetails | null = null;
 let errorMessage: string | null = null;
 let trackingInfo: any = null;
 
-// Limpiar carrito via Astro cookies (server-side safe)
-Astro.cookies.set('cart', '[]', { path: '/', maxAge: 60 * 60 * 24 * 30 });
+// Limpiar carrito via Astro cookies (server-side safe).
+//
+// sameSite explícito y del mismo valor que usa cart-cookies.ts al escribirla
+// desde el navegador. Son los dos únicos sitios que tocan esta cookie, y
+// dejar el atributo implícito aquí es justo cómo se coló el bug que vaciaba
+// el checkout al volver de Mercado Pago: conviene que se lean iguales.
+Astro.cookies.set('cart', '[]', {
+  path: '/',
+  maxAge: 60 * 60 * 24 * 30,
+  sameSite: 'lax',
+});
 
 const sessionId = Astro.url.searchParams.get('session_id');
 let orderIdParam = Astro.url.searchParams.get('order_id');

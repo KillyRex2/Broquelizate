@@ -183,11 +183,32 @@ export class CartCookiesClient {
         }, 0);
     }
 
+    /**
+     * Guarda el carrito en la cookie que lee el servidor.
+     *
+     * OJO con sameSite: estuvo en 'strict' y eso vaciaba el checkout.
+     *
+     * El checkout se arma EN EL SERVIDOR leyendo esta cookie
+     * (CheckoutForm.astro: Astro.cookies.get('cart')). 'strict' significa
+     * que el navegador no manda la cookie cuando la navegación viene de
+     * otro sitio, y volver de mercadopago.com —por ejemplo al cancelar el
+     * pago— es exactamente eso: el servidor no veía carrito y pintaba el
+     * checkout vacío. El carrito nunca se perdía; simplemente no viajaba en
+     * esa primera petición, y reaparecía en cuanto el cliente navegaba
+     * dentro del sitio. Peor aún como experiencia: parecía que la compra se
+     * había borrado.
+     *
+     * 'lax' manda la cookie en navegaciones GET de primer nivel —que es el
+     * caso de volver de la pasarela— y la sigue reteniendo en peticiones
+     * cruzadas de tipo POST, iframe o fetch. Aquí no hay riesgo: esta
+     * cookie no autentica nada, solo lleva ids y cantidades, y además 'lax'
+     * es lo que el navegador aplica por defecto cuando no se declara nada.
+     */
     private static setCart(cart: CartItem[]): void {
         const isProduction = window.location.protocol === 'https:';
         Cookies.set('cart', JSON.stringify(cart), {
             expires: 30,
-            sameSite: 'strict',
+            sameSite: 'lax',
             secure: isProduction,
             path: '/'
         });

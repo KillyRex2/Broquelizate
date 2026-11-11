@@ -987,9 +987,96 @@ const productsData = products.map(p => {
     }).render('#paypal-button-container');
   }
 
+  const RESCATE = 'checkout-rescate';
+
+  const sesion = {
+    leer: (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } },
+    poner: (k: string, v: string) => { try { sessionStorage.setItem(k, v); } catch {} },
+    quitar: (k: string) => { try { sessionStorage.removeItem(k); } catch {} },
+  };
+
+  /**
+   * Rescata el carrito cuando el servidor no lo vio.
+   *
+   * El checkout se arma en el servidor leyendo la cookie 'cart'. Esa cookie
+   * estuvo marcada SameSite=Strict, y Strict significa que el navegador no
+   * la manda cuando la navegación viene de otro sitio: al volver de
+   * mercadopago.com el servidor pintaba el checkout vacío aunque el carrito
+   * siguiera intacto.
+   *
+   * Ya se corrigió a 'lax' en cart-cookies.ts, pero eso solo aplica a las
+   * cookies que se escriban a partir de ahora: quien ya tenga la suya como
+   * Strict la conserva hasta que vuelva a tocar su carrito. Esta es la red
+   * para esos, y para cualquier otro regreso desde una pasarela.
+   *
+   * La clave: SameSite decide si la cookie VIAJA en la petición, no si este
+   * script puede leerla. document.cookie la ve igual. Así que si el
+   * servidor pintó cero productos y el navegador sí tiene, se recarga una
+   * vez; esa recarga ya es del mismo sitio, la cookie viaja y la página
+   * sale bien.
+   *
+   * Devuelve true si va a recargar, para que init() no siga.
+   */
+  function rescatarCarrito(): boolean {
+    const root = $('products-data');
+    if (!root) return false;
+
+    let pintados = 0;
+    try { pintados = JSON.parse(root.textContent || '[]').length; } catch {}
+    if (pintados > 0) { sesion.quitar(RESCATE); return false; }
+
+    let enNavegador = 0;
+    try { enNavegador = CartCookiesClient.getCart().length; } catch {}
+    if (enNavegador === 0) return false;
+
+    // Una sola vez. Si tras recargar sigue vacío es por otra causa —los
+    // productos se dieron de baja del catálogo, por ejemplo— y un checkout
+    // vacío es mucho mejor que un bucle de recargas.
+    if (sesion.leer(RESCATE) === '1') return false;
+    sesion.poner(RESCATE, '1');
+
+    // Y solo se recarga si la marca quedó guardada de verdad. En modo
+    // privado sessionStorage lanza en todo, y sin marca que leer la
+    // condición de arriba nunca cortaría: cada carga volvería a recargar.
+    // Preferible quedarse sin rescate en ese caso que dejar al cliente
+    // atrapado en un bucle.
+    if (sesion.leer(RESCATE) !== '1') return false;
+
+    window.location.reload();
+    return true;
+  }
+
+  /**
+   * Avisa de cómo terminó el paso por Mercado Pago.
+   *
+   * La preferencia manda los pagos fallidos o cancelados a
+   * /checkout?mp=failure, pero nadie leía ese parámetro: el cliente
+   * aterrizaba aquí sin una sola palabra de qué pasó con su pago.
+   */
+  function avisarRetornoMP() {
+    const params = new URLSearchParams(window.location.search);
+    const mp = params.get('mp');
+    if (!mp) return;
+
+    // Fuera de la URL, para que no reaparezca al recargar o al compartirla.
+    params.delete('mp');
+    const query = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
+
+    if (mp === 'failure') {
+      Toast.info('Pago cancelado', 'No se te cobró nada y tu carrito sigue aquí. Puedes intentar de nuevo o con otro método.');
+    }
+  }
+
   function init() {
     const root = $('products-data');
     if (!root) return;
+
+    // Antes del guard de abajo: si hay que recargar, no tiene sentido
+    // montar listeners que la recarga va a tirar.
+    if (rescatarCarrito()) return;
+    avisarRetornoMP();
+
     // DOMContentLoaded y astro:page-load disparan ambos en la primera carga:
     // sin este guard se duplicaban los listeners (y los clics de pago).
     if (root.dataset.bound === '1') return;
