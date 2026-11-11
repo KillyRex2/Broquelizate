@@ -12,7 +12,7 @@
 
 import type { APIRoute } from 'astro';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { confirmOrderByReference, failOrderByReference } from '@/utils/mercadopago-orders';
+import { confirmOrderByReference, failOrderByReference, anotarPagoEnCurso } from '@/utils/mercadopago-orders';
 
 const ok = () =>
   new Response(JSON.stringify({ received: true }), {
@@ -63,8 +63,21 @@ export const POST: APIRoute = async ({ request, url }) => {
       }
     } else if (status === 'rejected' || status === 'cancelled') {
       await failOrderByReference(externalReference, status);
+    } else if (status === 'pending' || status === 'in_process') {
+      // Sigue pendiente —voucher de OXXO sin pagar, transferencia en camino,
+      // pago bajo revisión— así que el estado del pedido no cambia: ya llegará
+      // otra notificación.
+      //
+      // Pero sí se anota el paymentId, y eso importa más de lo que parece. Un
+      // pedido abandonado (el cliente cerró la pestaña sin pagar) y uno de
+      // OXXO esperando su pago se veían EXACTAMENTE IGUAL en la base: ambos
+      // 'pending' y sin rastro. Así no había forma de limpiar los primeros sin
+      // arriesgarse a cancelar los segundos.
+      //
+      // Con esto, "pendiente y con paymentId" significa venta viva, y
+      // resolverPedidosPendientes() puede dejarla en paz.
+      await anotarPagoEnCurso(externalReference, payment.id);
     }
-    // pending / in_process: se deja en pending, ya llegará otra notificación
 
     return ok();
   } catch (error) {

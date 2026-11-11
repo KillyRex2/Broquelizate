@@ -304,6 +304,28 @@ export async function failOrderByReference(externalReference: string, status: 'r
   await db.update(orders).set({ status, updatedAt: new Date() } as any).where(eq(orders.id, order.id));
 }
 
+/**
+ * Anota el pago en curso de un pedido que sigue pendiente.
+ *
+ * No cambia el estado: el pedido sigue 'pending' hasta que se pague. Lo que
+ * deja es el rastro de que ese pendiente tiene un pago REAL detrás —un
+ * voucher de OXXO, una transferencia en camino, un pago bajo revisión—, para
+ * distinguirlo del pendiente de alguien que abandonó el checkout y por el que
+ * Mercado Pago nunca mandará nada.
+ *
+ * No pisa un paymentId ya guardado ni toca un pedido que haya salido de
+ * 'pending': si ya se pagó o se canceló, este dato llega tarde y lo único que
+ * haría es confundir.
+ */
+export async function anotarPagoEnCurso(externalReference: string, paymentId?: string | number) {
+  if (paymentId == null) return;
+  const [order] = await db.select().from(orders).where(eq(orders.externalReference, externalReference));
+  if (!order || order.status !== 'pending' || order.paymentId) return;
+  await db.update(orders)
+    .set({ paymentId: String(paymentId), updatedAt: new Date() } as any)
+    .where(eq(orders.id, order.id));
+}
+
 /** Consulta de estado, para que el POS haga polling */
 export async function getOrderStatusByReference(externalReference: string) {
   const [order] = await db
