@@ -607,7 +607,7 @@ const productsData = products.map(p => {
   type DeliveryMethod = 'delivery' | 'pickup';
   interface SelectedShipping {
     method?: DeliveryMethod;   // selecciones viejas no lo traen → 'delivery'
-    carrier: string; service: string; price: number; carrierRate?: number;
+    carrier: string; service: string; serviceName?: string; price: number; carrierRate?: number;
     deliveryDays: number; postalCode: string; cartKey?: string; savedAt?: number;
     quoteId?: string;          // cotización guardada en el servidor (envío a domicilio)
   }
@@ -668,7 +668,8 @@ const productsData = products.map(p => {
     if (infoDisp) {
       infoDisp.classList.remove('hidden');
       const dc = $('display-carrier'), dd = $('display-delivery'), dp = $('display-shipping-price');
-      if (dc) dc.textContent = pickup ? `Recoger en tienda · ${s.service}` : `${s.carrier} - ${s.service}`;
+      const servicio = s.serviceName || s.service;
+      if (dc) dc.textContent = pickup ? `Recoger en tienda · ${servicio}` : `${s.carrier} - ${servicio}`;
       if (dd) dd.textContent = pickup
         ? (s.deliveryDays <= 0 ? 'Listo el mismo día' : `Listo en ${plural(s.deliveryDays, 'día hábil', 'días hábiles')}`)
         : `Entrega en ${plural(s.deliveryDays, 'día hábil', 'días hábiles')}`;

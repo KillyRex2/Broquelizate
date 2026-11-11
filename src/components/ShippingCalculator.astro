@@ -336,13 +336,17 @@ const storeData = {
   import { actions } from 'astro:actions';
   import { packageForItems, FREE_SHIPPING_THRESHOLD } from '@/utils/shipping';
 
-  interface ShippingRate { carrier: string; service: string; deliveryDays: number; totalPrice: number; currency: string; }
+  // 'service' es la clave de la API de Envia ("express"); 'serviceName' es
+  // el texto para la gente ("Estafeta Siguiente Día"). Se muestra el
+  // segundo y se guarda el primero: con el primero se genera la guía.
+  interface ShippingRate { carrier: string; service: string; serviceName?: string; deliveryDays: number; totalPrice: number; currency: string; }
 
   /** Lo que se guarda en localStorage y lee CheckoutForm. */
   interface SelectedShipping {
     method: 'delivery' | 'pickup';
     carrier: string;
     service: string;
+    serviceName?: string;
     price: number;        // lo que paga el cliente
     carrierRate: number;  // lo que cuesta la guía (0 en tienda)
     deliveryDays: number;
@@ -476,6 +480,7 @@ const storeData = {
         method: 'delivery',
         carrier: r.carrier,
         service: r.service,
+        serviceName: r.serviceName,
         price: isFree ? 0 : Number(r.totalPrice),
         carrierRate: Number(r.totalPrice),
         deliveryDays: r.deliveryDays,
@@ -579,7 +584,7 @@ const storeData = {
               ${best ? '<span class="rate-badge best">MEJOR PRECIO</span>' : ''}
               ${fast ? '<span class="rate-badge fast">MÁS RÁPIDO</span>' : ''}
             </div>
-            <p class="rate-service">${r.service}</p>
+            <p class="rate-service">${r.serviceName || r.service}</p>
             <p class="rate-days">${days}</p>
           </div>
           <span class="rate-price">${fmt(r.totalPrice)}</span>
