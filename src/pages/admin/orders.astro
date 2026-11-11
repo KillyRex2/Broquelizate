@@ -12,3 +12,68 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
     <OrdersTable />
   </div>
 </AdminLayout>
+
+<script>
+  import { Toast } from '@/utils/alerts';
+
+  // Al abrir los pedidos se cierran los que quedaron colgados en 'pending'.
+  //
+  // Un pedido se crea ANTES de mandar al cliente a Mercado Pago. Si cancela o
+  // cierra la pestaña sin llegar a pagar, Mercado Pago no manda ningún webhook
+  // —no hay pago del que avisar— y ese pedido se queda pendiente para siempre,
+  // contando como "en proceso" en la cuenta del cliente.
+  //
+  // Se hace aquí, y no con un cron, porque no hace falta: el momento en que
+  // esos fantasmas estorban es justo cuando alguien abre esta pantalla. Si más
+  // adelante se quiere programar, basta con llamar al mismo endpoint.
+  //
+  // Nunca cancela a ciegas: le pregunta a Mercado Pago por cada pedido antes
+  // de tocarlo (ver utils/mercadopago-pendientes.ts).
+
+  const MARCA = 'pendientes-revisados';
+  const CADA_MS = 10 * 60 * 1000;
+
+  async function revisarPendientes() {
+    // Una vez cada diez minutos por sesión: abrir y cerrar esta página no
+    // tiene por qué disparar una ronda de llamadas a Mercado Pago cada vez.
+    try {
+      const ultima = Number(sessionStorage.getItem(MARCA) || 0);
+      if (Date.now() - ultima < CADA_MS) return;
+      sessionStorage.setItem(MARCA, String(Date.now()));
+    } catch {
+      // Sin sessionStorage se revisa igual: la pasada está acotada de por sí.
+    }
+
+    let r: any;
+    try {
+      const res = await fetch('/api/admin/resolver-pendientes', { method: 'POST' });
+      if (!res.ok) return;
+      r = await res.json();
+    } catch {
+      return; // en silencio: es trabajo de fondo, no algo que el admin pidió
+    }
+
+    if (r?.confirmados > 0) {
+      Toast.success(
+        `${r.confirmados} ${r.confirmados === 1 ? 'pedido pagado' : 'pedidos pagados'} sin registrar`,
+        'Se confirmaron y ya aparecen en la lista. Revísalos: hay que prepararlos.',
+      );
+    }
+    if (r?.cancelados > 0) {
+      Toast.info(
+        `Se cerraron ${r.cancelados} ${r.cancelados === 1 ? 'pedido abandonado' : 'pedidos abandonados'}`,
+        'Nadie llegó a pagarlos.',
+      );
+    }
+
+    // Solo se recarga si de verdad cambió algo. Como esos pedidos ya no
+    // quedan pendientes, la siguiente pasada no encuentra nada que cambiar y
+    // no hay forma de entrar en bucle.
+    if ((r?.confirmados || 0) + (r?.cancelados || 0) > 0) {
+      setTimeout(() => window.location.reload(), 2600);
+    }
+  }
+
+  revisarPendientes();
+  document.addEventListener('astro:page-load', revisarPendientes);
+</script>
