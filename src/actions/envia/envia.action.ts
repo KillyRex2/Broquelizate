@@ -363,6 +363,7 @@ export const getShippingRates = defineAction({
 
           if (data.meta === 'error' || data.error || !response.ok) {
             console.log(`  ⚠️ ${carrier}: ${data.error?.message || 'Sin cotización'}`);
+            console.log(`     respuesta: ${responseText.slice(0, 600)}`);
             return [];
           }
 
@@ -402,7 +403,13 @@ export const getShippingRates = defineAction({
           // por WhatsApp.
           const utiles = rates.filter(r => r.totalPrice > 0);
           if (utiles.length === 0 && rates.length > 0) {
+            // La respuesta completa solo cuando algo va mal: con ocho
+            // paqueterías, registrarla siempre llena los logs de ruido y
+            // esconde justo lo que hay que leer. Este caso es el que más
+            // despista —Envia SÍ cotizó, pero el precio no se está
+            // leyendo— así que se deja a la vista el objeto original.
             console.warn(`  ⚠️ ${carrier}: respondió ${rates.length} tarifa(s) sin precio; se descartan.`);
+            console.warn(`     revisar nombres de campo en: ${responseText.slice(0, 600)}`);
           }
           if (utiles.length > 0) {
             console.log(`  ✅ ${carrier}: ${utiles.length} cotización(es)`);
