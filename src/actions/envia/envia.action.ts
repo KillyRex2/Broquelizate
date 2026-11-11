@@ -196,6 +196,56 @@ export interface ShippingLabel {
 // ACTION: COTIZAR ENVÍO
 // ============================================
 
+/** Cuántas opciones ve el cliente como máximo. */
+const MAX_OPCIONES = 4;
+
+/**
+ * Deja solo las tarifas que le dicen algo distinto al cliente.
+ *
+ * Al cotizar ocho paqueterías vuelven muchas líneas, y varias son la misma
+ * oferta con otro nombre. Mostrarlas todas no es darle a elegir: es pedirle
+ * que compare cosas idénticas en la pantalla donde más caro sale dudar.
+ *
+ * Dos pasos:
+ *
+ *   1. Fuera las repetidas exactas (misma paquetería, servicio, precio y
+ *      días). Son ruido puro.
+ *   2. Fuera las dominadas: si otra opción es a la vez igual o más barata
+ *      e igual o más rápida, esta no tiene razón de existir. Nadie elegiría
+ *      pagar más por llegar después.
+ *
+ * Lo que queda es una escalera: ordenada por precio, cada opción siguiente
+ * cuesta más pero llega antes. Esa propiedad es la que usan las etiquetas
+ * del checkout, así que conviene no romperla al tocar esto.
+ */
+export function depurarTarifas(rates: ShippingRate[]): ShippingRate[] {
+  const conPrecio = rates.filter(r => r.totalPrice > 0 && Number.isFinite(r.deliveryDays));
+
+  const vistas = new Set<string>();
+  const unicas = conPrecio.filter(r => {
+    const llave = `${r.carrier}|${r.service}|${r.totalPrice}|${r.deliveryDays}`;
+    if (vistas.has(llave)) return false;
+    vistas.add(llave);
+    return true;
+  });
+
+  // Más barata primero; a igual precio, la que llega antes.
+  const ordenadas = [...unicas].sort(
+    (a, b) => a.totalPrice - b.totalPrice || a.deliveryDays - b.deliveryDays,
+  );
+
+  const resultado: ShippingRate[] = [];
+  for (const r of ordenadas) {
+    // Como van de menor a mayor precio, basta mirar la última aceptada:
+    // si llega igual o antes que esta, esta no aporta nada.
+    const anterior = resultado[resultado.length - 1];
+    if (anterior && anterior.deliveryDays <= r.deliveryDays) continue;
+    resultado.push(r);
+  }
+
+  return resultado.slice(0, MAX_OPCIONES);
+}
+
 const AVAILABLE_CARRIERS = ['fedex', 'dhl', 'estafeta', 'redpack', 'ups', 'paquetexpress', '99minutos', 'sendex'];
 
 export const getShippingRates = defineAction({
@@ -313,6 +363,7 @@ export const getShippingRates = defineAction({
 
           if (data.meta === 'error' || data.error || !response.ok) {
             console.log(`  ⚠️ ${carrier}: ${data.error?.message || 'Sin cotización'}`);
+            console.log(`     respuesta: ${responseText.slice(0, 600)}`);
             return [];
           }
 
@@ -338,15 +389,32 @@ export const getShippingRates = defineAction({
             }];
           }
 
-          if (rates.length > 0) {
-            console.log(`  ✅ ${carrier}: ${rates.length} cotización(es)`);
+          // Aquí había un respaldo que, si la paquetería no devolvía
+          // precio, inventaba un Estafeta de $150 a 4 días. Corría una vez
+          // POR PAQUETERÍA, así que el checkout mostraba la misma línea
+          // falsa repetida tantas veces como paqueterías respondieran sin
+          // tarifa. Y lo caro no era lo visual: ese precio se guardaba como
+          // cotización y era el que el servidor le cobraba al cliente al
+          // pagar. Si el envío real costaba más, la diferencia la ponía la
+          // tienda en cada pedido, sin que nadie se enterara.
+          //
+          // Mejor no vender a domicilio que cobrar un precio inventado: sin
+          // tarifas reales el checkout avisa y el cliente puede escribir
+          // por WhatsApp.
+          const utiles = rates.filter(r => r.totalPrice > 0);
+          if (utiles.length === 0 && rates.length > 0) {
+            // La respuesta completa solo cuando algo va mal: con ocho
+            // paqueterías, registrarla siempre llena los logs de ruido y
+            // esconde justo lo que hay que leer. Este caso es el que más
+            // despista —Envia SÍ cotizó, pero el precio no se está
+            // leyendo— así que se deja a la vista el objeto original.
+            console.warn(`  ⚠️ ${carrier}: respondió ${rates.length} tarifa(s) sin precio; se descartan.`);
+            console.warn(`     revisar nombres de campo en: ${responseText.slice(0, 600)}`);
           }
-          console.log('📦 Envia raw:', JSON.stringify(data).slice(0, 1500));
-              // TEMPORAL — quitar cuando Envia devuelva tarifas reales
-          if (rates.every(r => !r.totalPrice)) {
-            rates = [{ carrier: 'estafeta', service: 'Terrestre', deliveryDays: 4, totalPrice: 150, currency: 'MXN' }];
+          if (utiles.length > 0) {
+            console.log(`  ✅ ${carrier}: ${utiles.length} cotización(es)`);
           }
-          return rates;
+          return utiles;
         } catch (error) {
           console.log(`  ❌ ${carrier}: Error de conexión`);
           return [];
@@ -355,10 +423,10 @@ export const getShippingRates = defineAction({
 
       const allRatesPromises = AVAILABLE_CARRIERS.map(carrier => quoteWithCarrier(carrier));
       const allRatesArrays = await Promise.all(allRatesPromises);
-      const allRates = allRatesArrays.flat();
-      allRates.sort((a, b) => a.totalPrice - b.totalPrice);
+      const crudas = allRatesArrays.flat();
+      const allRates = depurarTarifas(crudas);
 
-      console.log(`✅ Total cotizaciones encontradas: ${allRates.length}`);
+      console.log(`✅ Cotizaciones: ${crudas.length} crudas → ${allRates.length} tras depurar`);
 
       if (allRates.length === 0) {
         return {
