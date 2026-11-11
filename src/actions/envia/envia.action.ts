@@ -157,7 +157,10 @@ function normalizeWeight(weight: number): number {
 export interface ShippingRate {
   carrier: string;
   carrierLogo?: string;
+  /** Clave de la API ("express", "ground"). Es lo que se le manda a Envia. */
   service: string;
+  /** Nombre legible ("Estafeta Siguiente Día"). Solo para mostrar. */
+  serviceName?: string;
   serviceId?: string;
   deliveryDays: number;
   totalPrice: number;
@@ -247,6 +250,136 @@ export function depurarTarifas(rates: ShippingRate[]): ShippingRate[] {
 }
 
 const AVAILABLE_CARRIERS = ['fedex', 'dhl', 'estafeta', 'redpack', 'ups', 'paquetexpress', '99minutos', 'sendex'];
+
+/**
+ * Cuánto se le espera a una paquetería antes de seguir sin ella.
+ *
+ * Se cotizan ocho en paralelo con Promise.all, que termina cuando termina
+ * la ÚLTIMA. El 11 de noviembre 'sendex' no contestó nunca y el cliente se
+ * quedó 29 segundos mirando el spinner del checkout —las otras siete ya
+ * habían respondido en el primer segundo—. Una paquetería caída no puede
+ * secuestrar la cotización completa: a los 8 segundos se la da por perdida
+ * y se cotiza con las que sí contestaron.
+ */
+const TIEMPO_MAXIMO_POR_PAQUETERIA = 8000;
+
+/**
+ * Precio por debajo del cual una tarifa se considera un error, no una oferta.
+ *
+ * OJO, esto hay que confirmarlo con la tienda. En los logs del 11 de
+ * noviembre, UPS cotizó un envío nacional en $11.60 (basePrice 10 + IVA
+ * 1.60). Eso no es un envío: es una tarifa de prueba o mal configurada en
+ * la cuenta de Envia. Y es justo la clase de dato que más daño hace, porque
+ * al ser el más barato se convierte en "MEJOR PRECIO", el servidor lo
+ * guarda como cotización y es lo que se le cobra al cliente. La tienda
+ * pagaría los ~$200 reales y cobraría $11.60, en cada pedido, sin que
+ * apareciera como error en ningún lado.
+ *
+ * Un paquete nacional en México no baja de ~$40. Si algún día la tienda
+ * negocia una tarifa real más baja, hay que bajar este número: por eso se
+ * registra en el log cada vez que descarta algo, para que se vea y no se
+ * quede escondido como una regla que nadie recuerda.
+ */
+const PRECIO_MINIMO_PLAUSIBLE = 40;
+
+/**
+ * Precio final de una tarifa de Envia, impuestos y cargos incluidos.
+ *
+ * El campo es 'totalPrice'. El código leía 'total', 'total_pricing' y
+ * 'base_price', que no existen en la respuesta, así que TODAS las tarifas
+ * salían en 0 y el filtro de abajo las descartaba: de ahí el "0 crudas"
+ * con ocho paqueterías cotizando bien.
+ *
+ * El respaldo suma las partes por si algún día falta el total. Importa que
+ * incluya impuestos y cargos: en Estafeta eran $136.21 de base pero $177.72
+ * a pagar, y cobrar la base sería regalar $41 por pedido.
+ */
+export function precioDeTarifa(rate: any): number {
+  const total = Number(rate?.totalPrice);
+  if (Number.isFinite(total) && total > 0) return Math.round(total * 100) / 100;
+
+  const suma = [
+    'basePrice', 'basePriceTaxes',
+    'additionalCharges', 'additionalChargesTaxes',
+    'additionalServices', 'additionalServicesTaxes',
+    'insurance', 'extendedFare', 'importFee', 'customKeyCost',
+  ].reduce((acumulado, campo) => {
+    const valor = Number(rate?.[campo]);
+    return acumulado + (Number.isFinite(valor) ? valor : 0);
+  }, 0);
+
+  // Sumar decimales en binario deja cosas como 301.84000000000003, y esto
+  // es un precio que alguien va a pagar: se redondea a centavos antes de
+  // que llegue a la pantalla o a la base.
+  return Math.round(suma * 100) / 100;
+}
+
+/**
+ * Días de entrega, tirando a lo pesimista.
+ *
+ * Envia manda dos señales y no siempre coinciden: 'deliveryDate.
+ * dateDifference' (un número) y 'deliveryEstimate' (texto: "Día siguiente",
+ * "2-4 días"). En los logs, DHL decía dateDifference 1 y a la vez "2-4
+ * días". Se toma la MAYOR de las dos a propósito: prometer mañana y llegar
+ * en cuatro días es una queja; decir cuatro y llegar en dos, una sorpresa
+ * agradable. El cliente ya pagó, no hay nada que ganar con el optimismo.
+ *
+ * El código leía 'days' y 'estimated_delivery', que tampoco existen:
+ * parseInt(undefined) → NaN, y NaN rompía el orden de las opciones.
+ */
+export function diasDeEntrega(rate: any): number {
+  const candidatos: number[] = [];
+
+  const diferencia = Number(rate?.deliveryDate?.dateDifference);
+  if (Number.isFinite(diferencia) && diferencia > 0) candidatos.push(Math.ceil(diferencia));
+
+  const texto = String(rate?.deliveryEstimate ?? '');
+  const numeros = texto.match(/\d+/g);
+  if (numeros?.length) {
+    candidatos.push(Math.max(...numeros.map(Number)));
+  } else if (/siguiente|mañana|next/i.test(texto)) {
+    candidatos.push(1);
+  }
+
+  // Sin ninguna señal usable se asume una semana, que es lo bastante
+  // pesimista para no comprometer a la tienda con una fecha inventada.
+  return candidatos.length ? Math.max(...candidatos) : 7;
+}
+
+/**
+ * Una tarifa de Envia, con los nombres de campo que de verdad manda.
+ *
+ * Cuidado con 'service': Envia manda dos cosas distintas y NO son
+ * intercambiables.
+ *
+ *   · service            → "express", "ground", "saver". La clave de la API.
+ *   · serviceDescription → "Estafeta Siguiente Día". El texto para la gente.
+ *
+ * 'service' tiene que seguir siendo la clave, porque ese mismo valor:
+ *   1. se guarda en la orden y viaja hasta shipment.service al generar la
+ *      guía —Envia rechaza "Estafeta Siguiente Día" ahí—, y
+ *   2. es con lo que admin/orders/[id] comprueba que la guía que se va a
+ *      generar sea la que el cliente pagó.
+ *
+ * Por eso el nombre legible va en 'serviceName', aparte. Meterlo en
+ * 'service' se vería bien en el checkout y rompería la generación de guías,
+ * que es un error que solo se descubre gastando saldo real.
+ */
+export function leerTarifa(rate: any, carrierPedido: string): ShippingRate {
+  const descripcion = typeof rate?.serviceDescription === 'string'
+    ? rate.serviceDescription.trim()
+    : '';
+
+  return {
+    carrier: rate?.carrier || carrierPedido,
+    service: rate?.service || descripcion || 'Estándar',
+    serviceName: descripcion || undefined,
+    serviceId: rate?.serviceId != null ? String(rate.serviceId) : undefined,
+    deliveryDays: diasDeEntrega(rate),
+    totalPrice: precioDeTarifa(rate),
+    currency: rate?.currency || 'MXN',
+  };
+}
 
 export const getShippingRates = defineAction({
   accept: 'json',
@@ -347,6 +480,9 @@ export const getShippingRates = defineAction({
           }
         };
 
+        const corte = new AbortController();
+        const reloj = setTimeout(() => corte.abort(), TIEMPO_MAXIMO_POR_PAQUETERIA);
+
         try {
           const response = await fetch(`${ENVIA_API_URL}/ship/rate/`, {
             method: 'POST',
@@ -355,7 +491,8 @@ export const getShippingRates = defineAction({
               'Authorization': `Bearer ${ENVIA_TOKEN}`,
               'Accept': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal: corte.signal
           });
 
           const responseText = await response.text();
@@ -368,25 +505,15 @@ export const getShippingRates = defineAction({
           }
 
           let rates: ShippingRate[] = [];
-          
+
           if (data.data && Array.isArray(data.data)) {
-            rates = data.data.map((rate: any) => ({
-              carrier: rate.carrier || rate.carrier_name || carrier,
-              carrierLogo: rate.carrier_logo_url || null,
-              service: rate.service || rate.service_name || rate.service_level_name || 'Estándar',
-              serviceId: rate.service_id || rate.carrier_service_code || null,
-              deliveryDays: parseInt(rate.days || rate.estimated_delivery || rate.delivery_estimate || '5'),
-              totalPrice: parseFloat(rate.total || rate.total_pricing || rate.base_price || '0'),
-              currency: rate.currency || 'MXN'
-            }));
-          } else if (data.meta && data.meta !== 'error') {
-            rates = [{
-              carrier: data.carrier || carrier,
-              service: data.service || 'Estándar',
-              deliveryDays: parseInt(data.days || '5'),
-              totalPrice: parseFloat(data.total || '0'),
-              currency: 'MXN'
-            }];
+            rates = data.data.map((rate: any) => leerTarifa(rate, carrier));
+          } else {
+            // Antes había aquí una rama que leía data.total y data.service
+            // del objeto raíz. Esos campos no existen: Envia siempre manda
+            // las tarifas dentro de data[]. Lo único que lograba era
+            // fabricar una tarifa en $0 que el filtro tiraba después.
+            console.warn(`  ⚠️ ${carrier}: respuesta sin data[]: ${responseText.slice(0, 300)}`);
           }
 
           // Aquí había un respaldo que, si la paquetería no devolvía
@@ -401,8 +528,19 @@ export const getShippingRates = defineAction({
           // Mejor no vender a domicilio que cobrar un precio inventado: sin
           // tarifas reales el checkout avisa y el cliente puede escribir
           // por WhatsApp.
-          const utiles = rates.filter(r => r.totalPrice > 0);
-          if (utiles.length === 0 && rates.length > 0) {
+          // Las que traen un precio que no puede ser real se descartan y se
+          // registran por separado: no es lo mismo "no cotizó" que "cotizó
+          // una barbaridad". Ver PRECIO_MINIMO_PLAUSIBLE arriba.
+          const sospechosas = rates.filter(r => r.totalPrice > 0 && r.totalPrice < PRECIO_MINIMO_PLAUSIBLE);
+          for (const r of sospechosas) {
+            console.warn(
+              `  🚩 ${carrier}: se descarta "${r.serviceName || r.service}" a $${r.totalPrice} ` +
+              `(mínimo plausible $${PRECIO_MINIMO_PLAUSIBLE}). Revisar esa tarifa en la cuenta de Envia.`,
+            );
+          }
+
+          const utiles = rates.filter(r => r.totalPrice >= PRECIO_MINIMO_PLAUSIBLE);
+          if (utiles.length === 0 && rates.length > sospechosas.length) {
             // La respuesta completa solo cuando algo va mal: con ocho
             // paqueterías, registrarla siempre llena los logs de ruido y
             // esconde justo lo que hay que leer. Este caso es el que más
@@ -416,8 +554,14 @@ export const getShippingRates = defineAction({
           }
           return utiles;
         } catch (error) {
-          console.log(`  ❌ ${carrier}: Error de conexión`);
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.warn(`  ⏱️ ${carrier}: no respondió en ${TIEMPO_MAXIMO_POR_PAQUETERIA / 1000}s; se sigue sin ella.`);
+          } else {
+            console.log(`  ❌ ${carrier}: Error de conexión`, error instanceof Error ? error.message : error);
+          }
           return [];
+        } finally {
+          clearTimeout(reloj);
         }
       };
 
