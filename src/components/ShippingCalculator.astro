@@ -519,7 +519,10 @@ const storeData = {
       }
 
       const sorted = [...valid].sort((a, b) => a.totalPrice - b.totalPrice);
-      const minDays = Math.min(...sorted.map(x => x.deliveryDays));
+      // El servidor ya quitó repetidas y dominadas, así que lo que llega es
+      // una escalera: más caro = llega antes. Por eso la más rápida es la
+      // última, sin buscarla.
+      const hayDondeElegir = sorted.length > 1;
       const prefIdx = sorted.findIndex(r => sameRate(r, preferred));
       const selectedIdx = prefIdx >= 0 ? prefIdx : 0;
       current = { cp, rates: valid, quoteId };
@@ -558,8 +561,13 @@ const storeData = {
       }
 
       optionsBox.innerHTML = sorted.map((r, i) => {
-        const best = i === 0;
-        const fast = r.deliveryDays === minDays && !best;
+        // Solo se etiqueta cuando la etiqueta distingue algo. Antes "MÁS
+        // RÁPIDO" se le ponía a TODO lo que empatara con el mínimo de días,
+        // así que con tres opciones de 4 días dos salían marcadas como más
+        // rápidas que la primera, que tardaba lo mismo.
+        const best = hayDondeElegir && i === 0;
+        const fast = hayDondeElegir && i === sorted.length - 1
+          && r.deliveryDays < sorted[0].deliveryDays;
         const sel = i === selectedIdx;
         const days = `${r.deliveryDays} día${r.deliveryDays !== 1 ? 's' : ''} hábil${r.deliveryDays !== 1 ? 'es' : ''}`;
         return `<label class="rate-opt${sel ? ' selected' : ''}" data-idx="${i}">
