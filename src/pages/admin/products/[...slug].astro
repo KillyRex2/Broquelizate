@@ -573,6 +573,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
   import { actions } from "astro:actions";
   import { Confirm, Alert, Toast } from '@/utils/alerts';
   import { navigate } from 'astro:transitions/client';
+  import { achicarFoto, pesoLegible } from '@/utils/image-resize';
 
   const FILTERS_STORAGE_KEY = 'admin_products_filters';
 
@@ -621,6 +622,10 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     const piercingHiddenInput = document.getElementById('piercing_name_hidden') as HTMLInputElement;
     
     let newFiles: File[] = [];
+    // Huella del archivo ORIGINAL de cada foto de newFiles, mismo índice.
+    // Va aparte porque newFiles guarda la versión ya achicada, cuyo tamaño
+    // ya no sirve para reconocer si la foto estaba repetida.
+    let huellas: string[] = [];
     let isProcessing = false;
 
     // =====================================================
@@ -1178,10 +1183,60 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     // =====================================================
     // MANEJO DE ARCHIVOS
     // =====================================================
-    const handleNewFiles = (incomingFiles: FileList) => {
-      const uniqueFiles = Array.from(incomingFiles).filter(file => file.type.startsWith('image/') && !newFiles.some(f => f.name === file.name && f.size === f.size));
-      if (uniqueFiles.length === 0) return;
-      newFiles = [...newFiles, ...uniqueFiles];
+    /**
+     * Identidad de una foto, para no agregarla dos veces.
+     *
+     * Antes esto era `f.name === file.name && f.size === f.size`, y esa
+     * segunda comparación es de un valor consigo mismo: siempre true. O sea
+     * que se deduplicaba SOLO por nombre de archivo.
+     *
+     * En una computadora casi no se nota. En un iPhone sí: las fotos tomadas
+     * con la cámara llegan todas con el mismo nombre, así que de tres fotos
+     * se quedaba una y las otras dos desaparecían sin decir nada. Con
+     * lastModified en la huella, dos capturas distintas nunca se confunden
+     * aunque se llamen igual.
+     */
+    const huellaDe = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+
+    const handleNewFiles = async (incomingFiles: FileList) => {
+      // Algunos selectores de archivos de Android mandan el type vacío, así
+      // que si no viene se mira la extensión antes de descartar la foto.
+      const esImagen = (f: File) =>
+        f.type.startsWith('image/') || (!f.type && /\.(jpe?g|png|webp|gif|hei[cf])$/i.test(f.name));
+
+      const vistas = new Set(huellas);
+      const nuevas: File[] = [];
+      for (const file of Array.from(incomingFiles)) {
+        if (!esImagen(file)) continue;
+        const h = huellaDe(file);
+        if (vistas.has(h)) continue;   // ya estaba, o viene repetida en el lote
+        vistas.add(h);
+        nuevas.push(file);
+      }
+      if (nuevas.length === 0) return;
+
+      // Achicar puede tardar un segundo por foto en un teléfono modesto, y sin
+      // aviso parece que la app se quedó colgada.
+      const avisoId = Toast.loading(nuevas.length === 1 ? 'Preparando la foto...' : `Preparando ${nuevas.length} fotos...`);
+      let ahorro = 0;
+      try {
+        for (const file of nuevas) {
+          const { archivo, cambiada, bytesAntes, bytesDespues } = await achicarFoto(file);
+          if (cambiada) ahorro += bytesAntes - bytesDespues;
+          newFiles.push(archivo);
+          huellas.push(huellaDe(file));
+        }
+      } finally {
+        Toast.dismiss(avisoId);
+      }
+
+      if (ahorro > 0) {
+        Toast.success(
+          nuevas.length === 1 ? 'Foto lista' : `${nuevas.length} fotos listas`,
+          `Se optimizaron para subirlas más rápido (${pesoLegible(ahorro)} menos).`,
+        );
+      }
+
       renderNewPreviews();
       updateFileInput();
     };
@@ -1205,9 +1260,15 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     };
 
     const updateFileInput = () => {
-      const dataTransfer = new DataTransfer();
-      newFiles.forEach(file => dataTransfer.items.add(file));
-      fileInputs.forEach(input => { if (input) input.files = dataTransfer.files; });
+      // Espejo de newFiles en los inputs, solo para que el control nativo
+      // muestre algo coherente. El envío NO depende de esto: toma los
+      // archivos de newFiles directamente. Por eso un DataTransfer que no
+      // exista (Safari viejo) no puede romper el guardado.
+      try {
+        const dataTransfer = new DataTransfer();
+        newFiles.forEach(file => dataTransfer.items.add(file));
+        fileInputs.forEach(input => { if (input) input.files = dataTransfer.files; });
+      } catch { /* el input se queda como esté; newFiles manda */ }
     };
 
     dropZones.forEach((dropZone, idx) => {
@@ -1654,7 +1715,7 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     });
 
     previewContainers.forEach(container => {
-      container?.addEventListener('click', e => { const target = e.target as HTMLElement; if (target.classList.contains('remove-new-btn')) { const index = parseInt(target.dataset.index || '-1'); if (index > -1) { newFiles.splice(index, 1); renderNewPreviews(); updateFileInput(); } } });
+      container?.addEventListener('click', e => { const target = e.target as HTMLElement; if (target.classList.contains('remove-new-btn')) { const index = parseInt(target.dataset.index || '-1'); if (index > -1) { newFiles.splice(index, 1); huellas.splice(index, 1); renderNewPreviews(); updateFileInput(); } } });
     });
 
     const nameInput = document.getElementById('name') as HTMLInputElement;
@@ -1710,13 +1771,65 @@ const initialPiercingValue = Array.isArray(product.piercing_name)
     form.addEventListener('submit', async (e) => {
       e.preventDefault(); if (isProcessing) return;
       if (!(await confirmBaseStockOnly())) return;
+
+      // Todo el formulario con sus fotos viaja en UNA sola petición, y Netlify
+      // corta alrededor de 6 MB —igual en todos los planes— devolviendo un 500
+      // o un 502 en vez de un 413 limpio. Por eso quien subía desde el
+      // teléfono veía un error genérico que no decía nada.
+      //
+      // Las fotos ya se achican al elegirlas, pero eso no alcanza por sí solo:
+      // cuánto pesa un JPEG depende del contenido, y la misma cámara da 60 KB
+      // en una foto con fondo liso y más de 1 MB en una con mucho detalle. Así
+      // que en vez de confiar en una cuenta teórica se mide lo que de verdad
+      // se va a mandar, y si no cabe se dice con todas sus letras.
+      const PRESUPUESTO_FOTOS = 4.5 * 1024 * 1024;
+      const pesoFotos = newFiles.reduce((suma, f) => suma + f.size, 0);
+      if (pesoFotos > PRESUPUESTO_FOTOS) {
+        await Alert.error(
+          'Son demasiadas fotos de una vez',
+          `Las ${newFiles.length} fotos suman ${pesoLegible(pesoFotos)} y el servidor acepta hasta ${pesoLegible(PRESUPUESTO_FOTOS)} por guardado. ` +
+          `Quita algunas con la ✕, guarda, y vuelve a entrar para agregar el resto.`,
+        );
+        return;
+      }
+
       const saveButton = document.getElementById('save-button') as HTMLButtonElement; if (!saveButton) return;
       isProcessing = true; saveButton.disabled = true; saveButton.textContent = isCreate ? 'Creando...' : 'Guardando...';
       const loadingId = Toast.loading(isCreate ? 'Creando producto...' : 'Guardando cambios...');
       try {
         updatePiercingHiddenField(); const formData = new FormData(form); formData.delete('imageFiles'); newFiles.forEach(file => formData.append('imageFiles', file));
         const { data, error } = await actions.crateUpdateProduct(formData); if (error) throw new Error(error.message);
-        Toast.dismiss(loadingId); Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!'); setTimeout(() => navigate(getProductsUrlWithFilters()), 1000);
+        Toast.dismiss(loadingId);
+
+        // Si alguna foto no entró, se dice ANTES de salir de la pantalla y se
+        // deja a la persona aquí, donde puede volver a intentarlo. Avisar y
+        // acto seguido navegar a otro lado sería casi tan inútil como callarlo.
+        const fallidas = (data as any)?.fotosFallidas ?? [];
+        if (fallidas.length > 0) {
+          // El mensaje se inserta como HTML, así que el nombre del archivo
+          // —que lo elige quien sube la foto— se escapa antes de pegarlo.
+          const escapar = (t: string) => String(t).replace(/[&<>"]/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+          const detalle = fallidas.map((f: any) => `• ${escapar(f.nombre)}: ${escapar(f.motivo)}`).join('<br>');
+          await Alert.error(
+            isCreate ? 'Producto creado, pero faltaron fotos' : 'Cambios guardados, pero faltaron fotos',
+            `${fallidas.length === 1 ? 'Esta foto no se pudo subir' : `Estas ${fallidas.length} fotos no se pudieron subir`}:<br><br>${detalle}`,
+          );
+          // No se vuelve al listado: se queda en la ficha del producto para
+          // que vea cuáles fotos sí quedaron y pueda reintentar las que
+          // faltan sin tener que buscarlo otra vez. Si acababa de crearlo hay
+          // que ir a su ficha, porque recargar dejaría el formulario de
+          // "nuevo producto" en blanco y parecería que se perdió todo.
+          const slugNuevo = (data as any)?.product?.slug;
+          if (isCreate && slugNuevo) {
+            window.location.href = `/admin/products/${slugNuevo}`;
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+
+        Toast.success(isCreate ? '¡Producto creado!' : '¡Cambios guardados!'); setTimeout(() => navigate(getProductsUrlWithFilters()), 1000);
       } catch (err: any) { Toast.dismiss(loadingId); await Alert.error('Error', err.message); }
       finally { isProcessing = false; saveButton.disabled = false; saveButton.textContent = isCreate ? 'Crear Producto' : 'Guardar'; }
     });

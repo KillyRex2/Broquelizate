@@ -101,27 +101,41 @@ export const crateUpdateProduct = defineAction({
             
             let uploadedCount = 0;
             const uploadedImages = [];
-            
+
+            // Fotos que no se pudieron subir, con el motivo.
+            //
+            // Antes cada uno de estos casos era un `continue` con un
+            // console.warn y nada más. El producto se guardaba, la pantalla
+            // decía "¡Producto creado!" y las fotos sencillamente no estaban:
+            // quien las subía no tenía forma de enterarse, y lo único que veía
+            // era que su trabajo había desaparecido. Un fallo silencioso en la
+            // herramienta con la que la tienda carga su inventario es peor que
+            // un error a la cara.
+            const fotosFallidas: { nombre: string; motivo: string }[] = [];
+
             if (imageFiles.length > 0) {
                 for (const file of imageFiles) {
+                    const nombre = file?.name || 'imagen';
+
                     if (!file || file.size === 0) {
-                        console.warn('Archivo vacío o no proporcionado, saltando...');
+                        fotosFallidas.push({ nombre, motivo: 'el archivo llegó vacío' });
                         continue;
                     }
-                    
+
                     if (!file.type.startsWith('image/')) {
-                        console.warn(`Archivo ${file.name} no es una imagen válida (tipo: ${file.type})`);
+                        fotosFallidas.push({ nombre, motivo: `no es una imagen (${file.type || 'tipo desconocido'})` });
                         continue;
                     }
 
                     if (file.size > 5 * 1024 * 1024) {
-                        console.warn(`Archivo ${file.name} excede el tamaño máximo de 5MB`);
+                        const mb = (file.size / (1024 * 1024)).toFixed(1);
+                        fotosFallidas.push({ nombre, motivo: `pesa ${mb} MB y el máximo es 5 MB` });
                         continue;
                     }
 
                     try {
                         const imageUrl = await ImageUpload.upload(file);
-                        
+
                         const imageRecord = {
                             id: UUID(),
                             productId: productId,
@@ -133,15 +147,17 @@ export const crateUpdateProduct = defineAction({
                         uploadedImages.push(imageRecord);
                         uploadedCount++;
                     } catch (uploadError: any) {
-                        console.error(`Error subiendo imagen ${file.name}:`, uploadError.message);
+                        console.error(`Error subiendo imagen ${nombre}:`, uploadError?.message);
+                        fotosFallidas.push({ nombre, motivo: 'falló la subida' });
                     }
                 }
             }
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 product: { id: productId, ...productData },
                 uploadedImages,
+                fotosFallidas,
                 message: `Producto ${isEditing ? 'actualizado' : 'creado'} correctamente${uploadedCount > 0 ? ` con ${uploadedCount} imagen(es)` : ''}`
             };
             
