@@ -38,6 +38,10 @@ export const inputSchema = z.object({
   // Tipo de joya (anillos, broqueles, cadenas...). Alimenta Product.type,
   // que es una columna distinta de category: ahí va el material.
   jewelryType: z.string().optional().default('all'),
+  // Solo piezas personalizables. Lo usa el enlace "Joyería personalizada"
+  // del menú, que apuntaba a ?engraving=true sin que nadie leyera ese
+  // parámetro: el enlace existía, el filtro no.
+  engraving: z.string().optional().default(''),
   sortBy: z.string().optional().default('name'),
   sortOrder: z.string().optional().default('asc'),
 });
@@ -52,6 +56,7 @@ export const handler = async ({
   search,
   piercing,
   jewelryType,
+  engraving,
   sortBy,
   sortOrder,
 }: z.infer<typeof inputSchema>) => {
@@ -104,6 +109,28 @@ export const handler = async ({
 
     if (selectedJewelryTypes.length > 0) {
       filters.push(inArray(Product.type, selectedJewelryTypes));
+    }
+
+    // Piezas personalizables.
+    //
+    // Hay que mirar DOS columnas, no una. customizationFields es la nueva
+    // —un JSON con los campos que el cliente puede llenar— y allowsEngraving
+    // es la vieja, marcada como deprecada en db/config.ts pero todavía viva y
+    // con productos marcados así. Mientras las dos existan, filtrar por una
+    // sola deja fuera media tienda, y justo de este enlace cuelga la sección
+    // que más margen deja.
+    //
+    // Se quitan espacios y tabuladores antes de comparar para que un '[ ]'
+    // cuente como vacío, que es lo que es.
+    if (engraving === 'true') {
+      filters.push(sql`(
+        ${Product.allowsEngraving} = 1
+        OR (
+          ${Product.customizationFields} IS NOT NULL
+          AND REPLACE(REPLACE(${Product.customizationFields}, ' ', ''), CHAR(9), '')
+              NOT IN ('', '[]', 'null')
+        )
+      )`);
     }
     
     // Filtro de precio mínimo

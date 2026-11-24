@@ -27,6 +27,7 @@ interface FilterSidebarProps {
     search?: string;
     piercing?: string;
     jewelryType?: string;
+    engraving?: boolean;
   };
   /**
    * Materiales que se ofrecen, desde CatalogOption. Los manda el servidor
@@ -125,6 +126,11 @@ export const FilterSidebar = ({
     price: initialValues?.price ?? MAX_PRICE,
     search: initialValues?.search ?? '',
     inStock: initialValues?.inStock ?? false,
+    // Llega del enlace "Joyería personalizada" del menú. Vive en el estado
+    // y no solo en la URL porque buildQuery arma la query DESDE CERO: si no
+    // estuviera aquí, se perdería en cuanto alguien tocara cualquier otro
+    // filtro, y la sección entera se desarmaría sola al primer clic.
+    engraving: initialValues?.engraving ?? false,
   });
 
   const [filters, setFilters] = useState(initial);
@@ -158,7 +164,8 @@ export const FilterSidebar = ({
       filters.piercings.length +
       (filters.price < MAX_PRICE ? 1 : 0) +
       (filters.search ? 1 : 0) +
-      (filters.inStock ? 1 : 0),
+      (filters.inStock ? 1 : 0) +
+      (filters.engraving ? 1 : 0),
     [filters]
   );
 
@@ -170,6 +177,7 @@ export const FilterSidebar = ({
     if (f.price < MAX_PRICE) q.set('maxPrice', String(f.price));
     if (f.search.trim()) q.set('search', f.search.trim());
     if (f.inStock) q.set('stockFilter', 'inStock');
+    if (f.engraving) q.set('engraving', 'true');
     return q.toString();
   };
 
@@ -179,7 +187,7 @@ export const FilterSidebar = ({
   };
 
   const reset = () => {
-    setFilters({ categories: [], jewelryTypes: [], piercings: [], price: MAX_PRICE, search: '', inStock: false });
+    setFilters({ categories: [], jewelryTypes: [], piercings: [], price: MAX_PRICE, search: '', inStock: false, engraving: false });
     navigate('/products?page=1');
   };
 
@@ -213,6 +221,9 @@ export const FilterSidebar = ({
       ? [{ label: `Hasta $${filters.price.toLocaleString('es-MX')}`, onRemove: () => set('price', MAX_PRICE) }]
       : []),
     ...(filters.inStock ? [{ label: 'Solo disponibles', onRemove: () => set('inStock', false) }] : []),
+    // Se muestra como chip para que se vea POR QUÉ el catálogo salió
+    // recortado, y se pueda quitar sin tener que editar la URL a mano.
+    ...(filters.engraving ? [{ label: 'Joyería personalizada', onRemove: () => set('engraving', false) }] : []),
   ];
 
   return (
