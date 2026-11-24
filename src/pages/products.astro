@@ -18,6 +18,10 @@ const stockFilterParam = searchParams.get('stockFilter') || 'all';
 const search = searchParams.get('search') || '';
 const piercingParam = searchParams.get('piercing') || '';
 const jewelryTypeParam = searchParams.get('type') || '';
+// Solo piezas personalizables: es a donde apunta "Joyería personalizada"
+// en el menú. El enlace llevaba este parámetro desde siempre, pero nadie
+// lo leía, así que mostraba el catálogo entero sin filtrar.
+const engravingParam = searchParams.get('engraving') === 'true' ? 'true' : '';
 
 // Materiales del filtro: salen de CatalogOption, igual que el select del
 // admin, para que las dos listas no vuelvan a desincronizarse.
@@ -40,7 +44,8 @@ const result = await Astro.callAction(
     stockFilter: 'inStock', // ✅ Solo productos con stock > 0
     search: search,
     piercing: piercingParam,
-    jewelryType: jewelryTypeParam
+    jewelryType: jewelryTypeParam,
+    engraving: engravingParam
   }
 );
 
@@ -86,7 +91,8 @@ const filterState = {
   inStock: stockFilterParam !== 'out',
   search: search,
   piercing: piercingParam,
-  jewelryType: jewelryTypeParam
+  jewelryType: jewelryTypeParam,
+  engraving: engravingParam === 'true'
 };
 
 // Contar filtros activos para el badge
@@ -94,6 +100,7 @@ const activeFilters = [
   categoryParam !== 'all',
   piercingParam !== '' && piercingParam !== 'all',
   jewelryTypeParam !== '' && jewelryTypeParam !== 'all',
+  engravingParam === 'true',
   maxPriceParam < 5000,
   search !== ''
 ].filter(Boolean).length;
