@@ -23,6 +23,7 @@ import {
 } from '@/utils/checkout';
 import { getPaypalPayment } from '@/actions/admin/paypal';
 import { describeSchemaError } from '@/utils/db-errors';
+import { normalizeAdHoc, adHocTotal, type PosAdHocItem } from '@/utils/pos-adhoc';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -229,12 +230,20 @@ async function handleOnlineOrder(data: any, session: any, siteUrl: string) {
 // ============================================================
 
 async function handlePosOrder(data: any, session: any) {
-  if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
-    return json({ error: 'Datos de productos inválidos' }, 400);
+  // Productos momentáneos: se leen ANTES de validar el carrito, porque una
+  // venta puede consistir solo en ellos —un arreglo, una pieza de encargo—
+  // sin un solo producto del catálogo. Esa era justo la razón por la que no
+  // se podía cobrar algo que no estuviera dado de alta.
+  const adHocItems: PosAdHocItem[] = normalizeAdHoc(data.adHocItems);
+
+  const catalogo = Array.isArray(data.products) ? data.products : [];
+  if (catalogo.length === 0 && adHocItems.length === 0) {
+    return json({ error: 'La venta no tiene productos' }, 400);
   }
-  if (data.products.length > 50) {
+  if (catalogo.length > 50) {
     return json({ error: 'Demasiados productos en la orden' }, 400);
   }
+  data.products = catalogo;
 
   // Email: priorizar sesión autenticada (igual que antes)
   const customerEmail = session?.user?.email || data.customerEmail;
@@ -255,7 +264,9 @@ async function handlePosOrder(data: any, session: any) {
 
   // ✅ RECALCULAR TOTAL SERVER-SIDE — no confiar en el cliente
   const productIds: string[] = Array.from(new Set(data.products.map((p: any) => String(p.id)).filter((id: string) => id && id !== 'undefined'))) as string[];
-  if (productIds.length === 0) return json({ error: 'No se encontraron productos válidos' }, 400);
+  if (productIds.length === 0 && adHocItems.length === 0) {
+    return json({ error: 'No se encontraron productos válidos' }, 400);
+  }
 
   // El carrito manda `variantId`, que en productos de 2+ grupos es en realidad
   // el id de una COMBINACIÓN, y en productos de 1 grupo es el id de una VARIANTE.
@@ -278,10 +289,15 @@ async function handlePosOrder(data: any, session: any) {
           .limit(1)
       : Promise.resolve([] as Array<{ id: string; orderNumber: string; total: number; clientId: number | null }>),
 
-    db
-      .select({ id: Product.id, price: Product.price, name: Product.name })
-      .from(Product)
-      .where(inArray(Product.id, productIds)),
+    // Con la lista vacía no se consulta: un inArray sin valores es, según el
+    // driver, un error o un "todos", y aquí ya es un caso normal (venta de
+    // puros productos momentáneos).
+    productIds.length > 0
+      ? db
+          .select({ id: Product.id, price: Product.price, name: Product.name })
+          .from(Product)
+          .where(inArray(Product.id, productIds))
+      : Promise.resolve([] as Array<{ id: string; price: number; name: string }>),
 
     variantOrComboIds.length > 0
       ? db
@@ -360,10 +376,40 @@ async function handlePosOrder(data: any, session: any) {
     }
   }
 
-  const discount = Math.max(0, Math.min(serverSubtotal, Number(data.discount) || 0));
-  const additionalCharges = Math.max(0, Math.min(serverSubtotal * 2, Number(data.additionalCharges) || 0));
+  // Productos momentáneos: lo que se vende sin estar en el catálogo (un
+  // arreglo, una pieza de encargo). Aquí ya estamos dentro de handlePosOrder,
+  // al que solo se llega con isPos —admin y canal distinto de 'online'—, así
+  // que aceptar precios escritos a mano es seguro: quien los escribe es la
+  // tienda en su propio mostrador. Aun así pasan por normalizeAdHoc, que
+  // acota nombre, precio y cantidad; el filtro de ahí no es contra un
+  // atacante, es contra un dedo pegado al teclado.
+  const adHocSum = adHocTotal(adHocItems);
+
+  // Los momentáneos entran en el SUBTOTAL, no en additionalCharges. Son cosas
+  // que el cliente compró y en el ticket tienen que leerse como artículos,
+  // no como un cargo suelto al pie de la cuenta.
+  const subtotalVenta = Math.round((serverSubtotal + adHocSum) * 100) / 100;
+
+  const discount = Math.max(0, Math.min(subtotalVenta, Number(data.discount) || 0));
+
+  // Tope de los montos adicionales.
+  //
+  // Antes era `serverSubtotal * 2`, y con el subtotal del catálogo en 0
+  // —una venta de puros productos momentáneos— Math.min(0, X) dejaba el cargo
+  // en 0: la venta se guardaba sin ese dinero y nadie se enteraba. Hasta
+  // ahora no se notaba porque el checkout no dejaba llegar aquí sin
+  // productos de catálogo; justo eso es lo que cambia en este mismo commit,
+  // así que de no tocarlo se habría convertido en un cobro perdido.
+  //
+  // Ahora se calcula sobre el subtotal de la venta completa, con un piso
+  // absoluto para que un cargo legítimo nunca se recorte a 0. No es una
+  // defensa contra manipulación —esto es admin-only— sino contra un error
+  // de captura.
+  const TOPE_CARGOS = Math.max(subtotalVenta * 2, 5000);
+  const additionalCharges = Math.max(0, Math.min(TOPE_CARGOS, Number(data.additionalCharges) || 0));
+
   const tax = Math.max(0, Number(data.tax) || 0);
-  const serverTotal = serverSubtotal + additionalCharges + tax - discount;
+  const serverTotal = subtotalVenta + additionalCharges + tax - discount;
 
   const clientTotal = Number(data.total) || 0;
   if (Math.abs(serverTotal - clientTotal) > AMOUNT_TOLERANCE && import.meta.env.DEV) {
@@ -391,8 +437,17 @@ async function handlePosOrder(data: any, session: any) {
     id: orderId,
     orderNumber,
     customerEmail,
-    shippingAddress: JSON.stringify(data.shippingAddress || {}),
-    subtotal: serverSubtotal,
+    // Los momentáneos se guardan junto a la dirección, en su propia llave y
+    // separados de extraCharges, porque order_items.productId es obligatorio
+    // y con llave foránea a Product: un artículo sin producto de catálogo no
+    // cabe ahí sin migrar la tabla. Van aparte de los montos adicionales a
+    // propósito: si compartieran sitio, ni el detalle del pedido ni el ticket
+    // podrían distinguir una venta de un cargo.
+    shippingAddress: JSON.stringify({
+      ...(data.shippingAddress || {}),
+      ...(adHocItems.length ? { adHocItems } : {}),
+    }),
+    subtotal: subtotalVenta,
     tax,
     total: serverTotal,
     paymentMethod: data.paymentMethod || 'Desconocido',

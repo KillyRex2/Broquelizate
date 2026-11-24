@@ -5,6 +5,7 @@ import { db, orders, order_items } from 'astro:db';
 import { eq } from 'drizzle-orm';
 import { actions } from 'astro:actions';
 import { normalizeExtras } from '@/utils/pos-extra';
+import { normalizeAdHoc } from '@/utils/pos-adhoc';
 import { packageForItems } from '@/utils/shipping';
 import { parseCustomizationData } from '@/utils/customization';
 import { formatDateTime } from '@/utils/datetime';
@@ -98,6 +99,13 @@ const pickupPhone: string = rawAddress.phone || '';
 // Montos adicionales de ventas del POS (se guardan en shippingAddress).
 // extraCharges = lista [{ amount, description }]; additionalChargeDescription = formato de un solo monto.
 const extraChargesDetail = normalizeExtras(rawAddress.extraCharges ?? []);
+
+// Productos momentáneos del POS: lo que se vendió sin estar en el catálogo.
+// Viven aquí y no en order_items porque esa tabla exige productId con llave
+// foránea a Product, y esto no tiene producto detrás. Se muestran junto a los
+// artículos —que es lo que son— y NO junto a los montos adicionales, que son
+// cargos sobre la venta.
+const adHocItemsDetail = normalizeAdHoc(rawAddress.adHocItems ?? []);
 const legacyChargeDescription: string = rawAddress.additionalChargeDescription || '';
 
 // shippingCost = lo que pagó el cliente · labelCost = lo que costó la guía en Envia
@@ -132,7 +140,12 @@ const statusLabels: Record<string, string> = {
 
   {/* --- Datos ocultos para el script de impresión --- */}
   <div id="products-data" style="display:none;">
-    {JSON.stringify(items.map(i => ({ name: i.productName, price: i.price, quantity: i.quantity || 1 })))}
+    {JSON.stringify([
+      ...items.map(i => ({ name: i.productName, price: i.price, quantity: i.quantity || 1 })),
+      // Los momentáneos también, o un ticket reimpreso saldría con menos
+      // artículos y un subtotal distinto al que se cobró.
+      ...adHocItemsDetail.map(i => ({ name: i.name, price: i.price, quantity: i.quantity })),
+    ])}
   </div>
   <div id="total-data" style="display:none;">{order.total ?? 0}</div>
   <div id="order-number-data" style="display:none;">{order.orderNumber || order.id.slice(0,8)}</div>
@@ -185,9 +198,23 @@ const statusLabels: Record<string, string> = {
         <section class="panel">
           <div class="panel-head">
             <h2>Artículos del pedido</h2>
-            <span class="count-badge">{items.length}</span>
+            <span class="count-badge">{items.length + adHocItemsDetail.length}</span>
           </div>
           <ul class="items-list">
+            {adHocItemsDetail.map(item => (
+              <li class="item-row">
+                <div class="item-top">
+                  <div class="item-info">
+                    <p class="item-name">{item.name}</p>
+                    <p class="item-qty">Cantidad: {item.quantity} · Producto momentáneo</p>
+                  </div>
+                  <div class="item-prices">
+                    <p class="item-total">{formatCurrency(item.price * item.quantity)}</p>
+                    <p class="item-unit">{formatCurrency(item.price)} c/u</p>
+                  </div>
+                </div>
+              </li>
+            ))}
             {items.map(item => (
               <li class="item-row">
                 <div class="item-top">

@@ -381,6 +381,17 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
           <span id="subtotal-amount" class="font-medium text-[var(--pos-txt)]">$0.00</span>
         </div>
 
+        <!-- Productos momentáneos: lo que se vende sin estar en el catálogo.
+             Van ARRIBA de los montos adicionales porque son parte de lo que
+             el cliente compra, no un cargo al pie de la cuenta. -->
+        <div class="flex justify-between items-center">
+          <span id="adhoc-label" class="text-[var(--pos-txt-2)]">Producto momentáneo</span>
+          <button id="add-adhoc-btn" type="button" class="text-xs md:text-sm font-semibold text-[var(--pos-warn)] hover:underline">
+            + Agregar producto
+          </button>
+        </div>
+        <ul id="adhoc-list" class="hidden space-y-1.5 max-h-32 overflow-y-auto product-scroll"></ul>
+
         <!-- Montos adicionales (servicios, cargos extra…). Puede haber varios -->
         <div class="flex justify-between items-center">
           <span id="extra-label" class="text-[var(--pos-txt-2)]">Monto adicional</span>
@@ -405,6 +416,56 @@ const categories = Array.from(new Set(allProducts.map(p => p.category).filter(Bo
       </button>
     </div>
   </aside>
+
+  <!-- Modal: producto momentáneo (nombre + precio + cantidad) -->
+  <dialog id="adhoc-dialog" class="extra-dialog">
+    <form id="adhoc-form" class="bg-[var(--pos-raised)] rounded-2xl p-6 shadow-2xl w-full space-y-4" novalidate>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="adhoc-dialog-title" class="text-lg font-bold text-[var(--pos-txt)]">Agregar producto momentáneo</h3>
+          <p class="text-xs text-[var(--pos-txt-2)] mt-0.5">Algo que vendes y no está en el catálogo. Sale en el ticket como un producto más.</p>
+        </div>
+        <button type="button" id="adhoc-cancel-x" aria-label="Cerrar" class="rounded-full p-1.5 text-[var(--pos-txt-3)] hover:bg-[var(--pos-bg)] hover:text-[var(--pos-txt-2)]">
+          <Icon name="mdi:close" class="h-5 w-5" />
+        </button>
+      </div>
+
+      <label class="block">
+        <span class="text-sm font-semibold text-[var(--pos-txt)]">Nombre <span class="text-[var(--pos-danger)]">*</span></span>
+        <input id="adhoc-name" name="name" type="text" maxlength="80" autocomplete="off"
+          placeholder="Ej. Arreglo de cadena, dije de encargo…"
+          class="mt-1 w-full rounded-xl border-2 border-[var(--pos-line)] py-2.5 px-3 text-[var(--pos-txt)] focus:border-amber-500 focus:ring-0 outline-none" />
+        <span class="mt-1 flex justify-between text-xs text-[var(--pos-txt-3)]">
+          <span>Así lo verá el cliente en su ticket</span>
+          <span id="adhoc-name-count">0/80</span>
+        </span>
+      </label>
+
+      <div class="flex gap-3">
+        <label class="block flex-1">
+          <span class="text-sm font-semibold text-[var(--pos-txt)]">Precio <span class="text-[var(--pos-danger)]">*</span></span>
+          <div class="relative mt-1">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--pos-txt-3)]">$</span>
+            <input id="adhoc-price" name="price" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00"
+              class="w-full rounded-xl border-2 border-[var(--pos-line)] py-2.5 pl-7 pr-3 text-[var(--pos-txt)] focus:border-amber-500 focus:ring-0 outline-none" />
+          </div>
+        </label>
+        <label class="block w-24">
+          <span class="text-sm font-semibold text-[var(--pos-txt)]">Cantidad</span>
+          <input id="adhoc-qty" name="quantity" type="number" inputmode="numeric" step="1" min="1" value="1"
+            class="mt-1 w-full rounded-xl border-2 border-[var(--pos-line)] py-2.5 px-3 text-center text-[var(--pos-txt)] focus:border-amber-500 focus:ring-0 outline-none" />
+        </label>
+      </div>
+
+      <p id="adhoc-total-preview" class="text-sm text-[var(--pos-txt-2)]"></p>
+      <p id="adhoc-error" class="hidden rounded-lg bg-red-500/10 px-3 py-2 text-sm text-[var(--pos-danger)]"></p>
+
+      <div class="flex gap-2 pt-1">
+        <button type="button" id="adhoc-cancel" class="flex-1 rounded-xl border-2 border-[var(--pos-line)] py-2.5 font-semibold text-[var(--pos-txt)] hover:bg-[var(--pos-bg)]">Cancelar</button>
+        <button type="submit" class="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 font-bold text-white shadow hover:from-amber-600 hover:to-orange-600">Guardar</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Modal: monto adicional con descripción -->
   <dialog id="extra-dialog" class="extra-dialog">
@@ -464,6 +525,9 @@ import { Confirm, Toast, ImageViewer } from '@/utils/alerts';
 import { optimizeImage, IMG_WIDTH } from '@/utils/images';
 import { normalizeSearch } from '@/utils/search';
 import { readPosExtras, savePosExtras, clearPosExtras, extrasTotal, POS_EXTRA_DESCRIPTION_MAX, POS_EXTRA_MAX_ITEMS, type PosExtraCharge } from '@/utils/pos-extra';
+import { readPosAdHoc, savePosAdHoc, clearPosAdHoc, adHocTotal, adHocLineTotal,
+         POS_ADHOC_NAME_MAX, POS_ADHOC_MAX_ITEMS, POS_ADHOC_MAX_PRICE, POS_ADHOC_MAX_QTY,
+         type PosAdHocItem } from '@/utils/pos-adhoc';
 
 // Estado global del POS
 const POSState = {
@@ -613,6 +677,150 @@ function arrancarPOS() {
   const extraDescCount = document.getElementById('extra-desc-count');
   const extraError = document.getElementById('extra-error');
   const extraCancelBtns = [document.getElementById('extra-cancel'), document.getElementById('extra-cancel-x')];
+
+  // ─────────────────────────────────────────────────────────────
+  // Productos momentáneos
+  // ─────────────────────────────────────────────────────────────
+  const adhocList = document.getElementById('adhoc-list');
+  const adhocLabel = document.getElementById('adhoc-label');
+  const addAdhocBtn = document.getElementById('add-adhoc-btn');
+  const adhocDialog = document.getElementById('adhoc-dialog') as HTMLDialogElement | null;
+  const adhocDialogTitle = document.getElementById('adhoc-dialog-title');
+  const adhocForm = document.getElementById('adhoc-form');
+  const adhocNameInput = document.getElementById('adhoc-name') as HTMLInputElement | null;
+  const adhocPriceInput = document.getElementById('adhoc-price') as HTMLInputElement | null;
+  const adhocQtyInput = document.getElementById('adhoc-qty') as HTMLInputElement | null;
+  const adhocNameCount = document.getElementById('adhoc-name-count');
+  const adhocTotalPreview = document.getElementById('adhoc-total-preview');
+  const adhocError = document.getElementById('adhoc-error');
+  const adhocCancelBtns = [document.getElementById('adhoc-cancel'), document.getElementById('adhoc-cancel-x')];
+
+  /** Índice del producto que se está editando; null = agregando uno nuevo */
+  let editingAdhoc: number | null = null;
+
+  function renderAdHoc(items: PosAdHocItem[] = readPosAdHoc()) {
+    if (!adhocList) return;
+    adhocList.classList.toggle('hidden', items.length === 0);
+    if (adhocLabel) {
+      adhocLabel.textContent = items.length > 1
+        ? `Productos momentáneos (${formatCurrency(adHocTotal(items))})`
+        : 'Producto momentáneo';
+    }
+    if (addAdhocBtn) addAdhocBtn.classList.toggle('hidden', items.length >= POS_ADHOC_MAX_ITEMS);
+
+    // Con DOM y no innerHTML: el nombre lo escribe la tienda y acabaría
+    // interpretándose como HTML.
+    adhocList.replaceChildren(...items.map((x, i) => {
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-2 rounded-lg bg-amber-500/10 pl-2 pr-1 py-1';
+
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.dataset.adhocEdit = String(i);
+      edit.title = 'Editar producto';
+      edit.className = 'flex min-w-0 flex-1 items-center justify-between gap-2 text-left';
+
+      const nombre = document.createElement('span');
+      nombre.className = 'truncate text-xs text-[var(--pos-txt)]';
+      nombre.textContent = x.quantity > 1 ? `${x.quantity} × ${x.name}` : x.name;
+      nombre.title = x.name;
+
+      const precio = document.createElement('span');
+      precio.className = 'flex-shrink-0 text-xs md:text-sm font-semibold text-[var(--pos-warn)]';
+      precio.textContent = formatCurrency(adHocLineTotal(x));
+      edit.append(nombre, precio);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.dataset.adhocRemove = String(i);
+      remove.setAttribute('aria-label', `Quitar ${x.name}`);
+      remove.className = 'flex-shrink-0 rounded-md p-1 text-[var(--pos-txt-3)] hover:bg-red-500/10 hover:text-[var(--pos-danger)] transition-colors';
+      remove.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+      li.append(edit, remove);
+      return li;
+    }));
+  }
+
+  function updateAdhocPreview() {
+    if (adhocNameCount && adhocNameInput) adhocNameCount.textContent = `${adhocNameInput.value.length}/${POS_ADHOC_NAME_MAX}`;
+    if (!adhocTotalPreview) return;
+    const precio = parseFloat(adhocPriceInput?.value || '') || 0;
+    const cantidad = Math.floor(Number(adhocQtyInput?.value) || 1);
+    // Solo se enseña la cuenta cuando hay más de una pieza: con una sola,
+    // repetir el mismo número debajo del campo es ruido.
+    adhocTotalPreview.textContent = precio > 0 && cantidad > 1
+      ? `${cantidad} × ${formatCurrency(precio)} = ${formatCurrency(Math.round(precio * cantidad * 100) / 100)}`
+      : '';
+  }
+
+  function openAdhocDialog(index: number | null) {
+    if (!adhocDialog) return;
+    const current = index != null ? readPosAdHoc()[index] : undefined;
+    editingAdhoc = current ? index : null;
+    if (adhocDialogTitle) adhocDialogTitle.textContent = current ? 'Editar producto momentáneo' : 'Agregar producto momentáneo';
+    if (adhocNameInput) adhocNameInput.value = current?.name ?? '';
+    if (adhocPriceInput) adhocPriceInput.value = current ? String(current.price) : '';
+    if (adhocQtyInput) adhocQtyInput.value = String(current?.quantity ?? 1);
+    adhocError?.classList.add('hidden');
+    updateAdhocPreview();
+    adhocDialog.showModal();
+    setTimeout(() => adhocNameInput?.focus(), 50);
+  }
+
+  const handleOpenAdhoc = (e: Event) => { e.preventDefault(); openAdhocDialog(null); };
+
+  const handleAdhocListClick = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const editBtn = target.closest<HTMLElement>('[data-adhoc-edit]');
+    const removeBtn = target.closest<HTMLElement>('[data-adhoc-remove]');
+    if (editBtn) {
+      openAdhocDialog(Number(editBtn.dataset.adhocEdit));
+    } else if (removeBtn) {
+      const items = readPosAdHoc();
+      const [quitado] = items.splice(Number(removeBtn.dataset.adhocRemove), 1);
+      savePosAdHoc(items);
+      renderCart();
+      if (quitado) Toast.info('Producto quitado', quitado.name);
+    }
+  };
+
+  const mostrarErrorAdhoc = (mensaje: string, foco?: HTMLInputElement | null) => {
+    if (adhocError) {
+      adhocError.textContent = mensaje;
+      adhocError.classList.remove('hidden');
+    }
+    foco?.focus();
+  };
+
+  const handleSaveAdhoc = (e: Event) => {
+    e.preventDefault();
+    const name = (adhocNameInput?.value || '').trim();
+    const price = Math.round((parseFloat(adhocPriceInput?.value || '') || 0) * 100) / 100;
+    const quantity = Math.floor(Number(adhocQtyInput?.value) || 1);
+
+    // Se valida campo por campo para poder decir QUÉ falta. Un "revisa los
+    // datos" genérico obliga a adivinar, y esto se usa con un cliente
+    // esperando enfrente.
+    if (!name) return mostrarErrorAdhoc('Escribe un nombre: es lo que verá el cliente en su ticket.', adhocNameInput);
+    if (!(price > 0)) return mostrarErrorAdhoc('El precio tiene que ser mayor a $0.', adhocPriceInput);
+    if (price > POS_ADHOC_MAX_PRICE) return mostrarErrorAdhoc(`El precio máximo es ${formatCurrency(POS_ADHOC_MAX_PRICE)}. Revisa si sobra un cero.`, adhocPriceInput);
+    if (!(quantity >= 1) || quantity > POS_ADHOC_MAX_QTY) return mostrarErrorAdhoc(`La cantidad va de 1 a ${POS_ADHOC_MAX_QTY}.`, adhocQtyInput);
+
+    const items = readPosAdHoc();
+    const esEdicion = editingAdhoc != null && items[editingAdhoc] !== undefined;
+    if (esEdicion) items[editingAdhoc!] = { name, price, quantity };
+    else items.push({ name, price, quantity });
+
+    savePosAdHoc(items);
+    editingAdhoc = null;
+    adhocDialog?.close();
+    renderCart();
+    Toast.success(esEdicion ? 'Producto actualizado' : 'Producto agregado',
+      `${quantity > 1 ? `${quantity} × ` : ''}${name} · ${formatCurrency(Math.round(price * quantity * 100) / 100)}`);
+  };
+
+  const handleCancelAdhoc = () => { editingAdhoc = null; adhocDialog?.close(); };
 
   /** Índice del monto que se está editando; null = agregando uno nuevo */
   let editingExtra: number | null = null;
@@ -1161,11 +1369,23 @@ function arrancarPOS() {
       checkoutButton.disabled = true;
     }
     
-    const subtotal = POSState.cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+    const subtotalCatalogo = POSState.cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
     const extras = readPosExtras();
+    const momentaneos = readPosAdHoc();
+
+    // Los momentáneos van en el SUBTOTAL, no al lado del total: son cosas que
+    // el cliente compra. Los montos adicionales sí quedan aparte, que para eso
+    // conviven los dos.
+    const subtotal = Math.round((subtotalCatalogo + adHocTotal(momentaneos)) * 100) / 100;
     subtotalAmount.textContent = formatCurrency(subtotal);
     totalAmount.textContent = formatCurrency(subtotal + extrasTotal(extras));
     renderExtras(extras);
+    renderAdHoc(momentaneos);
+
+    // Se puede cobrar una venta hecha solo de productos momentáneos. Antes el
+    // botón dependía únicamente del carrito de catálogo, y por eso había que
+    // meter un producto cualquiera para poder cobrar un arreglo.
+    checkoutButton.disabled = POSState.cart.length === 0 && momentaneos.length === 0;
     
     updateMobileCartCount();
   }
@@ -1201,6 +1421,7 @@ function arrancarPOS() {
     if (confirmed) {
       POSState.cart = [];
       clearPosExtras(); // los montos adicionales son de esta venta
+    clearPosAdHoc();  // y los productos momentáneos también
       updateAndSaveCart();
       Toast.success('Carrito vaciado');
     }
@@ -1436,6 +1657,14 @@ function arrancarPOS() {
   clearCartBtn?.addEventListener('click', handleClearCart);
   clearCartBtnDesktop?.addEventListener('click', handleClearCart);
   checkoutButton?.addEventListener('click', handleCheckout);
+  addAdhocBtn?.addEventListener('click', handleOpenAdhoc);
+  adhocList?.addEventListener('click', handleAdhocListClick);
+  adhocForm?.addEventListener('submit', handleSaveAdhoc);
+  adhocNameInput?.addEventListener('input', updateAdhocPreview);
+  adhocPriceInput?.addEventListener('input', updateAdhocPreview);
+  adhocQtyInput?.addEventListener('input', updateAdhocPreview);
+  adhocCancelBtns.forEach(b => b?.addEventListener('click', handleCancelAdhoc));
+
   addExtraBtn?.addEventListener('click', handleOpenExtra);
   extraList?.addEventListener('click', handleExtraListClick);
   extraForm?.addEventListener('submit', handleSaveExtra);
@@ -1473,6 +1702,13 @@ function arrancarPOS() {
     extraDescInput?.removeEventListener('input', updateExtraCount);
     extraDialog?.removeEventListener('click', handleExtraBackdrop);
     extraCancelBtns.forEach(b => b?.removeEventListener('click', handleCancelExtra));
+    addAdhocBtn?.removeEventListener('click', handleOpenAdhoc);
+    adhocList?.removeEventListener('click', handleAdhocListClick);
+    adhocForm?.removeEventListener('submit', handleSaveAdhoc);
+    adhocNameInput?.removeEventListener('input', updateAdhocPreview);
+    adhocPriceInput?.removeEventListener('input', updateAdhocPreview);
+    adhocQtyInput?.removeEventListener('input', updateAdhocPreview);
+    adhocCancelBtns.forEach(b => b?.removeEventListener('click', handleCancelAdhoc));
     if (extraDialog?.open) extraDialog.close();
     document.removeEventListener('keydown', handleKeyboard);
     mobileCartToggle?.removeEventListener('click', handleMobileCartToggle);

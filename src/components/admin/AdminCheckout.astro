@@ -249,6 +249,7 @@ const clientsList: Client[] = clientsData?.clients || [];
   import { navigate } from 'astro:transitions/client';
   import { generateAndPrintTicket, precargarTicket } from '@/services/ticketGenerator';
   import { readPosExtras, clearPosExtras, extrasTotal } from '@/utils/pos-extra';
+  import { readPosAdHoc, clearPosAdHoc, adHocTotal, adHocLineTotal, type PosAdHocItem } from '@/utils/pos-adhoc';
   import { optimizeImage, IMG_WIDTH } from '@/utils/images';
   import { actions } from 'astro:actions';
 
@@ -286,6 +287,15 @@ const clientsList: Client[] = clientsData?.clients || [];
     // Montos adicionales capturados en el POS (cada uno con su descripción para el ticket)
     const posExtras = readPosExtras();
     const additionalAmount = extrasTotal(posExtras);
+
+    // Productos momentáneos: lo que se vende sin estar en el catálogo. Entran
+    // en el subtotal junto a los productos, no en los montos adicionales.
+    const posAdHoc: PosAdHocItem[] = readPosAdHoc();
+    const adHocSum = adHocTotal(posAdHoc);
+
+    /** Subtotal de la venta: catálogo + productos momentáneos. */
+    const subtotalDeVenta = () =>
+      Math.round((cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + adHocSum) * 100) / 100;
     let discountInfo = {
       amount: 0,
       type: null as 'fixed' | 'percentage' | null,
@@ -357,7 +367,7 @@ const clientsList: Client[] = clientsData?.clients || [];
     // /api/create-order dentro de la misma transacción.
 
     function updateTotals() {
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const subtotal = subtotalDeVenta();
       const total = subtotal + additionalAmount - discountInfo.amount;
 
       if (headerTotalEl) headerTotalEl.textContent = formatCurrency(total);
@@ -421,6 +431,40 @@ const clientsList: Client[] = clientsData?.clients || [];
       }
       
       if (cartSummaryListEl) {
+        // Los momentáneos se pintan con DOM aparte y DESPUÉS del innerHTML de
+        // abajo: su nombre lo escribe la tienda y concatenarlo en una
+        // plantilla lo dejaría interpretarse como HTML.
+        const pintarMomentaneos = () => {
+          for (const x of posAdHoc) {
+            const li = document.createElement('li');
+            li.className = 'flex items-center gap-4 p-3 rounded-lg bg-amber-500/5';
+
+            const hueco = document.createElement('div');
+            hueco.className = 'flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-500';
+            hueco.innerHTML = '<svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 4v16m8-8H4"/></svg>';
+
+            const medio = document.createElement('div');
+            medio.className = 'flex-grow';
+            const nombre = document.createElement('p');
+            nombre.className = 'font-semibold text-[var(--pos-txt)]';
+            nombre.textContent = x.name;
+            const etiqueta = document.createElement('p');
+            etiqueta.className = 'text-xs text-[var(--pos-txt-2)]';
+            etiqueta.textContent = 'Producto momentáneo';
+            const linea = document.createElement('span');
+            linea.className = 'text-sm text-[var(--pos-txt-2)]';
+            linea.textContent = `${x.quantity} x ${formatCurrency(x.price)}`;
+            medio.append(nombre, etiqueta, linea);
+
+            const total = document.createElement('p');
+            total.className = 'font-bold text-lg text-[var(--pos-txt)]';
+            total.textContent = formatCurrency(adHocLineTotal(x));
+
+            li.append(hueco, medio, total);
+            cartSummaryListEl.append(li);
+          }
+        };
+
         if (cart.length > 0) {
           cartSummaryListEl.innerHTML = cart.map((item) => {
             const displayName = item.variantName 
@@ -446,6 +490,10 @@ const clientsList: Client[] = clientsData?.clients || [];
               </li>
             `;
           }).join('');
+          pintarMomentaneos();
+        } else if (posAdHoc.length > 0) {
+          cartSummaryListEl.innerHTML = '';
+          pintarMomentaneos();
         } else {
           cartSummaryListEl.innerHTML = '<p class="text-[var(--pos-txt-2)] italic text-center py-8">El carrito está vacío. Vuelve al TPV para agregar productos.</p>';
         }
@@ -455,7 +503,7 @@ const clientsList: Client[] = clientsData?.clients || [];
     const formatCurrency = (value: number): string => `$${Number(value).toFixed(2)}`;
     
     function updateChange() {
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const subtotal = subtotalDeVenta();
       const total = subtotal + additionalAmount - discountInfo.amount;
       const received = parseFloat(amountReceivedEl?.value || '0') || 0;
       const change = received - total;
@@ -488,7 +536,7 @@ const clientsList: Client[] = clientsData?.clients || [];
     }
 
     async function handleApplyDiscount() {
-        const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const subtotal = subtotalDeVenta();
 
         const formValues = await Prompt.show({
             title: 'Aplicar descuento',
@@ -563,7 +611,7 @@ const clientsList: Client[] = clientsData?.clients || [];
       const clientId = clientSelectEl.value ? parseInt(clientSelectEl.value, 10) : null;
       const paymentMethod = paymentMethodEl.value;
       
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const subtotal = subtotalDeVenta();
       const total = subtotal + additionalAmount - discountInfo.amount;
 
       if (paymentMethod === 'Venta a crédito' && !clientId) {
@@ -594,6 +642,9 @@ const clientsList: Client[] = clientsData?.clients || [];
           // Venta de mostrador: sin dirección. Se guardan aquí los montos
           // adicionales con su descripción para poder reimprimir el ticket igual.
           shippingAddress: posExtras.length ? { extraCharges: posExtras } : {},
+          // El servidor los revalida y recalcula: esto es lo que se captura,
+          // no lo que se cobra.
+          adHocItems: posAdHoc,
           products: cart.map(item => ({ 
             id: item.productId,
             variantId: item.variantId || null,
@@ -636,6 +687,7 @@ const clientsList: Client[] = clientsData?.clients || [];
 
         localStorage.removeItem('admin-pos-cart');
         clearPosExtras();
+        clearPosAdHoc();
 
         const storeInfo = { 
           name: "Broquelizate", 
@@ -658,13 +710,27 @@ const clientsList: Client[] = clientsData?.clients || [];
           type: 'info',
         }).then((imprimir: boolean) => {
           if (imprimir) {
-            const ticketCart = cart.map(item => ({
-              id: parseInt(item.productId),
-              name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
-              price: item.price,
-              quantity: item.quantity,
-              images: item.images
-            }));
+            const ticketCart = [
+              ...cart.map(item => ({
+                id: parseInt(item.productId),
+                name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+                price: item.price,
+                quantity: item.quantity,
+                images: item.images
+              })),
+              // Los momentáneos van en la MISMA lista que los productos: para
+              // quien recibe el ticket son lo que compró, no un cargo aparte.
+              // Además el ticket saca su subtotal de esta lista, así que
+              // incluirlos aquí es lo que hace que el papel cuadre con el
+              // total cobrado.
+              ...posAdHoc.map(x => ({
+                id: 0,
+                name: x.name,
+                price: x.price,
+                quantity: x.quantity,
+                images: [] as string[],
+              })),
+            ];
             
             const receivedForTicket = parseFloat(amountReceivedEl?.value || '0') || 0;
             const changeForTicket = paymentMethod === 'Efectivo' && receivedForTicket > 0
@@ -773,8 +839,11 @@ const clientsList: Client[] = clientsData?.clients || [];
       setTimeout(adelantarTicket, 1200);
     }
 
-    // Verificar si el carrito está vacío
-    if (cart.length === 0) {
+    // Una venta puede ser solo de productos momentáneos —un arreglo, una
+    // pieza de encargo—, así que ya no basta con mirar el carrito de
+    // catálogo. Esta comprobación era justo lo que obligaba a meter un
+    // producto cualquiera para poder cobrar algo que no estaba dado de alta.
+    if (cart.length === 0 && readPosAdHoc().length === 0) {
       navigate('/admin/sale');
       return;
     }
