@@ -16,6 +16,7 @@
 // ============================================================
 
 import { db, eq, inArray, sql, Product, ProductVariant, ProductVariantCombination, orders, order_items } from 'astro:db';
+import { normalizeAdHoc, adHocTotal, type PosAdHocItem } from './pos-adhoc';
 import type { DeliveryMethod } from '@/utils/store';
 import { parseCustomizationFields, getCustomizationExtra } from '@/utils/customization';
 import { dayKey } from '@/utils/datetime';
@@ -154,11 +155,25 @@ interface CreatePendingArgs {
   channel?: 'online' | 'pos';
   /** 'delivery' (paquetería) | 'pickup' (recoger en tienda) */
   deliveryMethod?: DeliveryMethod;
+  /**
+   * Productos momentáneos del mostrador: lo que se vende sin estar en el
+   * catálogo. Suman al total y se guardan junto a la dirección, no en
+   * order_items, porque esa tabla exige productId con llave foránea a
+   * Product. Mismo sitio y mismo formato que en /api/create-order, para que
+   * el detalle del pedido y el ticket los encuentren igual vengan por donde
+   * vengan.
+   */
+  adHocItems?: PosAdHocItem[];
 }
 
 /** Crea el pedido en estado pendiente y devuelve sus totales */
 export async function createPendingOrder(args: CreatePendingArgs) {
-  const subtotal = args.items.reduce((s, i) => s + i.lineTotal, 0);
+  const adHocItems = normalizeAdHoc(args.adHocItems ?? []);
+  const subtotalCatalogo = args.items.reduce((s, i) => s + i.lineTotal, 0);
+  // Los momentáneos entran en el subtotal: son artículos de la venta, no un
+  // cargo. Si no sumaran aquí, el pedido quedaría guardado por menos de lo
+  // que se le cobra al cliente en Mercado Pago.
+  const subtotal = Math.round((subtotalCatalogo + adHocTotal(adHocItems)) * 100) / 100;
   const shippingCost = Math.max(0, toNum(args.shippingCost));
   const total = subtotal + shippingCost;
 
@@ -169,7 +184,10 @@ export async function createPendingOrder(args: CreatePendingArgs) {
     id: orderId,
     orderNumber,
     customerEmail: String(args.customerEmail),
-    shippingAddress: JSON.stringify(args.shippingAddress ?? {}),
+    shippingAddress: JSON.stringify({
+      ...(args.shippingAddress ?? {}),
+      ...(adHocItems.length ? { adHocItems } : {}),
+    }),
     subtotal: toNum(subtotal),
     tax: 0,
     total: toNum(total),
