@@ -72,5 +72,54 @@ const carousels = collections ?? (await getHomeCarousels());
   @media (max-width: 640px) {
     .hc-section { padding: 56px 0; }
     .hc-inner :global(.pc-section) { padding: 20px 0; }
+
+    /* ── Al deslizar, las tarjetas se movían en vertical y se cortaban ──
+       Pasaba solo en celular, y por dos cosas a la vez.
+
+       La primera es que el carril recorta por arriba y por abajo. No es un
+       descuido: .pc-track declara overflow-x: auto y nada más, pero por
+       especificación de CSS basta con eso para que el OTRO eje deje de ser
+       "visible" y pase a "auto". O sea que todo lo que se mueva en vertical
+       dentro del carril queda cortado.
+
+       La segunda es que las tarjetas entran subiendo 26px, escalonadas hasta
+       300ms. En pantalla grande no se nota porque se ven cuatro de golpe y la
+       animación termina antes de que nadie toque nada. En celular solo se ve
+       una tarjeta y media, así que se desliza de inmediato —y se desliza
+       encima de tarjetas que todavía van subiendo—. Medido a mitad del
+       deslizamiento: la segunda tarjeta a 13px y cortada 5px, y de la tercera
+       en adelante a 26px y cortadas 18px.
+
+       Aquí las tarjetas solo se desvanecen. Sin movimiento vertical no hay
+       nada que cortar, y el desvanecido va sin retraso para que termine antes
+       de que a nadie le dé tiempo de tocar la pantalla. */
+    .hc-inner :global(.pc-section.pc-anim .pc-card),
+    .hc-inner :global(.pc-section.pc-anim.pc-in .pc-card) {
+      transform: none;
+    }
+    .hc-inner :global(.pc-section.pc-anim .pc-card) {
+      transition: opacity 0.35s ease;
+      transition-delay: 0s;
+    }
+
+    /* Aire arriba y abajo para que la sombra de las tarjetas no quede
+       cortada contra el borde del carril. */
+    .hc-inner :global(.pc-track) { padding-block: 8px; }
+  }
+
+  /* ── El :hover se queda pegado en pantallas táctiles ──
+     Al apoyar el dedo para deslizar se activa el :hover de la tarjeta que
+     queda debajo, que sube la imagen 4px… y al soltar no se quita, porque en
+     una pantalla táctil no existe "salir del elemento". La tarjeta se queda
+     levantada y recortada contra el borde del carril.
+
+     Se neutralizan solo los efectos que MUEVEN algo. El cambio de color del
+     nombre se queda: no desplaza nada y, si llega a quedarse, no se nota. */
+  @media (hover: none) {
+    .hc-inner :global(.pc-card:hover .pc-image-wrap),
+    .hc-inner :global(.pc-card:hover .pc-image),
+    .hc-inner :global(.pc-card:hover .pc-image-hover) {
+      transform: none;
+    }
   }
 </style>
