@@ -947,7 +947,12 @@ function arrancarPOS() {
   }
 
   function updateMobileCartCount() {
-    const totalItems = POSState.cart.reduce((sum, item) => sum + item.quantity, 0);
+    // Los momentáneos cuentan como piezas: son lo que el cliente se lleva.
+    // Sin esto, una venta de puros momentáneos enseñaba "0" en el botón del
+    // carrito y parecía que no se había agregado nada.
+    const totalItems =
+      POSState.cart.reduce((sum, item) => sum + item.quantity, 0) +
+      readPosAdHoc().reduce((sum, x) => sum + x.quantity, 0);
     if (mobileCartCount) mobileCartCount.textContent = totalItems.toString();
     if (cartItemCount) cartItemCount.textContent = totalItems.toString();
   }
@@ -1365,7 +1370,10 @@ function arrancarPOS() {
       checkoutButton.disabled = false;
     } else {
       cartItemsList.innerHTML = '';
-      cartPlaceholder.style.display = 'flex';
+      // El "carrito vacío" se oculta si hay momentáneos: sí hay algo que
+      // cobrar, y decir lo contrario justo encima de un botón habilitado es
+      // la clase de contradicción que hace dudar de si la venta se guardó.
+      cartPlaceholder.style.display = readPosAdHoc().length > 0 ? 'none' : 'flex';
       checkoutButton.disabled = true;
     }
     
@@ -1571,26 +1579,30 @@ function arrancarPOS() {
   
   const handleCheckout = (e: Event) => {
     e.preventDefault();
-    if (POSState.cart.length > 0) {
-      const hasOutOfStockItems = POSState.cart.some(item => item.outOfStock);
-      if (hasOutOfStockItems) {
-        Confirm.show({
-          title: 'Productos sin stock',
-          message: '¿Confirma que están disponibles físicamente?',
-          confirmText: 'Sí, continuar',
-          cancelText: 'Revisar',
-          type: 'warning'
-        }).then((confirmed) => {
-          if (confirmed) {
-            localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
-            navigate('/admin/checkout');
-          }
-        });
-      } else {
-        localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
-        navigate('/admin/checkout');
-      }
-    }
+
+    // Una venta puede ser solo de productos momentáneos. Esta comprobación
+    // miraba nada más POSState.cart, así que con el carrito de catálogo vacío
+    // el bloque entero se saltaba: el botón se veía habilitado y al picarlo
+    // no pasaba nada. Nada de error, nada de aviso; simplemente no respondía.
+    if (POSState.cart.length === 0 && readPosAdHoc().length === 0) return;
+
+    const seguir = () => {
+      localStorage.setItem('admin-pos-cart', JSON.stringify(POSState.cart));
+      navigate('/admin/checkout');
+    };
+
+    // El aviso de stock solo tiene sentido para productos del catálogo: un
+    // momentáneo no tiene existencias que revisar.
+    const hasOutOfStockItems = POSState.cart.some(item => item.outOfStock);
+    if (!hasOutOfStockItems) return seguir();
+
+    Confirm.show({
+      title: 'Productos sin stock',
+      message: '¿Confirma que están disponibles físicamente?',
+      confirmText: 'Sí, continuar',
+      cancelText: 'Revisar',
+      type: 'warning'
+    }).then((confirmed) => { if (confirmed) seguir(); });
   };
   
   const handleKeyboard = (e: KeyboardEvent) => {

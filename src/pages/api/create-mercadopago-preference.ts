@@ -13,6 +13,7 @@
 import type { APIRoute } from 'astro';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { priceItems, createPendingOrder, type IncomingItem } from '@/utils/mercadopago-orders';
+import { normalizeAdHoc, adHocTotal, type PosAdHocItem } from '@/utils/pos-adhoc';
 import { chargedShipping } from '@/utils/shipping';
 import { CheckoutError, resolveShipping } from '@/utils/checkout';
 import { STORE_PICKUP, normalizeDeliveryMethod } from '@/utils/store';
@@ -29,12 +30,14 @@ interface PreferenceRequest {
   channel?: 'online' | 'pos';
   /** 'delivery' | 'pickup'. Solo aplica a la tienda online. */
   deliveryMethod?: string;
+  /** Productos momentáneos del mostrador. Solo se aceptan de un admin. */
+  adHocItems?: PosAdHocItem[];
 }
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const accessToken = import.meta.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!accessToken) {
     console.error('❌ MERCADOPAGO_ACCESS_TOKEN no está configurada');
@@ -56,9 +59,22 @@ export const POST: APIRoute = async ({ request }) => {
       return json({ error: 'Recoger en tienda no está disponible por ahora.' }, 400);
     }
 
-    if (!Array.isArray(body.products) || body.products.length === 0) {
+    // Productos momentáneos: lo que se vende sin estar en el catálogo.
+    //
+    // Solo de un admin y solo por el canal de mostrador. Importa ser estricto:
+    // este endpoint NO tiene sesión obligatoria —lo usa también la tienda
+    // pública— y sus precios los escribe quien hace la petición. Para el
+    // catálogo da igual, porque priceItems los relee de la base; aquí no hay
+    // base que consultar, así que la única defensa es quién pregunta.
+    const esAdmin = Boolean((locals as any)?.isAdmin);
+    const adHocItems = esAdmin && channel === 'pos' ? normalizeAdHoc(body.adHocItems) : [];
+    const adHocSum = adHocTotal(adHocItems);
+
+    const catalogo = Array.isArray(body.products) ? body.products : [];
+    if (catalogo.length === 0 && adHocItems.length === 0) {
       return json({ error: 'No hay productos en el carrito' }, 400);
     }
+    body.products = catalogo;
     if (!body.customerEmail) {
       return json({ error: 'El email del cliente es requerido' }, 400);
     }
@@ -77,7 +93,7 @@ export const POST: APIRoute = async ({ request }) => {
       })));
     }
 
-    const subtotal = priced.reduce((s, i) => s + i.lineTotal, 0);
+    const subtotal = Math.round((priced.reduce((s, i) => s + i.lineTotal, 0) + adHocSum) * 100) / 100;
 
     // Envío: en la tienda online sale de la cotización guardada en el servidor
     // (quoteId + paquetería), nunca del monto que manda el navegador.
@@ -113,6 +129,7 @@ export const POST: APIRoute = async ({ request }) => {
     const order = await createPendingOrder({
       externalReference,
       items: priced,
+      adHocItems,
       shippingCost,
       customerEmail: body.customerEmail,
       customerName: body.customerName || body.customerEmail,
@@ -128,16 +145,30 @@ export const POST: APIRoute = async ({ request }) => {
       body.products.map(p => [p.productId, (p as any).image as string | undefined])
     );
 
-    const items = priced.map(p => ({
-      id: p.productId,
-      title: (p.name || 'Producto').substring(0, 250),
-      description: p.variantCombination ? String(p.variantCombination).substring(0, 250) : undefined,
-      picture_url: imageByProduct.get(p.productId) || undefined,
-      category_id: 'fashion',
-      quantity: p.quantity,
-      currency_id: 'MXN',
-      unit_price: p.unitPrice,
-    }));
+    const items = [
+      ...priced.map(p => ({
+        id: p.productId,
+        title: (p.name || 'Producto').substring(0, 250),
+        description: p.variantCombination ? String(p.variantCombination).substring(0, 250) : undefined,
+        picture_url: imageByProduct.get(p.productId) || undefined,
+        category_id: 'fashion',
+        quantity: p.quantity,
+        currency_id: 'MXN',
+        unit_price: p.unitPrice,
+      })),
+      // Los momentáneos van en la MISMA lista de Mercado Pago. Es lo que de
+      // verdad se le cobra al cliente: si se quedaran fuera, el pedido se
+      // guardaría con su importe incluido pero el QR cobraría solo el
+      // catálogo, y la tienda entregaría una pieza sin haberla cobrado.
+      ...adHocItems.map((x, i) => ({
+        id: `adhoc-${i}`,
+        title: x.name.substring(0, 250),
+        category_id: 'fashion',
+        quantity: x.quantity,
+        currency_id: 'MXN',
+        unit_price: x.price,
+      })),
+    ];
 
     // En el POS el cliente escanea un QR: al terminar debe caer en una
     // página simple de "listo", no en el checkout de la tienda.

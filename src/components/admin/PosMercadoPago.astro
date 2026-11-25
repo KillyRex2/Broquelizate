@@ -104,6 +104,7 @@
 
 <script>
   import { Alert, Toast } from '@/utils/alerts';
+  import { readPosAdHoc } from '@/utils/pos-adhoc';
 
   interface PosCartItem {
     productId: string;
@@ -205,8 +206,13 @@
 
     async function start() {
       const cart: PosCartItem[] = JSON.parse(localStorage.getItem('admin-pos-cart') || '[]');
-      if (cart.length === 0) {
-        Toast.warning('El carrito está vacío.');
+
+      // Una venta puede ser solo de productos momentáneos —un arreglo, una
+      // pieza de encargo—, así que mirar nada más el carrito de catálogo
+      // dejaba sin cobrar justo ese caso.
+      const adHocItems = readPosAdHoc();
+      if (cart.length === 0 && adHocItems.length === 0) {
+        Toast.warning('La venta no tiene productos.');
         return;
       }
 
@@ -232,6 +238,9 @@
               variantCombination: i.variantName ?? null,
               variantSku: i.sku ?? null,
             })),
+            // El servidor los revalida y recalcula; esto es lo capturado,
+            // no lo que se cobra.
+            adHocItems,
           }),
         });
 
