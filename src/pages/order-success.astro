@@ -9,6 +9,8 @@ import { actions } from 'astro:actions';
 import CheckoutProgress from '@/components/shared/CheckoutProgressBar.astro';
 import { formatDate } from '@/utils/datetime';
 import { getOrderDetails } from '@/utils/order-details';
+import { getSession } from 'auth-astro/server';
+import { accesoAPedido, type MotivoAcceso } from '@/utils/order-access';
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 const stripe = new Stripe(STRIPE_SECRET_KEY);
@@ -39,10 +41,13 @@ interface OrderDetails {
   trackingNumber?: string;
   carrier?: string;
   labelUrl?: string;
+  /** true = se ocultaron datos personales y artículos (ver utils/order-access). */
+  vistaLimitada?: boolean;
 }
 
 let orderDetails: OrderDetails | null = null;
 let errorMessage: string | null = null;
+let motivoAcceso: MotivoAcceso = 'reciente';
 let trackingInfo: any = null;
 
 // Limpiar carrito via Astro cookies (server-side safe).
@@ -98,6 +103,16 @@ try {
     // datos del cliente dentro. Ahora se lee directo.
     const orderData = await getOrderDetails(orderIdParam);
     if (orderData) {
+      // ¿Quien abre este enlace tiene derecho a ver los datos personales?
+      // El id sirve para ENCONTRAR el pedido; el derecho se gana con sesión
+      // o porque el pedido acaba de hacerse. Ver utils/order-access.
+      const sesion = await getSession(Astro.request);
+      const acceso = accesoAPedido({
+        createdAt: orderData.createdAt,
+        customerEmail: (orderData as any).customerEmail,
+        sessionEmail: sesion?.user?.email,
+      });
+      motivoAcceso = acceso.motivo;
       const shippingData = orderData.shippingAddress ? JSON.parse(orderData.shippingAddress as string) : {};
       const shippingInfo = orderData.shippingInfo;
       
@@ -132,6 +147,29 @@ try {
         paymentMethod: orderData.paymentMethod || 'Tarjeta',
         trackingNumber: orderData.trackingNumber, carrier: shippingInfo?.carrier || orderData.carrier
       };
+      if (!acceso.completo && orderDetails) {
+        // Se recorta el OBJETO, no solo lo que pinta la plantilla: más abajo
+        // orderDetails entero se vuelca como JSON dentro del HTML
+        // (#order-details-data), así que esconderlo en pantalla dejaría los
+        // datos a un "ver código fuente" de distancia.
+        orderDetails = {
+          ...orderDetails,
+          vistaLimitada: true,
+          products: [],
+          customer: { name: 'Cliente', email: '', phone: undefined },
+          shipping: {
+            method: orderDetails.shipping.method,
+            cost: orderDetails.shipping.cost,
+            address: '', city: undefined, state: undefined, postalCode: undefined,
+            pickup: orderDetails.shipping.pickup,
+          },
+          // El número de guía también se va: con él se consulta en la
+          // paquetería a nombre de quién va y a dónde.
+          trackingNumber: undefined,
+          carrier: undefined,
+          labelUrl: undefined,
+        };
+      }
     } else { throw new Error("No se pudo cargar la orden"); }
   } else if (sessionId) {
     const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['line_items.data.price.product'] });
@@ -237,6 +275,29 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
             </div>
           )}
 
+          {/* Enlace caducado: se explica, no se deja una pantalla a medias */}
+          {orderDetails.vistaLimitada && (
+            <div class="aviso-limitado">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+              <div>
+                <p class="aviso-titulo">Tu pedido está confirmado</p>
+                <p class="aviso-texto">
+                  Por seguridad, los datos de envío y el detalle de lo que compraste solo se
+                  muestran durante las primeras horas desde la compra. Este enlace guarda tu
+                  domicilio, así que deja de mostrarlo para que no quede a la vista de
+                  cualquiera que lo reciba.
+                </p>
+                <div class="aviso-acciones">
+                  <a href="/account/my-orders" class="aviso-btn">Ver mis pedidos</a>
+                  <a href={`https://wa.me/528714617696?text=Hola,%20quiero%20consultar%20mi%20pedido%20%23${orderDetails.orderId}`}
+                     target="_blank" rel="noopener noreferrer" class="aviso-btn aviso-btn-alt">Consultar por WhatsApp</a>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ═══ MAIN GRID ═══ */}
           <div class="os-grid">
             {/* LEFT: Products + Shipping */}
@@ -246,10 +307,13 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
                 <div class="card-header">
                   <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg></div>
                   <h2 class="card-title">Resumen del pedido</h2>
-                  <span class="card-badge">{totalItems} {totalItems === 1 ? 'producto' : 'productos'}</span>
+                  {!orderDetails.vistaLimitada && <span class="card-badge">{totalItems} {totalItems === 1 ? 'producto' : 'productos'}</span>}
                 </div>
 
                 <div class="products-list">
+                  {orderDetails.vistaLimitada && (
+                    <p class="lista-oculta">El detalle de los artículos no se muestra en este enlace.</p>
+                  )}
                   {orderDetails.products.map((product, i) => {
                     const displayImage = getProductImage(product);
                     const hasVariant = !!product.variantDescription;
@@ -303,7 +367,9 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
                 </div>
               </div>
 
-              {/* Shipping Info Card */}
+              {/* Shipping Info Card — se oculta entera con vista limitada:
+                   es la que lleva nombre, correo, teléfono y domicilio. */}
+              {!orderDetails.vistaLimitada && (
               <div class="os-card">
                 <div class="card-header">
                   <div class="header-icon"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
@@ -332,6 +398,7 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             {/* RIGHT: Status + Help */}
@@ -388,10 +455,14 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
                   <h2 class="card-title">Acciones</h2>
                 </div>
                 <div class="actions-list">
+                  {/* Sin el detalle de artículos el ticket saldría vacío con el
+                      total real, que confunde más de lo que ayuda. */}
+                  {!orderDetails.vistaLimitada && (
                   <button id="download-invoice" class="action-btn">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span>Descargar ticket</span>
                   </button>
+                  )}
                   {orderDetails.trackingNumber && (
                     <a href="/account/mis-pedidos" class="action-btn">
                       <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -573,6 +644,19 @@ const totalItems = orderDetails?.products.reduce((s, p) => s + p.quantity, 0) ||
 .tracking-section { margin-bottom: 24px; position: relative; z-index: 10; }
 
 /* ── Grid ── */
+/* Aviso de enlace caducado — ver utils/order-access */
+.aviso-limitado { display: flex; gap: 14px; align-items: flex-start; max-width: 1200px; margin: 0 auto 22px; padding: 16px 18px; border: 1px solid rgba(245,158,11,.35); background: rgba(245,158,11,.08); border-radius: 14px; position: relative; z-index: 10; }
+.aviso-limitado > svg { flex-shrink: 0; margin-top: 2px; color: #f59e0b; }
+.aviso-titulo { font-weight: 700; margin: 0 0 4px; }
+.aviso-texto { margin: 0; font-size: .9rem; line-height: 1.5; opacity: .85; }
+.aviso-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.aviso-btn { display: inline-block; padding: 8px 14px; border-radius: 10px; font-size: .85rem; font-weight: 600; text-decoration: none; background: #f59e0b; color: #1a1a1a; }
+.aviso-btn:hover { background: #d97706; }
+.aviso-btn-alt { background: transparent; color: inherit; border: 1px solid rgba(245,158,11,.5); }
+.aviso-btn-alt:hover { background: rgba(245,158,11,.12); }
+.lista-oculta { margin: 0; padding: 18px 4px; font-size: .9rem; opacity: .7; font-style: italic; }
+@media (max-width: 640px) { .aviso-limitado { margin-inline: 16px; } }
+
 .os-grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; position: relative; z-index: 10; }
 .os-left, .os-right { display: flex; flex-direction: column; gap: 24px; }
 .os-right { position: sticky; top: 24px; }
