@@ -111,24 +111,38 @@ export const handler = async ({
       filters.push(inArray(Product.type, selectedJewelryTypes));
     }
 
-    // Piezas personalizables.
+    // Piezas que se pueden GRABAR con láser.
     //
-    // Hay que mirar DOS columnas, no una. customizationFields es la nueva
-    // —un JSON con los campos que el cliente puede llenar— y allowsEngraving
-    // es la vieja, marcada como deprecada en db/config.ts pero todavía viva y
-    // con productos marcados así. Mientras las dos existan, filtrar por una
-    // sola deja fuera media tienda, y justo de este enlace cuelga la sección
-    // que más margen deja.
+    // Ojo con la diferencia, que es justo lo que estaba mal antes: no es lo
+    // mismo "personalizable" que "grabable". customizationFields admite cuatro
+    // tipos de campo, y solo dos son un grabado. Se ve en las etiquetas que el
+    // propio admin les pone al crearlos (admin/products/[...slug]):
     //
-    // Se quitan espacios y tabuladores antes de comparar para que un '[ ]'
-    // cuente como vacío, que es lo que es.
+    //   text   → "Texto personalizado"   graba un nombre, una fecha  → SÍ
+    //   image  → "Imagen para grabado"   graba un dibujo, una firma  → SÍ
+    //   select → "Tipografía"            elige la fuente del grabado → no
+    //   pieces → "Número de piezas"      cuántos dijes lleva         → no
+    //
+    // Filtrar por "tiene algún campo" metía en la sección de grabado
+    // productos cuya única personalización es elegir cuántos dijes quiere, que
+    // no se graban. De ahí que al abrir el enlace saliera de todo.
+    //
+    // 'select' queda fuera a propósito aunque suene a personalización: la
+    // tipografía es un accesorio del grabado, no un grabado. Un producto que
+    // solo deja elegir tipografía y nada más no tiene qué grabar.
+    //
+    // json_valid() antes de json_each() no es decorativo: json_each revienta
+    // la consulta entera si la columna trae algo que no es JSON —una cadena
+    // vacía, por ejemplo— y con ella se caería la página de productos.
     if (engraving === 'true') {
       filters.push(sql`(
         ${Product.allowsEngraving} = 1
         OR (
-          ${Product.customizationFields} IS NOT NULL
-          AND REPLACE(REPLACE(${Product.customizationFields}, ' ', ''), CHAR(9), '')
-              NOT IN ('', '[]', 'null')
+          json_valid(${Product.customizationFields})
+          AND EXISTS (
+            SELECT 1 FROM json_each(${Product.customizationFields})
+            WHERE json_extract(value, '$.type') IN ('text', 'image')
+          )
         )
       )`);
     }
